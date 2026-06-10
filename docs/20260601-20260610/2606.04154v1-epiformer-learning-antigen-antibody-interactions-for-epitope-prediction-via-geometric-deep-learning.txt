@@ -1,0 +1,1292 @@
+Title: EpiFormer: Learning Antigen-Antibody Interactions for Epitope Prediction via Geometric Deep Learning
+
+URL Source: https://arxiv.org/pdf/2606.04154v1
+
+Published Time: Thu, 04 Jun 2026 00:13:40 GMT
+
+Number of Pages: 37
+
+Markdown Content:
+# EpiFormer: Learning Antigen-Antibody Interactions for Epitope Prediction via Geometric Deep Learning 
+
+Mansoor Ahmed 1,2 ∗
+
+, Huirong Chai 1, Haoxin Wang 1, Hemanth Venkateswara 1,Murray Patterson 1*
+
+> 1
+
+Georgia State University, Atlanta, GA, USA 
+
+> 2
+
+Georgia Institute of Technology, Atlanta, GA, USA 
+
+## Abstract 
+
+Antibodies neutralize foreign antigens by binding to specific surface regions called epitopes. Computational epitope prediction is critical for understanding immune recognition and guiding antibody engineering. However, existing methods face three fundamental challenges: antibody-aware models encode each chain inde-pendently and combine them only at a late stage, failing to capture co-dependent structural features that define binding interfaces, whereas severe class imbalance and scarcity of known antibody-antigen complexes render standard training objec-tives ineffective. We propose EpiFormer , a general encoder-decoder framework that addresses these challenges jointly. Our key design principle is interleaved cross-attention within GNN encoding layers, enabling bidirectional antigen-antibody information flow throughout representation learning rather than only at the output. This early-fusion principle is backbone-agnostic, providing consistent gains across GNN architectures from simple GCNs to equivariant models. We further show that sparsity-aware objectives are effective when paired with early-fusion architectures for the epitope prediction task. EpiFormer improves over the previous best method by over 40% in F1 score on standard benchmarks, demonstrating generalizability and cross-dataset transferability. Notably, EpiFormer discovers known biologi-cal principles as emergent behaviors of end-to-end training, where the learned cross-attention gates favor antigen-to-antibody information flow, consistent with the asymmetric roles of the two chains at the binding interface, and the model’s preference for geometric over evolutionary features aligns with the established finding that epitope residues are not evolutionarily conserved. The source code is available at: https://github.com/mansoor181/epiformer.git 
+
+## 1 Introduction 
+
+Antibodies are Y-shaped proteins that recognize and neutralize foreign substances by binding to specific surface regions on antigens called epitopes. Accurate identification of epitopes is critical for therapeutic antibody design, vaccine development, and understanding immune recognition [Norman et al., 2020, Joubbi et al., 2024]. While traditional experimental approaches for epitope mapping are time-consuming and expensive, computational methods offer the potential for rapid screening of candidate therapeutics [Hummer et al., 2022]. Computational epitope prediction methods can be categorized as antibody-agnostic or antibody-aware .Antibody-agnostic methods, including DiscoTope3 [Høie et al., 2024], EpiGraph [Choi and Kim, 2024], and GraphBepi [Zeng et al., 2023], predict binding sites as intrinsic properties of the antigen without considering the specific antibody. However, epitopes are fundamentally antibody-specific,   
+
+> ∗Address correspondence to: mahmed76@student.gsu.edu ,mpatterson30@gsu.edu
+> Preprint.
+> arXiv:2606.04154v1 [q-bio.QM] 2 Jun 2026
+
+as different antibodies targeting the same antigen bind to different surface regions [Liu et al., 2024]. Antibody-aware methods such as PECAN [Pittala and Bailey-Kellogg, 2020], MIPE [Wang et al., 2024b], and WALLE [Liu et al., 2024] address this by predictions on the antibody structure. However, antibody-aware epitope prediction faces three fundamental challenges. First, existing methods encode antigen and antibody independently and combine them only at a late stage ( late fusion ), failing to capture co-dependent structural features that define binding interfaces. Antibody CDR loops adapt their conformation to the epitope surface, and epitope residues similarly adjust to accommodate the paratope. Encoding each chain without knowledge of its counterpart misses these interaction-specific geometric signatures. Second, epitope residues constitute fewer than 5% of antigen surface residues, creating severe class imbalance that renders standard objectives ineffective. Third, the scarcity of known antibody-antigen complexes limits the data available for training. We propose EpiFormer , a general encoder-decoder framework that addresses these challenges jointly. Our key design principle is interleaved bidirectional cross-attention within GNN encoding layers, enabling antigen-antibody information flow throughout representation learning rather than only at the output. This early-fusion principle is backbone-agnostic, providing consistent gains across GNN architectures from simple GCNs to equivariant models. We further develop sparsity-aware training objectives, including Dice loss, per-graph count regularization, bipartite edge prediction, and distance supervision, that are effective when paired with early-fusion architectures. Within this framework, we propose EGNN-R , a multi-relational E(3)-equivariant GNN where each edge relation type has its own learned transformation, providing additional gains. Our main contributions are: 1. A backbone-agnostic early-fusion framework with interleaved bidirectional cross-attention within GNN encoding layers, allowing the antigen and antibody representations to inform each other at every layer rather than only in the decoder. 2. An architecture-loss co-design principle , where sparsity-aware objectives are developed to effectively address class imbalance and data scarcity for the epitope prediction task. 3. We show that compact geometric features outperform high-dimensional protein language model embeddings for epitope prediction, and that the learned cross-attention gates expose a consistent antigen-antibody asymmetry that aligns with the distinct roles of the two chains. 
+
+## 2 Related Work 
+
+Antibody-agnostic methods predict epitopes without considering which antibody is binding. Early epitope prediction methods relied on sequence features such as hydrophilicity and accessibility [Jes-persen et al., 2017]. Structure-based approaches, such as DiscoTope3 [Høie et al., 2024], Epi-Graph [Choi and Kim, 2024], and GraphBepi [Zeng et al., 2023], improved upon these by incorporat-ing 3D information. 
+
+Antibody-aware methods condition predictions on the binding counterpart. PECAN [Pittala and Bailey-Kellogg, 2020] encodes antibody and antigen with separate graph convolutions and combines them via bilinear attention. MIPE [Wang et al., 2024b] uses multi-modal contrastive learning to align sequence and structure representations, applying multi-head attention for late-stage fusion. WALLE [Liu et al., 2024] formulates epitope prediction as bipartite link prediction between antibody and antigen residue graphs. EpiScan [Wang et al., 2024a] incorporates CDR masking into sequence embeddings. All of these methods share a late fusion architecture in which antigen and antibody are encoded independently before cross-chain attention is applied. 
+
+E(3)-equivariant neural networks preserve geometric properties under rotations and translations, making them well-suited for molecular modeling. EGNN [Satorras et al., 2021] achieves equiv-ariance by updating coordinates along displacement vectors scaled by learned invariant functions. Equiformer [Liao and Smidt, 2022] and EquiformerV2 [Liao et al., 2023] extend this with SE(3)/SO(2) equivariant attention using spherical harmonics. GearNet [Zhang et al., 2022] introduced multi-relational protein graphs with seven edge types encoding sequential and spatial relationships, but uses a shared message function across relations. Surface-based methods, including MaSIF [Gainza et al., 2020] and AtomSurf [Mallet et al., 2023], operate on molecular surface representations with geodesic or spectral convolutions. 2Several methods from adjacent domains share architectural similarities with EpiFormer . Cheap-Net [Lim et al., 2025] predicts protein-ligand binding affinity using geometry-informed graph networks (GIGN) for each entity, followed by cross-attention. This is similar to our use of separate encoders with cross-attention, but CheapNet applies cross-attention only at the final layer (late fusion), whereas EpiFormer interleaves it at every encoder block. EquiPocket [Zhang et al., 2023] uses E(3)-equivariant message passing for ligand binding site prediction but is antibody-agnostic and operates at atom-level rather than the residue-level. DiffDock [Corso et al., 2022] employs SE(3)-equivariant score networks for molecular docking, demonstrating the value of equivariant ar-chitectures for protein-ligand interactions. Boltz-1/2 [Wohlwend et al., 2025, Passaro et al., 2025] use Pairformer architectures with triangle attention for structure prediction; Boltz-2 adds cross-attention between binding counterparts, but applies it to pairwise representations rather than node embeddings. 
+
+EpiFormer differs from these methods by addressing their limitations for epitope prediction. Like CheapNet, we use separate encoders with cross-attention, but apply attention at every layer rather than only at the output. Like GearNet, we use multi-relational graphs, but learn separate transformations per relation type. Similar to EGNN and EquiPocket, we maintain E(3)-equivariance, but extend it to the multi-relational setting. Recently, ATProt [Gao et al., 2024] applies cross-attention between antibody and antigen chains, but only once after all encoding layers are complete (late fusion). DiffDock-PP [Ketata et al., 2023] uses SE(3)-equivariant tensor product convolutions for rigid-body docking but does not perform residue-level binding site prediction. To our knowledge, no prior method interleaves cross-attention within structural GNN encoding layers for protein-protein interaction prediction. While prior antibody-aware methods (PECAN, MIPE, ATProt) encode chains independently before late fusion, EpiFormer enables cross-chain information flow throughout the encoding process. 
+
+## 3 Methods 
+
+3.1 Preliminaries Graph construction. We build two independent residue graphs Gag = ( Vag , Eag , R) and Gab =(Vab , Eab , R) from the unbound antigen and antibody structures. Vertex vi ∈ V represents residue 
+
+i, centered on C α at coordinate xi ∈ R3 (|V ag | = n, |V ab | = m). Each node carries a geometric feature vector hi ∈ Rdh (encoding residue type, backbone geometry, physicochemical properties) and a coordinate matrix Xi ∈ R3×4 for four backbone atoms ξ = {N, Cα, Cβ , O}. Each edge ei,j 
+
+carries a feature vector fi,j ∈ Rdf (distances, angles) and a relation tuple ri,j ⊆ R . The relation set 
+
+R = {ρ1, ρ 2, ρ 3, ρ 4} captures sequential bonds ( ρ1), short-range coupling ( ρ2), K-nearest neighbors (ρ3), and medium-range contacts within 8 Å (ρ4). We denote a residue graph as G = ( H, X, F, R);see Appendix A.6 for details. 
+
+Problem Formulation. We formulate epitope prediction as binary node classification. A residue 
+
+v ∈ V ag is labeled as an epitope if it is within 4.5Å of any residue in Vab , and non-epitope otherwise. The classifier f : vag → { 0, 1} predicts ˆyag = f (vag ; Gag , Gab ).
+
+Equivariance. Since molecular properties are unchanged under rigid body transformations, geo-metric GNNs incorporate E(3)-equivariance as an inductive bias [Jiao et al., 2023]. For coordinates 
+
+X ∈ R3×m and scalar features h ∈ Rd, an E(3)-equivariant function satisfies f (g·X, h) = g·f (X, h)
+
+for all g ∈ E(3) , where group actions are translations ( g · X = X + b) or rotations/reflections (g · X = OX , O ∈ O(3) ). E(3)-invariant functions instead satisfy f (g · X, h) = f (X, h).
+
+3.2 EpiFormer 
+
+In this section, we present the architecture of EpiFormer , an encoder-decoder framework for antibody-antigen binding-site prediction. The model receives two disjoint multi-relational residue graphs, 
+
+Gag and Gab , processes them with independent E(3)-equivariant encoders that produce residue-level embeddings, and passes these embeddings to a cross-attention decoder that reconstructs the bipartite adjacency matrix ˆEbg ∈ { 0, 1}n×m. The overall workflow is in Figure 1 and the algorithm in Appendix 1. 3Figure 1: Overview of EpiFormer . (a) Parallel EGNN-R encoders with interleaved cross-attention. (b) Bidirectional cross-attention decoder producing the interaction map. (c) Encoder block schematic (“ ⊕" = addition). (d) Multi-head cross-attention between antigen and antibody residues. 
+
+Encoder. EpiFormer contains two parallel encoders with no shared parameters, one dedicated to the antigen chain and the other to the antibody chain (Figure 1a). Each node encodes Cartesian coordinates xi ∈ R3 and geometric descriptors hgeo  
+
+> i
+
+∈ Rdgeo , which are projected to the working width dh:
+
+h0 
+
+> i
+
+= Wgeo hgeo  
+
+> i
+
+∈ Rdh . (1) The vector h0 
+
+> i
+
+serves as the initial node state for the first EpiFormer encoder block. The schematic of an EpiFormer block is shown in Figure 1 (c) . Let Hℓ 
+
+> ag
+
+∈ Rn×dh and Hℓ 
+
+> ab
+
+∈ Rm×dh be the current embeddings, which are passed in parallel to their EGNN-R and MHCA layers. 
+
+EGNN-R layer : We develop a relation-aware variant of EGNN [Satorras et al., 2021] to propagate structural and geometric information within each chain. Unlike shared-weight approaches, EGNN-R uses per-relation message functions because sequential edges (covalent constraints) and spatial edges (non-covalent contacts) represent fundamentally different physics. Let hℓi ∈ Rdh , xℓi ∈ R3
+
+be the feature and coordinate of residue i at layer ℓ, dij = ∥xℓi − xℓj ∥22 the squared distance, and 
+
+δij = xℓi − xℓj the displacement: 
+
+mρij = ϕρm
+
+ hℓi , hℓj , γ (dij ), fij 
+
+, sρij = ϕρx
+
+ mρij 
+
+, (2) 
+
+h(ℓ+1)  
+
+> i
+
+= hℓi + ϕh
+
+
+
+hℓi , P 
+
+> j∈N (i)
+
+P 
+
+> ρ∈rij
+
+mρij 
+
+
+
+, x(ℓ+1)  
+
+> i
+
+= xℓi + P 
+
+> j∈N (i)
+
+P
+
+> ρ∈rij
+
+δij 
+
+pdij + ε sρij .
+
+(3) Here, γ(·) is a 16-term radial basis function, fij the edge attribute vector, and each ϕρ 
+
+> {m,x }
+
+a two-layer MLP with relation-specific parameters ( ε = 10 −8). We have four message MLPs ϕρm :
+
+R2dh+df +16 → Rdq , four coordinate MLPs ϕρx : Rdq → R3, and a shared node update MLP 
+
+ϕh : Rdh+dq → Rdh . With residual connections and layer normalization: 
+
+Hintra ag = { W ℓ
+
+> ag
+
+hℓi | vi ∈ V ag }, Hintra ab = { W ℓ
+
+> ab
+
+hℓj | vj ∈ V ab }, (4) where W ℓ are per-layer trainable parameters. The layer is E(3) -equivariant by construction since only the displacement δij enters the coordinate update, while cross-attention operates on invariant features (proof in Appendix A.4). 
+
+MHCA layer with feed-forward network : In parallel to geometric message passing, each encoder block applies bidirectional multi-head cross-attention (MHCA) [Vaswani et al., 2017] to enable 4inter-chain communication. The MHCA mechanism shown in Figure 1 (d) produces cross-chain context representations eHag and eHab . A learnable scalar gate α balances intra-chain geometry with cross-chain context: 
+
+H(ℓ+1)  
+
+> c
+
+= Hℓc + Hintra  
+
+> c
+
++ αc FFN( eHc), c ∈ { ag , ab }, (5) where αag , α ab ∈ R+ are learnable parameters, eH = MHCA (H), and FFN is a two-layer Feed Forward Network. The MHCA is detailed in Appendix A.5. 
+
+Decoder. The decoder refines the residue embeddings produced by the encoder and performs bipartite interaction prediction. It consists of J identical layers, each containing bidirectional MHCA with FFN and residual connections, followed by a bipartite interaction head. The final embeddings 
+
+HJ
+
+> ag
+
+, HJ 
+
+> ab
+
+are projected into queries and keys of width dk in both directions: 
+
+Sag →ab = (HJ
+
+> ag
+
+Wout  
+
+> Q
+
+)( HJ
+
+> ab
+
+Wout  
+
+> K
+
+)⊤
+
+√dk
+
+, Sab →ag = (HJ
+
+> ab
+
+W′ out  
+
+> Q
+
+)( HJ
+
+> ag
+
+W′ out  
+
+> K
+
+)⊤
+
+√dk
+
+. (6) The two score maps are fused via a learnable mixing vector w ∈ R2 and bias b ∈ R to produce logits 
+
+Z = w⊤[ Sag →ab (Sab →ag )⊤ ] + b, and the interaction probabilities are ˆEbg = σ(Z) ∈ Rn×m.
+
+3.3 Joint objective 
+
+EpiFormer is trained with a joint objective that combines the primary epitope node classification loss with auxiliary terms for bipartite edge reconstruction and inter-chain geometric classification. The overall training objective is a weighted sum of these components: 
+
+L = λnode Lnode + λedge Ledge + λgeo Lgeo . (7) 
+
+Node Classification Loss ( Lnode ). The node classification loss supervises epitope nodes only and combines three complementary objectives to handle class imbalance and enforce structural priors: 
+
+Lnode = βBCE Lepi BCE + βDice Lepi Dice + βsparsity Lepi sparsity , (8) where β{·} weight the different terms. The probability that node vag is an epitope is derived from the bipartite interaction matrix by aggregating across the antibody dimension: 
+
+(ˆ yag )i = 1
+
+m
+
+> m
+
+X
+
+> j=1
+
+( ˆEbg )ij , (9) where m = |V ab | is the number of antibody residues. 
+
+Class-Reweighted Binary Cross-Entropy : The primary classification loss applies positive class reweighting ( πepi > 1) to address the severe class imbalance in epitope prediction: 
+
+Lepi BCE = − 1
+
+n
+
+> n
+
+X
+
+> i=1
+
+πepi (yag )i log(ˆ yag )i + (1 − (yag )i) log(1 − (ˆ yag )i), (10) 
+
+Dice Loss: The Dice loss treats epitope prediction as a segmentation problem [Sudre et al., 2017], directly measuring the overlap between predicted and true epitope regions: 
+
+Lepi Dice = 1 − 2 P
+
+> i
+
+(ˆ yag )i (yag )i + ϵ
+
+P
+
+> i
+
+(ˆ yag )i + P
+
+> i
+
+(yag )i + ϵ , (11) where ϵ > 0 is a smoothing constant. 
+
+Sparsity Regularization: The sparsity term enforces cardinality matching between predicted and true epitope counts: Lepi sparsity = ∥ˆyag − yag ∥1.
+
+Edge Prediction Loss ( Ledge ). This loss applies positive-class-reweighted binary cross-entropy over all antigen-antibody residue pairs: 
+
+Ledge = − 1
+
+nm 
+
+X
+
+> i,j
+
+πedge Eij log ˆEij + (1 − Eij ) log(1 − ˆEij ), (12) where Eij = ( Ebg )ij ∈ { 0, 1} are ground-truth contacts (1 if residues vag , v ab are within 4.5Å), 
+
+ˆEij = ( ˆEbg )ij are predicted probabilities, and πedge compensates for the extreme sparsity of positives. 5Auxiliary Distance Classification Loss ( Lgeo ). The auxiliary geometric term classifies inter-chain distances into discrete bins ( {0–4, 4–8, 8–16 , 16 –32 } Å), helping the model learn distance-aware representations. The loss applies class-balanced cross-entropy over near-contact antigen-antibody residue pairs (details in Appendix A.7). 
+
+## 4 Experiments 
+
+4.1 Settings Dataset. We use the AsEP dataset [Liu et al., 2024], the largest benchmark of antibody-antigen complexes for epitope prediction, retaining 1,721 complexes after preprocessing (details in Ap-pendix A.1.1). Each residue is represented by a geometric feature vector encoding amino-acid type, secondary structure, solvent accessibility, and local spatial geometry (Appendix A.6). We adopt two pre-defined splitting strategies from AsEP [Liu et al., 2024]: the epitope-ratio split 
+
+stratifies complexes by the fraction of epitope residues, balancing task difficulty across splits; the 
+
+epitope-group split clusters complexes by epitope identity, completely excluding test epitopes from training to evaluate generalization to novel binding sites. Table 1: Epitope-ratio split results (mean ± std over 3 seeds). Epitope-group results are in Table 6.                                                                                                                                
+
+> Method AUC ↑AUPRC ↑F1 ↑MCC ↑Prec. ↑Rec. ↑
+> Epitope and paratope prediction
+> EpiGraph [Choi and Kim, 2024] .790 ±.004 .222 ±.011 .064 ±.032 .089 ±.035 .339 ±.052 .035 ±.018 EpiScan [Wang et al., 2024a] .669 ±.024 .135 ±.019 .203 ±.052 .124 ±.043 .148 ±.072 .327 ±.041 MIPE [Wang et al., 2024b] .827 ±.035 .409 ±.024 .337 ±.071 .356 ±.061 .637 ±.146 .229 ±.047 WALLE [Liu et al., 2024] .808 ±.005 .206 ±.011 .203 ±.002 .208 ±.003 .114 ±.002 .926 ±.006
+> DiscoTope3 [Høie et al., 2024] .821 ±.003 .278 ±.010 .251 ±.002 .247 ±.003 .149 ±.001 .797 ±.006 GraphBepi [Zeng et al., 2023] .783 ±.021 .232 ±.014 .079 ±.005 .118 ±.024 .430 ±.031 .044 ±.076 PECAN [Pittala and Bailey-Kellogg, 2020] .740 ±.022 .156 ±.019 .229 ±.041 .182 ±.027 .150 ±.052 .488 ±.039
+> Protein binding-site prediction
+> EquiPocket [Zhang et al., 2023] .761 ±.017 .203 ±.027 .202 ±.010 .183 ±.033 .116 ±.023 .799 ±.029 AtomSurf [Mallet et al., 2023] .606 ±.022 .094 ±.048 .139 ±.004 .062 ±.007 .076 ±.042 .817 ±.072 ESMBind [Schreiber, 2023] .768 ±.037 .192 ±.006 .208 ±.042 .192 ±.018 .120 ±.052 .798 ±.026
+> Protein interaction and docking
+> ATProt [Gao et al., 2024] .798 ±.001 .236 ±.003 .252 ±.006 .237 ±.002 .152 ±.005 .736 ±.027 DiffDock-PP [Ketata et al., 2023] .735 ±.037 .148 ±.024 .192 ±.019 .169 ±.032 .109 ±.012 .812 ±.036 DiffDock [Corso et al., 2022] .677 ±.011 .123 ±.035 .154 ±.016 .089 ±.005 .143 ±.027 .168 ±.004
+> Structure and affinity prediction
+> Boltz-1 [Wohlwend et al., 2025] .771 ±.021 .242 ±.032 .257 ±.018 .223 ±.003 .155 ±.064 .750 ±.017 Boltz-2 [Passaro et al., 2025] .798 ±.014 .316 ±.038 .255 ±.016 .232 ±.019 .152 ±.011 .815 ±.007 AlphaFold3 [Abramson et al., 2024] 0.562 0.077 0.153 0.071 0.097 0.361 CheapNet [Lim et al., 2025] .719 ±.022 .194 ±.029 .184 ±.009 .149 ±.017 .105 ±.006 .765 ±.017 GearBind [Cai et al., 2024] .799 ±.012 .215 ±.031 .244 ±.027 .236 ±.002 .144 ±.040 .787 ±.037
+> Molecular property prediction
+> EquiformerV2 [Liao et al., 2023] .827 ±.011 .264 ±.031 .260 ±.016 .262 ±.022 .154 ±.013 .823 ±.022
+> EpiFormer (ours) .924 ±.003 .493 ±.012 .482 ±.011 .464 ±.009 .363 ±.014 .720 ±.012
+
+Baseline Methods. We compare against 20 methods spanning five categories. The first group is dedicated epitope and paratope predictors (EpiGraph, EpiScan, MIPE, WALLE, DiscoTope3, GraphBepi, PECAN). Because labeled antibody-antigen complexes are scarce, we also adapt models from related structural-biology tasks: general protein binding-site prediction (EquiPocket, AtomSurf, ESMBind), protein interaction and docking (ATProt, DiffDock-PP, DiffDock), structure and affinity prediction (Boltz-1, Boltz-2, AlphaFold3, CheapNet, GearBind), and molecular property prediction (EquiformerV2). All baselines were retrained on AsEP with their published configurations; training details are in Appendix A.2. 
+
+4.2 Main Results 
+
+EpiFormer leads on all primary metrics across both evaluation splits. On the epitope-ratio split (Table 1), it achieves 0.924 AUC and 0.482 F1, surpassing the next-best method MIPE (0.337 F1) by a wide margin. On the harder epitope-group split (Table 6), EpiFormer reaches 0.826 AUC and 0.305 F1, maintaining a clear margin over all baselines. 6Several patterns emerge from these results. Antigen-only methods such as EpiGraph, GraphBepi, and DiscoTope3 reach reasonable AUC but low F1, because they cannot condition on the specific antibody and therefore predict generic binding-prone surface rather than the true epitope. Among antibody-aware methods, MIPE is the strongest baseline. Its edge comes largely from protein language model embeddings (ESM and AbLang), though its high variance ( ±0.071 F1) points to sensitivity to initialization. Methods from adjacent domains, such as Boltz-1/2, GearBind, and EquiformerV2, are competitive on AUC but have no mechanism for the severe class imbalance of epitope prediction, which keeps their F1 low. The docking model DiffDock falls behind much simpler baselines, and ATProt, which fuses the two chains only after encoding, trails EpiFormer by a wide margin. These differences are clearest in the balance between precision and recall. Several baselines reach high recall only by labeling most residues as positive; WALLE, for instance, recovers almost every epitope residue (0.926 recall) at the cost of very low precision (0.114). The Dice loss and sparsity regularizer in EpiFormer instead produce balanced predictions (0.363 precision, 0.720 recall), and this balance is what drives its higher F1 and MCC. 
+
+4.3 Analysis Backbone-Agnostic Framework. The gains come more from the interleaved cross-attention frame-work rather than from the choice of GNN backbone. Replacing EGNN-R with a plain GCN [Kipf and Welling, 2016], while keeping the decoder, cross-attention, and losses fixed, still reaches 0.447 F1 and already surpasses all 19 baselines (Table 2). GAT [Veliˇ ckovi´ c et al., 2017] and RGCN Schlichtkrull et al. [2018] behave similarly, and every backbone we tried falls within a narrow range. The encoder choice does add a smaller but consistent increment on top, with equivariance contributing +0.018 F1 (EGNN over GAT), multi-relational encoding +0.012, and learnable coordinate updates +0.017. Table 2: GNN backbone ablation on the epitope-ratio split. All variants share the same cross-attention decoder and losses; only the encoder differs. Eq.=equivariant message passing, MR=multi-relational edges, Coord=learned coordinate updates.                                                         
+
+> GNN Eq. MR Coord AUC AUPRC F1 MCC
+> GCN No No No .905 .397 .447 .424 GIN No No No .890 .349 .408 .369 GAT No No No .908 .399 .452 .424 RGCN No Yes No .910 .405 .454 .422 EGNN Yes No Yes .912 .421 .470 .455 EGNN-R (frozen) Part. Yes No .908 .412 .465 .441
+> EGNN-R (ours) Yes Yes Yes .924 .493 .482 .464
+
+Architecture-Loss Co-Design. We note that the sparsity-aware losses help only when the architecture already fuses the two chains early. We added EpiFormer ’s auxiliary losses (Dice, count regularizer, and edge prediction) to six baselines and tuned the loss weights for each by grid search (Table 3). The losses raise F1 for three of the six, WALLE ( +0.129), EquiformerV2 ( +0.041), and DiscoTope3 (+0.031), and lower it for the remaining three, most sharply for CheapNet ( −0.104). The same losses are more beneficial inside EpiFormer , where they lift F1 from 0.336 with plain BCE to 0.482, which indicates that the architecture is the primary driver and the losses act as a complement to it. Table 3: Architecture and loss co-design: baselines augmented with EpiFormer ’s auxiliary losses. Tier 1 (antigen-only) receives Dice and count regularization; Tier 2 (antibody-aware) additionally receives edge prediction; Tier 3 is EpiFormer itself, which uses the full joint objective.                                          
+
+> Method Tier Orig. F1 F1 MCC ∆F1
+> DiscoTope3 10.251 0.282 0.263 +0 .031
+> EquiformerV2 10.260 0.301 0.293 +0 .041
+> WALLE 20.203 0.332 0.280 +0.129
+> PECAN 20.229 0.218 0.157 −0.011
+> CheapNet 20.184 0.080 0.154 −0.104
+> MIPE 20.337 0.261 0.230 −0.076
+> EpiFormer 30.336 0.482 0.464 +0.146
+
+Geometric Features Outperform PLMs. To probe our feature choice, we swapped the geometric features for protein language model (PLM) embeddings in EpiFormer and, conversely, removed PLM 7embeddings from four baselines that rely on them. EpiFormer is slightly worse with PLM features than with geometric ones (0.889 vs. 0.924 AUC), whereas the baselines drop sharply once their PLM features are removed, by 0.133 AUC for DiscoTope3, 0.122 for WALLE, and 0.088 for MIPE. This contrast suggests that geometric features are sufficient for EpiFormer , while these baselines lean heavily on the PLM signal. A plausible reason is that epitope residues are not evolutionarily conserved [Ponomarenko and Bourne, 2007], so the conservation signal that PLMs encode is of limited use here. Epitope prediction is better described as a relational task defined by spatial proximity to a specific antibody [Sela-Culang et al., 2015], which the geometric features capture directly. The full analysis is in Appendix A.8. 
+
+Cross-Dataset Generalization. To test out-of-distribution robustness, we evaluated EpiFormer 
+
+on three external benchmarks with no overlap with AsEP, SAbDab [Dunbar et al., 2014], CoV-AbDab [Raybould et al., 2021], and ANABAG [Grandguillaume et al., 2025] (Table 4). We compare against MIPE, which is the second-best method and the strongest antibody-aware baseline. Under zero-shot transfer, EpiFormer achieves a mean AUC of 0.786, outperforming MIPE (0.688) despite substantial distribution shift (Figure 16). Leave-one-dataset-out (LODO) fine-tuning further improves the AUC to 0.890, with particularly strong gains on CoV-AbDab. Full results are in Appendix A.11. Table 4: Cross-dataset generalization (AUC) on three external benchmarks, SAbDab, CoV-AbDab, and ANABAG [Grandguillaume et al., 2025]. Zero-shot: AsEP-trained only. LODO (leave-one-dataset-out): fine-tuned on two external sets, tested on the third. MIPE is the second-best AsEP method and serves as the antibody-aware reference; per-dataset best in bold .                 
+
+> Zero-shot AUC LODO AUC Dataset EpiFormer MIPE EpiFormer MIPE
+> SAbDab 0.782 0.614 0.858 0.746 CoV-AbDab 0.819 0.730 0.890 0.813 ANABAG 0.758 0.719 0.837 0.772
+
+4.4 Ablations 
+
+We isolate the contribution of each component; full details are provided in Appendix A.10. 
+
+Joint Objective. The joint loss is essential. With BCE alone, EpiFormer achieves only 0.336 F1. Adding Dice and edge prediction yields marginal gains, whereas the sparsity regularizer is a more impactful term, improving F1 by +0.132 (Table 10). This indicates that threshold degeneration, where the model predicts all residues as positive, is a primary failure mode that the count regularizer directly corrects. We also note that adding InfoNCE on top degrades performance ( −0.029 F1) due to conflicting gradients on boundary residues [Ji et al., 2024]. 
+
+Interleaved Cross-Attention. Removing the encoder MHCA entirely ( α=0 .0) drops F1 by 0.042 and MCC by 0.051 (Table 14). Even when α is initialized at zero, which forces the model to discover cross-attention utility from scratch, it learns non-zero gate values (0.014 to 0.033 for the antibody stream), confirming that cross-modal information provides a useful learning signal. See Appendix A.13 for the full ablation. 
+
+Figure 2: F1 sensitivity to seven loss hyperparameters across both splits. Most weights show flat trends, indicating robustness. 
+
+Hyperparameter Sensitivity. Figure 2 confirms that F1 is largely insensitive to the exact loss weights, with most hyperparameters showing flat trends across both splits. 84.5 Qualitative Analysis Interaction Map Visualization. Figure 3(a) shows the interaction maps for a representative complex (8 DF 5_3P). The ground-truth contact map has a sparse binding interface concentrated in a narrow antigen region, and the distance map confirms that these contacts sit at close spatial proximity between epitope and paratope residues. The interaction matrix predicted by EpiFormer closely follows this pattern, with high scores aligned to the true epitope band and non-binding regions suppressed. 
+
+Figure 3: (a) Ground-truth contact map, pairwise distance map, and predicted interaction matrix for complex 8 DF 5_3P. (b) Performance across antigen size bins. 
+
+Performance by Antigen Size. Figure 3(b) stratifies performance by the antigen size. Ranking metrics (AUC, MCC, precision) remain stable across all size bins, but threshold-dependent metrics (AUPRC, F1, recall) decline for the largest antigens ( >500 residues). This is expected, since as antigens grow the epitope makes up a smaller fraction of residues, which makes the classification task harder. 
+
+Asymmetry in Learned Cross-Attention. Figure 4 shows a consistent asymmetry in the learned gates. Across every encoder block and every initialization value, the antibody stream draws more on the antigen than the antigen draws on the antibody. This direction of information flow is consistent with the asymmetric roles of the two chains, since the antibody CDR loops are the variable part that conforms to a given epitope [Cagiada et al., 2025]. 
+
+Figure 4: Learned cross-attention gate values ( α) across encoder blocks for four initialization values (αinit ∈ { 0.0, 0.05 , 0.2, 0.4}). (a) Antigen gate. (b) Antibody gate. The antibody gate consistently exceeds the antigen gate, reflecting the asymmetric roles of the two chains. 
+
+## 5 Conclusion 
+
+We presented EpiFormer , a general encoder-decoder framework for antibody-aware epitope prediction that addresses late fusion, class imbalance, and data scarcity jointly, and achieves state-of-the-art performance. Our key finding is that interleaved bidirectional cross-attention within GNN encoding layers provides consistent gains that are backbone-agnostic. We further showed that sparsity-aware training objectives must be co-designed with the fusion strategy, as the same losses degrade late-fusion models while improving early-fusion architectures. 9References 
+
+Josh Abramson, Jonas Adler, Jack Dunger, Richard Evans, Tim Green, Alexander Pritzel, Olaf Ronneberger, Lindsay Willmore, Andrew J Ballard, Joshua Bambrick, et al. Accurate structure prediction of biomolecular interactions with alphafold 3. Nature , 630(8016):493–500, 2024. 6, 15, 16 Matteo Cagiada, Fabian C Spoendlin, King Ifashe, and Charlotte M Deane. Uncovering the flexibility of cdr loops in antibodies and tcrs through large-scale molecular dynamics. bioRxiv , pages 2025–11, 2025. 9 Huiyu Cai, Zuobai Zhang, Mingkai Wang, Bozitao Zhong, Quanxiao Li, Yuxuan Zhong, Yanling Wu, Tianlei Ying, and Jian Tang. Pretrainable geometric graph neural network for antibody affinity maturation. Nature communications , 15(1):7785, 2024. 6, 15, 16 Ting Chen, Simon Kornblith, Mohammad Norouzi, and Geoffrey Hinton. A simple framework for contrastive learning of visual representations. In International conference on machine learning ,pages 1597–1607. PmLR, 2020. 24 Sungjin Choi and Dongsup Kim. B cell epitope prediction by capturing spatial clustering property of the epitopes using graph attention network. Scientific Reports , 14(1):27496, 2024. 1, 2, 6, 16 Gabriele Corso, Hannes Stärk, Bowen Jing, Regina Barzilay, and Tommi Jaakkola. Diffdock: Diffusion steps, twists, and turns for molecular docking. arXiv preprint arXiv:2210.01776 , 2022. 3, 6, 15, 16 James Dunbar, Konrad Krawczyk, Jinwoo Leem, Terry Baker, Angelika Fuchs, Guy Georges, Jiye Shi, and Charlotte M Deane. Sabdab: the structural antibody database. Nucleic acids research , 42 (D1):D1140–D1146, 2014. 8, 24, 25 Stefan Elfwing, Eiji Uchibe, and Kenji Doya. Sigmoid-weighted linear units for neural network function approximation in reinforcement learning. Neural networks , 107:3–11, 2018. 21 Matthias Fey and Jan Eric Lenssen. Fast graph representation learning with pytorch geometric. arXiv preprint arXiv:1903.02428 , 2019. 13 Fabian Fuchs, Daniel Worrall, Volker Fischer, and Max Welling. Se (3)-transformers: 3d roto-translation equivariant attention networks. Advances in neural information processing systems , 33: 1970–1981, 2020. 29 Pablo Gainza, Freyr Sverrisson, Frederico Monti, Emanuele Rodola, Davide Boscaini, Michael Bronstein, and Bruno Correia. Deciphering interaction fingerprints from protein molecular surfaces using geometric deep learning. Nature Methods , 17(2):184–192, 2020. 2 Ziqi Gao, Zijing Liu, Yu Li, and Jia Li. Towards stable representations for protein interface prediction. 
+
+Advances in Neural Information Processing Systems , 37:73079–73097, 2024. 3, 6, 14, 16 Ilyas Grandguillaume, Fernando Luis Barroso da Silva, and Catherine Etchebest. Anabag: Annotated antibody–antigen data set with unique features for antibody engineering applications. Journal of Chemical Information and Modeling , 65(20):11454–11472, 2025. 8, 24 Magnus Haraldson Høie, Frederik Steensgaard Gade, Julie Maria Johansen, Charlotte Würtzen, Ole Winther, Morten Nielsen, and Paolo Marcatili. Discotope-3.0: improved b-cell epitope prediction using inverse folding latent representations. Frontiers in immunology , 15:1322712, 2024. 1, 2, 6, 16 Alissa Hummer, Brennan Abanades, and Charlotte Deane. Advances in computational structure-based antibody design. Current Opinion in Structural Biology , 74:102379, 2022. 1 Martin Closter Jespersen, Bjoern Peters, Morten Nielsen, and Paolo Marcatili. Bepipred-2.0: im-proving sequence-based b-cell epitope prediction using conformational epitopes. Nucleic acids research , 45(W1):W24–W29, 2017. 2 10 Cheng Ji, Zixuan Huang, Qingyun Sun, Hao Peng, Xingcheng Fu, Qian Li, and Jianxin Li. Regcl: rethinking message passing in graph contrastive learning. In Proceedings of the AAAI Conference on Artificial Intelligence , volume 38, pages 8544–8552, 2024. 8, 24 Rui Jiao, Jiaqi Han, Wenbing Huang, Yu Rong, and Yang Liu. Energy-motivated equivariant pre-training for 3d molecular graphs. In Proceedings of the AAAI Conference on Artificial Intelligence ,volume 37, pages 8096–8104, 2023. 3 Bowen Jing, Stephan Eismann, Patricia Suriana, Raphael JL Townshend, and Ron Dror. Learning from protein structure with geometric vector perceptrons. arXiv preprint arXiv:2009.01411 , 2020. 17, 19 Sara Joubbi, Alessio Micheli, Paolo Milazzo, Giuseppe Maccari, Giorgio Ciano, Dario Cardamone, and Duccio Medini. Antibody design using deep learning: from sequence and structure design to affinity maturation. Briefings in Bioinformatics , 25(4):bbae307, 2024. 1 John Jumper, Richard Evans, Alexander Pritzel, Tim Green, Michael Figurnov, Olaf Ronneberger, Kathryn Tunyasuvunakool, Russ Bates, Augustin Žídek, Anna Potapenko, et al. Highly accurate protein structure prediction with alphafold. Nature , 596(7873):583–589, 2021. 17 Mohamed Amine Ketata, Cedrik Laue, Richard Maser, and Gabriele Corso. Diffdock-pp: Rigid protein-protein docking with diffusion models. In ICLR 2023 Workshop on Machine Learning for Drug Discovery , 2023. 3, 6, 14, 16 Thomas N Kipf and Max Welling. Semi-supervised classification with graph convolutional networks. 
+
+arXiv preprint arXiv:1609.02907 , 2016. 7 Yi-Lun Liao and Tess Smidt. Equiformer: Equivariant graph attention transformer for 3d atomistic graphs. arXiv preprint arXiv:2206.11990 , 2022. 2 Yi-Lun Liao, Brandon Wood, Abhishek Das, and Tess Smidt. Equiformerv2: Improved equivariant transformer for scaling to higher-degree representations. arXiv preprint arXiv:2306.12059 , 2023. 2, 6, 15, 16 Hyukjun Lim, Sun Kim, and Sangseon Lee. Cheapnet: Cross-attention on hierarchical representations for efficient protein-ligand binding affinity prediction. In The Thirteenth International Conference on Learning Representations , 2025. 3, 6, 15, 16 Zeming Lin, Halil Akin, Roshan Rao, Brian Hie, Zhongkai Zhu, Wenting Lu, Nikita Smetanin, Robert Verkuil, Ori Kabeli, Yaniv Shmueli, et al. Evolutionary-scale prediction of atomic-level protein structure with a language model. Science , 379(6637):1123–1130, 2023. 20 Chunan Liu, Lilian Denzler, Yihong Chen, Andrew Martin, and Brooks Paige. AsEP: Benchmarking deep learning methods for antibody-specific epitope prediction. arXiv preprint arXiv:2407.18184 ,2024. 2, 6, 16 Vincent Mallet, Souhaib Attaiki, Yangyang Miao, Bruno Correia, and Maks Ovsjanikov. Atomsurf: Surface representation for learning on protein structures. arXiv preprint arXiv:2309.16519 , 2023. 2, 6, 14, 16 Richard Norman, Francesco Ambrosetti, Alexandre Bonvin, Lucy Colwell, Sebastian Kelm, Sandeep Kumar, and Konrad Krawczyk. Computational approaches to therapeutic antibody design: es-tablished methods and emerging trends. Briefings in bioinformatics , 21(5):1549–1567, 2020. 1Saro Passaro, Gabriele Corso, Jeremy Wohlwend, Mateo Reveiz, Stephan Thaler, Vignesh Ram Somnath, Noah Getz, Tally Portnoi, Julien Roy, Hannes Stark, et al. Boltz-2: Towards accurate and efficient binding affinity prediction. BioRxiv , 2025. 3, 6, 15, 16 Srivamshi Pittala and Chris Bailey-Kellogg. Learning context-aware structural representations to predict antigen and antibody binding interfaces. Bioinformatics , 36(13):3996–4003, 2020. 2, 6, 16 Julia V Ponomarenko and Philip E Bourne. Antibody-protein interactions: benchmark datasets and prediction tools evaluation. BMC Structural Biology , 7(64), 2007. 8, 20 11 Matthew IJ Raybould, Aleksandr Kovaltsuk, Claire Marks, and Charlotte M Deane. Cov-abdab: the coronavirus antibody database. Bioinformatics , 37(5):734–735, 2021. 8, 24, 25 Vıctor Garcia Satorras, Emiel Hoogeboom, and Max Welling. E (n) equivariant graph neural networks. In International conference on machine learning , pages 9323–9332. PMLR, 2021. 2, 4 Michael Schlichtkrull, Thomas N Kipf, Peter Bloem, Rianne Van Den Berg, Ivan Titov, and Max Welling. Modeling relational data with graph convolutional networks. In The semantic web: 15th international conference, ESWC 2018, Heraklion, Crete, Greece, June 3–7, 2018, proceedings 15 ,pages 593–607. Springer, 2018. 7 Amelie Schreiber. ESMBind and QBind: LoRA, QLoRA, and ESM-2 for predicting binding sites and post translational modification. BioRxiv , pages 2023–11, 2023. 6, 14, 16 Inbal Sela-Culang, Yanay Ofran, and Bjoern Peters. Antibody specific epitope prediction—emergence of a new paradigm. Current opinion in virology , 11:98–102, 2015. 8 Fabian Sievers, Andreas Wilm, David Dineen, Toby J Gibson, Kevin Karplus, Weizhong Li, Rodrigo Lopez, Hamish McWilliam, Michael Remmert, Johannes Söding, et al. Fast, scalable generation of high-quality protein multiple sequence alignments using clustal omega. Molecular systems biology , 7(1):539, 2011. 13 Carole H Sudre, Wenqi Li, Tom Vercauteren, Sebastien Ourselin, and M Jorge Cardoso. Generalised dice overlap as a deep learning loss function for highly unbalanced segmentations. In International Workshop on Deep Learning in Medical Image Analysis , pages 240–248. Springer, 2017. 5 Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion Jones, Aidan N Gomez, Łukasz Kaiser, and Illia Polosukhin. Attention is all you need. Advances in neural information processing systems , 30, 2017. 4 Petar Veliˇ ckovi´ c, Guillem Cucurull, Arantxa Casanova, Adriana Romero, Pietro Lio, and Yoshua Bengio. Graph attention networks. arXiv preprint arXiv:1710.10903 , 2017. 7 Chuan Wang, Jiangyuan Wang, Wenjun Song, Guanzheng Luo, and Taijiao Jiang. EpiScan: accurate high-throughput mapping of antibody-specific epitopes using sequence information. NPJ Systems Biology and Applications , 10(1):101, 2024a. 2, 6, 16 Zhiwei Wang, Yongkang Wang, and Wen Zhang. Improving paratope and epitope prediction by multi-modal contrastive learning and interaction informativeness estimation. arXiv preprint arXiv:2405.20668 , 2024b. 2, 6, 16 Jeremy Wohlwend, Gabriele Corso, Saro Passaro, Noah Getz, Mateo Reveiz, Ken Leidal, Wojtek Swiderski, Liam Atkinson, Tally Portnoi, Itamar Chinn, et al. Boltz-1 democratizing biomolecular interaction modeling. BioRxiv , pages 2024–11, 2025. 3, 6, 15, 16 Lirong Wu, Haitao Lin, Yufei Huang, Zhangyang Gao, Cheng Tan, Yunfan Liu, Tailin Wu, and Stan Z Li. Relation-aware equivariant graph networks for epitope-unknown antibody design and specificity optimization. In Proceedings of the AAAI Conference on Artificial Intelligence ,volume 39, pages 895–904, 2025. 15, 17, 19, 20 Nan Wu, Stanislaw Jastrzebski, Kyunghyun Cho, and Krzysztof J Geras. Characterizing and overcoming the greedy nature of learning in multi-modal deep neural networks. In International Conference on Machine Learning , pages 24043–24055. PMLR, 2022. 20 Yuansong Zeng, Zhuoyi Wei, Qianmu Yuan, Sheng Chen, Weijiang Yu, Yutong Lu, Jianzhao Gao, and Yuedong Yang. Identifying b-cell epitopes using alphafold2 predicted structures and pretrained language model. Bioinformatics , 39(4):btad187, 2023. 1, 2, 6, 16 Yang Zhang, Zhewei Wei, Ye Yuan, Chongxuan Li, and Wenbing Huang. Equipocket: an e (3)-equivariant geometric graph neural network for ligand binding site prediction. arXiv preprint arXiv:2302.12177 , 2023. 3, 6, 14, 16 Zuobai Zhang, Minghao Xu, Arian Jamasb, Vijil Chenthamarakshan, Aurelie Lozano, Payel Das, and Jian Tang. Protein representation learning by geometric structure pretraining. arXiv preprint arXiv:2203.06125 , 2022. 2, 19, 29 12 A Appendix 
+
+A.1 Dataset Statistics and Preprocessing 
+
+Figure 5 summarizes the dataset. Antigen surface graphs average 288 residues (range 20–1500+), antibody CDR graphs average 61 residues, and the mean epitope size is 19 residues with a mean of 44 bipartite edges per complex. 
+
+Figure 5: Size distributions of antigen surface residues, antibody CDR residues, epitope residues, and bipartite edges in the AsEP dataset. 
+
+A.1.1 Preprocessing 
+
+For each complex, we first separated the paired antigen and antibody chains into individual structure files. We then performed sequence-structure alignment using Clustal Omega [Sievers et al., 2011] to establish correspondence between SEQRES (complete sequence) and ATOMSEQ (resolved atoms) records. This alignment generated binary masks that enable reliable mapping of sequences to structural residues while preserving the native crystallographic ordering. For antibody chains, we applied the alignment masks to reindex heavy (H) and light (L) chains by removing insertion codes to enforce consecutive 1-based residue numbering required for graph construction. Antigen chains underwent similar processing to maintain parity between sequences and structures. This step ensures that each residue in the protein sequence corresponds exactly to its structural counterpart during the graph representation. Then, we applied solvent-accessibility filters to retain only antigen surface residues, using the original AsEP seqres2surf masks to define the node set for antigen residue graphs. The binary epitope labels were projected onto the surface ATOMSEQ via alignment masks, while paratope labels were preserved for antibody residue nodes. This surface filtering step prevents non-surface residues from confounding epitope supervision while maintaining all necessary information for cross-chain interaction modeling. We excluded two complexes (5nj6_0P and 5ies_0P) from the AsEP dataset due to sequence alignment inconsistencies and unresolved residues, with the final dataset containing 1,721 complexes. The contact distribution between residues in the bipartite graph had a mean of 43.7 contacts with a standard deviation of 12.8. Additionally, the dataset includes 641 unique antigens and 973 epitope groups, highlighting the diversity and complexity of the antibody-antigen interactions captured in the AsEP dataset. Finally, we used these preprocessed structures to generate HeteroData objects for the multi-relational graphs using PyTorch Geometric [Fey and Lenssen, 2019]. Each residue node is attributed a geometric feature vector encoding amino acid type, backbone geometry, distances, and local coordinate frames (detailed in Section A.6). 
+
+A.2 Baseline Comparison 
+
+Table 5 compares the architectural components and loss functions used by each baseline against 
+
+EpiFormer .All baselines were evaluated on the 1,721-complex AsEP benchmark under identical settings: official splits (epitope-ratio and epitope-group), threshold 0.5, and the same six metrics (AUROC, AUPRC, F1, MCC, Precision, Recall). Below we describe each baseline’s architecture and its adaptation to epitope prediction. 13 Table 5: Architectural and loss component comparison across baselines and EpiFormer. Column abbreviations are defined in the header rows.                                                                                                                                                                                                                                                                                                                             
+
+> Architecture Loss Components Method Ab St PLM Graph Geom M-rel E(3) X-Att Inter Gate BCE Dice Contr Count Edge
+> Epitope and paratope prediction
+> EpiGraph ×✓✓✓××××××✓××××
+> EpiScan ✓×××××××××✓✓×××
+> MIPE ✓✓✓✓✓✓×✓××✓×✓××
+> WALLE ✓✓✓✓××××××✓××✓✓
+> DiscoTope3 ×✓✓×✓×××××✓××××
+> GraphBepi ×✓✓✓✓×××××✓××××
+> PECAN ✓✓×✓✓××✓××✓××××
+> Protein binding-site prediction
+> EquiPocket ×✓×✓✓×✓×××✓✓×××
+> AtomSurf ×✓✓✓✓×××××✓××××
+> ESMBind ××✓×××××××✓××××
+> Protein interaction and docking
+> ATProt ✓✓×✓✓××✓××✓××××
+> DiffDock-PP ✓✓✓✓✓×✓✓××✓××××
+> DiffDock ×✓×✓✓×✓××××××××
+> Structure and affinity prediction
+> Boltz-1 ×✓✓×✓×××××✓××××
+> Boltz-2 ✓✓✓×✓××✓××✓××××
+> AlphaFold3 ✓✓××✓×✓××××××××
+> CheapNet ✓✓×✓✓××✓××✓××××
+> GearBind ×✓×✓✓✓××××✓××××
+> Molecular property prediction
+> EquiformerV2 ×✓✓✓✓×✓×××✓××××
+> EpiFormer ✓✓×✓✓✓✓✓✓✓✓✓×✓✓
+
+Architecture columns: Ab = antibody-aware; St = uses 3D structure; PLM = protein language model features; Graph = graph neural network; Geom = explicit geometric or surface features; M-rel = multi-relational edges; E(3) = E(3)/SE(3)-equivariant; X-Att = cross-attention; Inter = interleaved (per-layer) cross-attention; Gate = gated cross-attention. 
+
+A.2.1 Protein Binding-Site Prediction Methods EquiPocket [Zhang et al., 2023] operates at atom-level with 6D features, computing molecular surfaces via MSMS with 7D local geometric descriptors. The Surface-EGNN module performs E(3)-equivariant multi-channel convolution with DenseNet-style connections. We adapted to epitope prediction by adding residue aggregation (CA atom selection or mean pooling) to convert per-atom outputs to per-residue predictions. 
+
+AtomSurf [Mallet et al., 2023] jointly encodes molecular surfaces using DiffusionNet (spectral convolution with 22D geometric features including HKS) and residue graphs using GCN with ProNet features, connected through bidirectional KNN-based message passing. We preserve the joint surface-graph encoding for antigen-only processing with mean-pooled surface features aggregated to the residue level. 
+
+ESMBind [Schreiber, 2023] adapts the ESM-2 protein language model (35M parameters by default) with LoRA (Low-Rank Adaptation) for parameter-efficient fine-tuning, training only ˜0.5% of parameters. The model processes antigen amino acid sequences through ESM-2 with LoRA adapters (rank r = 4 , scaling α = 8 , dropout 0.1) applied to attention layers, followed by a per-residue classification head for epitope prediction. We fine-tune ESMBind on the epitope sequences using class-weighted BCE loss to handle label imbalance, and support multiple ESM-2 variants (8M to 650M parameters). 
+
+A.2.2 Protein Interaction and Docking Methods ATProt [Gao et al., 2024] uses SEGCN (Structure-Enhanced Graph Convolutional Network) for general protein-protein interaction site prediction. We ported the architecture from DGL to PyG, added cross-attention between antibody and antigen chains for antibody awareness, and trained from scratch on AsEP with the same evaluation protocol. ATProt applies cross-attention only once after all encoding layers (late fusion), in contrast to EpiFormer’s interleaved design. 
+
+DiffDock-PP [Ketata et al., 2023] uses SE(3)-equivariant tensor product convolutions for rigid-body protein-protein docking. We adapted the architecture for residue-level epitope classification 14 by replacing the docking score head with per-residue binary classification, adding cross-attention between antibody and antigen representations. Both antibody and antigen are encoded using the same TensorProductConvLayer backbone with ESM-2 embeddings. 
+
+DiffDock [Corso et al., 2022] generates ligand poses through diffusion over SE(3) using E(3)-equivariant score networks. We use inference-only mode with DiffDock-L to dock antibody CDR regions onto antigen structures, labeling antigen residues within contact distance of predicted CDR poses as epitopes, weighted by confidence scores. 
+
+A.2.3 Structure and Affinity Prediction Methods Boltz-1 [Wohlwend et al., 2025] uses a Pairformer trunk with triangle multiplication ( zij + = P 
+
+> k
+
+aik · bjk ), triangle attention, and attention with pair bias for structure-aware representations. We adapt by projecting ESM-2 embeddings to single (384D) and pairwise (128D) representations, reducing to 8 layers, and adding an epitope prediction head on concatenated single and mean-pooled pairwise features. 
+
+AlphaFold3 [Abramson et al., 2024] uses a diffusion-based architecture with Pairformer trunk processing single and pairwise representations through adaptive LayerNorm, gated linear units, and triangle operations. We use inference-only mode with pretrained weights 2, converting inter-chain contact predictions from predicted complexes to epitope labels using distance thresholds. Due to imprecise docking without evolutionary information, we used a relaxed 15Å contact threshold. AlphaFold3 without MSA achieved AUC=0.56 with the relaxed 15Å threshold, only marginally better than random, confirming that structure prediction alone without co-evolutionary signals cannot reliably identify epitopes. 
+
+CheapNet [Lim et al., 2025] uses Geometry-Informed Graph Neural Network blocks for local structure encoding with intra/inter-molecular edges and cross-attention between entity representations. We adapted from graph-level affinity regression to node-level classification by replacing ligand-protein atom pairs with antibody-antigen residue pairs, projecting 35D residue features from RAAD [Wu et al., 2025]/ESM-2, and adding a per-residue MLP classifier with BCE loss. 
+
+GearBind [Cai et al., 2024] is a pretrainable geometric GNN based on GearNet, pretrained on CATH using contrastive learning and fine-tuned on SKEMPI for ∆∆ Gbind prediction. We extract encoder representations for antigen residues, replace the affinity regression head with a binary classifier, and initialize from CATH-pretrained weights. 
+
+Boltz-2 [Passaro et al., 2025] extends Boltz-1 with cross-attention between binding partners. We additionally process antibody embeddings (AntiBERTy, 512D) alongside antigen (ESM-2, 1280D), using 2-layer CrossPairAttention for antibody-aware epitope prediction with the same triangle-based Pairformer backbone. 
+
+A.2.4 Molecular Property Prediction Methods EquiformerV2 [Liao et al., 2023] is an improved equivariant transformer using SO(2) convolutions for efficiency, processing 3D graphs with type-L features and attention in irreducible representation space. We adapt from energy/force regression to residue-level classification by constructing antigen graphs with CA coordinates, combining RAAD features with ESM-2 embeddings, and replacing the output head with per-residue binary classification. 
+
+A.3 Epitope-Group Split Results 
+
+Table 6 reports results on the more challenging epitope-group split, where test epitopes are completely unseen during training. EpiFormer achieves 0.826 AUC and 0.305 F1, outperforming all baselines. 
+
+> 2The AF3 model weights were obtained from DeepMind. We used AF3 without MSA due to computational resource constraints.
+
+15 Table 6: Performance comparison on the AsEP epitope-group split. Best in bold , second-best underlined. 
+
+Method AUC ↑ AUPRC ↑ F1 ↑ MCC ↑ Prec. ↑ Rec. ↑
+
+Epitope and paratope prediction 
+
+EpiGraph [Choi and Kim, 2024] 0.779 0.194 0.056 0.096 0.401 0.030 EpiScan [Wang et al., 2024a] 0.443 0.080 0.127 0.048 0.089 0.221 MIPE [Wang et al., 2024b] 0.740 0.228 0.172 0.206 0.495 0.104 WALLE [Liu et al., 2024] 0.713 0.137 0.170 0.143 0.095 0.830 
+
+DiscoTope3 [Høie et al., 2024] 0.763 0.208 0.210 0.189 0.123 0.729 GraphBepi [Zeng et al., 2023] 0.781 0.220 0.144 0.161 0.386 0.088 PECAN [Pittala and Bailey-Kellogg, 2020] 0.729 0.166 0.254 0.195 0.169 0.513 
+
+Protein binding-site prediction 
+
+EquiPocket [Zhang et al., 2023] 0.711 0.132 0.194 0.159 0.113 0.676 AtomSurf [Mallet et al., 2023] 0.699 0.144 0.202 0.151 0.127 0.500 ESMBind [Schreiber, 2023] 0.685 0.130 0.174 0.126 0.100 0.663 
+
+Protein interaction and docking 
+
+ATProt [Gao et al., 2024] 0.710 0.155 0.200 0.160 0.120 0.600 DiffDock-PP [Ketata et al., 2023] 0.650 0.110 0.165 0.120 0.095 0.680 DiffDock [Corso et al., 2022] 0.443 0.095 0.146 0.081 0.131 0.164 
+
+Structure and affinity prediction 
+
+Boltz-1 [Wohlwend et al., 2025] 0.702 0.174 0.229 0.169 0.146 0.536 Boltz-2 [Passaro et al., 2025] 0.702 0.168 0.220 0.156 0.140 0.518 AlphaFold3 [Abramson et al., 2024] 0.570 0.076 0.155 0.079 0.098 0.375 CheapNet [Lim et al., 2025] 0.641 0.095 0.152 0.100 0.084 0.776 GearBind [Cai et al., 2024] 0.734 0.154 0.206 0.169 0.123 0.627 
+
+Molecular property prediction 
+
+EquiformerV2 [Liao et al., 2023] 0.729 0.160 0.212 0.169 0.131 0.561 
+
+EpiFormer (ours) 0.826 0.290 0.305 0.290 0.196 0.698 
+
+A.4 E(3)-equivariance of the EGNN-R layer Theorem A.1. Consider the EGNN-R layer in §3.2 with updates 
+
+mρij = ϕρm
+
+ hℓi , hℓj , γ (dij ), fij 
+
+, (13) 
+
+sρij = ϕρx
+
+ mρij 
+
+, (14) 
+
+h(ℓ+1) 
+
+i = hℓi + ϕh
+
+
+
+hℓi , X
+
+j∈N (i)
+
+X
+
+ρ∈rij 
+
+mρij 
+
+
+
+, (15) 
+
+x(ℓ+1) 
+
+i = xℓi + X
+
+j∈N (i)
+
+X
+
+ρ∈rij 
+
+δij 
+
+pdij + ε sρij , (16) 
+
+where δij = xℓi − xℓj , dij = ∥δij ∥22, and ε > 0. Assume: (i) node features hℓi ∈ Rdh are scalar channels, (ii) hij and rij are categorical and independent of coordinates, (iii) γ is any scalar function of dij , (iv) each ϕρ
+
+{m,x } is an MLP from scalars to scalars. Let the E(3) action be g = ( R, t ) with 
+
+R ∈ O(3) and t ∈ R3, acting as xℓi 7 → Rxℓi + t and hℓi 7 → hℓi . Then the layer is E(3) -equivariant: 
+
+ xℓi , hℓi
+
+ni=1 7 →  Rxℓi + t, hℓi
+
+ni=1 =⇒  x(ℓ+1) 
+
+i , h(ℓ+1) 
+
+i
+
+ni=1 7 →  Rx(ℓ+1) 
+
+i + t, h(ℓ+1) 
+
+i
+
+ni=1 .
+
+Consequently, any stack of such layers is E(3) -equivariant by composition. Proof. Let g = ( R, t ) ∈ E(3) act as stated. Edge data fij and rij are unchanged. 
+
+Invariants. Relative displacement and distance transform as 
+
+δij 7 → Rδij , dij = ∥δij ∥2 7 → ∥ Rδij ∥2 = dij . (17) Hence dij , γ(dij ), and (dij + ε)−1/2 are invariant scalars. 
+
+Scalar messages and coefficients. Each message mρij = ϕρm(hℓi , hℓj , γ (dij ), fij ) depends only on scalars that are invariant under g, so mρij is invariant. Then sρij = ϕρx(mρij ) is also invariant. 16 Feature update. The update 
+
+h(ℓ+1)  
+
+> i
+
+= hℓi + ϕh
+
+
+
+hℓi , X 
+
+> j∈N (i)
+
+X
+
+> ρ∈rij
+
+mρij 
+
+
+
+(18) uses only invariant scalars, so h(ℓ+1)  
+
+> i
+
+is invariant. This matches the scalar action on features. 
+
+Coordinate update. The increment 
+
+∆xi = X 
+
+> j∈N (i)
+
+X
+
+> ρ∈rij
+
+δij 
+
+pdij + ε sρij (19) is a sum of relative vectors scaled by invariant scalars. Under g each term becomes 
+
+δij 
+
+pdij + ε sρij 7 → Rδij 
+
+pdij + ε sρij = R
+
+ δij 
+
+pdij + ε sρij 
+
+
+
+, (20) so ∆xi 7 → R ∆xi. Therefore 
+
+x(ℓ+1)  
+
+> i
+
+= xℓi + ∆ xi 7 → Rxℓi + t + R∆xi = R xℓi + ∆ xi
+
+ + t = Rx(ℓ+1)  
+
+> i
+
++ t. (21) 
+
+Composition. The composition of equivariant maps is equivariant. Hence, any stack of EGNN-R layers is E(3) -equivariant. 
+
+A.5 Multi-head cross-attention with feed-forward network (MHCA) 
+
+The bidirectional multi-head cross-attention mechanism enables information exchange between antigen and antibody chains. Let nhead be the number of heads with per-head width da = dh/n head .For layer ℓ, independent linear projections produce queries, keys, and values: 
+
+Qℓ 
+
+> ag
+
+= H(ℓ−1) ag WQ(ℓ)ag , (22) 
+
+Kℓ 
+
+> ab
+
+= H(ℓ−1) ab WK(ℓ)ab , (23) 
+
+Vℓ 
+
+> ab
+
+= H(ℓ−1) ab WV (ℓ)ab , (24) with analogous expressions for the reverse direction. After reshaping to nhead heads of width da,scaled dot-product attention computes the affinity matrices: 
+
+Aℓ 
+
+> ag ←ab
+
+= softmax 
+
+ 1√dh
+
+Qℓ
+
+> ag
+
+Kℓ 
+
+> ab
+> ⊤
+
++ M
+
+
+
+, (25) where M is a batch mask (applied only in decoder) that assigns −∞ to residue pairs from different complexes. The resulting context vectors are: 
+
+eHℓ 
+
+> ag
+
+= Aℓ
+
+> ag ←ab
+
+Vℓ
+
+> ab
+
+WℓO, ag , (26) 
+
+eHℓ 
+
+> ab
+
+= Aℓ
+
+> ab ←ag
+
+Vℓ
+
+> ag
+
+WℓO, ab . (27) Each direction then applies a feed-forward network FFN( x) = W2 σ(W1x+b1)+ b2 with dropout, residual connections, and layer normalization. 
+
+A.6 Graph Construction A.6.1 Node Features 
+
+Each residue node in our protein graph incorporates two complementary information sources that together provide a rich representation of both local structural properties and evolutionary context: 
+
+Local geometry & physicochemistry. Each residue vi ∈ V is annotated with a 105-dimensional geometric and biochemical feature vector hgeo  
+
+> i
+
+∈ Rdgeo that encodes the type, position, distance, direction, angle, and orientation of each residue. Such residue-level descriptors are widely employed in diverse protein-related studies in structural bioinformatics [Wu et al., 2025, Jing et al., 2020, Jumper et al., 2021]. This vector is constructed as follows: 
+
+hgeo  
+
+> i
+
+=
+
+h
+
+Etype (vi), E pos (i), sin( ηi), cos( ηi), RBF( ∥xi,C α − xi,ξ ∥), Q ⊤
+
+> i
+
+xi,ξ − xi,C α
+
+∥xi,ξ − xi,C α ∥
+
+i
+
+, (28) where: 17 Algorithm 1: EpiFormer : High-Level Architecture 
+
+Input: Antigen graph Gag and antibody graph Gab with coordinates X, geometric features hgeo 
+
+Output: Bipartite interaction matrix ˆEbg ∈ [0 , 1] n×m
+
+// Feature Initialization 
+
+1 foreach chain ∈ { ag , ab } do 
+
+2 Project geometric features to hidden dimension; 
+
+3 h0 
+
+> i
+
+← Wgeo hgeo  
+
+> i
+
+for each residue i;
+
+4 end 
+
+// Encoder: Parallel Processing 
+
+5 for layer ℓ = 1 to L do 
+
+// Intra-chain geometric message passing 
+
+6 (Hintra ag , Xag ) ← EGNN -R( Gag , H(ℓ−1) ag , Xag );
+
+7 (Hintra ab , Xab ) ← EGNN -R( Gab , H(ℓ−1) ab , Xab );
+
+// Inter-chain cross-attention 
+
+8 eHag ← MHCA( Hintra ag , Hintra ab , Hintra ab );
+
+9 eHab ← MHCA( Hintra ab , Hintra ag , Hintra ag );
+
+// Combine intra-chain and cross-chain information 
+
+10 Hℓ 
+
+> ag
+
+← H(ℓ−1) ag + Hintra ag + αag FFN( eHag );
+
+11 Hℓ 
+
+> ab
+
+← H(ℓ−1) ab + Hintra ab + αab FFN( eHab );
+
+12 end 
+
+// Decoder: Cross-Attention Refinement 
+
+13 Initialize decoder embeddings: Hdec ag ← HL 
+
+> ag
+
+, Hdec ab ← HL
+
+> ab
+
+;
+
+14 for layer ℓ = 1 to L do 
+
+// Inter-chain cross-attention 
+
+15 eHdec ag ← MHCA( Hdec ag , Hdec ab , Hdec ab );
+
+16 eHdec ab ← MHCA( Hdec ab , Hdec ag , Hdec ag );
+
+// Combine intra-chain and cross-chain information 
+
+17 Hdec( ℓ)ag ← Hdec( ℓ−1) ag + FFN( eHdec ag );
+
+18 Hdec( ℓ)ab ← Hdec( ℓ−1) ab + FFN( eHdec ab );
+
+19 end 
+
+// Bipartite Interaction Prediction 
+
+20 Compute bidirectional attention scores:; 
+
+21 Sag →ab ← (Hdec ag Wout    
+
+> Q)( Hdec ab Wout
+> K)⊤
+
+√dk
+
+;
+
+22 Sab →ag ← (Hdec ab W′ out     
+
+> Q)( Hdec ag W′out
+> K)⊤
+
+√dk
+
+;
+
+23 Fuse scores and apply sigmoid:; 
+
+24 Z ← w⊤[ Sag →ab (Sab →ag )⊤ ] + b;
+
+25 ˆEbg ← σ(Z);
+
+// Epitope Extraction 
+
+26 Extract per-residue epitope probabilities via mean pooling:; 
+
+27 (ˆ yag )i = 1
+
+> m
+
+Pmj=1 ( ˆEbg )ij ;
+
+28 Function MHCA( Q, K, V ):
+
+29 Qh ← QW hQ, Kh ← KW hK , Vh ← V W hV ; // Project per head h
+
+30 αhij ← Softmax j
+
+> Qh,i ·K⊤
+> h,j
+
+√dh
+
+!
+
+; // Attention scores 
+
+31 Chi ← P 
+
+> j
+
+αhij Vh,j ; // Context vector 
+
+Result: Concat (C1, . . . , C H )WO
+
+; // Combine heads 
+
+32 end 
+
+33 Function FFN( X):
+
+34 ˆEbg ← SiLU( XW 1 + b1)W2 + b2 ; // W1 ∈ Rd×df f , W2 ∈ Rdf f ×d
+
+Result: ˆEbg 
+
+35 end 
+
+• Etype : Embedding for amino acid residue type (e.g., arginine, glycine). • Epos : Positional encoding of residue index in the sequence, enabling the model to distinguish between identical amino acids based on their sequence context. This positional information is crucial for understanding long-range dependencies and structural motifs, as amino acids at different sequence positions (N-terminus vs. C-terminus, loop regions vs. secondary structures) often play different functional roles even if they are the same amino acid type. • ηi: Local backbone geometry encoded through six fundamental angles that determine how the protein chain folds at each residue vi and are encoded by their sine and cosine (12 18 scalars). Bond angles ( αi, βi, γi) describe the geometric constraints of covalent bonds, while dihedral angles ( ψi, ϕi, ωi) capture the rotational freedom that gives rise to secondary structures like helices and sheets. • RBF( ·): Radial basis function encoding distances between Cα and other backbone atoms (ξ ∈ { Cβ , N, O}), with each distance represented by 16 Gaussian basis functions. • Q⊤ 
+
+> i
+
+ui: Here, Qi ∈ R3×3 is the orthonormal rotation matrix defining the local coordinate sys-tem constructed from the Cα, Cβ , and N atoms of residue i, and ui = [ u1 
+
+> i
+
+, u2 
+
+> i
+
+, u3 
+
+> i
+
+] ∈ R3×3
+
+contains the normalized direction vectors between these atoms (e.g., u1 
+
+> i
+
+= xi, Cβ −xi, Cα   
+
+> ∥xi, Cβ−xi, Cα∥
+
+). The matrix product Q⊤ 
+
+> i
+
+ui transforms these direction vectors into the local coordinate frame and is flattened to yield a 9-dimensional feature vector. Note that the oxygen atom is stored in the coordinate matrix for other calculations (like the RBF distance features), but isn’t used for the local coordinate frame construction. • The coordinates are held in a 3 × 4 matrix, which is used in the calculation of node and edge features. 
+
+Xi = xi, N xi, Cα xi, Cβ xi, O
+
+ ∈ R3×4, where xi,ξ ∈ R3
+
+A.6.2 Edge features 
+
+We compute a 100-dimensional edge feature vector fi,j ∈ Rdf that describes the spatial and sequen-tial relationship between two residues vi and vj . This vector integrates multiple complementary descriptors to provide a rich representation of inter-residue interactions [Jing et al., 2020] and is defined as follows:                 
+
+> fi,j =
+> n
+> Etype (ei,j ), E pos (i−j),RBF( ∥xi, Cα−xj,ξ ∥), Q ⊤
+> i
+> xj,ξ −xi, Cα
+> ∥xj,ξ −xi, Cα∥, q
+> 
+> Q⊤
+> iQj
+> 
+> ξ
+> o
+> ,
+
+(29) where Etype (ei,j ) is the one-hot encoding of relations ri,j of length 4 between two residues, and the positional encoding Epos (i − j) encodes the relative sequential position sinusoidally to 16 scalars. The third and fourth terms are distance and direction encodings of four backbone atoms 
+
+ξ in residue vj in the local coordinate frame Qi. These four inter-residue distances {d(Cα, Cβ ),
+
+d(Cα, N), d(Cα, O), d(Cα, Cα)}) are each represented by 16 Gaussian basis functions. The last term 
+
+q  Q⊤ 
+
+> i
+
+Qj
+
+ is the quaternion representation q(·) of Q⊤ 
+
+> i
+
+Qj . By integrating sequence position, local geometry, and orientation, the model understands the residue identity from global pose and enables robust generalization across structures. These node and edge features are visualized in Figure 6(a). 
+
+A.6.3 Edge Relations 
+
+Since spatial proximity between residues alone cannot capture hydrogen bonding’s directional specificity or electrostatic complementarity’s charge-based selectivity, we use multi-relational edges to capture distinct interaction types [Zhang et al., 2022]. By treating each relation separately, the model learns complex interaction patterns within the protein. Hence, to expand the contexts of these interactions, we divide the edges into four different types of relations R = {ρ1, ρ 2, ρ 3, ρ 4},including (i) sequential relations ρ1 and ρ2 between two residues with relative sequential distance equal to 1 (peptide bond) and 2 (short-range torsion coupling); (ii) spatial relations between residues that are from the same component and spatially connected due to K-nearest neighbors (relation ρ3
+
+that captures local packing shell) or with a Euclidean distance less than 8Å (relation ρ4) capturing medium-range contact between residues within the protein structure [Wu et al., 2025]. To illustrate the importance of edge relations, consider a discontinuous epitope that spans two antigen loops. The sequential edges ( ρ1, ρ 2) maintain the structural integrity of each loop, while the spatial edges ( ρ3, ρ 4) capture the three-dimensional proximity between residues from different loops, allowing the model to represent how distant sequence regions come together to form a cohesive binding interface. We provide a schematic of edge relations in Fig. 6 (b), where each edge ei,j ∈ E is associated with a set of relations ri,j ∈ R . Besides, two relations ρ1 (with sequence distance equal to 1) can derive a relation ρ2 (with sequence distance equal to 2), while an edge may connect two nodes (residues) due to both relations ρ3 and ρ4.19 Figure 6: (a) Node and edge features encoding position, distance, direction, angle, and orientation (Figure credit: [Wu et al., 2025]). (b) Four edge relations (sequential ρ1, ρ2; spatial ρ3, ρ4 ). To avoid complexity, we visualize only some edges. 
+
+A.7 Auxiliary Distance Classification Loss 
+
+Let M = {(i, j ) : dij ≤ Dmax } be the set of antigen-antibody residue pairs within the maximum distance cutoff, where dij is the Euclidean distance between residues i and j. The bins are defined by distances {d0, d 1, d 2, d 3, d 4} = {0, 4, 8, 16 , 32 } Å, creating B = 4 bins: 
+
+b(i, j ) = arg max  
+
+> b∈{ 1,..., 4}
+
+1[ db−1 ≤ dij < d b ]. (30) The network predicts per-pair distance logits ∆ij ∈ R5, but only the first B = 4 components 
+
+b∆ij ∈ R4 are used for pairs in M, ignoring the “far” class beyond Dmax = 32 Å. The class probabilities are: 
+
+pijb = exp( b∆ijb )
+
+P4 
+
+> b′=1
+
+exp( b∆ijb ′ ) . (31) The loss combines class balancing with distance weighting: 
+
+Lgeo = − 1
+
+|M| 
+
+X
+
+> (i,j )∈M
+
+wij 
+
+> 4
+
+X
+
+> b=1
+
+αb 1[ b(i, j ) = b ] log pijb , (32) where αb > 0 are class-balance weights computed from empirical bin frequencies within M and 
+
+wij > 0 are distance weights inversely proportional to dij , normalized to unit mean over M.
+
+A.8 PLM Sensitivity Analysis 
+
+We compared our geometric feature representation against protein language model (PLM) embeddings across EpiFormer and four baselines. PLM embeddings zplm  
+
+> i
+
+∈ Rdc are extracted from pre-trained models (ESM-2 [Lin et al., 2023] for antigens, AntiBERTy for antibodies) and projected via hplm  
+
+> i
+
+=
+
+Wplm zplm  
+
+> i
+
+. Table 7 shows that EpiFormer achieves higher performance with geometric features than with PLMs, while all baselines degrade when PLMs are removed. This is consistent with the observation that epitope residues are not evolutionarily conserved [Ponomarenko and Bourne, 2007], making the conservation signals encoded by PLMs uninformative for binding prediction. Additionally, combining high-dimensional PLM features (1,280D) with lower-dimensional geometric features (105D) creates a modality dominance problem [Wu et al., 2022] where the model overfits to the PLM pathway. EpiFormer is the only method that improves without PLMs, while methods that rely on PLMs for their primary representations degrade substantially. This suggests that the interleaved cross-attention captures the relational binding signal directly from geometric features, whereas other architectures depend on PLMs to compensate for weaker structural reasoning. 
+
+A.9 Implementation details 
+
+The model is trained with an Adam optimizer and a ReduceLROnPlateau learning-rate schedule with decoupled weight decay. The learning rate is selected from the sweep-defined range and fixed 20 Table 7: PLM sensitivity analysis on the epitope-ratio test set. PLM embeddings are replaced with geometric features.                                                         
+
+> Method Input Features AUC F1 MCC ∆AUC EpiFormer ESM2-650M + AntiBERTy 0.889 0.433 0.404 —
+> EpiFormer Geometric 0.924 0.482 0.464 +0.035
+> EquiformerV2 ESM-2 (default) 0.815 0.241 0.243 —EquiformerV2 Geometric 0.798 0.241 0.230 −0.017
+> DiscoTope3 ESM-IF1 (default) 0.817 0.249 0.243 —DiscoTope3 Geometric 0.684 0.166 0.123 −0.133
+> WALLE ESM-2 + AntiBERTy 0.809 0.202 0.206 —WALLE Geometric 0.687 0.145 0.109 −0.122
+> MIPE ESM + AbLang 0.827 0.337 0.356 —MIPE Geometric 0.739 0.148 0.184 −0.088
+
+at approximately 6.5e−5 in the best configuration. A ReduceLROnPlateau scheduler monitors validation performance and decays the learning rate on stagnation, while an early stopping with patience of 10 epochs prevents overfitting and reduces variance in final selection. We used SiLU activation functions [Elfwing et al., 2018] throughout the model because they provide stable gradients via their smooth, non-monotonic curve, which are crucial for training deep graph networks. The hyperparameter tuning was performed via a Bayesian optimization sweep in Weights & Biases to minimize the validation loss, and the best hyperparameters were chosen within a predefined search space using bounded uniform and log-uniform distributions. We ran the hyperparameter sweeping experiments separately for the epitope ratio and epitope group split settings. • The model weight decay was sampled log-uniformly over [1 e−6, 1e−4] to prevent overfit-ting by penalizing large weights, with the best configuration using approximately 9.9e−5.• The model dropout was sampled log-uniformly over [0 .05 , 0.5] to improve the generalizabil-ity of the model, and the best performing configuration for the epitope ratio model used a dropout of 0.132, while the epitope group model used a dropout of 0.053. • The number of layers in the encoder module is treated as a hyperparameter and was chosen from the set [3 , 4, 5] while for the decoder, the number of layers was chosen from the [2 , 3, 4] .We experimented with different encoder hidden dimensions and the best configuration of 128 was picked from [64 , 128 , 256 , 512] across different runs. • We also experimented with different number of attention heads for the encoder and decoder MHCA (2,4,8,16) and picked the best model with 8 attention heads. • A batch size of 8 was chosen from [4,8,16,32] across different runs. • αag and αab are initialised to 0.05 
+
+For the loss coefficients, the best configuration for the epitope-ratio split uses λedge = 1 .0, λnode =0.4816 , λgeo = 0 .0514 , βBCE = 9 .3249 , βDice = 2 .2966 , βsparsity = 0 .3068 , πepi = 15 .2856 ,
+
+πedge = 58 .7077 , label smoothing ϵ = 0 .1, and a distance cutoff of 32 Å for Lgeo . The best run for the model trained on the epitope group split uses λnode = 0 .143 , λedge = 1 .0, λgeo = 0 .158 ,
+
+βBCE = 9 .16 , βDice = 1 .83 , βsparsity = 0 .64 , πepi = 53 .18 , πedge = 44 .11 , label smoothing 
+
+ϵ = 0 .1, and a distance cutoff of 32 Å for Lgeo .• The bipartite edge positive-class weight πedge for the BCE-with-logits interaction loss was sampled log-uniformly over [30 , 150] , accommodating variation in pairwise sparsity across complexes. • The node objective weight λnode was sampled uniformly over [0 .05 , 0.5] , exploring the trade-off between residue supervision and the other objectives. • The binary cross-entropy multiplier within the node objective βBCE was drawn uniformly over [2 , 10] , spanning weak to strong emphasis on classification error. • The Dice multiplier βDice was drawn uniformly over [0 .1, 3.0] , reflecting its role as a secondary calibrator under class imbalance. 21 • The epitope positive-class weight πepi was sampled log-uniformly over [10 , 60] , covering roughly an order of magnitude in imbalance without biasing toward either extreme. • The per-graph epitope count-regularizer weight βsparsity was sampled uniformly over 
+
+[0 .05 , 1.0] , enabling calibration of predicted positive counts at the complex level. • The auxiliary distance-classification weight λgeo was sampled uniformly over [0 .05 , 0.3] ,with class balancing across distance bins and distance-aware pair weighting kept enabled and the maximum distance fixed at 32 Å for all trials. The experiments were performed on an NVIDIA H100 GPU and it took around 35-60 min-utes for a single hyperparameter sweeping experiment of around 50 epochs. To ensure full reproducibility of our experiments, we implement random seed management across all computational components, including NumPy ( numpy.random ), Python ( random ), PyTorch (torch.manual_seed ), and CUDA operations ( torch.cuda.manual_seed_all ), while addition-ally controlling worker initialization in data loaders and disabling non-deterministic algorithms (torch.backends.cudnn.deterministic=True ). 
+
+A.10 Extended Ablation Studies 
+
+We ablate the GNN backbone, pooling strategy, and loss configuration. 
+
+A.10.1 GNNs 
+
+To assess the impact of geometric message passing, we replaced the EGNN-R layers with alternative GNN architectures while keeping all other components fixed (Table 2). Even simple backbones like GCN (0.447 F1) outperform all 19 baselines, confirming that the EpiFormer framework, namely its interleaved cross-attention and joint losses, is the primary performance driver. EGNN-R provides an additional +0.028 F1 over the best non-equivariant variant (RGCN, .454) through equivariant coordinate updates and multi-relational encoding. We include vanilla EGNN and EGNN-R with frozen coordinates to decompose the contributions, which are +0.018 F1 from equivariance (EGNN vs GAT, .470 vs .452), +0.007 from multi-relational edges (RGCN vs GCN, .454 vs .447), and 
+
++0.017 from coordinate updates (EGNN-R vs EGNN-R frozen, .482 vs .465). 
+
+A.10.2 Representation Quality 
+
+Figure 8 visualizes the learned antigen representations via t-SNE, showing that epitope residues form distinct clusters separated from non-epitope residues, with some overlap reflecting the inherent difficulty of the classification task. Figure 7(a) quantifies this separation, showing that silhouette scores increase progressively from the early encoder layers through the decoder, which confirms that each layer improves class separability. Figure 7(b) shows the learned gating weights for the default configuration ( αinit =0 .05 ); the antibody gate consistently exceeds the antigen gate across all encoder blocks, consistent with the asymmetry discussed in Section 4.5. 
+
+Figure 7: (a) Layer-wise silhouette scores showing progressive class separability from encoder to decoder. (b) Learned gating weights ( αag , αab ) controlling the cross-attention contribution per encoder block (default initialization α=0 .05 ). 22 We evaluated different strategies for mapping the bipartite interaction matrix ˆEbg to per-residue epitope probabilities (Table 8). All pooling strategies converge to a narrow F1 range (0.471–0.483), with mean pooling achieving the best F1 while being the simplest. This suggests that the interleaved encoder produces a well-calibrated interaction matrix largely independent of the downstream aggregation choice. 
+
+Figure 8: t-SNE visualization of antigen residue embeddings from the final encoder layer, colored by epitope (red) and non-epitope (teal) labels. Table 8: Pooling strategy comparison on the epitope-ratio split.                   
+
+> Pooling AUC F1 MCC
+> Max 0.917 0.473 0.448
+> Mean 0.921 0.483 0.454
+> Top-2 0.920 0.471 0.454 Top-3 0.923 0.481 0.458 Softmax Attn. 0.921 0.480 0.452
+
+To verify that EpiFormer ’s gains are not explained by pooling choice, we applied top-k pooling to antibody-aware baselines with explicit interaction matrices (Table 9). Top-k degrades all four baselines, most severely for MIPE ( −0.331 F1), while EpiFormer ’s F1 varies by only 0.011 across strategies. Table 9: Top-k pooling applied to antibody-aware baselines. Original AUC/F1/MCC are the published configurations reported in Table 1; ∆ F1 is computed relative to each method’s original pooling on the same test split.                                                              
+
+> Method Pooling AUC F1 MCC ∆F1
+> WALLE Original 0.808 0.203 0.208 —WALLE + Top-2 0.809 0.159 0.145 −0.044
+> PECAN Original 0.740 0.229 0.182 —PECAN + Top-3 + edge loss 0.641 0.198 0.118 −0.031
+> MIPE Original 0.827 0.337 0.356 —MIPE + Top-2 0.651 0.006 0.022 −0.331
+> CheapNet Original 0.719 0.184 0.149 —CheapNet + Top-2 + edge loss 0.724 0.175 0.141 −0.009
+> EpiFormer Mean pooling 0.924 0.482 0.464 —
+> EpiFormer Top-2 pooling 0.920 0.471 0.454 −0.011
+> EpiFormer Top-3 pooling 0.923 0.481 0.458 −0.001
+
+A.10.3 Loss 
+
+We performed ablations to evaluate the contribution of each loss component (primary, auxiliary, and regularizers) to epitope prediction, as shown in Table 10. 23 Contrastive Learning Loss ( LInfoNCE ). We also performed contrastive learning with the SimCLR InfoNCE (Information Noise Contrastive Estimation) loss [Chen et al., 2020] to learn discriminative representations by contrasting positive and negative residue pairs within and across protein chains. The contrastive loss combines intra-chain and inter-chain objectives: 
+
+Lcontrastive = λintra Lintra + λinter Linter , (33) where λintra and λinter balance the relative importance of within-chain and cross-chain contrastive learning. 
+
+Intra-Chain Contrastive Loss ( Lintra ). The intra-chain loss encourages similar representations for residues with the same label (epitope/non-epitope or paratope/non-paratope) within each protein chain: 
+
+Lintra = Lag intra + Lab intra . (34) For each chain (antigen or antibody), the loss is computed as: 
+
+Lchain intra = − 1
+
+|P| 
+
+X
+
+> i∈P
+
+log 
+
+P 
+
+> j∈P i+
+
+exp( hTi hj /τ )
+
+P 
+
+> k∈N i
+
+exp( hTi hk/τ ) , (35) where P = {i : yi = 1 } is the set of positive (binding) residues, Pi+ = {j ∈ P : j̸ = i} are other positive residues sharing the same label as anchor i, Ni includes all negative residues for anchor 
+
+i, hi, hj are L2-normalized residue embeddings, and τ is the temperature parameter controlling concentration. 
+
+Inter-Chain Contrastive Loss ( Linter ). The inter-chain loss promotes alignment between epitope and paratope representations across antigen-antibody pairs: 
+
+Linter = Lag →ab + Lab →ag . (36) The bidirectional formulation ensures symmetric learning: 
+
+Lag →ab = − 1
+
+|P ag |
+
+X
+
+> i∈P ag
+
+log 
+
+P 
+
+> j∈P ab
+
+exp( hag Ti hab  
+
+> j
+
+/τ )
+
+P 
+
+> k∈N cross
+
+exp( hag Ti hk/τ ) , (37) where Pag , Pab are epitope and paratope residue sets, Ncross includes negative residues from both chains, and the loss pulls epitope embeddings closer to paratope embeddings while pushing them away from non-binding residues. Our experiments show that contrastive learning didn’t contribute to improving the classification performance. We attribute this to conflicting optimization objectives between BCE loss and standard InfoNCE loss, a phenomenon demonstrated in a recent work [Ji et al., 2024]. Table 10: Loss function ablation on the epitope-ratio split. Each row adds the listed term to the configuration above it; best in bold .
+
+Loss Config AUC F1 MCC ∆ F1 
+
+LBCE .916 .336 .366 −.160 + Ledge .916 .323 .356 −.173 + LDice .916 .329 .361 −.167 + Lsparsity .917 .461 .440 −.035 
+
++ Lgeo (full) .926 .496 .475 —
+
++ LInfoNCE .920 .467 .443 −.029 
+
+A.11 Cross-Dataset Evaluation 
+
+We evaluated EpiFormer on three external benchmarks with no overlap with AsEP training data, SAbDab [Dunbar et al., 2014] (494 diverse antibody-antigen complexes from the Structural Antibody Database, post-2023), CoV-AbDab [Raybould et al., 2021] (170 SARS-CoV-2 neutralizing antibody complexes), and ANABAG [Grandguillaume et al., 2025] (499 curated complexes). We compare EpiFormer against MIPE, which is the second-best method on AsEP (Table 1) and the strongest antibody-aware baseline. Table 11 reports both zero-shot (no retraining) and leave-one-dataset-out (LODO) fine-tuning settings. 24 Table 11: Cross-dataset generalization on SAbDab [Dunbar et al., 2014], CoV-AbDab [Raybould et al., 2021], and ANABAG. Zero-shot: models trained on AsEP evaluated without retraining. LODO (leave-one-dataset-out): models fine-tuned on the two external datasets not used for testing. Per-dataset best in bold .
+
+Zero-shot LODO Dataset Method AUC F1 AUC F1 
+
+SAbDab (494) EpiFormer 0.782 0.297 0.858 0.364 
+
+MIPE 0.614 0.140 0.746 0.190 CoV-AbDab (170) EpiFormer 0.819 0.358 0.890 0.359 
+
+MIPE 0.730 0.175 0.813 0.212 ANABAG (499) EpiFormer 0.758 0.301 0.837 0.367 MIPE 0.719 0.220 0.772 0.217 
+
+A.12 Computational Cost 
+
+Table 12 compares computational cost across baselines. Despite its cross-attention decoder, EpiFormer requires only 0.174 GB peak VRAM, which is lower than EquiformerV2, CheapNet, and EquiPocket, because it operates on residue-level rather than atom-level representations. Table 13 shows that EpiFormer scales sub-linearly with antigen size ( 1.61 × from small to large), compared to MIPE’s near-quadratic scaling ( 9.98 ×). Table 12: Computational cost on the epitope-ratio test set (H100 GPU).                                                                   
+
+> Method Category Params (M) Train (s/ep) Infer. (ms) VRAM (GB) F1
+> DiffDock-PP AB-aware Eq. 0.04 25.6 15.90 0.041 0.186 ATProt AB-aware GNN 0.06 50.9 26.62 0.050 0.246 DiscoTope3 AG-only MLP 0.18 2.0 0.94 0.036 0.249 WALLE AB-aware 0.25 22.1 20.96 0.039 0.202 EquiformerV2 Equivariant 0.59 63.5 45.74 0.418 0.255 CheapNet AB-aware 0.84 48.4 31.92 0.545 0.178 MIPE AB-aware 0.96 719.4 239.31 0.073 0.337 EquiPocket AG-only Eq. 1.26 87.7 89.27 0.473 0.202 EpiGraph AG-only GNN 5.78 1482.4 15.63 0.192 0.078
+> EpiFormer AB-aware Eq. 5.54 150.0 118.65 0.174 0.482
+
+Table 13: Inference latency scaling by antigen size (ms/sample, batch size 1).                    
+
+> Antigen Size # Samples WALLE (ms) MIPE (ms) EpiFormer (ms)
+> Small ( <200 res.) ∼100 19.16 108.93 100.56 Medium (200–500 res.) ∼55 22.94 221.79 123.00 Large ( >500 res.) ∼15 24.10 1087.26 161.62
+> Ratio (Large/Small) 1.26 ×9.98 ×1.61 ×
+
+A.13 MHCA Alpha Initialization Ablation 
+
+Table 14 shows the effect of the cross-attention gate initialization α on performance. Removing encoder cross-attention entirely ( α=0 .0) causes a notable drop in F1. Even when initialized at zero, the model learns non-zero gating values, confirming that it discovers cross-attention utility without explicit supervision. The default initialization ( α=0 .05 ) achieves the best results. Figure 9 visualizes these trends across all four metrics. Figure 10 shows encoder cross-attention heatmaps for a representative complex (6xq0_1P) across the four α variants and all encoder blocks. When α=0 .0 (no cross-attention), attention maps remain diffuse with no structure. With cross-attention enabled, attention progressively concentrates on ground-truth epitope and paratope residues across deeper encoder blocks. Figure 11 extends this analysis to the decoder, comparing decoder cross-attention maps and predicted interaction matrices against ground-truth contacts. All cross-attention variants produce focused decoder attention, but the 
+
+α=0 .05 configuration yields the sharpest predicted interaction matrix. 25 Table 14: MHCA gate initialization ablation (epitope-ratio split).                                
+
+> Alpha Init AUC AUPRC F1 MCC Prec. ∆F1
+> 0.0 (no MHCA) 0.906 0.464 0.454 0.424 0.354 −0.042
+> 0.05 (base) 0.926 0.509 0.496 0.475 0.383 —0.2 0.918 0.485 0.469 0.449 0.351 −0.027
+> 0.4 0.919 0.490 0.484 0.457 0.383 −0.012
+
+Figure 9: Test set performance across four interleaved-MHCA gate initialization values ( α ∈{0.0, 0.05 , 0.2, 0.4}). 
+
+Figure 10: Encoder AG →AB cross-attention heatmaps for complex 6xq0_1P. Rows: αinit ∈{0.0, 0.05 , 0.2, 0.4}; columns: encoder blocks 0–3. Ground-truth epitope (red) and paratope (cyan) residues are overlaid. 26 Figure 11: Decoder cross-attention and predicted interaction maps vs. ground-truth contacts for complex 6xq0_1P across four αinit variants. Columns: decoder layers 0–1, predicted interaction, ground truth. 
+
+A.14 Coordinate Refinement Analysis 
+
+Figure 12 shows per-block coordinate displacement magnitude across the EGNN-R encoder blocks. Displacements decrease across blocks, confirming convergent geometric refinement. Epitope residues undergo consistently larger positional adjustments than non-epitope residues, and paratope residues show a similar pattern on the antibody side. The difference is statistically significant at Block 3 (p = 1 .80 × 10 −7, Wilcoxon rank-sum test). 
+
+A.15 Resolution Stratification 
+
+Table 15 stratifies performance by X-ray crystallographic resolution. EpiFormer maintains strong AUC and F1 across all resolution bins with no catastrophic degradation at low resolution ( > 3.0 Å). Figure 13 shows the full per-complex distributions; EpiFormer’s advantage over MIPE and WALLE is consistent across all resolution bins and metrics. 
+
+A.16 Antigen Size Stratification 
+
+Table 16 stratifies performance by antigen surface residue count. EpiFormer’s AUC improves with antigen size, while F1 declines due to increasing class imbalance (the mean epitope ratio drops from 13.9% in small antigens to 2.2% in large ones). MIPE collapses entirely for medium and large antigens. Figure 14 shows the full per-complex distributions across all six metrics. 27 Figure 12: Per-block coordinate displacement magnitude across EGNN-R encoder blocks 1–3 (block 0 has no prior coordinates to compare against). (a) Antigen: epitope residues undergo larger displacements than non-epitope residues. (b) Antibody: paratope residues show a similar pattern. Displacements decrease across blocks, indicating convergent refinement. Table 15: Performance stratified by X-ray resolution on the epitope-ratio test set (per-complex mean 
+
+± std).                                                        
+
+> Resolution NMethod AUC F1 MCC Rec.
+> <2.0Å17 EpiFormer .908 ±.071 .622 ±.238 .553 ±.265 .721 ±.269 3MIPE .515 ±.212 .119 ±.205 .011 ±.203 .107 ±.185 17 WALLE .734 ±.204 .372 ±.146 .207 ±.209 .964 ±.090
+> 2.0–3.0 Å 75 EpiFormer .898 ±.080 .484 ±.235 .434 ±.243 .553 ±.291 6MIPE .674 ±.221 .163 ±.398 .145 ±.406 .167 ±.408 75 WALLE .719 ±.170 .238 ±.109 .137 ±.119 .915 ±.146
+> >3.0Å78 EpiFormer .916 ±.070 .464 ±.206 .437 ±.211 .565 ±.271 3MIPE .803 ±.128 .000 ±.000 .010 ±.011 .000 ±.000 78 WALLE .748 ±.172 .202 ±.096 .162 ±.121 .932 ±.167
+
+Figure 13: Per-complex metric distributions (AUROC, AUPRC, F1, MCC, Precision, Recall) stratified by X-ray resolution for EpiFormer, MIPE, and WALLE. 28 Table 16: Performance stratified by antigen surface residue count on the epitope-ratio test set (per-complex mean ± std).                                  
+
+> Size Bin NEpi. Ratio Method AUC F1
+> <200 (small) 90 13.9%
+> EpiFormer .901 ±.081 .568 ±.202
+> WALLE .707 ±.180 .293 ±.114 MIPE .630 ±.241 .222 ±.396 200–500 (med) 62 6.6%
+> EpiFormer .905 ±.068 .412 ±.206
+> WALLE .730 ±.156 .167 ±.078 MIPE .561 ±.145 .000 ±.000
+> >500 (large) 18 2.2%
+> EpiFormer .953 ±.047 .356 ±.260
+> WALLE .876 ±.136 .175 ±.090 MIPE .845 ±.109 .000 ±.000
+
+Figure 14: Per-complex metric distributions (AUROC, AUPRC, F1, MCC, Precision, Recall) stratified by antigen size for EpiFormer, MIPE, and WALLE. 
+
+A.17 Per-Complex Metric Distributions 
+
+Figure 15 shows per-complex metric distributions on the epitope-ratio test set. EpiFormer achieves higher medians and tighter interquartile ranges than MIPE and WALLE across all six metrics, indicating more consistent predictions. WALLE exhibits high recall but low precision, confirming its tendency to over-predict epitope residues. 
+
+A.18 Distribution Shift Analysis A.19 Limitations Limitations. While EpiFormer maintains strong AUROC across all antigen sizes, metrics like AUPRC show more variation for very large antigens ( >500 residues), where class imbalance is most severe. Future work could explore SE(3)-equivariant alternatives [Fuchs et al., 2020], self-supervised pretraining [Zhang et al., 2022], and sequence-only variants using predicted structures. 29 Figure 15: Per-complex metric distributions on the epitope-ratio test set (170 complexes) for Epi-Former, MIPE, and WALLE. 
+
+Figure 16: Distribution shift between AsEP and three external benchmarks across (a) antigen size, (b) epitope count, (c) CDR size, and (d) epitope ratio. These differences explain the zero-shot calibration gap recovered by LODO fine-tuning. 
+
+## NeurIPS Paper Checklist 
+
+1. Claims 
+
+Question: Do the main claims made in the abstract and introduction accurately reflect the paper’s contributions and scope? Answer: [Yes] Justification: The abstract and introduction state failure modes. Guidelines: 30 • The answer [N/A] means that the abstract and introduction do not include the claims made in the paper. • The abstract and/or introduction should clearly state the claims made, including the contributions made in the paper and important assumptions and limitations. A [No] or [N/A] answer to this question will not be perceived well by the reviewers. • The claims made should match theoretical and experimental results, and reflect how much the results can be expected to generalize to other settings. • It is fine to include aspirational goals as motivation as long as it is clear that these goals are not attained by the paper. 2. Limitations 
+
+Question: Does the paper discuss the limitations of the work performed by the authors? Answer: [Yes] Justification: Limitations are discussed in the Appendix. Guidelines: • The answer [N/A] means that the paper has no limitation while the answer [No] means that the paper has limitations, but those are not discussed in the paper. • The authors are encouraged to create a separate “Limitations” section in their paper. • The paper should point out any strong assumptions and how robust the results are to violations of these assumptions (e.g., independence assumptions, noiseless settings, model well-specification, asymptotic approximations only holding locally). The authors should reflect on how these assumptions might be violated in practice and what the implications would be. • The authors should reflect on the scope of the claims made, e.g., if the approach was only tested on a few datasets or with a few runs. In general, empirical results often depend on implicit assumptions, which should be articulated. • The authors should reflect on the factors that influence the performance of the approach. For example, a facial recognition algorithm may perform poorly when image resolution is low or images are taken in low lighting. Or a speech-to-text system might not be used reliably to provide closed captions for online lectures because it fails to handle technical jargon. • The authors should discuss the computational efficiency of the proposed algorithms and how they scale with dataset size. • If applicable, the authors should discuss possible limitations of their approach to address problems of privacy and fairness. • While the authors might fear that complete honesty about limitations might be used by reviewers as grounds for rejection, a worse outcome might be that reviewers discover limitations that aren’t acknowledged in the paper. The authors should use their best judgment and recognize that individual actions in favor of transparency play an impor-tant role in developing norms that preserve the integrity of the community. Reviewers will be specifically instructed to not penalize honesty concerning limitations. 3. Theory assumptions and proofs 
+
+Question: For each theoretical result, does the paper provide the full set of assumptions and a complete (and correct) proof? Answer: [Yes] Justification: Full proof the equivariance is provided in the Appendix. Guidelines: • The answer [N/A] means that the paper does not include theoretical results. • All the theorems, formulas, and proofs in the paper should be numbered and cross-referenced. • All assumptions should be clearly stated or referenced in the statement of any theorems. • The proofs can either appear in the main paper or the supplemental material, but if they appear in the supplemental material, the authors are encouraged to provide a short proof sketch to provide intuition. 31 • Inversely, any informal proof provided in the core of the paper should be complemented by formal proofs provided in appendix or supplemental material. • Theorems and Lemmas that the proof relies upon should be properly referenced. 4. Experimental result reproducibility 
+
+Question: Does the paper fully disclose all the information needed to reproduce the main ex-perimental results of the paper to the extent that it affects the main claims and/or conclusions of the paper (regardless of whether the code and data are provided or not)? Answer: [Yes] Justification: Experiments section describes the dataset, splits, and evaluation protocol. Appendix provides full architectural details and the algorithm. Guidelines: • The answer [N/A] means that the paper does not include experiments. • If the paper includes experiments, a [No] answer to this question will not be perceived well by the reviewers: Making the paper reproducible is important, regardless of whether the code and data are provided or not. • If the contribution is a dataset and/or model, the authors should describe the steps taken to make their results reproducible or verifiable. • Depending on the contribution, reproducibility can be accomplished in various ways. For example, if the contribution is a novel architecture, describing the architecture fully might suffice, or if the contribution is a specific model and empirical evaluation, it may be necessary to either make it possible for others to replicate the model with the same dataset, or provide access to the model. In general. releasing code and data is often one good way to accomplish this, but reproducibility can also be provided via detailed instructions for how to replicate the results, access to a hosted model (e.g., in the case of a large language model), releasing of a model checkpoint, or other means that are appropriate to the research performed. • While NeurIPS does not require releasing code, the conference does require all submis-sions to provide some reasonable avenue for reproducibility, which may depend on the nature of the contribution. For example (a) If the contribution is primarily a new algorithm, the paper should make it clear how to reproduce that algorithm. (b) If the contribution is primarily a new model architecture, the paper should describe the architecture clearly and fully. (c) If the contribution is a new model (e.g., a large language model), then there should either be a way to access this model for reproducing the results or a way to reproduce the model (e.g., with an open-source dataset or instructions for how to construct the dataset). (d) We recognize that reproducibility may be tricky in some cases, in which case authors are welcome to describe the particular way they provide for reproducibility. In the case of closed-source models, it may be that access to the model is limited in some way (e.g., to registered users), but it should be possible for other researchers to have some path to reproducing or verifying the results. 5. Open access to data and code 
+
+Question: Does the paper provide open access to the data and code, with sufficient instruc-tions to faithfully reproduce the main experimental results, as described in supplemental material? Answer: [Yes] Justification: The source code is provided as supplementary material during the review period for reproducibility. Code and data will be released publicly upon acceptance. Guidelines: • The answer [N/A] means that paper does not include experiments requiring code. • Please see the NeurIPS code and data submission guidelines ( https://neurips.cc/ public/guides/CodeSubmissionPolicy ) for more details. 32 • While we encourage the release of code and data, we understand that this might not be possible, so [No] is an acceptable answer. Papers cannot be rejected simply for not including code, unless this is central to the contribution (e.g., for a new open-source benchmark). • The instructions should contain the exact command and environment needed to run to reproduce the results. See the NeurIPS code and data submission guidelines ( https: //neurips.cc/public/guides/CodeSubmissionPolicy ) for more details. • The authors should provide instructions on data access and preparation, including how to access the raw data, preprocessed data, intermediate data, and generated data, etc. • The authors should provide scripts to reproduce all experimental results for the new proposed method and baselines. If only a subset of experiments are reproducible, they should state which ones are omitted from the script and why. • At submission time, to preserve anonymity, the authors should release anonymized versions (if applicable). • Providing as much information as possible in supplemental material (appended to the paper) is recommended, but including URLs to data and code is permitted. 6. Experimental setting/details 
+
+Question: Does the paper specify all the training and test details (e.g., data splits, hyperpa-rameters, how they were chosen, type of optimizer) necessary to understand the results? Answer: [Yes] Justification: Experiments section describes the benchmark, data splits, and evaluation metrics. Guidelines: • The answer [N/A] means that the paper does not include experiments. • The experimental setting should be presented in the core of the paper to a level of detail that is necessary to appreciate the results and make sense of them. • The full details can be provided either with the code, in appendix, or as supplemental material. 7. Experiment statistical significance 
+
+Question: Does the paper report error bars suitably and correctly defined or other appropriate information about the statistical significance of the experiments? Answer: [Yes] Justification: The main results tables report mean ± standard deviation across test complexes for all metrics for random seeds. Guidelines: • The answer [N/A] means that the paper does not include experiments. • The authors should answer [Yes] if the results are accompanied by error bars, confidence intervals, or statistical significance tests, at least for the experiments that support the main claims of the paper. • The factors of variability that the error bars are capturing should be clearly stated (for example, train/test split, initialization, random drawing of some parameter, or overall run with given experimental conditions). • The method for calculating the error bars should be explained (closed form formula, call to a library function, bootstrap, etc.) • The assumptions made should be given (e.g., Normally distributed errors). • It should be clear whether the error bar is the standard deviation or the standard error of the mean. • It is OK to report 1-sigma error bars, but one should state it. The authors should preferably report a 2-sigma error bar than state that they have a 96% CI, if the hypothesis of Normality of errors is not verified. • For asymmetric distributions, the authors should be careful not to show in tables or figures symmetric error bars that would yield results that are out of range (e.g., negative error rates). 33 • If error bars are reported in tables or plots, the authors should explain in the text how they were calculated and reference the corresponding figures or tables in the text. 8. Experiments compute resources 
+
+Question: For each experiment, does the paper provide sufficient information on the com-puter resources (type of compute workers, memory, time of execution) needed to reproduce the experiments? Answer: [Yes] Justification: Appendix reports the GPU type (single NVIDIA H100) and training details. Guidelines: • The answer [N/A] means that the paper does not include experiments. • The paper should indicate the type of compute workers CPU or GPU, internal cluster, or cloud provider, including relevant memory and storage. • The paper should provide the amount of compute required for each of the individual experimental runs as well as estimate the total compute. • The paper should disclose whether the full research project required more compute than the experiments reported in the paper (e.g., preliminary or failed experiments that didn’t make it into the paper). 9. Code of ethics 
+
+Question: Does the research conducted in the paper conform, in every respect, with the NeurIPS Code of Ethics https://neurips.cc/public/EthicsGuidelines ?Answer: [Yes] Justification: The research uses publicly available structural data from the Protein Data Bank and SAbDab, involves no human subjects, and conforms to the NeurIPS Code of Ethics. Guidelines: • The answer [N/A] means that the authors have not reviewed the NeurIPS Code of Ethics. • If the authors answer [No], they should explain the special circumstances that require a deviation from the Code of Ethics. • The authors should make sure to preserve anonymity (e.g., if there is a special consid-eration due to laws or regulations in their jurisdiction). 10. Broader impacts 
+
+Question: Does the paper discuss both potential positive societal impacts and negative societal impacts of the work performed? Answer: [Yes] Justification: The paper acknowledges the positive impact of improved computational antibody design for therapeutic development. Guidelines: • The answer [N/A] means that there is no societal impact of the work performed. • If the authors answer [N/A] or [No], they should explain why their work has no societal impact or why the paper does not address societal impact. • Examples of negative societal impacts include potential malicious or unintended uses (e.g., disinformation, generating fake profiles, surveillance), fairness considerations (e.g., deployment of technologies that could make decisions that unfairly impact specific groups), privacy considerations, and security considerations. • The conference expects that many papers will be foundational research and not tied to particular applications, let alone deployments. However, if there is a direct path to any negative applications, the authors should point it out. For example, it is legitimate to point out that an improvement in the quality of generative models could be used to generate Deepfakes for disinformation. On the other hand, it is not needed to point out that a generic algorithm for optimizing neural networks could enable people to train models that generate Deepfakes faster. 34 • The authors should consider possible harms that could arise when the technology is being used as intended and functioning correctly, harms that could arise when the technology is being used as intended but gives incorrect results, and harms following from (intentional or unintentional) misuse of the technology. • If there are negative societal impacts, the authors could also discuss possible mitigation strategies (e.g., gated release of models, providing defenses in addition to attacks, mechanisms for monitoring misuse, mechanisms to monitor how a system learns from feedback over time, improving the efficiency and accessibility of ML). 11. Safeguards 
+
+Question: Does the paper describe safeguards that have been put in place for responsible release of data or models that have a high risk for misuse (e.g., pre-trained language models, image generators, or scraped datasets)? Answer: [N/A] Justification: The model provides predictions about antigen binding sites that require extensive wet-lab validation before any practical use. Guidelines: • The answer [N/A] means that the paper poses no such risks. • Released models that have a high risk for misuse or dual-use should be released with necessary safeguards to allow for controlled use of the model, for example by requiring that users adhere to usage guidelines or restrictions to access the model or implementing safety filters. • Datasets that have been scraped from the Internet could pose safety risks. The authors should describe how they avoided releasing unsafe images. • We recognize that providing effective safeguards is challenging, and many papers do not require this, but we encourage authors to take this into account and make a best faith effort. 12. Licenses for existing assets 
+
+Question: Are the creators or original owners of assets (e.g., code, data, models), used in the paper, properly credited and are the license and terms of use explicitly mentioned and properly respected? Answer: [Yes] Justification: All baseline methods and datasets are cited with their original publications. SAbDab, the Protein Data Bank, AsEP dataset, and all baseline implementations are cited. Guidelines: • The answer [N/A] means that the paper does not use existing assets. • The authors should cite the original paper that produced the code package or dataset. • The authors should state which version of the asset is used and, if possible, include a URL. • The name of the license (e.g., CC-BY 4.0) should be included for each asset. • For scraped data from a particular source (e.g., website), the copyright and terms of service of that source should be provided. • If assets are released, the license, copyright information, and terms of use in the package should be provided. For popular datasets, paperswithcode.com/datasets 
+
+has curated licenses for some datasets. Their licensing guide can help determine the license of a dataset. • For existing datasets that are re-packaged, both the original license and the license of the derived asset (if it has changed) should be provided. • If this information is not available online, the authors are encouraged to reach out to the asset’s creators. 13. New assets 
+
+Question: Are new assets introduced in the paper well documented and is the documentation provided alongside the assets? 35 Answer: [N/A] Justification: The paper introduces a new model but does not release new datasets or pre-trained model assets at submission time. Code and model weights will be released upon acceptance. Guidelines: • The answer [N/A] means that the paper does not release new assets. • Researchers should communicate the details of the dataset/code/model as part of their submissions via structured templates. This includes details about training, license, limitations, etc. • The paper should discuss whether and how consent was obtained from people whose asset is used. • At submission time, remember to anonymize your assets (if applicable). You can either create an anonymized URL or include an anonymized zip file. 14. Crowdsourcing and research with human subjects 
+
+Question: For crowdsourcing experiments and research with human subjects, does the paper include the full text of instructions given to participants and screenshots, if applicable, as well as details about compensation (if any)? Answer: [N/A] Justification: This work does not involve crowdsourcing or research with human subjects. Guidelines: • The answer [N/A] means that the paper does not involve crowdsourcing nor research with human subjects. • Including this information in the supplemental material is fine, but if the main contribu-tion of the paper involves human subjects, then as much detail as possible should be included in the main paper. • According to the NeurIPS Code of Ethics, workers involved in data collection, curation, or other labor should be paid at least the minimum wage in the country of the data collector. 15. Institutional review board (IRB) approvals or equivalent for research with human subjects 
+
+Question: Does the paper describe potential risks incurred by study participants, whether such risks were disclosed to the subjects, and whether Institutional Review Board (IRB) approvals (or an equivalent approval/review based on the requirements of your country or institution) were obtained? Answer: [N/A] Justification: This work does not involve human subjects. Guidelines: • The answer [N/A] means that the paper does not involve crowdsourcing nor research with human subjects. • Depending on the country in which research is conducted, IRB approval (or equivalent) may be required for any human subjects research. If you obtained IRB approval, you should clearly state this in the paper. • We recognize that the procedures for this may vary significantly between institutions and locations, and we expect authors to adhere to the NeurIPS Code of Ethics and the guidelines for their institution. • For initial submissions, do not include any information that would break anonymity (if applicable), such as the institution conducting the review. 16. Declaration of LLM usage 
+
+Question: Does the paper describe the usage of LLMs if it is an important, original, or non-standard component of the core methods in this research? Note that if the LLM is used only for writing, editing, or formatting purposes and does not impact the core methodology, scientific rigor, or originality of the research, declaration is not required. 36 Answer: [N/A] Justification: No LLMs are used as a core methodological contribution. Guidelines: • The answer [N/A] means that the core method development in this research does not involve LLMs as any important, original, or non-standard components. • Please refer to our LLM policy in the NeurIPS handbook for what should or should not be described. 37
