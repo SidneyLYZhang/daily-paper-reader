@@ -6,95 +6,85 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-06-01 ~ 2026-06-10
-- 运行时间：2026-06-10 04:02:37 UTC
+- 最新运行日期：2026-06-11
+- 运行时间：2026-06-11 22:56:04 UTC
 - 运行状态：成功
-- 本次总论文数：25
-- 精读区：12
+- 本次总论文数：21
+- 精读区：8
 - 速读区：13
 
 ### 今日简报（AI）
-今日日报精读12篇，聚焦软体机器人泛化控制与临床AI贝叶斯建模两大突破。最值得关注的是强化学习在软体机器人跨构型控制中的泛化能力，以及端到端不确定性审计在医疗多模态数据中的应用。建议下一步重点关注软体机器人控制泛化方法，并了解临床AI的公平性评估工具。
-- 详情：[/20260601-20260610/README](/20260601-20260610/README)
+今日推荐21篇论文，精读8篇，重点聚焦深度学习训练动力学与多智能体强化学习。  
+精读中《When Both Layers Learn》和《Episodic Memory Temporal Consistency》均获9.0高分，分别揭示ReLU网络双层学习机制与合作多智能体时序记忆价值。  
+建议优先精读这两篇，以把握理论动态与算法创新；速读中策略梯度与图神经网络鲁棒性方向也值得扩展关注。
+- 详情：[/202606/11/README](/202606/11/README)
 
 ### 精读区论文标签
-1. [Reinforcement learning in linear embedding space unlocks generalizable control across soft robot configurations](/20260601-20260610/2606.08104v1-reinforcement-learning-in-linear-embedding-space-unlocks-generalizable-control-across-soft-robot-configurations)  
-   标签：评分：10.0/10、query:rl-semantic
-   evidence：在线性嵌入空间中强化学习实现软体机器人控制，直接涉及嵌入空间
-2. [Principled Uncertainty in Clinical AI: End-to-End Bayesian Modelling and Algorithmic Equity Auditing Across Multimodal Patient Data](/20260601-20260610/2606.09789v1-principled-uncertainty-in-clinical-ai-end-to-end-bayesian-modelling-and-algorithmic-equity-auditing-across-multimodal-patient-data)  
-   标签：评分：10.0/10、query:npl-bdl-saig
-   evidence：贝叶斯深度学习用于临床AI
-3. [PHASOR: Phase-Anchored Universal Action Representations for Humanoid Embodiments](/20260601-20260610/2606.01851v1-phasor-phase-anchored-universal-action-representations-for-humanoid-embodiments)  
-   标签：评分：9.0/10、query:rl-semantic
-   evidence：将动作嵌入空间作为机器人强化学习策略学习的一类表示
-4. [Task-Induced Representational Invariances Depend on Learning Objective in Deep RL](/20260601-20260610/2606.01868v1-task-induced-representational-invariances-depend-on-learning-objective-in-deep-rl)  
-   标签：评分：9.0/10、query:rl-semantic
-   evidence：深度RL表示不变性研究
-5. [Dynamics Are Learned, Not Told: Semi-Supervised Discovery of Latent Dynamics Geometries For Zero-Shot Policy Adaptation](/20260601-20260610/2606.02280v1-dynamics-are-learned-not-told-semi-supervised-discovery-of-latent-dynamics-geometries-for-zero-shot-policy-adaptation)  
-   标签：评分：9.0/10、query:rl-semantic
-   evidence：在强化学习中发现潜在动态几何用于零样本策略适应
-6. [Minimax-Optimal Policy Regret in Partially Observable Markov Games](/20260601-20260610/2606.02363v1-minimax-optimal-policy-regret-in-partially-observable-markov-games)  
-   标签：评分：9.0/10、query:rl-semantic
-   evidence：在部分可观测环境中学习潜在动力学
-7. [On the fibers and semi-algebraicity of ReLU neuromanifolds](/20260601-20260610/2606.02826v1-on-the-fibers-and-semi-algebraicity-of-relu-neuromanifolds)  
+1. [When Both Layers Learn: Training Dynamics of Representing Linear Models via ReLU Networks](/202606/11/2606.04476v1-when-both-layers-learn-training-dynamics-of-representing-linear-models-via-relu-networks)  
    标签：评分：9.0/10、query:ml-theory
-   evidence：研究ReLU神经流形的半代数性，属代数几何在神经网络中的应用
-8. [The Value Function Semi-Algebraic Set in Partially Observable Markov Decision Processes](/20260601-20260610/2606.03048v1-the-value-function-semi-algebraic-set-in-partially-observable-markov-decision-processes)  
-   标签：评分：9.0/10、query:ml-theory
-   evidence：代数几何用于强化学习值函数刻画
-9. [Spectral criteria for generalization in unsupervised Hebbian nets](/20260601-20260610/2606.04651v1-spectral-criteria-for-generalization-in-unsupervised-hebbian-nets)  
-   标签：评分：9.0/10、query:ml-theory
-   evidence：随机矩阵理论分析无监督Hebbian网络泛化
-10. [Representation Learning Enables Scalable Multitask Deep Reinforcement Learning](/20260601-20260610/2606.05555v1-representation-learning-enables-scalable-multitask-deep-reinforcement-learning)  
+   evidence：研究ReLU网络训练中的梯度下降动态和非严格鞍点
+2. [Episodic Memory Temporal Consistency for Cooperative Multi-Agent Reinforcement Learning](/202606/11/2606.04492v1-episodic-memory-temporal-consistency-for-cooperative-multi-agent-reinforcement-learning)  
    标签：评分：9.0/10、query:rl-semantic
-   evidence：表示学习是多任务RL可扩展性的核心，契合状态表示学习
-11. [Dead Directions: Geometric Singular Learning](/20260601-20260610/2606.05957v1-dead-directions-geometric-singular-learning)  
-   标签：评分：9.0/10、query:npl-bdl-saig
-   evidence：通过死方向桥接奇异学习理论与信息几何，用Fisher曲率刻画KL散度阶数
-12. [Explicit Convergence Regions of PID-Damped Accelerated Gradient Methods in Nonconvex Optimization](/20260601-20260610/2606.07340v1-explicit-convergence-regions-of-pid-damped-accelerated-gradient-methods-in-nonconvex-optimization)  
+   evidence：多智能体强化学习中的语义嵌入器与对比状态重建
+3. [Mitigating the Curse of Dimensionality in Uniform Convergence of Deep Neural Networks via Smooth Activations](/202606/11/2606.05599v1-mitigating-the-curse-of-dimensionality-in-uniform-convergence-of-deep-neural-networks-via-smooth-activations)  
    标签：评分：9.0/10、query:ml-theory
-   evidence：非凸优化的显式收敛区域
+   evidence：平滑激活DNN的非渐近界，解决非凸优化中的收敛问题
+4. [TARPO: Token-Wise Latent-Explicit Reasoning via Action-Routing Policy Optimization](/202606/11/2606.05859v1-tarpo-token-wise-latent-explicit-reasoning-via-action-routing-policy-optimization)  
+   标签：评分：9.0/10、query:rl-semantic
+   evidence：通过令牌级路由实现强化学习用于潜在语义表示
+5. [Learning Dynamics Reveal a Hierarchy of Weight-Induced Layerwise Gram Metrics](/202606/11/2606.09744v1-learning-dynamics-reveal-a-hierarchy-of-weight-induced-layerwise-gram-metrics)  
+   标签：评分：9.0/10、query:ml-theory
+   evidence：学习动态中的层间Gram度量和权重诱导几何
+6. [Dual Advantage Fields](/202606/11/2606.04188v1-dual-advantage-fields)  
+   标签：评分：8.0/10、query:rl-semantic
+   evidence：离线目标条件强化学习中利用双目标表示和动作效果模型进行嵌入空间构建
+7. [From Ticks to Flows: Dynamics of Neural Reinforcement Learning in Continuous Environments](/202606/11/2606.04275v1-from-ticks-to-flows-dynamics-of-neural-reinforcement-learning-in-continuous-environments)  
+   标签：评分：8.0/10、query:npl-bdl-saig
+   evidence：连续时间随机过程的深度强化学习理论，随机控制视角
+8. [Efficient Mean Curvature Computation on High-Dimensional Data Manifolds](/202606/11/2606.06329v1-efficient-mean-curvature-computation-on-high-dimensional-data-manifolds)  
+   标签：评分：8.0/10、query:ml-theory
+   evidence：数据流形上的平均曲率计算，几何机器学习的关键技术
 
 ### 速读区论文标签
-1. [PHASOR: Phase-Anchored Universal Action Representations for Humanoid Embodiments](/20260601-20260610/2606.01851v2-phasor-phase-anchored-universal-action-representations-for-humanoid-embodiments)  
-   标签：评分：8.0/10、query:rl-semantic
-   evidence：将动作嵌入空间作为一等表示，相位锚定的通用动作表示，属于RL中的嵌入空间
-2. [Active Exploring like a Pigeon: Reinforcing Spatial Reasoning via Agentic Vision-Language Models](/20260601-20260610/2606.02459v1-active-exploring-like-a-pigeon-reinforcing-spatial-reasoning-via-agentic-vision-language-models)  
-   标签：评分：8.0/10、query:rl-semantic
-   evidence：强化学习结合动态认知地图进行空间推理
-3. [Expressivity of congruence-based architectures for DNNs on positive-definite matrices](/20260601-20260610/2606.02490v1-expressivity-of-congruence-based-architectures-for-dnns-on-positive-definite-matrices)  
+1. [Policy Gradient for Continuous-Time Robust Markov Decision Processes](/202606/11/2606.04335v1-policy-gradient-for-continuous-time-robust-markov-decision-processes)  
+   标签：评分：8.0/10、query:npl-bdl-saig
+   evidence：使用随机微分方程的连续时间鲁棒MDP策略梯度，属于随机分析应用
+2. [Policy Gradient for Continuous-Time Robust Markov Decision Processes](/202606/11/2606.04335v2-policy-gradient-for-continuous-time-robust-markov-decision-processes)  
+   标签：评分：8.0/10、query:npl-bdl-saig
+   evidence：使用随机微分方程的连续时间鲁棒MDP策略梯度，属于随机分析应用
+3. [PAC-Bayesian Adversarially Robust Generalization for Message Passing Graph Neural Networks: A Sensitivity Analysis](/202606/11/2606.06293v1-pac-bayesian-adversarially-robust-generalization-for-message-passing-graph-neural-networks-a-sensitivity-analysis)  
+   标签：评分：8.0/10、query:npl-bdl-saig
+   evidence：图神经网络的PAC-贝叶斯鲁棒泛化分析
+4. [OptMuon: Closed-Loop Orthogonalized Momentum Methods for Stochastic Optimization with Zero-Noise Optimality](/202606/11/2606.08783v1-optmuon-closed-loop-orthogonalized-momentum-methods-for-stochastic-optimization-with-zero-noise-optimality)  
    标签：评分：8.0/10、query:ml-theory
-   evidence：分析基于同余操作的神经网络架构在SPD矩阵上的表达能力，属于几何深度学习
-4. [ConTraIRL: Factorized Contrastive Abstractions for Transferable IRL](/20260601-20260610/2606.03017v1-contrairl-factorized-contrastive-abstractions-for-transferable-irl)  
-   标签：评分：8.0/10、query:rl-semantic
-   evidence：强化学习中的潜在空间表示
-5. [CLAW: Learning Continuous Latent Action World Models via Adversarial Latent Regularization](/20260601-20260610/2606.04130v1-claw-learning-continuous-latent-action-world-models-via-adversarial-latent-regularization)  
-   标签：评分：8.0/10、query:rl-semantic
-   evidence：潜动作表示用于世界模型
-6. [Policy and World Modeling Co-Training for Language Agents](/20260601-20260610/2606.02388v1-policy-and-world-modeling-co-training-for-language-agents)  
-   标签：评分：7.0/10、query:rl-semantic
-   evidence：利用强化学习轨迹协同训练策略与世界模型，学习潜在动力学
-7. [A Nonmonotone Gradient-Based Algorithm for Symmetric Nonnegative Matrix Factorization and Graph Clustering](/20260601-20260610/2606.02887v1-a-nonmonotone-gradient-based-algorithm-for-symmetric-nonnegative-matrix-factorization-and-graph-clustering)  
+   evidence：提出了用于深度学习随机非凸优化的自适应动量正交化方法
+5. [Generalization in Nonlinear Least Squares via Learned Feature Geometry](/202606/11/2606.08799v1-generalization-in-nonlinear-least-squares-via-learned-feature-geometry)  
+   标签：评分：8.0/10、query:ml-theory
+   evidence：基于学习特征几何的泛化分析，经验雅可比Gram矩阵
+6. [A Geometric Characterization of the Stationary Plateau for Two-Layer Neural Networks](/202606/11/2606.04327v1-a-geometric-characterization-of-the-stationary-plateau-for-two-layer-neural-networks)  
    标签：评分：7.0/10、query:ml-theory
-   evidence：非单调梯度算法用于对称NMF，非凸优化使用Barzilai-Borwein方法
-8. [Entropy Is Not Enough: Unlocking Effective Reinforcement Learning for Visual Reasoning via Vision-Anchored Token Selection](/20260601-20260610/2606.03937v1-entropy-is-not-enough-unlocking-effective-reinforcement-learning-for-visual-reasoning-via-vision-anchored-token-selection)  
+   evidence：神经网络损失景观的几何刻画
+7. [Learning Predictive Control with Deep Koopman Operators for Autonomous Vehicle Motion Planning](/202606/11/2606.08136v1-learning-predictive-control-with-deep-koopman-operators-for-autonomous-vehicle-motion-planning)  
    标签：评分：7.0/10、query:rl-semantic
-   evidence：视觉锚定Token选择用于强化学习中的语义探索
-9. [EpiFormer: Learning Antigen-Antibody Interactions for Epitope Prediction via Geometric Deep Learning](/20260601-20260610/2606.04154v1-epiformer-learning-antigen-antibody-interactions-for-epitope-prediction-via-geometric-deep-learning)  
+   evidence：深度Koopman算子用于强化学习控制中的潜在空间表示
+8. [On solving symmetric multi-type orthogonal non-negative matrix tri-factorization problem](/202606/11/2606.08291v1-on-solving-symmetric-multi-type-orthogonal-non-negative-matrix-tri-factorization-problem)  
    标签：评分：7.0/10、query:ml-theory
-   evidence：几何深度学习用于抗原表位预测
-10. [ReSkill: Reconciling Skill Creation with Policy Optimization in Agentic RL](/20260601-20260610/2606.01619v1-reskill-reconciling-skill-creation-with-policy-optimization-in-agentic-rl)  
-   标签：评分：6.0/10、query:rl-semantic
-   evidence：在强化学习中创建技能以优化策略，与状态表示学习相关
-11. [ReSkill: Reconciling Skill Creation with Policy Optimization in Agentic RL](/20260601-20260610/2606.01619v2-reskill-reconciling-skill-creation-with-policy-optimization-in-agentic-rl)  
-   标签：评分：6.0/10、query:rl-semantic
-   evidence：在强化学习中创建技能以优化策略，与状态表示学习相关
-12. [QUIVER: Quantum-Informed Views for Enhanced Representations in Large ML Models](/20260601-20260610/2606.02785v1-quiver-quantum-informed-views-for-enhanced-representations-in-large-ml-models)  
-   标签：评分：6.0/10、query:npl-bdl-saig
-   evidence：利用量子Fisher几何信息增强机器学习表示，涉及信息几何
-13. [Learning Manifold and Itô Dynamics with Branched Neural Rough Differential Equations](/20260601-20260610/2606.05272v1-learning-manifold-and-it-dynamics-with-branched-neural-rough-differential-equations)  
+   evidence：对称多类型正交非负矩阵三分解中的非凸优化
+9. [Fourier fractal dimension to predict the generalization of deep neural networks](/202606/11/2606.08308v1-fourier-fractal-dimension-to-predict-the-generalization-of-deep-neural-networks)  
+   标签：评分：7.0/10、query:npl-bdl-saig
+   evidence：莱维驱动的随机微分方程和傅里叶分形维数用于泛化预测
+10. [Optimal Stochastic Krylov based Techniques for Large- Scale Log-Determinant Estimation](/202606/11/2606.07004v1-optimal-stochastic-krylov-based-techniques-for-large--scale-log-determinant-estimation)  
    标签：评分：6.0/10、query:ml-theory
-   evidence：引入基于Hopf代数的分支神经粗糙微分方程，学习流形和伊藤动力学，桥接几何与代数
+   evidence：随机Krylov方法用于对数行列式估计，涉及随机矩阵近似
+11. [A Geometric View for Understanding Concept Learning and Neuron Interpretation in Sparse Autoencoders](/202606/11/2606.07007v1-a-geometric-view-for-understanding-concept-learning-and-neuron-interpretation-in-sparse-autoencoders)  
+   标签：评分：6.0/10、query:ml-theory
+   evidence：稀疏自编码器中概念学习的几何框架，与表示学习相关
+12. [Beyond Linear and Overcomplete Regimes: A Mean-Field Analysis of Bottleneck Autoencoders](/202606/11/2606.07120v1-beyond-linear-and-overcomplete-regimes-a-mean-field-analysis-of-bottleneck-autoencoders)  
+   标签：评分：6.0/10、query:rl-semantic
+   evidence：瓶颈自编码器的平均场分析用于潜在空间学习
+13. [Light-WAM: Efficient World Action Models with State-Fusion Action Decoding](/202606/11/2606.08242v1-light-wam-efficient-world-action-models-with-state-fusion-action-decoding)  
+   标签：评分：6.0/10、query:rl-semantic
+   evidence：通过潜空间未来预测进行状态表示学习
 
 
 <div class="dpr-home-promo-card">

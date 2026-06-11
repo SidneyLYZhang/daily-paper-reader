@@ -1,0 +1,5453 @@
+Title: OptMuon: Closed-Loop Orthogonalized Momentum Methods for Stochastic Optimization with Zero-Noise Optimality
+
+URL Source: https://arxiv.org/pdf/2606.08783v1
+
+Published Time: Tue, 09 Jun 2026 01:26:22 GMT
+
+Number of Pages: 38
+
+Markdown Content:
+# OptMuon: Closed-Loop Orthogonalized Momentum Methods for Stochastic Optimization with Zero-Noise Optimality 
+
+Ganzhao Yuan YUANGANZHAO @FOXMAIL .COM 
+
+Faculty of Computer Science and Artificial Intelligence Shenzhen University of Advanced Technology (SUAT), China 
+
+Abstract 
+
+Orthogonalized momentum updates, as used in Muon-style optimizers, have recently shown strong empirical stability in large-scale deep learning. However, existing orthogonalized methods are typ-ically paired with constant or open-loop magnitude rules, and therefore do not explicitly calibrate their update magnitudes from the observed optimization trajectory. Motivated by the closed-loop perspective behind Lipschitz-free and noise-adaptive methods, we propose OptMuon, a family of adaptive momentum orthogonalization methods for stochastic nonconvex optimization. OptMuon combines Muon-style polar-factor directions with a trajectory-dependent AdaGrad-Norm-type co-efficient schedule, so that the update magnitude is determined by the observed gradient and mo-mentum history rather than by a prescribed Lipschitz-dependent rule. The schedule does not use the smoothness constant, the variance level, or the bounded-gradient constant in parameter selection, and its running-maximum correction prevents isolated gradient spikes from causing excessive co-efficient collapse. Under lower-boundedness, unbiased stochastic gradients with bounded variance, smoothness, and an almost-sure bounded stochastic-gradient condition, we prove two complemen-tary guarantees. OptMuon-A achieves the noise-adaptive rate ˜O(T −1/2 + σ1/2T −1/4) under aver-age smoothness, while OptMuon-I achieves ˜O(T −1/2 + σ1/3T −1/3) under individual smoothness. In the zero-noise regime, both bounds automatically reduce to a nearly optimal deterministic first-order rate ˜O(T −1/2) without manual hyperparameter retuning. These results show that closed-loop scalar adaptation can be combined with Muon-style momentum orthogonalization while retaining noise adaptivity and zero-noise optimality up to logarithmic factors. 
+
+Keywords: Stochastic Nonconvex Optimization; Adaptive Methods; Orthogonalized Momentum; Muon; Noise Adaptivity; Lipschitz-free Algorithms; Convergence Analysis. 
+
+1. Introduction 
+
+We study stochastic first-order methods for the matrix-valued nonconvex problem 
+
+min  
+
+> X∈Rm×n
+
+f (X) := Eξ∼D [f (X; ξ)] , (1) where ξ is sampled independently from an unknown distribution D. The performance criterion is the standard expected stationarity measure: given T stochastic-gradient calls, return a random iterate 
+
+Xout with small E∥∇ f (Xout )∥F. The matrix notation is chosen to match Muon-style layerwise updates; vector-valued parameters can be handled by the usual reshaping or blockwise formulation. The analysis assumes lower boundedness, unbiased stochastic gradients with bounded variance, smoothness, and an explicit almost-sure bounded stochastic-gradient condition. Stochastic gradient methods remain the computational backbone of modern machine learning. Classical SGD and momentum methods are simple and scalable, whereas adaptive methods such as AdaGrad and Adam-type algorithms improve robustness by using observed gradient statistics to 
+
+> © G. Yuan.
+> arXiv:2606.08783v1 [math.OC] 7 Jun 2026 YUAN
+
+calibrate update magnitudes (Duchi et al., 2011; Ward et al., 2020; Chen et al., 2022). A persistent difficulty is that the search direction, the step magnitude, and the noise level are often controlled by the same raw stochastic-gradient vector. This coupling makes hyperparameter choices sensitive to the smoothness scale and to changes in variance across training phases. A complementary line of work modifies the geometry of the update direction. Muon-style methods transform a matrix-valued momentum into an approximately orthogonal direction, typi-cally through a polar-factor computation or a small number of Newton–Schulz iterations (Kim and Oh, 2026; Chang et al., 2025; Huang et al., 2025). This operation separates the orientation of the update from anisotropic singular-value scaling. Existing Muon analyses and several early theoret-ical variants pair the orthogonalized direction with a fixed or otherwise open-loop magnitude rule. Recent adaptive variants of Muon have begun to investigate norm-based or coordinate-wise scal-ing mechanisms, which further motivates a systematic study of closed-loop scalar adaptation for orthogonalized momentum. In a separate line of theory, STORM-type and AdaGrad-Norm-type methods adapt the update magnitude from the observed trajectory rather than from a prescribed smoothness-dependent sched-ule (Cutkosky and Orabona, 2019; Levy et al., 2021; Liu et al., 2022; Jiang et al., 2024). Their most relevant feature for the present paper is noise adaptivity: the stochastic term in the convergence bound improves automatically as the variance parameter σ decreases, and the deterministic first-order rate is recovered when σ = 0 . The central question addressed here is whether this closed-loop scalar adaptation can be combined with Muon-style orthogonalized momentum without losing the geometric stability of the polar-factor direction. This paper proposes OptMuon, a closed-loop orthogonalized momentum framework for stochas-tic nonconvex optimization. The direction is the polar factor Orth( Mt) of a momentum matrix Mt,while the magnitude is governed by a scalar coefficient computed from the observed gradient and momentum history. The coefficient has an AdaGrad-Norm flavor: accumulated stochastic-gradient energy suppresses steps in noisy regimes, whereas the running maximum in the numerator prevents the coefficient from collapsing after isolated gradient spikes. The method is Lipschitz-free in the algorithmic sense: its parameters do not require the smoothness constant L, the variance σ2, or the bounded-gradient constant ˆG, even though these quantities appear in the proof constants. We analyze two variants. O PT MUON -A uses one stochastic gradient per iteration and is ana-lyzed under average smoothness. O PT MUON -I uses a STORM-type recursive correction evaluated on the same sample at two consecutive points and is analyzed under individual smoothness. Under the assumptions in Section 3, the guarantees in Section 5 imply OPT MUON -A : E∥∇ f (Xout )∥F ≤ ˜O
+
+
+
+T −1/2 + σ1/2T −1/4
+
+, Average smoothness ,
+
+OPT MUON -I : E∥∇ f (Xout )∥F ≤ ˜O
+
+
+
+T −1/2 + σ1/3T −1/3
+
+, Individual smoothness .
+
+Both bounds reduce automatically to ˜O(T −1/2) in the zero-noise regime. Thus, the paper ex-tends zero-noise adaptivity from scalar adaptive stepsize rules to polar-factor momentum updates. 
+
+Contributions. The paper makes the following contributions. • Closed-loop Momentum Orthogonalization. We introduce OptMuon, a stochastic first-order framework in which the update direction is the polar factor Orth( Mt) and the update magni-tude is determined by a scalar self-normalized schedule. This design cleanly separates matrix geometry from magnitude calibration. 
+
+> 2OPT MUON
+
+• Running-Maximum Corrected AdaGrad-Norm Schedule. The proposed coefficient is driven by accumulated stochastic-gradient energy but corrected by a running maximum. This design preserves the self-normalized suppression effect of AdaGrad-Norm while preventing a single gradient spike from causing excessive coefficient collapse. • Noise-Adaptive Convergence Rates. Under lower boundedness, unbiasedness, bounded vari-ance, smoothness, and almost-sure bounded stochastic gradients, OptMuon-A attains the average-smoothness rate ˜O(T −1/2 + σ1/2T −1/4), while OptMuon-I attains the individual-smoothness rate ˜O(T −1/2 + σ1/3T −1/3).• Zero-Noise Optimality for Orthogonalized Updates. When σ = 0 , both guarantees reduce without retuning to the nearly deterministic ˜O(T −1/2) stationarity rate. This shows that closed-loop scalar adaptation can be coupled with Muon-style orthogonalization without sacrificing its zero-noise behavior. 
+
+Organization. Section 2 discusses related work. Section 3 introduces notation, the orthogonaliza-tion operator, and the assumptions. Section 4 presents the OptMuon algorithms. Section 5 proves the convergence guarantees, and Section 6 concludes. 
+
+2. Related Work 
+
+Stochastic Nonconvex Optimization. The standard complexity theory of stochastic first-order methods for smooth nonconvex objectives studies expected stationarity measures such as E∥∇ f (Xout )∥F
+
+or their squared-norm variants (Ghadimi and Lan, 2013; Ghadimi et al., 2016). Under unbiased stochastic gradients with bounded variance, SGD-type methods typically require stepsizes tuned to the smoothness and noise level. Adaptive methods reduce this sensitivity by using gradient history to set coordinate-wise or norm-based magnitudes (Duchi et al., 2011; Ward et al., 2020; Chen et al., 2022). OptMuon follows this adaptive viewpoint but applies scalar adaptation to an orthogonalized momentum direction rather than to the raw gradient. 
+
+Noise-Adaptive and Lipschitz-Free Methods. Momentum-based variance reduction and recur-sive gradient estimators have led to sharp noise-adaptive rates for nonconvex stochastic optimiza-tion. STORM-type methods exploit a recursive estimator to obtain rates with stochastic terms of or-der σ1/3T −1/3 under individual smoothness (Cutkosky and Orabona, 2019). Subsequent Lipschitz-free variants, including STORM + and META-STORM, further reduce dependence on problem pa-rameters while preserving noise adaptivity (Levy et al., 2021; Liu et al., 2022). Adaptive variance-reduction schemes have also been studied under weaker or alternative assumptions (Jiang et al., 2024). These methods provide closed-loop scalar rules, but they do not use Muon-style polar-factor directions. 
+
+Orthogonalized and Normalized updates. Normalized-gradient and orthogonalized-gradient meth-ods modify the direction of the update so that the magnitude is not dictated by the raw gradient norm. For matrix-valued parameters, Muon-style optimizers use a polar-factor or Newton–Schulz approxi-mation of a momentum matrix, which equalizes singular directions and changes the geometry of the search step (Kim and Oh, 2026; Riabinin et al., 2025). Existing analyses of orthogonalized methods are largely based on open-loop or constant magnitude choices. OptMuon complements this line of work by combining polar-factor momentum with a trajectory-dependent magnitude schedule. 
+
+> 3YUAN
+
+Adaptive Scaling for Muon-style Updates. Several recent works have begun to study adaptive scaling mechanisms for orthogonalized updates. AdaGO combines a norm-based AdaGrad-type stepsize with an orthogonalized update direction and establishes convergence guarantees in deter-ministic and stochastic nonconvex settings (Zhang et al., 2025). AdaMuon combines element-wise adaptivity with orthogonal updates and is mainly motivated by large-scale neural-network training (Si et al., 2025). NAMO and NAMO-D further integrate norm-based Adam-type noise adaptation with orthogonalized momentum and provide convergence guarantees together with GPT pretraining experiments (Zhang et al., 2026). Distance-Aware Muon studies adaptive step scaling for normal-ized optimization from a trust-region and trajectory-distance perspective (Demidovich et al., 2026). OptMuon is complementary to these works: its scalar schedule is a lagged, monotone, running-maximum corrected AdaGrad-Norm coefficient, and the analysis emphasizes explicit noise-adaptive rate decompositions and zero-noise recovery for Muon-style polar-factor momentum. 
+
+Relation to Recent Muon Convergence Theory. This work is complementary to recent conver-gence analyses of Muon and its variance-reduced variants. In particular, Chang et al. (2025) study horizon-free variance-reduced Muon-type methods and show that variance reduction can recover the optimal stochastic nonconvex rate under appropriate smoothness assumptions. Our focus is dif-ferent: we do not aim to replace the variance-reduction theory in that work. Instead, we ask whether Muon-style polar-factor momentum can be combined with a closed-loop scalar coefficient sched-ule that is selected from the observed trajectory and automatically separates the deterministic and stochastic terms in the final bound. Thus, the main novelty here is the trajectory-dependent coeffi-cient design and the resulting zero-noise adaptive rate split for orthogonalized momentum updates. 
+
+Comparison with Representative Methods. Table 1 summarizes the comparison most relevant to this paper. The table focuses on mini-batch first-order methods for finding an ε-stationary point in expectation. The rates reported for OptMuon match the guarantees proved in Section 5; all logarithmic factors are suppressed in ˜O(·) notation. 
+
+3. Preliminaries 
+
+This section introduces the notation, the orthogonalization operator, and the standing assumptions used in the main analysis. 
+
+Notation. For matrices A, B ∈ Rm×n, let ⟨A, B⟩ := tr( A⊤B) be the Frobenius inner product, and let ∥A∥F, ∥A∥2, and ∥A∥∗ denote the Frobenius, spectral, and nuclear norms, respectively. We write E[·] for total expectation and Et[·] := E[· | F t−1] for conditional expectation with respect to the natural filtration {F t}t≥0. The stochastic gradient at iteration t is denoted by 
+
+Gt := ∇f (Xt; ξt), gt := ∥Gt∥F.
+
+3.1. Orthogonalization Operator 
+
+For a nonzero matrix M ∈ Rm×n, let M = UΣW⊤ be a thin singular value decomposition. We define the polar-factor orthogonalization operator by 
+
+Orth( M) := UW ⊤,
+
+and set Orth( 0) := 0. The analysis uses only the following elementary properties: 
+
+> 4
+
+OPT MUON 
+
+Table 1: Comparison of representative mini-batch first-order stochastic methods for finding an ϵ-approximate solution X satisfying E[∥∇ f (X)∥F] ≤ ϵ. The notation ˜O(·) hides polylogarithmic factors. We distinguish adaptive effective scaling from the closed-loop zero-noise recovery property studied in this paper. All methods assume lower-boundedness, unbiased gradients with bounded variance, and smoothness; the column “Additional Assum.” lists extra conditions used in the stated guarantees. Algorithm Smoothness Assum. Adaptive Scaling CLZO Recovery Additional Assum. Convergence Rate AdaGO Zhang et al. (2025) Average ✔ scalar AdaGrad-type ✘ — O(T −1/4)                                                                
+
+> AdaMuon Si et al. (2025) Average ✔element-wise ✘—O(T−1/4)
+> NAMO Zhang et al. (2026) Average ✔Adam-type scalar ✘†—O(T−1/4)‡
+> MuonNS Kim and Oh (2026) Average ✘open-loop ✘—O(T−1/4)
+> Muon-MVR1 Chang et al. (2025) Average ✘open-loop / VR ✘—O(T−1/4)
+> OptMuon-A [ours] Average ✔closed-loop scalar ✔BG ˜O(T−1/2+σ1/2T−1/4)
+> Muon-MVR2 Chang et al. (2025) Individual ✘open-loop / VR ✘—O(T−1/3)
+> LiMuon Huang et al. (2025) Individual ✘open-loop ✘—O(T−1/3)
+> OptMuon-I [ours] Individual ✔closed-loop scalar + VR ✔BG ˜O(T−1/2+σ1/3T−1/3)
+
+Note: “Adaptive Scaling” means that the effective update magnitude uses observed gradient or momentum statistics. “CLZO Recovery” means closed-loop zero-noise recovery: the same online scalar rule yields an explicit bound of the form ˜O(T −1/2 + ψ(σ, T )) , and hence recovers ˜O(T −1/2) when σ = 0 , without retuning to the noise level. BG denotes almost-sure bounded stochastic gradients. VR denotes variance-reduction or recursive-gradient-estimator mechanisms.  
+
+> †
+
+NAMO has norm-based Adam-type adaptive scaling, but its update still uses a prescribed learning rate; thus it is not counted as closed-loop zero-noise recovery in the sense above. ‡ The displayed NAMO rate is the stochastic mini-batch rate under the comparison convention; its deterministic guarantee is separate and uses a different parameter scaling. 
+
+(P1) Spectral boundedness: ∥ Orth( M)∥2 ≤ 1.(P2) Frobenius boundedness: ∥ Orth( M)∥2F ≤ n.(P3) Alignment: ⟨Orth( M), M⟩ = ∥M∥∗ ≥ ∥ M∥F whenever M̸ = 0.In implementation, the exact polar factor can be replaced by a few Newton–Schulz iterations, as in Muon-style optimizers. The present theory treats exact orthogonalization; inexact orthogonalization would introduce an additional approximation term. 
+
+3.2. Standing Assumptions Assumption 1 (Lower-bounded objective) There exists f∗ > −∞ such that f (X) ≥ f∗ for all 
+
+X ∈ Rm×n.
+
+Assumption 2 (Unbiased stochastic gradients with bounded variance) For every X ∈ Rm×n,
+
+Eξ
+
+∇f (X; ξ) = ∇f (X), Eξ
+
+∥∇ f (X; ξ) − ∇ f (X)∥2F
+
+ ≤ σ2.
+
+Assumption 3 (Smoothness) At least one of the following conditions holds. 
+
+(a) Average L-smoothness: 
+
+∥∇ f (X) − ∇ f (Y)∥F ≤ L∥X − Y∥F, ∀X, Y ∈ Rm×n.
+
+5YUAN 
+
+(b) Individual L-smoothness: 
+
+∥∇ f (X; ξ) − ∇ f (Y; ξ)∥F ≤ L∥X − Y∥F, ∀X, Y ∈ Rm×n, ∀ξ. 
+
+Assumption 4 (Bounded stochastic gradients) There exists ˆG > 0 such that, almost surely, 
+
+∥∇ f (X; ξ)∥F ≤ ˆG, ∀X ∈ Rm×n.
+
+Consequently, Jensen’s inequality gives ∥∇ f (X)∥F ≤ ˆG for all X.
+
+Remark 5 ❶ Assumptions 1–3 are standard in stochastic nonconvex optimization. Assumption 4 is stronger and is used to obtain pathwise control of the adaptive normalizers, the estimator tracking error, and the orthogonalized update magnitude. We do not claim a bounded-gradient-free theory. 
+
+❷ The term “Lipschitz-free” is used only in the algorithmic sense: the parameters of OptMuon do not require the smoothness constant L, the variance level σ2, or the bound ˆG, although these quantities enter the constants in the convergence analysis. 
+
+4. The OptMuon Algorithms 
+
+In this section, we present OptMuon, a closed-loop momentum orthogonalization framework. The algorithm preserves the Muon-style update structure while replacing open-loop magnitude control with a trajectory-dependent adaptive schedule. The resulting update is Lipschitz-free in the algo-rithmic sense: no parameter is tuned using the smoothness constant L.To accommodate different smoothness regimes, OptMuon has two variants. Option A is de-signed for average smoothness and uses one stochastic gradient per iteration. Option I is designed for individual smoothness and uses a STORM-type recursive momentum estimator. Both variants share the same orthogonalized update template; they differ in the coefficient exponent q, the estima-tor Mt, and the adaptive factor γt.
+
+Steps S1 & S2: Adaptive Parameter Tracking. At iteration t, OptMuon draws a mini-batch ξt
+
+and computes 
+
+Gt := ∇f (Xt; ξt), gt := ∥Gt∥F.
+
+The coefficient used at iteration t is the lagged quantity αt = ρt−1, and is therefore Ft−1-measurable. After observing gt, we update ρt, which will be used to form αt+1 . We initialize α1 = 1 and set 
+
+αt = ρt−1, with ρt = min 
+
+> 1≤k≤t
+
+1 + max 1≤i≤k g2
+
+> i
+
+1 + Pki=1 g2
+
+> i
+
+!q
+
+. (2) Set ρ0 = 1 and define αt := ρt−1 for all t ≥ 1. Equivalently, α1 = 1 . Thus, the coefficient αt used at iteration t is determined by the previous trajectory. This lagged convention is convenient for the measurability of the adaptive coefficient and is the convention adopted in the analysis. The denomi-nator in (2) gives the usual self-normalized suppression effect, while the numerator compensates for occasional gradient spikes. The exponent q is chosen according to the smoothness regime: q = 1 /2
+
+for average smoothness and q = 2 /3 for individual smoothness. 
+
+> 6
+
+OPT MUON 
+
+Lemma 6 (Proof in Appendix B.1) Assume ρ0 = 1 and ρt = min 1≤k≤t
+
+ 1+max 1≤i≤k g2 
+
+> i
+> 1+ Pki=1 g2
+> i
+
+q
+
+, where 
+
+q ∈ (0 , 1) . Then, for all t ≥ 1,
+
+0 ≤ 1 
+
+> ρt
+
+− 1 
+
+> ρt−1
+
+≤ q, ρt−1−ρt
+
+> ρ1/q +1
+> t−1
+
+≤ q, (1 − ρt)
+
+q ρt−1 
+
+> ρt
+
+≤ 1 − (1 − q)ρt. (3) The adaptive coefficient αt = ρt−1 is closely related to AdaGrad-Norm, but the numerator in (2) prevents the coefficient from collapsing too aggressively after a single gradient spike. The explicit minimum enforces monotonicity and yields the useful properties as shown in Lemma 6 which are key ingredients in the tracking-error analysis. 
+
+Step S3: Dual-Track Momentum and Step-Size. The two variants differ in the construction of the momentum matrix and the scalar factor. 
+
+(a) Option A (Average Smoothness, q = 1 /2): The momentum matrix accumulates the current stochastic gradient with an adaptive decay: 
+
+Mt = Gt + (1 − αt)Mt−1.
+
+The scalar factor is 
+
+γt = min 
+
+
+
+α2 
+
+> t
+
+, α t
+
+
+
+1 + Ptj=1 αj ∥Mj ∥2F
+
+−1/2
+
+.
+
+This choice couples the update magnitude to both the coefficient αt and the cumulative momen-tum energy. 
+
+(b) Option I (Individual Smoothness, q = 2 /3): The momentum estimator uses a STORM-type recursive correction: 
+
+Mt = (1 − αt) Mt−1 − ∇ f (Xt−1; ξt) + Gt.
+
+The scalar factor is 
+
+γt = min 
+
+√αt,
+
+
+
+1 + Ptj=1 α−1/2 
+
+> j
+
+∥Mj ∥2F
+
+−1/2
+
+.
+
+This variant uses two stochastic gradients on the same mini-batch and exploits individual smooth-ness to obtain a sharper stochastic term. 
+
+Step S4: Orthogonalized Update Rule. Unlike standard SGD or Adam, OptMuon explicitly orthogonalizes the momentum matrix: 
+
+Xt+1 = Xt − θγ t∥Mt∥F Orth( Mt). (4) The operator Orth( Mt) extracts a geometry-normalized matrix direction, while the scalar factor 
+
+θγ t∥Mt∥F controls the magnitude. Therefore, the direction and magnitude of the update are sepa-rated: the direction is governed by the polar factor of the momentum, and the magnitude is governed by a closed-loop scalar schedule. The polar factor can be computed by SVD in theory and approx-imated efficiently by a few Newton-Schulz iterations in practice. The present analysis focuses on exact orthogonalization; inexact Newton-Schulz errors can be incorporated as an additional approx-imation term in future work. We summarize both configurations in Algorithm 1. 
+
+7YUAN 
+
+Algorithm 1 OptMuon 
+
+Input: Learning rate θ > 0, initial solution X1.
+
+Initialize: Set α0 = α1 = 1 , M0 = 0, and X0 = X1.
+
+Option A (Average smoothness): Set q = 1 /2;
+
+Option I (Individual smoothness): Set q = 2 /3.
+
+for t = 1 , . . . , T do S1) Sample ξt ∼ D , compute Gt = ∇f (Xt; ξt), and set gt = ∥Gt∥F.
+
+S2) Update αt = ρt−1, where ρt = min 1≤k≤t
+
+ 1+max 1≤i≤k g2 
+
+> i
+> 1+ Pki=1 g2
+> i
+
+q
+
+with ρ0 = 1 .
+
+S3) Select the smoothness regime and update Mt and γt:
+
+Option A : Set Mt = Gt + (1 − αt)Mt−1,and γt = min 
+
+
+
+α2 
+
+> t
+
+, α t
+
+
+
+1 + Ptj=1 αj ∥Mj ∥2F
+
+−1/2
+
+.
+
+Option I : Set Mt = (1 − αt)( Mt−1 − ∇ f (Xt−1; ξt)) + Gt,and γt = min 
+
+√αt,
+
+
+
+1 + Ptj=1 α−1/2 
+
+> j
+
+∥Mj ∥2F
+
+−1/2
+
+.
+
+S4) Update Xt+1 = Xt − θγ t∥Mt∥F Orth( Mt).
+
+end 
+
+5. Convergence Guarantees 
+
+In this section, we state the convergence guarantees for OptMuon. The proofs are deferred to the appendix. 
+
+Notation. Let gt := ∥Gt∥F and mt := ∥Mt∥F. For OptMuon-A, define Vt := αtMt, St := 
+
+Vt − ∇ f (Xt). For OptMuon-I, define St := Mt − ∇ f (Xt). We use E[·] for total expectation and 
+
+Et[·] := E[· | F t−1] for conditional expectation. The natural filtration is denoted by {F t}t≥0.
+
+5.1. Analysis for OptMuon-A 
+
+We first consider OptMuon-A under average smoothness. Recall that q = 1 /2. Throughout this subsection, define Vt := αtMt, St := Vt − ∇ f (Xt), ¯γt := γt 
+
+> αt
+
+. By the definition of γt, the scalar actually appearing in the scaled Vt-update is ¯γt = min {αt,  1 + Ptj=1  
+
+> ∥Vj∥2F
+> αj
+
+−1/2}. Thus the algorithmic update can be equivalently written as Xt+1 = Xt − θ¯γt∥Vt∥F Orth( Vt), because 
+
+Orth( αtMt) = Orth( Mt) for αt > 0. This notation separates the proof from the raw momentum 
+
+Mt and avoids mixing γt with γt/α t.
+
+Lemma 7 (Proof in Appendix C.1) For all T ≥ 1, PTt=1 ∥Vt∥2F ≤ 2 PTt=1 ∥∇ f (Xt; ξt)∥2F.
+
+Lemma 8 (Proof in Appendix C.2) It holds that ∥St∥F ≤ 2 ˆG.
+
+Lemma 9 (Proof in Appendix C.3) Define St := Vt − ∇ f (Xt). For all t ≥ 1, we have: 
+
+∥St∥2F ≤ (1 − αt)∥St−1∥2F + Bt a.s., (5) 
+
+where Bt := 2 α2 
+
+> t
+
+∥ϵt∥2F + 2 αt(1 − αt)(1 + αt)⟨St−1, ϵt⟩ + 2 α2
+
+> t−1
+
+v2 
+
+> t−1
+
++ 6 nL 2θ2 γ2 
+
+> t−1m2
+> t−1
+> αt−1
+
+.
+
+8OPT MUON 
+
+Lemma 10 (One-Step Descent Inequality) (Proof in Appendix C.4) Define c0 := θ/ 2, c1 := 
+
+θn/ 2, and c2 := Lnθ 2/2. For all t ≥ 1, the following inequality holds almost surely: 
+
+f (Xt+1 ) − f (Xt) + c0 ¯γt∥Vt∥2F ≤ c1 ¯γt∥St∥2F + c2 ¯γ2 
+
+> t
+
+∥Vt∥2F, (6) 
+
+where ¯γt = γt/α t.
+
+Lemma 11 (Proof in Appendix C.5) Define ¯γt := γt/α t. We have: 
+
+(a) E[PTt=1 Bt] ≤ Cb ln( e + T ), where Cb :=  27(1 + ˆG2)2 + 12 nL 2θ2 · ln( e + ˆG2).
+
+(b) E[PTt=1 ¯γt∥St∥2F] ≤ E[PTt=1 αt∥St∥2F] ≤ Cc ln( e + T ), where Cc := 4 ˆG2 + Cb.
+
+(c) PTt=1 ¯γ2 
+
+> t
+
+∥Vt∥2F ≤ Cd ln( e + T ) almost surely, where Cd := 9(1 + ˆG2) ln( e + ˆG2).
+
+Lemma 12 (Proof in Appendix C.6) Define UT := PTt=1 ¯γt∥St∥2F. We have E[U2 
+
+> T
+
+] ≤ Cu ln 2(e +
+
+T ), where Cu := 12 Cc
+
+  ˆG2 + Ce
+
+, and Ce :=  54(1 + ˆG2)2 + 12 nL 2θ2 · ln( e + ˆG2).
+
+Lemma 13 (Proof in Appendix C.7) Let VT := PTt=1 ∥Vt∥2F. We have E[αT VT ] ≤ Cv ln 2(e+T ),where Cv := 4 Cw + Cx, Cw := 1 
+
+> c0
+
+(F1 + c1Cc + c2Cd), and Cx := 3
+
+> c20
+
+ F 21 + c21Cu + c22C2
+
+> d
+
+.
+
+We now state the convergence guarantee for OptMuon-A. 
+
+Theorem 14 (Proof in Appendix C.8) Under Assumptions 1–4 and the average smoothness condi-tion in Assumption 3, OptMuon-A satisfies 
+
+E[ 1
+
+T
+
+> T
+
+X
+
+> t=1
+
+∥∇ f (Xt)∥F] ≤ O ln 2(e + T )
+
+T 1/2 + σ1/2 ln( e + T )
+
+T 1/4
+
+!
+
+. (7) 
+
+Consequently, if R ∼ Unif {1, . . . , T } is independent of the algorithmic randomness and Xout := 
+
+XR, then the same bound holds for E[∥∇ f (Xout )∥F].
+
+Remark 15 ❶ Theorem 14 shows that OptMuon-A attains a convergence rate of ˜O( 1  
+
+> T1/2
+
++ σ1/2  
+
+> T1/4
+
+)
+
+for the averaged gradient norm. This bound cleanly separates into a deterministic optimization term and a stochastic variance-dependent term. Notably, this improves upon the existing ˜O(T −1/4)
+
+rate established in Chang et al. (2025), particularly in the low-noise regime. Specifically, our result yields the canonical ˜O(T −1/4) stochastic rate while recovering the nearly optimal deterministic rate of ˜O(T −1/2) when the noise vanishes ( σ = 0 ). ❷ The additional polylogarithmic factors in our bound arise naturally from the fully adaptive and horizon-free nature of the algorithm, which requires neither prior knowledge of the total iteration budget T nor the noise variance σ2.
+
+5.2. Analysis for OptMuon-I 
+
+We now analyze OptMuon-I under the individual smoothness condition in Assumption 3. This variant uses the STORM-type momentum estimator and the exponent q = 2 /3.For notation convenience, we define mt := ∥Mt∥F, St := Mt − ∇ f (Xt), st := ∥St∥F, ηt := 
+
+θγ tmt, Ht := 1 + Ptj=1 α−1/2 
+
+> j
+
+m2 
+
+> j
+
+, GT := PTt=1 g2 
+
+> t
+
+, MT := PTt=1 m2 
+
+> t
+
+, ST := PTt=1 s2 
+
+> t
+
+. Thus the Option-I scalar factor is γt = min {√αt, H −1/2 
+
+> t
+
+}, and the update is Xt+1 = Xt −θγ tmt Orth( Mt).
+
+9YUAN 
+
+We use the harmless initialization convention X0 = X1, so that the first STORM correction is well-defined and, since α1 = 1 , M1 = G1. As in Section 5.1, all constants below are independent of T
+
+and σ, although they may depend on fixed problem parameters such as L, n, θ, ˆG, and f (X1) − f∗.The following lemma bounds the momentum energy controlled by stochastic gradient energy. 
+
+Lemma 16 (Proof in Appendix D.1) Define κ := 2 max  12 , 96 nL 2θ2 ln( e + 36 nL 2θ2( ˆG2 + 1)) .For all T ≥ 1, PTt=1 ∥Mt∥2F ≤ κ ln( e + T ) 1 + PTt=1 ∥∇ f (Xt; ξt)∥2F
+
+ a.s.. 
+
+Lemma 17 (Tracking-error Recursion) (Proof in Appendix D.2) Define St := Mt − ∇ f (Xt),
+
+ϵt := ∇f (Xt; ξt) − ∇ f (Xt), ϵ′ 
+
+> t
+
+:= ∇f (Xt−1; ξt) − ∇ f (Xt−1), mt := ∥Mt∥F. Then 
+
+∥St∥2F ≤ (1 − αt)∥St−1∥2F + Bt a.s., (8) 
+
+where Bt := 2 α2 
+
+> t
+
+∥ϵt∥2F + 8 nL 2θ2γ2
+
+> t−1
+
+m2 
+
+> t−1
+
++ 2(1 − αt)⟨St−1, ϵt − (1 − αt)ϵ′
+
+> t
+
+⟩.
+
+Lemma 18 (One-step Descent Inequality) (Proof in Appendix D.3) Define c0 := θ 
+
+> 2
+
+, c1 := nθ  
+
+> 2
+
+,
+
+c2 := Lnθ 2 
+
+> 2
+
+. For all t ≥ 1, the following inequality holds almost surely: 
+
+f (Xt+1 ) − f (Xt) + c0γt∥Mt∥2F ≤ c1γt∥St∥2F + c2γ2 
+
+> t
+
+∥Mt∥2F. (9) 
+
+Lemma 19 (Proof in Appendix D.4) Define mt := ∥Mt∥F. We have: 
+
+(a) E[PTt=1 Bt√αt ] ≤ Cb ln( e + T ), where Cb :=  64(1 + ˆG2)2 + 32 nL 2θ2 · ln( e + κ + κ ˆG2).
+
+(b) E[PTt=1 γt∥St∥2F] ≤ E[PTt=1 
+
+√αt∥St∥2F] ≤ Cc ln( e + T ), where Cc := 12( ˆG2 + Cb).
+
+(c) PTt=1 γ2 
+
+> t
+
+∥Mt∥2F ≤ Cd ln( e + T ) almost surely, where Cd := 2 ln( e + κ(1 + ˆG2)) .
+
+Lemma 20 (Proof in Appendix D.5) Define UT := PTt=1 γt∥St∥2F. It holds that E[U2 
+
+> T
+
+] ≤ Cu ln 2(e+
+
+T ), where Cu > 0 is a constant. 
+
+Lemma 21 (Proof in Appendix D.6) Let MT := PTt=1 ∥Mt∥2F. Then E[√αT MT ] ≤ Cv ln 2(e +
+
+T ), where Cv := 4 Cw + Cx, Cw := 1
+
+> c0
+
+ F1 + c1Cc + c2Cd
+
+, and Cx := 3
+
+> c20
+
+ F 21 + c21Cu + c22C2
+
+> d
+
+.
+
+We now provide the convergence guarantee for OptMuon-I. 
+
+Theorem 22 (Proof in Appendix D.7) Under Assumptions 1–4 and the individual smoothness con-dition in Assumption 3, OptMuon-I satisfies 
+
+E
+
+"
+
+1
+
+T
+
+> T
+
+X
+
+> t=1
+
+∥∇ f (Xt)∥F
+
+#
+
+≤ O ln 2(e + T )
+
+T 1/2 + σ1/3 ln( e + T )
+
+T 1/3
+
+!
+
+. (10) 
+
+Consequently, if R ∼ Unif {1, . . . , T } is independent of the algorithmic randomness and Xout := 
+
+XR, then the same bound holds for E[∥∇ f (Xout )∥F].
+
+Remark 23 Theorem 22 shows that OptMuon-I improves the stochastic term from the average-smoothness rate in Theorem 14 to ˜O( 1  
+
+> T1/2
+
++ σ1/3  
+
+> T1/3
+
+) under individual smoothness, while preserving the zero-noise rate ˜O(T −1/2). Thus the variance-reduced momentum estimator sharpens the noise dependence without changing the Muon-style orthogonalized update. 
+
+10 OPT MUON 
+
+6. Conclusion 
+
+We have presented OptMuon, an adaptive orthogonalized optimization framework that combines Muon-style polar-factor momentum with a lagged, running-maximum corrected AdaGrad-Norm-type scalar schedule. Under the stated lower-boundedness, unbiasedness, smoothness, bounded-variance, and bounded stochastic-gradient assumptions, the proposed variants attain noise-adaptive convergence rates and recover the nearly deterministic ˜O(T −1/2) rate in the zero-noise regime without retuning. The analysis clarifies how closed-loop scalar adaptation can be coupled with orthogonalized momentum while preserving the geometric separation between update direction and magnitude. 
+
+Limitations and Future Work. The present theory assumes exact polar-factor orthogonalization and an almost-sure bounded stochastic-gradient condition. It does not provide a bounded-gradient-free analysis, nor does it quantify the effect of finite Newton–Schulz approximation errors. Another important direction is to complement the theory with large-scale empirical evaluations and to extend the framework to composite, constrained, and blockwise training objectives. 
+
+References 
+
+Da Chang, Yongxiang Liu, and Ganzhao Yuan. On the convergence of muon and beyond. arXiv preprint arXiv:2509.15816 , 2025. Congliang Chen, Li Shen, Fangyu Zou, and Wei Liu. Towards practical adam: Non-convexity, convergence theory, and mini-batch acceleration. Journal of Machine Learning Research , 23 (229):1–47, 2022. Ashok Cutkosky and Francesco Orabona. Momentum-based variance reduction in non-convex sgd. 
+
+Advances in neural information processing systems , 32, 2019. Yury Demidovich, Abhishek Chakraborty, Grigory Malinovsky, Angelia Nedi´ c, and Peter Richt´ arik. Distance-aware muon: Adaptive step scaling for normalized optimization. arXiv preprint arXiv:2605.18999 , 2026. John Duchi, Elad Hazan, and Yoram Singer. Adaptive subgradient methods for online learning and stochastic optimization. Journal of machine learning research , 12(7), 2011. Saeed Ghadimi and Guanghui Lan. Stochastic first- and zeroth-order methods for nonconvex stochastic programming. SIAM Journal on Optimization , 23(4):2341–2368, 2013. Saeed Ghadimi, Guanghui Lan, and Hongchao Zhang. Mini-batch stochastic approximation meth-ods for nonconvex stochastic composite optimization. Mathematical Programming , 155(1-2): 267–305, 2016. Feihu Huang, Yuning Luo, and Songcan Chen. Limuon: Light and fast muon optimizer for large models. arXiv preprint arXiv:2509.14562 , 2025. Wei Jiang, Sifan Yang, Yibo Wang, and Lijun Zhang. Adaptive variance reduction for stochastic optimization under weaker assumptions. In Advances in Neural Information Processing Systems ,volume 37, pages 22047–22080. Curran Associates, Inc., 2024. 
+
+> 11 YUAN
+
+Gyu Yeol Kim and Min-hwan Oh. Convergence of muon with newton-schulz. In International Conference on Learning Representations (ICLR) , 2026. Kfir Levy, Ali Kavis, and Volkan Cevher. Storm+: Fully adaptive sgd with recursive momentum for nonconvex optimization. Advances in Neural Information Processing Systems , 34:20571–20582, 2021. Zijian Liu, Ta Duy Nguyen, Thien Hang Nguyen, Alina Ene, and Huy L Nguyen. Meta-storm: Generalized fully-adaptive variance reduced sgd for unbounded functions. arXiv preprint arXiv:2209.14853 , 2022. Artem Riabinin, Egor Shulgin, Kaja Gruntkowska, and Peter Richt´ arik. Gluon: Making muon & scion great again!(bridging theory and practice of lmo-based optimizers for llms). arXiv preprint arXiv:2505.13416 , 2025. Chongjie Si, Debing Zhang, and Wei Shen. Adamuon: Adaptive muon optimizer. arXiv preprint arXiv:2507.11005 , 2025. Rachel Ward, Xiaoxia Wu, and Leon Bottou. Adagrad stepsizes: Sharp convergence over nonconvex landscapes. Journal of Machine Learning Research , 21(219):1–30, 2020. Minxin Zhang, Yuxuan Liu, and Hayden Schaeffer. Adagrad meets muon: Adaptive stepsizes for orthogonal updates. arXiv preprint arXiv:2509.02981 , 2025. Minxin Zhang, Yuxuan Liu, and Hayden Schaeffer. Adam improves muon: Adaptive moment estimation with orthogonalized momentum. arXiv preprint arXiv:2602.17080 , 2026. 
+
+> 12
+
+OPT MUON 
+
+# Appendix 
+
+The appendix section is organized as follows. Section A covers notations, technical preliminaries, and relevant lemmas. Section B contains proofs from Section 4. Section C contains proofs from Section 5.1. Section D contains proofs from Section 5.2. 
+
+Appendix A. Notations, Technical Preliminaries, and Supporting Lemmas 
+
+A.1. Notations 
+
+Throughout this paper, we adopt the following notational conventions. Bold lowercase letters denote vectors, and uppercase letters denote real-valued matrices. • [n]: The set {1, 2, ..., n }.• ∥x∥: Euclidean norm, defined as ∥x∥ = ∥x∥2 = p⟨x, x⟩.• ⟨a, b⟩ : Standard inner product, given by ⟨a, b⟩ = P 
+
+> i
+
+aibi.• a ≤ α: For a ∈ Rn and scalar α ∈ R, this means ai ≤ α for all i ∈ [n].• E[v]: Expectation of the random variable v.• {Ai}∞
+
+> i=1
+
+, {Bi}∞
+
+> i=1
+
+: sequences indexed by non-negative integers. • AT : the transpose of the matrix A.• ∥A∥F: Frobenius norm of the matrix A.• ∥A∥: Spectral norm of the matrix A.
+
+A.2. Supporting Lemmas 
+
+This subsection shows a collection of useful facts and lemmas, each of which is independent of context and methodology. 
+
+Lemma 24 Let b1, . . . , b T ≥ 0, and let q ∈ (0 , 1) . Then (a) PTt=1 bt 
+
+> 1+ Pti=1 bi
+
+≤ ln 
+
+
+
+1 + PTt=1 bt
+
+
+
+.(b) PTt=1 bt 1+ Pti=1 bi
+
+q ≤ 11−q
+
+
+
+1 + PTt=1 bt
+
+1−q
+
+.
+
+Proof These bounds are standard in the analysis of adaptive optimization algorithms. Part (a) generalizes Lemma 3.2 of Ward et al. (2020), and Part (b) generalizes Lemma 3 of Levy et al. (2021). Both statements follow directly from standard integral bounding techniques and a routine induction argument; the proofs are therefore omitted. 
+
+Lemma 25 Let {At}Tt=1 and {Bt}T +1  
+
+> t=1
+
+be nonnegative sequences. If {At}Tt=1 is nondecreasing, then PTt=1 At(Bt − Bt+1 ) ≤ AT max 1≤t≤T Bt.
+
+13 YUAN 
+
+Proof By summation by parts, PTt=1 At(Bt − Bt+1 ) = A1B1 − AT BT +1 + PTt=2 (At − At−1)Bt.Since AT BT +1 ≥ 0 and At − At−1 ≥ 0 for t ≥ 2, it follows that PTt=1 At(Bt − Bt+1 ) ≤
+
+A1B1 + PTt=2 (At − At−1) max 1≤j≤T Bj . Hence, PTt=1 At(Bt − Bt+1 ) ≤
+
+
+
+A1 + PTt=2 (At −
+
+At−1)
+
+
+
+max 1≤j≤T Bj = AT max 1≤j≤T Bj .
+
+Lemma 26 Assume y ≤ ln(1 + ay ), where a ≥ 0 and y ≥ 0. Then y ≤ 2 ln( e + a).
+
+Proof The case a = 0 is immediate, since then y ≤ 0 and hence y = 0 . We now assume a > 0.Define C := 2 ln( e + a), and ϕ(s) := s − ln(1 + as ).
+
+Verifying ln(1 + aC ) ≤ C. This is equivalent to 1 + 2 a ln( e + a) ≤ (e + a)2. Let H(a) := (e + a)2 − 1 − 2a ln( e + a). Then H′(a) = 2 
+
+
+
+e + a − ln( e + a) − 1 + ee+a
+
+
+
+> 0, because 
+
+e + a ≥ e. Since H(0) = e2 − 1 > 0, we have H(a) > 0, and hence ln(1 + aC ) ≤ C.
+
+Verifying ϕ(C) ≥ 0 and ϕ(C) is Increasing. Since C ≥ 2, for all s ≥ C, ϕ′(s) = 1 − a 
+
+> 1+ as
+
+= 
+
+> 1+ a(s−1) 1+ as
+
+> 0. Thus ϕ(·) is strictly increasing on [C, ∞). Moreover, ϕ(C) = C − ln(1 + aC ) ≥ 0.
+
+Finishing the Proof by Contradiction. Assume, for contradiction, that the conclusion does not hold, i.e., y > C . Then y − ln(1 + ay ) = ϕ(y) > ϕ (C) ≥ 0, which contradicts the assumption 
+
+y ≤ ln(1 + ay ). Hence y ≤ C, and the claim follows. 
+
+Lemma 27 For any sequences {αt}T +1  
+
+> t=1
+
+and {mt}Tt=0 , it holds that: 
+
+PTt=1 
+
+ 1 
+
+> αt
+
+− 1
+
+  m2 
+
+> t−1
+
+− m2
+
+> t
+
+ − PTt=1 
+
+ 1 
+
+> αt+1
+
+− 1
+
+> αt
+
+
+
+m2 
+
+> t
+
+=
+
+ 1 
+
+> α1
+
+− 1
+
+
+
+m20 −
+
+ 1  
+
+> αT+1
+
+− 1
+
+
+
+m2 
+
+> T
+
+.
+
+Proof Let bt := 1 
+
+> αt
+
+− 1. By expanding the telescoping sum, we obtain 
+
+PTt=1 bt(m2 
+
+> t−1
+
+− m2 
+
+> t
+
+) = b1m20 + PT −1 
+
+> t=1
+
+(bt+1 − bt)m2 
+
+> t
+
+− bT m2 
+
+> T
+
+.
+
+Subtracting PTt=1 (bt+1 − bt)m2 
+
+> t
+
+from both sides gives 
+
+PTt=1 bt(m2 
+
+> t−1
+
+− m2 
+
+> t
+
+) − PTt=1 (bt+1 − bt)m2 
+
+> t
+
+= b1m20 − bT +1 m2 
+
+> T
+
+.
+
+This completes the discrete summation-by-parts (Abel transform) argument. 
+
+Lemma 28 (Weighted self-normalized noise-to-gradient comparison) Let {F t}t≥0 be the nat-ural filtration, and suppose that Xt is Ft−1-measurable. Assume Et[∇f (Xt; ξt)] = ∇f (Xt), and 
+
+∥∇ f (Xt; ξt)∥F ≤ ˆG almost surely. Let W0, . . . , W T be nonnegative random variables such that 
+
+Wt−1 is Ft−1-measurable and Wt−1 ≤ WT almost surely for every t = 1 , . . . , T . Then 
+
+E[PTt=1 Wt−1 ∥∇ f (Xt;ξt)−∇ f (Xt)∥2F  
+
+> 1+ Pti=1 ∥∇ f(Xi;ξi)∥2F
+
+] ≤ 8(1 + ˆG2) ln( e + ˆG2) ln( e + T )E[WT ].
+
+Proof Write Gt := ∇f (Xt; ξt), ϵt := Gt − ∇ f (Xt), Vt := 1 + Pti=1 ∥Gi∥2F.
+
+14 OPT MUON 
+
+We first prove a one-step comparison. Fix t ≥ 1 and condition on Ft−1. Let 
+
+a := Vt−1, Y := ∥Gt∥2F, μ := ∇f (Xt), b := ∥μ∥2F.
+
+Then a ≥ 1, Vt = a + Y , and Et[Gt] = μ. Define 
+
+Rt := Et
+
+ Ya + Y
+
+
+
+, Qt := Et
+
+ 1
+
+a + Y
+
+
+
+.
+
+By Cauchy’s inequality, 
+
+b = Et
+
+ Gt
+
+√a + Y
+
+√a + Y
+
+ 2F
+
+≤ Rt
+
+ a + Et[Y ].
+
+Moreover, 
+
+Et[Y ] = b + Et∥ϵt∥2F, ∥ϵt∥F ≤ ∥ Gt∥F + ∥μ∥F ≤ 2 ˆG a.s. ,
+
+and hence 
+
+Rt ≥ ba + b + 4 ˆG2 . (11) 
+
+On the other hand, 
+
+Qt = Et
+
+ 1
+
+a + Y
+
+
+
+= 1
+
+a Et
+
+
+
+1 − Ya + Y
+
+
+
+= 1 − Rt
+
+a .
+
+Combining this identity with (11) gives 
+
+bQ t = b(1 − Rt)
+
+a ≤ ba
+
+
+
+1 − ba + b + 4 ˆG2
+
+
+
+= b(a + 4 ˆG2)
+
+a(a + b + 4 ˆG2) ≤ (1 + 4 ˆG2)Rt, (12) 
+
+where the last inequality uses a ≥ 1 and (11) . Therefore, 
+
+Et
+
+ ∥ϵt∥2F
+
+Vt
+
+
+
+≤ 2Et
+
+ ∥Gt∥2F
+
+Vt
+
+
+
++ 2 ∥μ∥2FEt
+
+ 1
+
+Vt
+
+
+
+= 2Rt + 2 bQ t ≤ (4 + 8 ˆG2)Rt ≤ 8(1 + ˆG2)Et
+
+ ∥Gt∥2F
+
+Vt
+
+
+
+. (13) 
+
+Since Wt−1 is nonnegative and Ft−1-measurable, multiplying (13) by Wt−1, taking total expec-tation, and summing over t yields 
+
+E
+
+" TX
+
+> t=1
+
+Wt−1
+
+∥ϵt∥2F
+
+Vt
+
+#
+
+≤ 8(1 + ˆG2)E
+
+" TX
+
+> t=1
+
+Wt−1
+
+∥Gt∥2F
+
+Vt
+
+#
+
+. (14) 
+
+Using Wt−1 ≤ WT and the nonnegativity of all summands, 
+
+> T
+
+X
+
+> t=1
+
+Wt−1
+
+∥Gt∥2F
+
+Vt
+
+≤ WTTX
+
+> t=1
+
+∥Gt∥2F
+
+1 + Pti=1 ∥Gi∥2F
+
+a.s. 
+
+15 YUAN 
+
+For any nonnegative sequence {xt}Tt=1 ,
+
+> T
+
+X
+
+> t=1
+
+xt
+
+1 + Pti=1 xi
+
+≤ ln 1 + 
+
+> T
+
+X
+
+> t=1
+
+xt
+
+!
+
+.
+
+Applying this with xt = ∥Gt∥2F, and using PTt=1 ∥Gt∥2F ≤ T ˆG2 almost surely, we obtain 
+
+> T
+
+X
+
+> t=1
+
+∥Gt∥2F
+
+Vt
+
+≤ ln 1 + 
+
+> T
+
+X
+
+> t=1
+
+∥Gt∥2F
+
+!
+
+≤ ln(1 + T ˆG2) ≤ ln( e + ˆG2) ln( e + T ).
+
+Combining this estimate with (14) proves the claim. 
+
+Appendix B. Proofs for Section 4 
+
+B.1. Proof of Lemma 6 Proof Define ρt ≜ min 1≤k≤t ˆρk, where ˆρt ≜
+
+ 1+max 1≤i≤t g2 
+
+> i
+> 1+ Pti=1 g2
+> i
+
+q
+
+and q ∈ (0 , 1) .Define Gt ≜ Pti=1 g2 
+
+> i
+
+and Vt ≜ max 1≤i≤t g2 
+
+> i
+
+.Define xt ≜ 1+ Gt 
+
+> 1+ Vt
+
+and ut ≜ max 1≤k≤t xk, where xt, u t ≥ 1.Clearly, ρt = min 1≤k≤t
+
+  1+ Vk
+
+> 1+ Gk
+
+q = min 1≤k≤t x−qk =  max 1≤k≤t xk
+
+−q = u−qt .
+
+Bounding the term ut+1 − ut. We first control the increment of xt. We distinguish two cases. 
+
+Case 1: g2 
+
+> t+1
+
+≤ Vt. We have: 
+
+xt+1 − xt = 1 + Gt+1 
+
+1 + Vt+1 
+
+− 1 + Gt
+
+1 + Vt
+
+≤ 1 + Gt + g2
+
+> t+1
+
+1 + Vt
+
+− 1 + Gt
+
+1 + Vt
+
+= g2
+
+> t+1
+
+1 + Vt
+
+≤ Vt
+
+1 + Vt
+
+≤ 1.
+
+Case 2: g2 
+
+> t+1
+
+> Vt. We derive: 
+
+xt+1 − xt = 1 + Gt + g2
+
+> t+1
+
+1 + g2
+
+> t+1
+
+− 1 + Gt
+
+1 + Vt
+
+= (1 + Gt + g2
+
+> t+1
+
+)(1 + Vt) − (1 + Gt)(1 + g2
+
+> t+1
+
+)(1 + g2
+
+> t+1
+
+)(1 + Vt)= (1 + Gt)( Vt − g2
+
+> t+1
+
+) + g2
+
+> t+1
+
+(1 + Vt)(1 + g2
+
+> t+1
+
+)(1 + Vt)
+
+≤ g2
+
+> t+1
+
+(1 + Vt)(1 + g2
+
+> t+1
+
+)(1 + Vt)
+
+≤ 1.
+
+In both cases we have xt+1 −xt ≤ 1. Now, if xt+1 ≤ ut, then ut+1 = ut and the bound ut+1 −ut ≤
+
+1 is trivial. Otherwise xt+1 > u t, and since ut ≥ xt we get ut+1 −ut = xt+1 −ut ≤ xt+1 −xt ≤ 1.Combining the two cases yields: 
+
+ut+1 − ut ≤ 1, ∀t ≥ 1. (15) 
+
+16 OPT MUON 
+
+Part (a). By definition, ut = max 1≤k≤t xk, so ut+1 = max( ut, x t+1 ) ≥ ut, and hence ut+1 −
+
+ut ≥ 0. Consider the concave function f (x) = xq with x ∈ [1 , ∞) and q ∈ (0 , 1] . Since f ′(x) = 
+
+qx q−1, we derive: 
+
+uqt+1 − uqt = f (ut+1 ) − f (ut) ≤ qu q−1 
+
+> t
+
+(ut+1 − ut) ①
+
+≤ q, 
+
+where step ① uses uq−1 
+
+> t
+
+≤ 1, which is implied by ut ≥ 1 and q − 1 ≤ 0. Combining with the fact that 0 ≤ uqt+1 − uqt , we obtain 
+
+0 ≤ 1 
+
+> ρt+1
+
+− 1 
+
+> ρt
+
+= u qt+1 − u qt ≤ q. 
+
+Part (b). Note that ut = (max 1≤k≤t xk) = ρ−1/q t . Consider the function g(x) = x−1/q defined for x > 0. Since q ∈ (0 , 1) , g(x) is strictly convex with the first derivative g′(x) = − 1 
+
+> q
+
+x−1/q −1.Due to the convexity of g(x), the first-order condition g(a) − g(b) ≥ g′(b)( a − b) holds for any a, b > 0.Letting a = ρt and b = ρt−1, we obtain: 
+
+ρ−1/q t − ρ−1/q t−1 ≥ − 1
+
+q ρ−1/q −1 
+
+> t−1
+
+(ρt − ρt−1)
+
+Substituting ut = ρ−1/q t and ut−1 = ρ−1/q t−1 into the above inequality yields: 
+
+ut − ut−1 ≥ 1
+
+qρt−1 − ρt
+
+ρ1/q +1 
+
+> t−1
+
+Multiplying both sides by q gives: 
+
+ρt−1 − ρt
+
+ρ1/q +1 
+
+> t−1
+
+≤ q (ut − ut−1)
+
+From the bound established in (15), we already know that uk − uk−1 ≤ 1 for all k ≥ 1. Substituting 
+
+ut − ut−1 ≤ 1 into the inequality, we obtain the final result: 
+
+ρt−1 − ρt
+
+ρ1/q +1 
+
+> t−1
+
+≤ q · 1 = q. 
+
+Part (c). Since 0 ≤ 1 
+
+> ρt
+
+− 1 
+
+> ρt−1
+
+≤ q. Hence ρt−1 
+
+> ρt
+
+≤ 1 + qρ t−1. Equivalently, using ρt−1 ≥ ρt, we also have  
+
+> ρt−1
+> ρt
+
+≤ 11−qρ t . (16) Therefore, for every ρt ∈ (0 , 1] , we derive: 
+
+(1 − ρt)pρt−1/ρ t ≤ 1−ρt√1−qρ t ≤ 1 − (1 − q)ρt. (17) The last inequality follows by squaring both sides: 
+
+(1 − ρt)2 ≤ (1 − qρ t) (1 − (1 − q)ρt)2 .
+
+17 YUAN 
+
+Appendix C. Proofs for Section 5.1 
+
+C.1. Proof of Lemma 7 Proof Define Vt := αtMt, Gt := ∇f (Xt; ξt), and set α0 = 1 , V0 = 0. Define At := ∥Vt∥2F 
+
+> αt
+
+.
+
+Recursive Inequality and Bounding the Term At. From the momentum recursion Mt = Gt +(1 − αt)Mt−1, we obtain Vt = αtGt + (1 − αt) αt 
+
+> αt−1
+
+Vt−1. By convexity of ∥ · ∥ 2F, we get 
+
+∥Vt∥2F ≤ αt∥Gt∥2F + (1 − αt) α2
+
+> t
+
+α2
+
+> t−1
+
+∥Vt−1∥2F ≤ αt∥Gt∥2F + (1 − αt) αt
+
+αt−1
+
+∥Vt−1∥2F,
+
+where the last step uses the fact that 0 < α t ≤ αt−1 ≤ 1. Dividing both sides by αt and using the definition of At gives 
+
+At ≤ ∥ Gt∥2F + (1 − αt)At−1. (18) This leads to At ≤ ∥ Gt∥2F + At−1. Summing this inequality over t from 1 to T yields: 
+
+At ≤ Pti=1 ∥Gi∥2F. (19) 
+
+Bounding the Sum PTt=1 ∥Vt∥2F. Using ∥Vt∥2F = αtAt, we rewrite Inequality (18) as: 
+
+∥Vt∥2F ≤ ∥ Gt∥2F + (1 − αt)( At−1 − At).
+
+Summing over t = 1 , . . . , T yields: 
+
+PTt=1 
+
+ ∥Vt∥2F − ∥ Gt∥2F
+
+
+
+≤ PTt=1 (1 − αt)( At−1 − At) = −(1 − αT )AT + PT −1 
+
+> t=1
+
+(αt − αt+1 )At
+
+> ①
+
+≤ PT −1 
+
+> t=1
+
+(αt − αt+1 )At ≤ PT −1
+
+> t=1
+
+ (αt − αt+1 ) Pti=1 ∥Gi∥2F
+
+
+
+≤   P Ti=1 ∥Gi∥2F
+
+  P T −1 
+
+> t=1
+
+(αt − αt+1 ) ③
+
+≤ PTi=1 ∥Gi∥2F,
+
+where step ① uses αT ∈ (0 , 1] ; step ② uses Inequality (19); step ③ uses PT −1 
+
+> t=1
+
+(αt − αt+1 ) = 
+
+α1 − αT ≤ 1. Therefore, PTt=1 ∥Vt∥2F ≤ 2 PTt=1 ∥Gt∥2F.
+
+C.2. Proof of Lemma 8 Proof Define Vt := αtMt, and St := Vt − ∇ f (Xt).Using the update rule Mt = αt
+
+  Gt
+
+> αt
+
+ + (1 − αt)Mt−1 and the convexity of ∥ · ∥ F, we have: 
+
+∥Mt∥F ≤ max  ∥ Gt 
+
+> αt
+
+∥, ∥Mt−1∥F
+
+ ≤ t
+
+max  
+
+> i=1
+
+∥ Gi 
+
+> αi
+
+∥,
+
+where the last inequality uses the standard initialization M0 = 0. This further leads to: 
+
+∥St∥F ≤ ∥Vt∥F + ∥∇ f (Xt)∥F ≤ αt ·   t
+
+max  
+
+> i=1
+
+∥ Gi 
+
+> αi
+
+∥F
+
+ + ∥∇ f (Xt)∥F ≤ 2 ˆG. 
+
+18 OPT MUON 
+
+C.3. Proof of Lemma 9 Proof Define St := Vt − ∇ f (Xt), where Vt := αtMt.Define mt := ∥Mt∥F, and gt := ∥Gt∥F.Define ϵt := Gt − ∇ f (Xt), and At := (1 − αt)St−1 + αtϵt.
+
+Bounding the term ∥∇ f (Xt−1) − ∇ f (Xt)∥2F. By the L-smoothness of f (·) and the update rule of Xt, we have 
+
+∥∇ f (Xt−1) − ∇ f (Xt)∥2F
+
+> ①
+
+≤ L2∥Xt−1 − Xt∥2F
+
+> ②
+
+= L2θ2γ2
+
+> t−1
+
+m2
+
+> t−1
+
+∥ Orth( Mt−1)∥2F
+
+> ③
+
+≤ nL 2θ2γ2
+
+> t−1
+
+m2
+
+> t−1
+
+, (20) where step ① uses the L-smoothness of f (·); step ② uses Xt+1 = Xt − θγ tmt Orth( Mt); step ③
+
+uses ∥ Orth( Mt−1)∥2F ≤ n.
+
+Difference-based representation of St. We derive the following results: 
+
+St ①
+
+= αtMt − ∇ f (Xt)
+
+> ②
+
+= (1 − αt)St−1 + αtϵt
+
+| {z }
+
+> := At
+
++αt(1 − αt)Mt−1 − ∇ f (Xt) − (1 − αt)St−1 + αt∇f (Xt)
+
+> ③
+
+= At + (1 − αt)( αt − αt−1)Mt−1 + (1 − αt)( ∇f (Xt−1) − ∇ f (Xt)) 
+
+| {z }
+
+> := Rt
+
+,
+
+where ① uses St := Vt − ∇ f (Xt) and Vt := αtMt; step ② uses the momentum recursion 
+
+Mt = Gt + (1 − αt)Mt−1, and Gt = ∇f (Xt) + ϵt; step ③ uses the definition of St.
+
+Expanding the term ∥At∥2F. We derive the following inequalities: 
+
+∥At∥2F = (1 − αt)2∥St−1∥2F + α2 
+
+> t
+
+∥ϵt∥2F + 2(1 − αt)αt⟨St−1, ϵt⟩.
+
+Bounding the term ∥Rt∥2F. We derive: 
+
+∥Rt∥2F
+
+> ①
+
+≤ 2(1 − αt)2(αt − αt−1)2∥Mt−1∥2F + 2(1 − αt)2∥∇ f (Xt−1) − ∇ f (Xt)∥2F
+
+> ②
+
+≤ 2 14 α6
+
+> t−1
+
+∥Mt−1∥2F + 2 ∥∇ f (Xt−1) − ∇ f (Xt)∥2F
+
+> ③
+
+≤ 12 α6
+
+> t−1
+
+m2 
+
+> t−1
+
++ 2 nL 2θ2γ2
+
+> t−1
+
+m2
+
+> t−1
+
+, (21) where step ① uses ∥a + b∥2 ≤ 2∥a∥2 + 2 ∥b∥2; step ② uses αt−1 − αt ≤ qα 3 
+
+> t−1
+
+= 12 α3
+
+> t−1
+
+; step ③
+
+uses Inequality (20). 
+
+19 YUAN 
+
+Bounding the term ∥St∥2F. Since St = At + Rt, we have: 
+
+∥St∥2F ≤  1 + αt
+
+∥At∥2F +  1 + 1
+
+> αt
+
+∥Rt∥2F ≤  1 + αt
+
+∥At∥2F + 2 
+
+> αt
+
+∥Rt∥2F
+
+> ①
+
+≤ (1 + αt) ·  (1 − αt)2∥St−1∥2F + α2 
+
+> t
+
+∥ϵt∥2F + 2(1 − αt)αt⟨St−1, ϵt⟩
+
++ α6 
+
+> t−1
+> αt
+
+m2 
+
+> t−1
+
++ 4 
+
+> αt
+
+· nL 2θ2γ2
+
+> t−1
+
+m2
+
+> t−1
+> ②
+
+≤ (1 − αt) ∥St−1∥2F + 2 α2 
+
+> t
+
+∥ϵt∥2F + 2(1 − αt)(1 + αt)αt⟨St−1, ϵt⟩
+
++ 32 α5
+
+> t−1
+
+m2 
+
+> t−1
+
++ 4 
+
+> αt
+
+· nL 2θ2γ2
+
+> t−1
+
+m2
+
+> t−1
+> ③
+
+≤ (1 − αt) ∥St−1∥2F + 2 α2 
+
+> t
+
+∥ϵt∥2F + 2(1 − αt)(1 + αt)αt⟨St−1, ϵt⟩
+
++ 32 α2
+
+> t−1
+
+v2 
+
+> t−1
+
++ 6 
+
+> αt−1
+
+· nL 2θ2γ2
+
+> t−1
+
+m2
+
+> t−1
+
+(22) where step ① uses Inequality (21); step ② uses  1 + a(1 − a) ≤ 1 for all a ∈ [0 , 1] , and αt ≤
+
+αt−1 ≤ (1 + 12 )αt.
+
+C.4. Proof of Lemma 10 Proof Let ¯γt := γt/α t, Vt = αtMt, and St := Vt − ∇ f (Xt).By average L-smoothness, 
+
+f (Xt+1 ) − f (Xt) ≤ L 
+
+> 2
+
+∥Xt+1 − Xt∥2F + ⟨∇ f (Xt), Xt+1 − Xt⟩
+
+> ①
+
+= Lθ 2 
+
+> 2
+
+¯γ2 
+
+> t
+
+∥Vt∥2F∥ Orth( Vt)∥2F − θ¯γt∥Vt∥F⟨Orth( Vt), ∇f (Xt)⟩
+
+> ②
+
+≤ Lθ 2 
+
+> 2
+
+¯γ2 
+
+> t
+
+∥Vt∥2F · n − θ¯γt∥Vt∥F⟨Orth( Vt), Vt − St⟩
+
+> ③
+
+≤ Lnθ 2 
+
+> 2
+
+¯γ2 
+
+> t
+
+∥Vt∥2F − θ¯γt∥Vt∥2F + θ¯γt∥Vt∥F∥St∥∗
+
+> ④
+
+≤ Lnθ 2 
+
+> 2
+
+¯γ2 
+
+> t
+
+∥Vt∥2F − θ 
+
+> 2
+
+¯γt∥Vt∥2F + θn  
+
+> 2
+
+¯γt∥St∥2F, (23) where step ① uses Xt+1 = Xt − θ¯γt∥Vt∥F Orth( Vt) since αt > 0 and Orth( Mt) = Orth( Vt);step ② uses ∥ Orth( Vt)∥2F ≤ n, and St := Vt −∇ f (Xt); step ③ uses ⟨Orth( Vt), Vt⟩ = ∥Vt∥∗ ≥∥Vt∥F, and ⟨Orth( Vt), St⟩ ≤ ∥ St∥∗; step ④ uses ∥St∥2 
+
+> ∗
+
+≤ n∥St∥2F, and ab ≤ a2/2 + b2/2.Rearranging gives the desired result. 
+
+C.5. Proof of Lemma 11 Proof Set γ0 = 0 , V0 = M0 = 0, and v0 = m0 = 0 .Let rt := v2 
+
+> t
+> αt
+
+, Ht := Pti=1 g2 
+
+> i
+
+, and At := 1 + Pti=1 ri. Define St := Vt − ∇ f (Xt).Set Bt = 2 α2 
+
+> t
+
+∥ϵt∥2F + 2 αt(1 − αt)(1 + αt)⟨St−1, ϵt⟩ + 2 α2
+
+> t−1
+
+v2 
+
+> t−1
+
++ 6 nL 2θ2 γ2 
+
+> t−1m2
+> t−1
+> αt−1
+
+.
+
+Preliminary Bounds. Since Vt = αtGt + (1 − αt) αt 
+
+> αt−1
+
+Vt−1, the two coefficients on the right-hand side are nonnegative and have sum at most one. Hence, by Assumption 4, 
+
+vt ≤ ˆG, ∥∇ f (Xt)∥F ≤ ˆG, ∥ϵt∥F ≤ 2 ˆG, ∥St∥F ≤ 2 ˆG, a.s. 
+
+20 OPT MUON 
+
+Bounding the Term E[PTt=1 α2 
+
+> t
+
+ϵ2 
+
+> t
+
+]. We have: 
+
+E[PTt=1 α2 
+
+> t
+
+ϵ2 
+
+> t
+
+] ①
+
+≤ E[ 94
+
+PTt=1 α2
+
+> t+1
+
+ϵ2 
+
+> t
+
+] ②
+
+≤ E[ 94 (1 + ˆG2) PTt=1  
+
+> ϵ2
+> t
+> 1+ Gt
+
+]
+
+> ③
+
+≤ E[ 94 (1 + ˆG2)8(1 + ˆG2) PTt=1  
+
+> ∥Gt∥2F
+> 1+ Gt
+
+] ≤ E[18(1 + ˆG2)2 ln(1 + GT )] , (24) where step ① uses αt ≤ αt+1 (1 + q); step ② uses α2 
+
+> t+1
+
+≤ (1 + ˆG2)/(1 + Gt); step ③ uses Lemma 28 with W0 = 1 .
+
+Bounding the Term PTt=1 α2
+
+> t−1
+
+v2
+
+> t−1
+
+. We have: 
+
+PTt=1 α2
+
+> t−1
+
+v2
+
+> t−1
+> ①
+
+≤ PTt=1 α2 
+
+> t
+
+v2
+
+> t
+> ②
+
+≤ 94
+
+PTt=1 α2
+
+> t+1
+
+v2
+
+> t
+> ③
+
+≤ 94 (1 + ˆG2) PTt=1 
+
+> v2
+> t
+> 1+ Gt
+> ④
+
+≤ 94 (1 + ˆG2) · 2 PTt=1 
+
+> v2
+> t
+> 1+ Vt
+> ⑤
+
+≤ 92 (1 + ˆG2) · ln(1 + VT )
+
+> ⑥
+
+≤ 92 (1 + ˆG2) · ln(1 + 2 GT ) ⑦
+
+≤ 9(1 + ˆG2) · ln(1 + GT ), (25) where step ① uses v0 = 0 ; step ② uses αt ≤ αt+1 (1+ q); step ③ uses α2 
+
+> t+1
+
+≤ (1+ ˆG2)/(1+ Gt); step 
+
+④ uses VT ≤ 2GT , as established in Lemma 7; step ⑤ uses Lemma 25(a); step ⑥ uses VT ≤ 2GT ;step ⑦ uses ln(1 + 2 x) ≤ 2 ln( e + x).
+
+Bounding the Term PTt=1 γ2
+
+> t−1
+
+m2
+
+> t−1
+
+/α t−1. We have: 
+
+PTt=1 γ2
+
+> t−1
+
+m2
+
+> t−1
+
+/α t−1
+
+> ①
+
+≤ PTt=1 γ2 
+
+> t
+
+m2 
+
+> t
+
+/α t
+
+> ②
+
+≤ PTt=1  
+
+> αtm2
+> t
+> 1+ Pti=1 αim2
+> i
+> ③
+
+≤ ln(1 + PTt=1 αtm2 
+
+> t
+
+) ④
+
+≤ ln(1 + 2 GT α−1 
+
+> T
+
+)
+
+> ⑤
+
+≤ ln(1 + 2 GT (1 + GT )1/2) ⑥
+
+≤ 2 ln( e + GT ), (26) where step ① uses m0 = 0 ; step ② uses the definition of γt that γt ≤ αt
+
+ 1+ Ptj=1 αj m2
+
+> j
+
+−1/2; step 
+
+③ uses Lemma 25(a); step ④ uses PTt=1 αtm2 
+
+> t
+
+≤ α−1
+
+> T
+
+PTt=1 v2 
+
+> t
+
+≤ 2α−1 
+
+> T
+
+GT , which can be implied by VT ≤ 2GT ; step ⑤ uses α−1 
+
+> T
+
+≤ α−1  
+
+> T+1
+
+≤ (1 + GT )1/2; step ⑥ uses ln(1 + 2(1 + x)1/2) ≤
+
+2 ln( e + x) for all x ≥ 0.
+
+Part (a): Bounding the Term E[PTt=1 Bt]. We derive: 
+
+E[PTt=1 Bt] ①
+
+= E[PTt=1 2α2 
+
+> t
+
+∥ϵt∥2F] + E[PTt=1 2α2
+
+> t−1
+
+v2
+
+> t−1
+
+] + E[PTt=1 6nL 2θ2 γ2 
+
+> t−1m2
+> t−1
+> αt−1
+
+]
+
+> ②
+
+≤
+
+
+
+18(1 + ˆG2)2 + 9(1 + ˆG2) + 12 nL 2θ2
+
+
+
+· ln( e + GT )
+
+≤
+
+
+
+27(1 + ˆG2)2 + 12 nL 2θ2
+
+
+
+· ln( e + T ˆG2)
+
+> ③
+
+≤  27(1 + ˆG2)2 + 12 nL 2θ2 · ln( e + ˆG2)
+
+| {z }
+
+> := Cb
+
+· ln( e + T ),
+
+where step ① uses the fact that the martingale term has zero expectation because αt and St−1 are 
+
+Ft−1-measurable and E[ϵt | F t−1] = 0 ; step ② uses Inequalities (24), (25), and (26); step ③ uses 
+
+ln(1 + ab ) ≤ ln( e + a) ln( e + b) for all a, b ≥ 0.
+
+21 YUAN 
+
+Part (b). Bounding the Term E[PTt=1 αts2 
+
+> t
+
+]. From Lemma 9, we derive: s2 
+
+> t
+
+≤ (1 −αt)s2 
+
+> t−1
+
++Bt,leading to the following inequality: 
+
+αts2 
+
+> t
+
+≤ (1 − αt)( s2 
+
+> t−1
+
+− s2 
+
+> t
+
+) + Bt.
+
+Summing over t = 1 , . . . , T and taking the expectation yields, we obtain 
+
+E[PTt=1 αts2 
+
+> t
+
+] ≤ E[PTt=1 (1 − αt)( s2 
+
+> t−1
+
+− s2 
+
+> t
+
+) + Bt]
+
+> ①
+
+≤ E[  max Tt=1 (1 − αt)  max Tt=1 s2
+
+> t
+
+] + E[PTt=1 Bt]
+
+≤ (2 ˆG)2 + Cb ln( e + T ) ②
+
+≤ (4 ˆG2 + Cb)
+
+| {z }
+
+> := Cc
+
+· ln( e + T ),
+
+where step ① uses Lemma 25; step ② uses ln( e + T ) ≥ 1. Since ¯γt := γt 
+
+> αt
+
+≤ αt, we directly conclude that PTt=1 ¯γts2 
+
+> t
+
+≤ PTt=1 αts2 
+
+> t
+
+≤ Cc ln( e + T ).
+
+Part (c): Bounding the Term PTt=1 ¯γ2 
+
+> t
+
+v2 
+
+> t
+
+. We derive: 
+
+PTt=1 ¯γ2 
+
+> t
+
+v2 
+
+> t
+
+= PTt=1 
+
+> γ2
+> t
+> α2
+> t
+
+v2
+
+> t
+> ①
+
+≤ PTt=1 α2 
+
+> t
+
+v2
+
+> t
+> ②
+
+≤ 9(1 + ˆG2) ln(1 + GT ) ③
+
+≤ 9(1 + ˆG2) ln( e + ˆG2)
+
+| {z }
+
+> := Cd
+
+· ln( e + T ),
+
+where step ① uses the definition of γt that γt ≤ α2 
+
+> t
+
+; step ② uses Inequality (25); step ③ uses 
+
+ln(1 + ab ) ≤ ln( e + a) ln( e + b) for all a, b ≥ 0.
+
+C.6. Proof of Lemma 12 Proof Define st := ∥St∥F, wt := ¯ γts2 
+
+> t
+
+, Ut := Pti=1 wi, U0 := 0 .Let Dt := 2 α2 
+
+> t
+
+∥ϵt∥2F+2 α2
+
+> t−1
+
+v2
+
+> t−1
+
++6 nL 2θ2γ2
+
+> t−1
+
+m2
+
+> t−1
+
+/α t−1, and Kt := 2 αt(1 −αt)(1+ αt)⟨St−1, ϵt⟩.Let Bt = Dt + Kt.
+
+Bounding the Term E[PTt=1 Ut−12α2 
+
+> t
+
+∥ϵt∥2F]. Applying Lemma 28 with Wt−1 = Ut−1 gives 
+
+E[PTt=1 Ut−1 2α2 
+
+> t
+
+∥ϵt∥2F] ①
+
+≤ 92 (1 + ˆG2)E[PTt=1 Ut−1 ∥ϵt∥2F 
+
+> 1+ Pti=1 g2
+> i
+
+]
+
+> ②
+
+≤ 36(1 + ˆG2)2 ln(1 + GT )E[UT ] ③
+
+≤ 36(1 + ˆG2)2 ln( e + ˆG2) · Cc ln 2(e + T ), (27) where step ① uses αt 
+
+> αt+1
+
+≤ 32 ; step ② uses Lemma 28 with Wt−1 = Ut−1; step ③ uses Lemma 11(b). 
+
+Bounding the Term E[PTt=1 Ut−12α2
+
+> t−1
+
+v2
+
+> t−1
+
+]. We derive: 
+
+E[PTt=1 Ut−1 2α2
+
+> t−1
+
+v2
+
+> t−1
+
+] ①
+
+≤ E[18(1 + ˆG2) ln( e + GT )UT ]
+
+> ②
+
+≤ 18(1 + ˆG2) ln( e + ˆG2)Cc ln 2(e + T ), (28) where step ① uses Ut−1 ≤ UT and the same pathwise estimate used in Lemma 11 to control PTt=1 α2
+
+> t−1
+
+v2
+
+> t−1
+
+; step ② uses Lemma 11(b). 
+
+22 OPT MUON 
+
+Bounding the Term E[PTt=1 Ut−16nL 2θ2 γ2 
+
+> t−1m2
+> t−1
+> αt−1
+
+]. We obtain 
+
+E[PTt=1 Ut−16nL 2θ2 γ2 
+
+> t−1m2
+> t−1
+> αt−1
+
+] ①
+
+≤ 12 nL 2θ2 ln( e + ˆG2)Cc ln 2(e + T ), (29) where step ① uses the pathwise estimate used in Inequality (26) that PTt=1  
+
+> γ2
+> t−1m2
+> t−1
+> αt−1
+
+≤ 2 ln( e+GT ).
+
+Bounding the Term E[PTt=1 Ut−1Dt]. We derive: 
+
+E[PTt=1 Ut−1Dt]= E[PTt=1 Ut−12α2 
+
+> t
+
+∥ϵt∥2F + 2 α2
+
+> t−1
+
+v2 
+
+> t−1
+
++ 6 nL 2θ2γ2
+
+> t−1
+
+m2
+
+> t−1
+
+/α t−1]
+
+≤ 36(1 + ˆG2)2 · Cc + 18(1 + ˆG2)Cc + 12 nL 2θ2Cc · ln( e + ˆG2) ln 2(e + T )
+
+≤  54(1 + ˆG2)2 + 12 nL 2θ2 · ln( e + ˆG2)
+
+| {z }
+
+> := Ce
+
+·Cc ln 2(e + T ), (30) 
+
+Bounding the Term E
+
+hPTt=1 Ut−1wt
+
+i
+
+. Using the fact that αts2 
+
+> t
+
+= s2 
+
+> t
+
+− (1 − αt)s2 
+
+> t
+
+, we have from the recursion: 
+
+αts2 
+
+> t
+
+≤ (1 − αt)( s2 
+
+> t−1
+
+− s2 
+
+> t
+
+) + Bt
+
+> ①
+
+⇒ wt ≤ (1 − αt)( s2 
+
+> t−1
+
+− s2 
+
+> t
+
+) + Bt.
+
+where step ① uses wt = ¯ γts2 
+
+> t
+
+≤ αts2 
+
+> t
+
+, which can be implied by ¯γt ≤ αt. Therefore, 
+
+PTt=1 Ut−1wt ≤ PTt=1 Ut−1Bt + PTt=1 Ut−1(1 − αt)( s2 
+
+> t−1
+
+− s2 
+
+> t
+
+)
+
+> ①
+
+≤ PTt=1 Ut−1Bt + UT max 0≤t≤T s2
+
+> t
+> ②
+
+≤ PTt=1 Ut−1(Dt + Kt) + 4 UT ˆG2,
+
+where step ① uses Lemma 25 with At = Ut−1(1 − αt) and Bt = s2 
+
+> t
+
+, where At is nonnegative and nondecreasing; step ② uses st ≤ 2 ˆG, and E[Ut−1Kt] = E[Ut−1Et[Kt]] = 0 , which holds since 
+
+Ut−1 is Ft−1-measurable and Et[ϵt] = 0. Taking expectations, we get 
+
+E
+
+hPTt=1 Ut−1wt
+
+i
+
+≤ 4 ˆG2E[UT ] + E[PTt=1 Ut−1Dt]
+
+> ①
+
+≤ 4 ˆG2Cc ln( e + T ) + CeCc ln 2(e + T )
+
+≤  4 ˆG2 + Ce
+
+ · Cc ln 2(e + T ), (31) step ① uses Inequality (30). 
+
+Bounding E[U2 
+
+> T
+
+]. Using U2 
+
+> T
+
+=
+
+PTt=1 wt
+
+2
+
+= PTt=1 w2 
+
+> t
+
++ 2 PTt=1 Ut−1wt, and w2 
+
+> t
+
+= ¯ γ2 
+
+> t
+
+s4 
+
+> t
+
+≤
+
+4 ˆG2 ¯γts2 
+
+> t
+
+= 4 ˆG2wt, we obtain 
+
+E[U2 
+
+> T
+
+] ≤ 4 ˆG2E[UT ] + 2 E[PTt=1 Ut−1wt]
+
+≤ 4 ˆG2Cc ln( e + T ) + 2(4 ˆG2 + Ce)Cc ln 2(e + T )
+
+≤ 12 Cc
+
+  ˆG2 + Ce
+
+| {z }
+
+> := Cu
+
+ln 2(e + T ).
+
+23 YUAN 
+
+C.7. Proof of Lemma 13 Proof Let Ft := f (Xt) − f∗, and ¯γt = γt/α t. Let ¯γt = min {αt,  1 + Ptj=1  
+
+> ∥Vj∥2F
+> αj
+
+−1/2}.Define UT := PTt=1 ¯γt∥St∥2F, WT := PTt=1 ¯γt∥Vt∥2F, and VT := PTt=1 ∥Vt∥2F.
+
+Bounding the term E[WT ]. We have from Lemma 10 that: 
+
+¯γt∥Vt∥2F ≤ 1
+
+> c0
+
+ f (Xt) − f (Xt+1 ) + c1 ¯γt∥St∥2F + c2 ¯γ2 
+
+> t
+
+∥Vt∥2F
+
+ .
+
+Summing this inequality from t = 1 to T :
+
+PTt=1 ¯γt∥Vt∥2F ≤ 1
+
+> c0
+
+
+
+F1 + c1
+
+PTt=1 ¯γt∥St∥2F + c2
+
+PTt=1 ¯γ2 
+
+> t
+
+∥Vt∥2F
+
+
+
+. (32) Using the definition of WT := PTt=1 ¯γt∥Vt∥2F, and taking the expectation yields 
+
+E[WT ] ≤ 1
+
+> c0
+
+
+
+F1 + c1
+
+PTt=1 ¯γt∥St∥2F + c2
+
+PTt=1 ¯γ2 
+
+> t
+
+∥Vt∥2F
+
+
+
+> ①
+
+≤ 1 
+
+> c0
+
+(F1 + c1Cc + c2Cd)
+
+| {z }
+
+> := Cw
+
+· ln( e + T ), (33) where step ① uses E[PTt=1 ¯γt∥St∥2F] ≤ Cc ln( e + T ), and PTt=1 γ2 
+
+> t
+
+∥Mt∥2F ≤ Cd ln( e + T ) a.s.. 
+
+Bounding the term E[W2 
+
+> T
+
+]. Squaring the pathwise inequality in (32) yields: 
+
+W2 
+
+> T
+
+≤ 3
+
+> c20
+
+
+
+F 21 + c21(PTt=1 ¯γt∥St∥2F)2 + c22(PTt=1 ¯γ2 
+
+> t
+
+∥Vt∥2F)2
+
+
+
+> ①
+
+≤ 3
+
+> c20
+
+
+
+F 21 + c21(PTt=1 ¯γt∥St∥2F)2 + c22C2 
+
+> d
+
+ln 2(e + T )
+
+
+
+,
+
+where step ① uses Lemma 11 that PTt=1 ¯γ2 
+
+> t
+
+∥Vt∥2F ≤ Cd ln( e + T ) holds almost surely. Taking the exception of both sides yields and using Lemma 12 that E[U2 
+
+> T
+
+] ≤ Cu ln 2(e + T ) with UT := 
+
+PTt=1 ¯γt∥St∥2F, we have: 
+
+E[W2 
+
+> T
+
+] ≤ 3
+
+> c20
+
+ F 21 + c21Cu ln 2(e + T ) + c22C2 
+
+> d
+
+ln 2(e + T )
+
+= 3
+
+> c20
+
+ F 21 + c21Cu + c22C2
+
+> d
+
+| {z }
+
+> Cx
+
+· ln 2(e + T ). (34) 
+
+Bounding the term VT . We derive: 
+
+VT
+
+> ①
+
+≤   P Tt=1 ¯γt∥Vt∥2F
+
+ · 1¯γT
+
+> ②
+
+= WT · 1¯γT
+
+> ③
+
+= WT · max 
+
+ 
+
+> 1
+> αT
+
+,
+
+
+
+1 + PTj=1  
+
+> ∥Vj∥2F
+> αj
+
+1/2
+
+≤ WT ·
+
+ 
+
+> 1
+> αT
+
++
+
+
+
+1 + PTj=1  
+
+> ∥Vj∥2F
+> αj
+
+1/2 ③
+
+≤ WT ·
+
+ 
+
+> 1
+> αT
+
++
+
+
+
+1 + 1 
+
+> αT
+
+VT
+
+1/2
+
+, (35) where step ① uses γT ≤ γt for all t ≤ T ; step ② uses the definition of WT ; step ③ uses the definition of ¯γt = min αt,  1 + Ptj=1  
+
+> ∥Vj∥2F
+> αj
+
+−1/2 ; step ④ uses αT ≤ αj for all j ≤ T .
+
+24 OPT MUON 
+
+Bounding the term E[αT VT ]. Let YT := αT VT . Multiplying both sides of Inequality (35) by 
+
+αT yields: 
+
+YT ≤ WT
+
+
+
+1 + 
+
+q
+
+α2 
+
+> T
+
++ YT
+
+ ①
+
+≤ WT
+
+ 2 + √YT
+
+
+
+> ②
+
+≤ 2WT + 12 W 2 
+
+> T
+
++ 12 YT ≤ 4WT + W 2 
+
+> T
+
+,
+
+where step ① uses √a + b ≤ √a + √b for all a, b ≥ 0; step ② uses ab ≤ 12 a2 + 12 b2.Taking expectations gives 
+
+E[αT VT ] ≤ E[4 WT + W 2 
+
+> T
+
+]
+
+> ①
+
+≤ 4Cw ln( e + T ) + Cx ln 2(e + T )
+
+≤ (4 Cw + Cx) ln 2(e + T ),
+
+where step ① uses Inequalities (34) and (33). 
+
+C.8. Proof of Theorem 14 Proof Define VT := PTt=1 ∥Vt∥2F, ST := PTt=1 ∥St∥2F, and GT := PTt=1 ∥Gt∥2F.Let ϵt = Gt − ∇ f (Xt), St = Vt − ∇ f (Xt), and ZT := E√1 + GT
+
+.
+
+Bounding the term E[ 1 
+
+> αT
+
+]. We derive:  
+
+> 1
+> αT
+
+= max 1≤k≤T −1
+
+ 1+ Pki=1 g2 
+
+> i
+> 1+max 1≤i≤kg2
+> i
+
+1/2
+
+≤
+
+q
+
+1 + PTi=1 g2 
+
+> i
+
+= √1 + GT . (36) This further leads to E[ 1 
+
+> αT
+
+] ≤ Z T .
+
+Bounding the Scaled Momentum Sum. We derive: 
+
+E[√VT ] ①
+
+≤ pE[αT VT ]
+
+r
+
+E
+
+h 1
+
+> αT
+
+i ②
+
+≤
+
+q
+
+Cv ln 2(e + T )ZT , (37) where step ① uses E[√XY ] ≤ pE[X]E[Y ]; step ② uses E[ 1 
+
+> αT
+
+] ≤ Z T , and Lemma 13 that 
+
+E[αT VT ] ≤ Cv ln 2(e + T ).
+
+Bounding the Tracking-Error Sum. Since {αt} is non-increasing, αT ≤ αt for all t ≤ T .Hence ST = PTt=1 ∥St∥2F ≤ 1
+
+> αT
+
+PTt=1 αt∥St∥2F. Taking square roots and using Cauchy–Schwarz gives 
+
+E[√ST ] ≤
+
+q
+
+E[ 1 
+
+> αT
+
+] · E[PTt=1 αt∥St∥2F] ≤ pCc ln( e + T )ZT , (38) where step ① uses E[√XY ] ≤ pE[X]E[Y ]; step ② uses E[ 1 
+
+> αT
+
+] ≤ Z T , and Lemma 11 that 
+
+E[PTt=1 αt∥St∥2F] ≤ Cc ln( e + T ).
+
+25 YUAN 
+
+Bounding the terms E[
+
+qPTt=1 ∥∇ f (xt)∥2F] and ZT . We derive: 
+
+E[
+
+qPTt=1 ∥∇ f (xt)∥2F] ①
+
+≤ E[√2√VT + √2√ST ]
+
+> ②
+
+≤
+
+q
+
+2Cv ln 2(e + T )ZT + p2Cc ln( e + T )ZT
+
+≤ √2Cv + √2Cc
+
+| {z }
+
+:= Cz
+
+√ZT ln( e + T ), (39) where step ① uses ∥a + b∥2 ≤ 2∥a∥2 + 2 ∥b∥2; step ② uses Inequalities (37) and (38). Additionally, we have 
+
+ZT = E[
+
+q
+
+1 + PTt=1 ∥Gt∥2F]
+
+> ①
+
+≤ 1 + √2E[
+
+qPTt=1 ∥∇ f (Xt)∥2F] + √2E[
+
+qPTt=1 ∥ϵt∥2F]
+
+> ②
+
+≤ 1 + √2Cz
+
+√ZT ln( e + T ) + √2σ√T
+
+> ③
+
+≤ 2 max( √2Cz
+
+√ZT ln( e + T ), 1 + √2σ√T )
+
+≤ max(( √2Cz ln( e + T )) 2, 2 + 2 √2σ√T )
+
+≤ (2 + 8 C2 
+
+> z
+
+) ln 2(e + T ) + 2 √2σ√T , (40) where step ① uses ∥a + b∥2 ≤ 2∥a∥2 + 2 ∥b∥2; step ② uses Inequality (39); step ③ uses a + b ≤
+
+2 max( a, b ).
+
+Bounding the term E[ 1
+
+> T
+
+PTt=1 ∥∇ f (Xt)∥F]. By Cauchy–Schwarz, 
+
+E
+
+h 1
+
+> T
+
+PTt=1 ∥∇ f (Xt)∥F
+
+i
+
+≤ 1√T E
+
+q PTt=1 ∥∇ f (Xt)∥2F
+
+
+
+> ①
+
+≤ 1√T Cz
+
+√ZT · ln( e + T )
+
+> ②
+
+≤ 1√T Cz
+
+q
+
+(2 + 8 C2 
+
+> z
+
+) ln( e + T )) 2 + 2 √2σ√T · ln( e + T )
+
+≤ O ln 2(e + T )
+
+T 1/2 + σ1/2 ln( e + T )
+
+T 1/4
+
+!
+
+,
+
+where step ① uses Inequality (39); and step ② uses Inequality (40). If R ∼ Unif {1, . . . , T } is independent of the algorithmic randomness, then 
+
+E∥∇ f (XR)∥F = E
+
+"
+
+1
+
+T
+
+> T
+
+X
+
+> t=1
+
+∥∇ f (Xt)∥F
+
+#
+
+,
+
+which proves the output guarantee. 
+
+26 OPT MUON 
+
+Appendix D. Proofs for Section 5.2 
+
+D.1. Proof of Lemma 16 Proof Define M ≜ PTi=1 m2 
+
+> i
+
+, and G+ ≜ 1 + PTi=1 g2 
+
+> i
+
+.Define Zt ≜ 1−αt 
+
+> αt
+
+(∇f (Xt; ξt) − ∇ f (Xt−1; ξt)) + ∇f (Xt; ξt) and zt ≜ ∥Zt∥F.
+
+Bounding PTt=1 m2 
+
+> t
+
+using PTt=1 z2 
+
+> t
+
+. The update rule for Mt can be rewritten as Mt = (1 −
+
+αt)Mt−1 + αtZt, and applying the convexity of ∥ · ∥ yields: 
+
+m2 
+
+> t
+
+≤ (1 − αt)m2 
+
+> t−1
+
++ αtz2 
+
+> t
+
+⇒ m2 
+
+> t
+> αt
+
+≤ m2 
+
+> t−1
+> αt
+
+− m2 
+
+> t−1
+
++ z2
+
+> t
+
+⇒ m2 
+
+> t
+
+≤ ( 1 
+
+> αt
+
+− 1)( m2 
+
+> t−1
+
+− m2 
+
+> t
+
+) + z2 
+
+> t
+
+. (41) Summing Inequality (41) over t = 1 , 2, . . . , T yields: 
+
+PTt=1 m2 
+
+> t
+
+≤ PTt=1 z2 
+
+> t
+
++ PTt=1 ( 1 
+
+> αt
+
+− 1)( m2 
+
+> t−1
+
+− m2 
+
+> t
+
+)
+
+> ①
+
+= PTt=1 z2 
+
+> t
+
++
+
+ 1 
+
+> α1
+
+− 1
+
+
+
+m20 −
+
+ 1  
+
+> αT+1
+
+− 1
+
+
+
+m2 
+
+> T
+
++ PTt=1 ( 1 
+
+> αt+1
+
+− 1 
+
+> αt
+
+)m2
+
+> t
+> ②
+
+≤ PTt=1 z2 
+
+> t
+
++ q PTt=1 m2 
+
+> t
+
+≤ 11−q
+
+PTt=1 z2 
+
+> t
+
+= 3 PTt=1 z2 
+
+> t
+
+,
+
+where step ① uses Lemma 27; step ② uses 
+
+ 1 
+
+> α1
+
+− 1
+
+
+
+m20 = 0 , −
+
+ 1  
+
+> αT+1
+
+− 1
+
+
+
+m2 
+
+> T
+
+≤ 0, and the fact that 1 
+
+> αt+1
+
+− 1 
+
+> αt
+
+≤ q.
+
+Bounding the term PTt=1 z2 
+
+> t
+
+. We derive the following results: 
+
+PTt=1 z2 
+
+> t
+
+= PTt=1 ∥ 1−αt 
+
+> αt
+
+(∇f (Xt; ξt) − ∇ f (Xt−1; ξt)) + ∇f (Xt; ξt)∥2F
+
+> ①
+
+≤  2 PTt=1 g2
+
+> t
+
+ +  2L2 PTt=1 1
+
+> α2
+> t
+
+∥Xt − Xt−1∥2F
+
+
+
+> ②
+
+=  2 PTt=1 g2
+
+> t
+
+ +  2L2 PT −1 
+
+> t=1 1
+> α2
+> t+1
+
+∥Xt+1 − Xt∥2F
+
+
+
+> ③
+
+≤  2 PTt=1 g2
+
+> t
+
+ + 6 nL 2θ2 PTt=1  
+
+> γ2
+> tm2
+> t
+> α2
+> t
+
+, (42) where step ① uses ∥∇ f (Xt; ξt) − ∇ f (Xt−1; ξt)∥F ≤ L∥Xt − Xt−1∥F; step ② uses ∥X1 − X0∥F =0; step ③ uses ∥Xt+1 − Xt∥2F ≤ nη 2 
+
+> t
+
+= nθ 2γ2 
+
+> t
+
+m2 
+
+> t
+
+and α2
+
+> t
+> α2
+> t+1
+
+≤ (1 + q)2 = (1 + 2 /3) 2 < 3.
+
+Bounding the term PTt=1  
+
+> γ2
+> tm2
+> t
+> α2
+> t
+
+. We further derive: 
+
+PTt=1  
+
+> γ2
+> tm2
+> t
+> α2
+> t
+> ①
+
+≤ PTt=1    
+
+> m2
+> t/α 2
+> t
+> 1+ Pti=1 m2
+> i/√αi
+> ②
+
+≤ 1
+
+> α3/2
+> T
+
+· ln 
+
+
+
+1 + PTt=1 
+
+> m2
+> t√αt
+
+
+
+> ③
+
+≤ G+ · ln 
+
+
+
+1 + M · G1/3+
+
+
+
+, (43) where step ① uses γ2 
+
+> t
+
+≤ 11+ Pti=1 m2 
+
+> i/√αi
+
+; step ② uses Lemma 24(a); step ③ uses 
+
+> 1
+> α3/2
+> T
+
+= max Tt=1 
+
+ 1+ Pti=1 g2 
+
+> i
+> 1+max ti=1 g2
+> i
+
+
+
+≤ 1 + Pti=1 g2 
+
+> i
+
+= G+.
+
+27 YUAN 
+
+We have from Inequalities (42), (42), and (43): 
+
+M ≜ PTt=1 m2 
+
+> t
+
+≤ 6G + 18 nL 2θ2 · G+ · ln(1 + MG 1/3+ )
+
+> ①
+
+≤ max(12 G, 36 nL 2θ2 · G+ · ln(1 + MG 1/3+ )) 
+
+> ②
+
+≤ max 
+
+
+
+12 G, 72 nL 2θ2 · G+ · ln( e + 36 nL 2θ2 · G4/3+ )
+
+
+
+> ③
+
+≤ max 
+
+
+
+12 G, 72 nL 2θ2 · G+ · 43 ln( e + 36 nL 2θ2(1 + T ˆG2)) 
+
+
+
+> ④
+
+≤ 2 max  12 , 96 nL 2θ2 ln( e + 36 nL 2θ2( ˆG2 + 1)) | {z }
+
+> := κ
+
+· ln( e + T )G+
+
+where step ① uses a + b ≤ 2 max( a, b ) for all a, b ≥ 0; step ② uses Lemma 26; step ③ uses 
+
+ln(1 + ab ) ≤ ln( e + a) ln( e + b) for all a, b ≥ 0.
+
+D.2. Proof of Lemma 17 Proof Define St := Mt − ∇ f (Xt), and ϵt := Gt − ∇ f (Xt).Define mt := ∥Mt∥F, and gt := ∥Gt∥F.Define Gt := ∇f (Xt; ξt), and G′ 
+
+> t
+
+:= ∇f (Xt−1; ξt).Define ∆t := ( Gt − G′
+
+> t
+
+) − (∇f (Xt) − ∇ f (Xt−1)) .Define ϵt := ∇f (Xt; ξt) − ∇ f (Xt) and ϵ′ 
+
+> t
+
+:= ∇f (Xt−1; ξt) − ∇ f (Xt−1).
+
+Difference-based representation of St. We derive the following qualities: 
+
+St ≜ Mt − ∇ f (Xt)
+
+> ①
+
+= (1 − αt)( Mt−1 − ∇ f (Xt−1; ξt)) + Gt − ∇ f (Xt)= (1 − αt)( Mt−1 − ∇ f (Xt−1)) + (1 − αt)( ∇f (Xt−1) − ∇ f (Xt−1; ξt)) + ϵt
+
+> ②
+
+= (1 − αt)St−1 + ( Gt − ∇ f (Xt)) − (1 − αt)( G′ 
+
+> t
+
+− ∇ f (Xt−1)) 
+
+> ②
+
+= (1 − αt)St−1
+
+| {z }
+
+> := At
+
++ ϵt − (1 − αt)ϵ′
+
+> t
+
+| {z }
+
+> := Rt
+
+, (44) where step ① uses the update rule of OptMuon-I that Mt = (1 − αt)( Mt−1 − ∇ f (Xt−1; ξt)) + Gt;step ② uses St ≜ Mt − ∇ f (Xt).
+
+Bounding the term ∥Rt∥2F. We have: 
+
+∥Rt∥2F
+
+> ①
+
+= ∥ϵt − (1 − αt)  G′ 
+
+> t
+
+− ∇ f (Xt−1) ∥2F
+
+= ∥αtϵt + (1 − αt) ( Gt − ∇ f (Xt) + ∇f (Xt−1) − ∇ f (Xt−1; ξt)) ∥2F
+
+> ②
+
+≤ 2α2 
+
+> t
+
+∥ϵt∥2F + 2(1 − αt)2∥Gt − ∇ f (Xt) + ∇f (Xt−1) − ∇ f (Xt−1; ξt)∥2F
+
+≤ 2α2 
+
+> t
+
+∥ϵt∥2F + 4 ∥Gt − ∇ f (Xt−1; ξt)∥22 + 4 ∥∇ f (Xt) − ∇ f (Xt−1)∥2F
+
+> ③
+
+≤ 2α2 
+
+> t
+
+∥ϵt∥2F + (4 + 4) L2∥Xt − Xt−1∥2F
+
+> ④
+
+≤ 2α2 
+
+> t
+
+∥ϵt∥2F + 8 nL 2θ2γ2
+
+> t−1
+
+m2
+
+> t−1
+
+, (45) 
+
+28 OPT MUON 
+
+where step ① uses the definition of Zt; step ② uses ∥a + b∥22 ≤ 2∥a∥22 + 2 ∥b∥22 for all a, b ∈ Rn;step ③ uses ∥∇ f (Xt−1; ξt) − ∇ f (Xt; ξt)∥ ≤ L∥Xt − Xt−1∥F, and ∥∇ f (Xt−1) − ∇ f (Xt)∥ ≤ 
+
+L∥Xt − Xt−1∥F; step ④ uses Xt+1 = Xt − θγ tmt Orth( Mt), and ∥ Orth( Mt−1)∥2F ≤ n.
+
+Bounding the term ∥St∥2F. Given St = At + Rt, we derive: 
+
+∥St∥2F = ∥At∥2F + ∥Rt∥2F + 2 ⟨At, Rt⟩
+
+> ①
+
+≤ (1 − αt)∥St−1∥2F + 2 α2 
+
+> t
+
+∥ϵt∥2F + 8 nL 2θ2γ2
+
+> t−1
+
+m2
+
+> t−1
+
++2(1 − αt)⟨St−1, ϵt − (1 − αt)ϵ′
+
+> t
+
+⟩,
+
+where step ① uses αt ∈ (0 , 1] , leading to (1 − αt)2 ≤ 1 − αt.
+
+D.3. Proof of Lemma 18 Proof Let Xt+1 = Xt − ˜γt Orth( Mt), where ˜γt := θγ t∥Mt∥F.For any t ≤ T , we have the following inequalities: 
+
+f (Xt+1 ) − f (Xt)
+
+> ①
+
+≤ L 
+
+> 2
+
+∥Xt+1 − Xt∥2F + ⟨Xt+1 − Xt, ∇f (Xt)⟩
+
+> ②
+
+= L 
+
+> 2
+
+∥ − ˜γt Orth( Mt)∥2F − ⟨ ˜γt Orth( Mt), Mt⟩ + ⟨− ˜γt Orth( Mt), ∇f (Xt) − Mt⟩
+
+> ③
+
+≤ Ln  
+
+> 2
+
+˜γ2 
+
+> t
+
+− ˜γt∥Mt∥F + ˜ γt∥∇ f (Xt) − Mt∥∗
+
+> ④
+
+≤ Ln  
+
+> 2
+
+θ2γ2 
+
+> t
+
+∥Mt∥2F + θγ t
+
+  − ∥ Mt∥2F + ∥Mt∥F∥∇ f (Xt) − Mt∥∗
+
+
+
+> ⑤
+
+≤ Ln  
+
+> 2
+
+θ2γ2 
+
+> t
+
+∥Mt∥2F + θγ t
+
+  − 12 ∥Mt∥2F + 12 ∥∇ f (Xt) − Mt∥2
+
+> ∗
+
+
+
+> ⑤
+
+≤ Ln  
+
+> 2
+
+θ2γ2 
+
+> t
+
+∥Mt∥2F + θγ t
+
+  − 12 ∥Mt∥2F + n 
+
+> 2
+
+∥∇ f (Xt) − Mt∥2F
+
+,
+
+where step ① uses the L-smoothness of f (·); step ② uses Xt+1 − Xt = −˜γt Orth( Mt); step ③
+
+uses ⟨X, Y⟩ ≤ ∥ X∥∥ Y∥∗, and the fact that: 
+
+⟨Orth( Mt), Mt⟩ = ∥Mt∥∗ ≥ ∥ Mt∥F;
+
+step ④ uses the definition of ˜γt; step ⑤ uses − 12 a2 +ab ≤ 12 b2 with a = ∥Mt∥F and b = ∥∇ f (Xt)−
+
+Mt∥∗.
+
+D.4. Proof of Lemma 19 Proof Let st := ∥St∥F, mt := ∥Mt∥F, Rt := Pti=1 g2 
+
+> i
+
+, Ht := 1 + Ptj=1 α−1/2 
+
+> j
+
+m2 
+
+> j
+
+.We set γ0 = 0 , m0 = 0 , and M0 = 0.Define St := Mt − ∇ f (Xt), ϵt := ∇f (Xt; ξt) − ∇ f (Xt), ϵ′ 
+
+> t
+
+:= ∇f (Xt−1; ξt) − ∇ f (Xt−1).Recall that for OptMuon-I, q = 2 /3 and γt = min {√αt, H −1/2 
+
+> t
+
+}.Define Bt := 2 α2 
+
+> t
+
+∥ϵt∥2F + 8 nL 2θ2γ2
+
+> t−1
+
+m2 
+
+> t−1
+
++ 2(1 − αt)⟨St−1, ϵt − (1 − αt)ϵ′
+
+> t
+
+⟩.Define γt = min 
+
+√αt,
+
+
+
+1 + Ptj=1 α−1/2 
+
+> j
+
+∥Mj ∥2F
+
+−1/2
+
+. Let G+ ≜ 1 + PTi=1 g2 
+
+> i
+
+.
+
+29 YUAN 
+
+Preliminary Estimates. By Assumption 4, 
+
+gt ≤ ˆG, ∥∇ f (Xt)∥F ≤ ˆG, ∥ϵt∥F ≤ 2 ˆG, ∥ϵ′
+
+> t
+
+∥F ≤ 2 ˆG a.s. . (46) 
+
+Bounding the Term α3/2 
+
+> t
+
+. By the definition of αt, for all t ≥ 2,
+
+α3/2 
+
+> t
+
+≤ 1 + max 1≤i≤t−1 g2
+
+> i
+
+1 + Pt−1 
+
+> i=1
+
+g2
+
+> i
+
+≤ 1 + ˆG2
+
+1 + Rt−1
+
+. (47) The inequality above also holds for the case t = 1 .
+
+Bounding the Term E[PTt=1 α3/2 
+
+> t
+
+∥ϵt∥2F]. We derive: 
+
+E[PTt=1 α3/2 
+
+> t
+
+∥ϵt∥2F] ①
+
+≤ 4E[PTt=1 α3/2
+
+> t+1
+
+∥ϵt∥2F] ②
+
+≤ 4(1 + ˆG2)E[PTt=1  
+
+> ∥ϵt∥2F
+> 1+ Gt
+
+]
+
+> ③
+
+≤ 32(1 + ˆG2)2E[PTt=1  
+
+> ∥Gt∥2F
+> 1+ Gt
+
+] ④
+
+≤ 32(1 + ˆG2)2E[ln(1 + GT )] , (48) where step ① uses αt 
+
+> αt+1
+
+≤ 1 + q; step ② uses α3/2 
+
+> t+1
+
+≤ 1+ ˆG2 
+
+> 1+ Gt
+
+; step ③ uses Lemma 28 with Wt = 1 ;step ④ uses Lemma 24(a). 
+
+Bounding the Term PTt=1 γ2
+
+> t−1
+
+m2
+
+> t−1
+
+/√αt. We derive: 
+
+PTt=1 γ2
+
+> t−1
+
+m2
+
+> t−1
+
+/√αt
+
+> ①
+
+≤ 2 PTt=1 γ2 
+
+> t
+
+m2 
+
+> t
+
+/√αt
+
+> ②
+
+≤ 2 PTt=1    
+
+> m2
+> t/√αt
+> 1+ Pti=1 m2
+> i/√αi
+
+≤ 2 ln(1 + MT /√αT ) ③
+
+≤ 2 ln(1 + κ ln( e + T )G+/√αT ) ④
+
+≤ 2 ln(1 + κ ln( e + T )G4/3+ )
+
+> ⑤
+
+≤ 4 ln(1 + κ ln( e + T )G+) ≤ 4 ln(1 + κ ln( e + T )(1 + ˆG2T )) 
+
+> ⑥
+
+≤ 4 ln( e + κ(1 + ˆG2)) ln(1 + ln( e + T )T ) ⑦
+
+≤ 8 ln( e + κ(1 + ˆG2)) ln( e + T ), (49) where step ① uses PTt=1 γ2
+
+> t−1
+
+m2
+
+> t−1
+
+/√αt ≤ 2 PTt=1 γ2
+
+> t−1
+
+m2
+
+> t−1
+
+/√αt−1 ≤ 2 PTt=1 γ2 
+
+> t
+
+m2 
+
+> t
+
+/√αt; step 
+
+② uses the definition of γt; step ③ uses Lemma 16; step ④ uses 1√αT ≤  1 + PTt=1 g2
+
+> t
+
+1/3 = G1/3+ ;step ⑤ uses ln( a + b4/3) ≤ 43 ln( a + b) for all a ≥ 1 and b ≥ 0; step ⑥ uses ln(1 + ab ) ≤
+
+ln( e + a) ln( e + b); step ⑦ uses ln(1 + ln( e + T )T ) ≤ 2 ln( e + T ).
+
+Bounding the Term E[PTt=1 Bt√αt ]. We derive: 
+
+E[PTt=1 Bt√αt ] = E[PTt=1 2α3/2 
+
+> t
+
+∥ϵt∥2F + 8 nL 2 1√αt θ2γ2
+
+> t−1
+
+m2 
+
+> t−1
+
++ 2 1−αt√αt ⟨St−1, ϵt − (1 − αt)ϵ′
+
+> t
+
+⟩]
+
+> ①
+
+≤ 64(1 + ˆG2)2E[ln(1 + GT )] + 32 nL 2θ2 ln( e + κ + κ ˆG2) ln( e + T )
+
+≤  64(1 + ˆG2)2 + 32 nL 2θ2 · ln( e + κ + κ ˆG2)
+
+| {z }
+
+> := Cb
+
+· ln( e + T ),
+
+where step ① uses Inequalities (48) and (49). 
+
+30 OPT MUON 
+
+Bounding the Term PTt=1 
+
+√αts2 
+
+> t
+
+. Let Pt := s2 
+
+> t√αt
+
+. By Lemma 17, we have 
+
+s2 
+
+> t
+
+≤ (1 − αt)s2 
+
+> t−1
+
++ Bt.
+
+Dividing both sides by √αt gives 
+
+Pt ≤ (1 − αt)
+
+q αt−1 
+
+> αt
+
+Pt−1 + Bt√αt
+
+> ①
+
+≤ (1 − αt 
+
+> 3
+
+)Pt−1 + Bt√αt ,
+
+where step ① uses Lemma 6(c). Equivalently, 
+
+13 αtPt−1 ≤ Pt−1 − Pt + Bt
+
+√αt
+
+. (50) Summing over t = 1 , . . . , T yields: 
+
+PTt=1 αtPt−1 ≤ 3P0 + 3 PTt=1 Bt√αt . (51) This further leads to the following inequalities: 
+
+PTt=1 
+
+√αts2 
+
+> t
+
+= PT +1 
+
+> t=2
+
+√αt−1s2
+
+> t−1
+> ①
+
+= PT +1  
+
+> t=2
+
+αt−1Pt−1
+
+> ②
+
+≤ 2 PT +1  
+
+> t=2
+
+αtPt−1 ≤ 6P0 + 6 PT +1   
+
+> t=1 Bt√αt
+
+, (52) where step ① uses the definition of Pt; step ② uses αt−1 
+
+> αt
+
+≤ 1 + q ≤ 2; step ③ uses Inequality (51). Taking expectations, we obtain 
+
+E
+
+hPTt=1 
+
+√αts2
+
+> t
+
+i ①
+
+≤ 6 ˆG2 + 6 Cb ln( e + T + 1) ②
+
+≤ 12( ˆG2 + Cb)
+
+| {z }
+
+> := Cc
+
+· ln( e + T ), (53) where step ① uses E[PT +1   
+
+> t=1 Bt√αt
+
+] ≤ Cb ln( e + T + 1) ; step ② uses P0 = s20 = ∥∇ f (X0)∥2F ≤ ˆG2,and ln( a + T ) ≤ 2 ln( a + T + 1) for all a ≥ 0 and T ≥ 1.
+
+Part (c): Bounding the Term PTt=1 γ2 
+
+> t
+
+m2 
+
+> t
+
+. We derive: 
+
+PTt=1 γ2 
+
+> t
+
+m2
+
+> t
+> ①
+
+≤ PTt=1  
+
+> m2
+> t
+> 1+ Ptj=1 m2
+> j
+
+≤ ln(1 + MT ) ②
+
+≤ ln(1 + κ ln( e + T )(1 + G)) 
+
+> ③
+
+≤ ln(1 + κ ln( e + T )(1 + T ˆG2)) ≤ ln(1 + κ(1 + ˆG2) ln( e + T )T )
+
+> ④
+
+≤ ln( e + κ(1 + ˆG2)) ln( e + ln( e + T )T ) ⑤
+
+≤ 2 ln( e + κ(1 + ˆG2)) 
+
+| {z }
+
+> := Cd
+
+ln( e + T ),
+
+where step ① uses γt ≤  1 + Ptj=1 α−1/2 
+
+> j
+
+∥Mj ∥2F
+
+−1/2 ≤  1 + Ptj=1 m2
+
+> j
+
+−1/2; step ② uses Lemma 16; step ③ uses GT ≤ T ˆG2; step ④ uses ln(1 + ab ) ≤ ln( e + a) ln( e + b); step ⑤ uses 
+
+ln( e + ln( e + T )T ) ≤ 2 ln( e + T ).
+
+31 YUAN 
+
+D.5. Proof of Lemma 20 Proof Define st := ∥St∥F, wt := γts2 
+
+> t
+
+, Ut := Pti=1 wi, U0 := 0 . Define ˜UT := PTt=1 
+
+√αts2 
+
+> t
+
+.Define Bt := 2 α2 
+
+> t
+
+∥ϵt∥2F + 8 nL 2θ2γ2
+
+> t−1
+
+m2 
+
+> t−1
+
++ 2(1 − αt) ⟨St−1, ζ t⟩, where ζt := ϵt − (1 − αt)ϵ′
+
+> t
+
+.Define It := 2 α3/2 
+
+> t
+
+∥ϵt∥2F, Jt := 8 nL 2θ2 γ2 
+
+> t−1m2
+> t−1√αt
+
+, and Kt := 2(1 −αt) 
+
+> √αt
+
+⟨St−1, ζ t⟩.Write Bt√αt = It + Jt + Kt. Define IT := PTt=1 It, JT := PTt=1 Jt, and KT := PTt=1 Kt.Define Pt := s2 
+
+> t√αt
+
+.Since αt, St−1, and Xt, Xt−1 are Ft−1-measurable, and Et[ϵt] = 0 , Et[ϵ′
+
+> t
+
+] = 0 , we have 
+
+Et[Kt] = 0 . Thus {Kt} is a martingale-difference sequence. 
+
+Bounding the Term ˜UT −1 := PT −1
+
+> t=1
+
+√αts2 
+
+> t
+
+. We have from Inequality (52) that: 
+
+PT −1
+
+> t=1
+
+√αts2 
+
+> t
+
+≤ 6P0 + 6 PTt=1 Bt√αt
+
+> ①
+
+= 6P0 + 6 IT + 6 JT + 6 KT ,
+
+where step ① uses the definition of Bt, IT , JT , and KT . Using (a+b+c+d)2 ≤ 4( a2 +b2 +c2 +d2),we have: 
+
+˜U2  
+
+> T−1
+
+≤ 144  P 20 + I2 
+
+> T
+
++ J2 
+
+> T
+
++ K2
+
+> T
+
+ . (54) 
+
+Bounding the Term E[I2 
+
+> T
+
+]. Define IT := 2 PTt=1 α3/2 
+
+> t
+
+∥ϵt∥2F, and YT := PTt=1  
+
+> ∥ϵt∥2F
+> 1+ Pti=1 g2
+> i
+
+. Ap-plying Lemma 28 with Wt−1 ≡ 1, we have: 
+
+E[YT ] ≤ 8(1 + ˆG2) ln( e + ˆG2) ln( e + T ). (55) Define yt := ∥ϵt∥2F 
+
+> 1+ Pti=1 g2
+> i
+
+. We notice the following identity holds: Y 2 
+
+> T
+
+= PTt=1 y2 
+
+> t
+
++ 2 PTt=1 Yt−1yt.We derive: 
+
+E[Y 2 
+
+> T
+
+] = E[PTt=1 y2 
+
+> t
+
+] + 2 E[PTt=1 Yt−1yt] ①
+
+≤ 4 ˆG2E[PTt=1 yt] + 2 E[PTt=1 Yt−1yt]
+
+> ②
+
+≤ 32(1 + ˆG2)2 ln( e + ˆG2) ln( e + T ) + 16(1 + ˆG2) ln( e + ˆG2) ln( e + T )E[YT −1]
+
+> ③
+
+≤ 32(1 + ˆG2)2 ln( e + ˆG2) ln( e + T ) + 16(1 + ˆG2)2 ln 2(e + ˆG2) ln 2(e + T ) · 8
+
+≤ 160(1 + ˆG2)2 ln 2(e + ˆG2) ln 2(e + T ),
+
+where step ① uses yt ≤ ∥ ϵ∥2F ≤ 4 ˆG2; step ② uses Lemma 28 again with Wt−1 = Yt−1, and Inequality (55); step ③ uses Inequality (55) again. We derive the following inequality: 
+
+IT = 2 PTt=1 α3/2 
+
+> t
+
+∥ϵt∥2F
+
+> ①
+
+≤ 6 PTt=1 α3/2
+
+> t+1
+
+∥ϵt∥2F
+
+> ②
+
+≤ 6(1 + ˆG2) PTt=1  
+
+> ∥ϵt∥2F
+> 1+ Gt
+
+= 6(1 + ˆG2)YT ,
+
+where step ① uses αt 
+
+> αt+1
+
+≤ 1+ q = 53 ; step ② uses α3/2 
+
+> t+1
+
+≤ 1+ ˆG2 
+
+> 1+ Pti=1 g2
+> i
+
+. Taking the expectation yields: 
+
+E[I2 
+
+> T
+
+] = 36(1 + ˆG2)2E[Y 2 
+
+> T
+
+] ≤ 36(1 + ˆG2)2 · 160(1 + ˆG2)2 ln 2(e + ˆG2)
+
+| {z }
+
+> := CI
+
+· ln 2(e + T ).
+
+32 OPT MUON 
+
+Bounding the Term E[J2 
+
+> T
+
+]. Define J := 8 nL 2θ2 PTt=1  
+
+> γ2
+> t−1m2
+> t−1√αt
+
+. We have from Inequality (49): 
+
+PTt=1 γ2
+
+> t−1
+
+m2
+
+> t−1
+
+/√αt ≤ 8 ln( e + κ(1 + ˆG2)) ln( e + T ) a.s. (56) Taking the expectation yields: 
+
+E[J2 
+
+> T
+
+] = (64 nL 2θ2)2 ln 2(e + κ(1 + ˆG2)) 
+
+| {z }
+
+> := CJ
+
+· ln 2(e + T ). (57) 
+
+Bounding the Term ∥ζt∥2F. Recall that 
+
+ζt = ϵt − (1 − αt)ϵ′ 
+
+> t
+
+= αtϵ′ 
+
+> t
+
++ ( ϵt − ϵ′
+
+> t
+
+).
+
+By Assumption 4, we have 
+
+∥ϵ′
+
+> t
+
+∥F ≤ 2 ˆG. 
+
+Moreover, by individual smoothness and the update rule, 
+
+∥ϵt − ϵ′
+
+> t
+
+∥F ≤ ∥∇ f (Xt; ξt) − ∇ f (Xt−1; ξt)∥F + ∥∇ f (Xt) − ∇ f (Xt−1)∥F
+
+≤ 2L∥Xt − Xt−1∥F ≤ 2Lθγ t−1mt−1∥ Orth( Mt−1)∥F
+
+≤ 2Lθ √n γ t−1mt−1.
+
+Therefore, 
+
+∥ζt∥2F ≤ 8 ˆG2α2 
+
+> t
+
++ 8 nL 2θ2γ2
+
+> t−1
+
+m2
+
+> t−1
+
+. (58) 
+
+Bounding the Term E[K2 
+
+> T
+
+]. Let Kt = 2(1 −αt) 
+
+> √αt
+
+⟨St−1, ζ t⟩. {Kt} is a martingale-difference se-quence with respect to {F t}.We first bound K2 
+
+> t
+
+. Using 1 − αt ≤ 1, st−1 := ∥St−1∥F, and (58), we obtain 
+
+K2 
+
+> t
+
+≤ 4
+
+αt
+
+s2
+
+> t−1
+
+∥ζt∥2F
+
+≤ 32 ˆG2αts2 
+
+> t−1
+
++ 32 nL 2θ2 γ2
+
+> t−1
+
+m2
+
+> t−1
+
+αt
+
+s2
+
+> t−1
+
+.
+
+Since Pt−1 = s2
+
+> t−1
+
+/√αt−1, and by Lemma 6 we have αt−1/α t ≤ 1 + q ≤ 2, it follows that 
+
+K2 
+
+> t
+
+≤ Cα tPt−1 + CR tPt−1, Rt := γ2
+
+> t−1
+
+m2
+
+> t−1
+
+√αt−1
+
+, R1 := 0 , (59) where C > 0 is a constant independent of T .We next control the two weighted sums in (59). From the recursion for Pt, we have 
+
+Pt ≤
+
+
+
+1 − αt
+
+3
+
+
+
+Pt−1 + It + Jt + Kt.
+
+Equivalently, αt
+
+3 Pt−1 ≤ Pt−1 − Pt + It + Jt + Kt.
+
+33 YUAN 
+
+Summing over t = 1 , . . . , T and taking expectations gives 
+
+E
+
+" TX
+
+> t=1
+
+αtPt−1
+
+#
+
+≤ 3P0 + 3 E[IT + JT ] + 3 E[KT ]= 3P0 + 3 E[IT + JT ]
+
+≤ C ln( e + T ), (60) where we used E[KT ] = 0 , the already established bounds on E[IT ] and E[JT ], and ln( e + T ) ≥ 1.It remains to bound E
+
+hPTt=1 RtPt−1
+
+i
+
+. Define At := Pti=1 Ri, A0 := 0 .By αt ≤ αt−1 and Lemma 49, we have the pathwise bound 
+
+AT =
+
+> T
+
+X
+
+> t=1
+
+Rt ≤
+
+> T
+
+X
+
+> t=1
+
+γ2
+
+> t−1
+
+m2
+
+> t−1
+
+√αt
+
+≤ CA ln( e + T ) a.s. (61) for some constant CA > 0.Since 
+
+Pt ≤ Pt−1 + It + Jt + Kt,
+
+we have by induction 
+
+Pt−1 ≤ P0 +
+
+> t−1
+
+X
+
+> i=1
+
+(Ii + Ji) + 
+
+> t−1
+
+X
+
+> i=1
+
+Ki ≤ P0 + IT + JT + Kt−1.
+
+Multiplying by Rt ≥ 0 and summing yields 
+
+> T
+
+X
+
+> t=1
+
+RtPt−1 ≤ AT (P0 + IT + JT ) + 
+
+> T
+
+X
+
+> t=1
+
+RtKt−1. (62) We now handle the last term in (62) by summation by parts. Since Kt = Kt−1 + Kt and 
+
+At = At−1 + Rt, we have 
+
+AT KT =
+
+> T
+
+X
+
+> t=1
+
+AtKt +
+
+> T
+
+X
+
+> t=1
+
+RtKt−1.
+
+Therefore, TX
+
+> t=1
+
+RtKt−1 = AT KT −
+
+> T
+
+X
+
+> t=1
+
+AtKt.
+
+Taking expectations, and using that At is Ft−1-measurable and Et[Kt] = 0 , we get 
+
+E
+
+" TX
+
+> t=1
+
+RtKt−1
+
+#
+
+= E[AT KT ].
+
+By Cauchy–Schwarz and (61), 
+
+E[AT KT ] ≤ E[AT |KT |] ≤ CA ln( e + T )E[|KT |]
+
+≤ CA ln( e + T )
+
+q
+
+E[K2 
+
+> T
+
+]. (63) 
+
+34 OPT MUON 
+
+Combining (62) and (63), and using E[( IT + JT )2] ≤ C ln 2(e + T ), we obtain 
+
+E
+
+" TX
+
+> t=1
+
+RtPt−1
+
+#
+
+≤ C ln 2(e + T ) + C ln( e + T )
+
+q
+
+E[K2 
+
+> T
+
+]. (64) Now combining (59), (60), and (64), we obtain 
+
+E[K2 
+
+> T
+
+] =
+
+> T
+
+X
+
+> t=1
+
+E[K2 
+
+> t
+
+]
+
+≤ CE
+
+" TX
+
+> t=1
+
+αtPt−1
+
+#
+
++ CE
+
+" TX
+
+> t=1
+
+RtPt−1
+
+#
+
+≤ C ln 2(e + T ) + C ln( e + T )
+
+q
+
+E[K2 
+
+> T
+
+]. (65) Let X := 
+
+q
+
+E[K2 
+
+> T
+
+]. Then 
+
+X2 ≤ C ln 2(e + T ) + C ln( e + T )X. 
+
+Using the elementary implication 
+
+x2 ≤ a + bx, x, a, b ≥ 0 =⇒ x ≤ b + √a, 
+
+we get X ≤ C ln( e + T ). Hence 
+
+E[K2 
+
+> T
+
+] = E[K2 
+
+> T
+
+] ≤ CK ln 2(e + T ) (66) for some constant CK > 0.The estimates for IT , JT , and KT above are uniform in the horizon. Hence they remain valid with T + 1 in place of T , after increasing the constants and using ln( e + T + 1) ≤ 2 ln( e + T ).
+
+Final bound. Since the preceding argument is valid for any integer horizon, applying it with T +1 
+
+in place of T and using ln( e + T + 1) ≤ 2 ln( e + T ) for T ≥ 1, we obtain 
+
+E[K2 
+
+> T+1
+
+] ≤ CK ln 2(e + T ).
+
+Together with the already established bounds 
+
+E[I2 
+
+> T+1
+
+] ≤ CI ln 2(e + T ), E[J2 
+
+> T+1
+
+] ≤ CJ ln 2(e + T ),
+
+and the pathwise estimate 
+
+˜UT ≤ 6P0 + 6 IT +1 + 6 JT +1 + 6 KT +1 ,
+
+we have 
+
+E[U2 
+
+> T
+
+] ≤ E[ ˜U2 
+
+> T
+
+]
+
+≤ 144  P 20 + E[I2 
+
+> T+1
+
+] + E[J2 
+
+> T+1
+
+] + E[K2 
+
+> T+1
+
+]
+
+≤ 144  P 20 + CI + CJ + CK
+
+| {z }
+
+> := Cu
+
+ln 2(e + T ). (67) 
+
+35 YUAN 
+
+D.6. Proof of Lemma 21 Proof Let Ft := f (Xt) − f∗, UT := PTt=1 γts2 
+
+> t
+
+, WT := PTt=1 γtm2 
+
+> t
+
+, MT := PTt=1 m2 
+
+> t
+
+.Let mt = ∥Mt∥F and st = ∥St∥F.
+
+Bounding the Term E[WT ]. By Lemma 18, 
+
+f (Xt+1 ) − f (Xt) + c0γtm2 
+
+> t
+
+≤ c1γts2 
+
+> t
+
++ c2γ2 
+
+> t
+
+m2 
+
+> t
+
+. (68) Rearranging and summing over t = 1 , . . . , T , we get 
+
+WT ≤ 1
+
+> c0
+
+
+
+F1 + c1UT + c2
+
+PTt=1 γ2 
+
+> t
+
+m2
+
+> t
+
+
+
+. (69) Taking expectations and using Lemma 19(b) and Lemma 19(c) gives 
+
+E[WT ] ≤ 1 
+
+> c0
+
+(F1 + c1Cc ln( e + T ) + c2Cd ln( e + T )) 
+
+> ①
+
+≤ 1
+
+> c0
+
+ F1 + c1Cc + c2Cd
+
+| {z }
+
+> := Cw
+
+· ln( e + T ). (70) where step ① uses ln( e + T ) ≥ 1.
+
+Bounding the Term E[W2 
+
+> T
+
+]. Squaring (69) and using (a + b + c)2 ≤ 3( a2 + b2 + c2), we obtain 
+
+W2 
+
+> T
+
+≤ 3
+
+> c20
+
+
+
+F 21 + c21U2 
+
+> T
+
++ c22
+
+PTt=1 γ2 
+
+> t
+
+m2
+
+> t
+
+2
+
+. (71) Taking expectations, using Lemma 20 and Lemma 19(c), yields 
+
+E[W2 
+
+> T
+
+] ≤ 3
+
+> c20
+
+ F 21 + c21Cu ln 2(e + T ) + c22C2 
+
+> d
+
+ln 2(e + T )
+
+≤ 3
+
+> c20
+
+ F 21 + c21Cu + c22C2
+
+> d
+
+| {z }
+
+> := Cx
+
+ln 2(e + T ). (72) 
+
+Bounding the Term α1/2 
+
+> T
+
+MT . We derive: 
+
+αT 1/2MT ≤ √αT · PTt=1 m2
+
+> t
+> ①
+
+≤
+
+> √αT
+> γT
+
+PTt=1 γtm2 
+
+> t
+
+= WT ·
+
+> √αT
+> γT
+> ②
+
+≤ WT max 
+
+
+
+1, √αT
+
+q
+
+1 + PTj=1 α−1/2 
+
+> j
+
+m2
+
+> j
+
+ ③
+
+≤ WT max 
+
+
+
+1, √αT
+
+q
+
+1 + α−1/2 
+
+> T
+
+MT
+
+
+
+= WT max 
+
+
+
+1,
+
+q
+
+αT + α1/2 
+
+> T
+
+MT
+
+
+
+≤ 2WT + WT
+
+q
+
+α1/2 
+
+> T
+
+MT
+
+> ④
+
+≤ 2WT + 12 W2 
+
+> T
+
++ 12 α1/2 
+
+> T
+
+MT ≤ 4WT + W2 
+
+> T
+
+,
+
+where step ① uses the fact that γt is non-increasing; step ② uses 1 
+
+> γt
+
+= max( α−1/2 
+
+> t
+
+, (1+ Ptj=1 α−1/2 
+
+> j
+
+m2 
+
+> j
+
+)1/2);step ③ uses the fact that αt is non-increasing; step ④ uses ab ≤ 12 a2 + 12 b2 with a = WT and 
+
+36 OPT MUON 
+
+b =
+
+q
+
+α1/2 
+
+> T
+
+MT . Taking expectations, we conclude that 
+
+E[α1/2 
+
+> T
+
+MT ] ≤ 4E[WT ] + E[W2 
+
+> T
+
+]
+
+≤ 4Cw ln( e + T ) + Cx ln 2(e + T )
+
+≤ (4 Cw + Cx)
+
+| {z }
+
+> := Cv
+
+ln 2(e + T ).
+
+D.7. Proof of Theorem 22 Proof Define mt = ∥Mt∥F, st = ∥St∥F, and gt = ∥Gt∥F.Define MT := PTt=1 m2 
+
+> t
+
+, ST := PTt=1 s2 
+
+> t
+
+, and GT := PTt=1 g2 
+
+> t
+
+.Let ϵt := Gt − ∇ f (Xt), and ZT := E (1 + GT )1/3.
+
+Bounding the Term E[ 1√αT ]. Since q = 2 /3, the definition of αT gives  
+
+> 1√αT
+
+= max 1≤k≤T −1
+
+ 1+ Pki=1 g2 
+
+> i
+> 1+max 1≤i≤kg2
+> i
+
+1/3
+
+≤
+
+
+
+1 + PTi=1 g2
+
+> i
+
+1/3
+
+= (1 + GT )1/3.
+
+This leads to E
+
+h 1√αT
+
+i
+
+≤ Z T .
+
+Bounding the Momentum Sum. By Lemma 21 and Cauchy–Schwarz, 
+
+E[√MT ] = E
+
+hq √αT MT · 1√αT
+
+i
+
+≤
+
+r
+
+E[√αT MT ] · E
+
+h 1√αT
+
+i
+
+≤
+
+q
+
+Cv ln 2(e + T )ZT = √Cv ln( e + T )√ZT . (73) 
+
+Bounding the Tracking-Error Sum. Because αt ≥ αT for t ≤ T , ST = PTt=1 s2 
+
+> t
+
+≤ 1√αT
+
+PTt=1 
+
+√αts2 
+
+> t
+
+.Using Cauchy–Schwarz, Lemma 19(b), and E
+
+h 1√αT
+
+i
+
+≤ Z T , we obtain 
+
+E[√ST ] ≤
+
+r
+
+E
+
+hPTt=1 
+
+√αts2
+
+> t
+
+i
+
+· E
+
+h 1√αT
+
+i
+
+≤ pCc ln( e + T )ZT . (74) 
+
+Bounding the Gradient-Energy Term. Since ∇f (Xt) = Mt − St, we have ∥∇ f (Xt)∥2F ≤
+
+2m2 
+
+> t
+
++ 2 s2 
+
+> t
+
+. Therefore, by (73) and (74), 
+
+AT := E
+
+q PTt=1 ∥∇ f (Xt)∥2F
+
+
+
+≤ √2E[√MT ] + √2E[√ST ] ≤ Cz ln( e + T )√ZT , (75) where Cz > 0 is independent of T and σ.
+
+37 YUAN 
+
+Self-Consistent Bound on ZT . Using 
+
+Gt = ∇f (Xt) + ϵt
+
+and ∥a + b∥2 ≤ 2∥a∥2 + 2 ∥b∥2, we get 
+
+GT ≤ 2
+
+> T
+
+X
+
+> t=1
+
+∥∇ f (Xt)∥2F + 2 
+
+> T
+
+X
+
+> t=1
+
+∥ϵt∥2F.
+
+Hence, using (a + b + c)1/3 ≤ a1/3 + b1/3 + c1/3, Jensen’s inequality, and Assumption 2, 
+
+ZT = E[(1 + GT )1/3]
+
+≤ 1 + 2 1/3E
+
+PTt=1 ∥∇ f (Xt)∥2F
+
+1/3
+
++ 2 1/3E
+
+PTt=1 ∥ϵt∥2F
+
+1/3
+
+≤ 1 + CA2/3 
+
+> T
+
++ C(T σ 2)1/3.
+
+Combining this with (75) gives 
+
+ZT ≤ 1 + C ln 2/3(e + T )Z1/3 
+
+> T
+
++ Cσ 2/3T 1/3.
+
+We use the elementary implication 
+
+x ≤ a + bx 1/3 =⇒ x ≤ 2a + (2 b)3/2, a, b, x ≥ 0.
+
+With 
+
+a := 1 + Cσ 2/3T 1/3, b := C ln 2/3(e + T ),
+
+we obtain 
+
+ZT ≤ C
+
+
+
+ln( e + T ) + σ2/3T 1/3
+
+. (76) 
+
+Final Stationarity Bound. By Cauchy–Schwarz, 
+
+E
+
+h 1
+
+> T
+
+PTt=1 ∥∇ f (Xt)∥F
+
+i
+
+≤ 1√T E
+
+q PTt=1 ∥∇ f (Xt)∥2F
+
+
+
+.
+
+Using (75) and (76), we get 
+
+E
+
+"
+
+1
+
+T
+
+> T
+
+X
+
+> t=1
+
+∥∇ f (Xt)∥F
+
+#
+
+≤ Cz ln( e + T )
+
+√T
+
+q
+
+C  ln( e + T ) + σ2/3T 1/3
+
+≤ O ln 2(e + T )
+
+T 1/2 + σ1/3 ln( e + T )
+
+T 1/3
+
+!
+
+.
+
+Finally, if R ∼ Unif {1, . . . , T } is independent of the algorithmic randomness and Xout := XR,then 
+
+E[∥∇ f (Xout )∥F] = E
+
+"
+
+1
+
+T
+
+> T
+
+X
+
+> t=1
+
+∥∇ f (Xt)∥F
+
+#
+
+,
+
+which proves the output guarantee. 
+
+38
