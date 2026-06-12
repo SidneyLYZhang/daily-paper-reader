@@ -1,0 +1,3207 @@
+Title: A stochastic gradient algorithm for non-separable optimization with convergence guarantee
+
+URL Source: https://arxiv.org/pdf/2606.10383v1
+
+Published Time: Wed, 10 Jun 2026 00:30:22 GMT
+
+Number of Pages: 34
+
+Markdown Content:
+# A stochastic gradient algorithm for non-separable optimization with convergence guarantee 
+
+## Yingzhou Li ∗
+
+## , Ruofan Wu †
+
+Abstract 
+
+We study non-separable objectives in which the loss depend on dataset-level quantities. We introduce an SGD-style framework that employs two batch-gradient constructs: the ideal per-batch gradient ‘ G’ and a cached surrogate ‘ H’ for cases where full-data terms are expen-sive. Notably, in the sample-wise separable case, our method reduces to standard mini-batch SGD. Our main contribution is a unified local convergence theory: under mild smoothness and Jacobian-boundedness assumptions, we prove local linear convergence under local strong convexity and local O(1 /k ) sublinear convergence under local convexity for both ‘ G’-driven and ‘ H’-driven updates. Crucially, these guarantees hold for fixed step sizes within explicitly characterized ranges; we provide explicit bounds showing how cache staleness, surrogate ap-proximation error, batch size, and step size influence the convergence constants and allowable step-size ranges. 
+
+Keywords: Non-separable optimization, stochastic gradient descent, constant step size, local convergence theory 
+
+# 1 Introduction 
+
+Modern deep learning systems are trained by minimizing an objective function that quantifies the fit between the model’s behavior and the observed training data. The dominant paradigm assumes that this objective decomposes into independent per-sample losses, an assumption that underpins stochastic gradient descent (SGD) and its variants. In this paper, we study the setting where this separability fails and the objective couples all samples through a global operator. As a point of departure, the standard setting is expressed as a sample-wise separable finite sum, 
+
+L(θ) = 
+
+> N
+
+∑
+
+> i=1
+
+ℓ(θ; xi, y i),
+
+where each term depends only on a single sample ( xi, y i), and mini-batch SGD provides unbiased gradient estimates. In contrast, the objective we consider takes the coupled form 
+
+L(θ) = F ({φ(θ; xi, y i)}Ni=1 
+
+) ,
+
+where φ(θ; xi, y i) denotes the per-sample model output and F is a coupling operator that depends on the whole dataset. A growing class of modern learning objectives—including those arising in 
+
+> ∗
+
+School of Mathematical Sciences, Fudan University; Shanghai Key Laboratory for Contemporary Applied Math ematics, Fudan University, yingzhouli@fudan.edu.cn 
+
+> †
+
+School of Mathematical Sciences, Fudan University, rfwu22@m.fudan.edu.cn 
+
+> arXiv:2606.10383v1 [math.OC] 9 Jun 2026
+
+contrastive representation learning, deep clustering, and losses involving global dataset statistics— falls into this non-separable category. In such settings, the mini-batch gradient ˜gk = ∇θ F ({φ(θk; xj , y j )}j∈B k )is generally a biased estimator of the true gradient: a small batch cannot faithfully represent the global coupling operator, leading to both relation truncation and skewed batch statistics. Training deep neural networks is typically approached through iterative stochastic first-order methods, with SGD and its adaptive variants—Adagrad [1], ADADELTA [2], Adam [3]—forming the practical backbone. These methods estimate gradients from randomly sampled mini-batches, which drastically reduce per-iteration cost relative to full-batch approaches and make large-scale optimization tractable [1, 2, 3, 4, 5, 6]. Variance-reduction methods (e.g., SAG [4], SVRG [5], SAGA [6]) can accelerate convergence by reducing stochastic gradient noise, yet their theoretical guarantees remain restricted to separable objectives. When the objective is non-separable, the mini-batch gradient becomes inherently biased—a structural error driven by relation truncation and skewed batch statistics, as noted above. Crucially, this bias is distinct from ordinary stochastic variance, persisting even in highly expressive regimes, and is not addressed by variance-reduction techniques that assume a decomposable objective. The non-separable case therefore remains inad-equately served by general-purpose stochastic algorithms. While a few specialized methods have been proposed for particular non-decomposable settings [7, 8, 9], they do not extend to general coupled objectives. Even for separable objectives, fixed-step SGD is theoretically limited to convergence to a neighborhood of optima, as highlighted in standard analyses [10], which leaves a gap between empirical success and formal guarantees. The nonconvex, high-dimensional, and often nonsmooth nature of deep-learning objectives poses substantial theoretical and practical challenges. In partic-ular, vanilla SGD enjoys the advantages of simplicity and low per-iteration cost, but convergence to the exact optimum with a fixed step size typically require restrictive conditions such as inter-polation (i.e., the existence of a model that fits all training samples simultaneously). Classical analyses for general nonconvex problems often demand diminishing step sizes to ensure asymp-totic convergence to stationary points, yielding slow sublinear rates that limit practical efficiency [11, 12, 13, 14, 15, 16, 17, 10, 18, 19]. Variance-reduction methods offer an alternative route: by correcting the stochastic gradient noise, they enable exact convergence under constant step sizes for separable finite-sum problems, but at the cost of additional memory or periodic full-gradient computations [5, 6]. Modern machine learning (ML) and artificial intelligence (AI) systems in-creasingly rely on highly over-parameterized models, particularly deep neural networks (DNNs). In this regime, models are sufficiently expressive to represent optimal solutions and can nearly perfectly fit training data even when the number of parameters far exceeds the sample size [20, 21, 22, 23]. A large body of work documents the “double descent” phenomenon: after a critical model-complexity threshold, further over-parameterization can improve generalization and fundamentally alter the geometry of the loss landscape [24, 25, 26]. Recent theoretical progress has shown that under certain structural conditions—most prominently interpolation—fixed-step SGD can enjoy much stronger behavior. Bassily et al. [27] proved exponential convergence rates for SGD on over-parameterized nonconvex models under interpolation, where a global minimizer fits all training samples exactly. Under gradient-dominance (Polyak–Lojasiewicz) conditions, Vaswani et al. [28] obtained linear convergence rates without requiring strong convexity. Liu et al. [29] showed that implicit regularization in over-parameterized regimes can bias SGD toward flat minima, enabling fast convergence without explicit step-size decay. These results illustrate the exceptional efficiency of vanilla SGD when interpolation or related structural assumptions hold. However, many prac-tical settings violate strict interpolation: examples include noisy labels, explicit regularization (e.g., weight decay), and inherently non-interpolable tasks like unsupervised clustering. In such non-interpolating regimes, vanilla SGD’s speed and guarantees often deteriorate. 2All of these advances—variance reduction and interpolation-based analysis alike—are derived under the assumption that the objective is sample-wise separable [27, 28, 29, 30, 31, 32, 33, 34]. Because they rest on the separability assumption, they do not resolve the structural bias that arises when the objective depends on global sample interactions. Crucially, non-separable objectives with global sample coupling are inherently non-interpolable in the mini-batch setting: because the loss depends on the full dataset, a model that interpolates a single mini-batch does not necessarily interpolate the entire training set. Consequently, even if one could construct an unbiased gradient estimator, the fast-convergence theory for fixed-step SGD would remain inapplicable. Taken together, the non-separable setting suffers from a compounding of two failures: the standard mini-batch gradient is structurally biased, and the fast-convergence theory for fixed-step SGD is inapplicable. To address these issues, we propose a novel algorithmic approach. Under the over-parameterized regime, our proposed algorithm admits exact local convergence with a constant step size, while retaining the computational simplicity of mini-batch SGD. Our main contributions are: 
+
+• We introduce an algorithm that generalizes standard mini-batch SGD to sample-coupled objectives by correcting the inherent bias in batch-wise gradient estimates. Under the sample-wise separable case, the method reduces to standard mini-batch SGD. 
+
+• We prove that, for objectives that are locally convex near an optimum, the algorithm con-verges locally to the exact optimum with a constant step size, without the step-size decay that standard SGD requires to suppress gradient noise. 
+
+• We establish fast local convergence rates: locally linear convergence in the presence of local strong convexity, and locally sublinear convergence for merely locally convex objectives, both under constant step sizes. The remainder of the paper is organized as follows. In Section 2 we present the algorithm. Section 3 gives a local convergence analysis for the ideal per-batch gradient G, and Section 4 presents analogous results for the cached surrogate H. Section 5 reports numerical experiments that illustrate the empirical behavior of the method. We conclude with final remarks and directions for future work in Section 6. 
+
+# 2 A novel stochastic gradient algorithm 
+
+## 2.1 Background 
+
+Building on the problem setting introduced in Section 1, this section reviews the mini-batch SGD framework and formalizes the structural bias that arises when global sample coupling prevents unbiased gradient estimation. Most neural network training problems are optimization problems: one minimizes the loss function L(θ) to obtain optimal parameters θ. Classical (full-batch) gradient descent updates parameters by 
+
+θk+1 = θk − η∇θ L(θk),
+
+but this is computationally prohibitive for the large datasets typical in deep learning. To address this, stochastic gradient descent [35], and in particular its mini-batch variant, uses randomly sampled subsets Bk to approximate the true gradient. The parameter update at step k is 
+
+θk+1 = θk − ηk
+
+1
+
+|B k|
+
+∑
+
+> i∈B k
+
+∇θ ℓ(θk; xi, y i),
+
+where xi and yi denote the input features and target (or label) of the i-th sample, respectively, ℓ(·)denotes the per-example loss, |B k| is the mini-batch size (typically 32–512), and ηk is the learning rate. This approach offers three practical properties [36, 37]: 3• Hardware efficiency : mini-batches enable parallel processing (e.g., on GPUs/TPUs) and higher hardware utilization; 
+
+• Variance reduction : averaging over a batch produces a more stable gradient estimator than single-sample updates; 
+
+• Implicit regularization : controlled stochasticity often improves generalization. The standard mini-batch SGD framework assumes a decomposable objective L(θ) = E(x,y )[ℓ(θ; x, y )], so that per-batch gradients provide unbiased estimates of the full gradient. Modern objectives, however, cannot be decomposed into independent per-sample losses; as introduced in Section 1, they instead couple the entire dataset through a global operator of the form 
+
+L(θ) = F ({φ(θ; xi, y i)}Ni=1 
+
+) ,
+
+where F is a coupling operator (for example, a sorting or a statistic over the dataset). In such settings the mini-batch gradient ˜gk = ∇θ F ({φ(θk; xj , y j )}j∈B k )is generally a biased estimator of ∇θ L, with the bias depending on |B k| and on the sensitivity of 
+
+F [38]. This issue is particularly acute in unsupervised learning, where objectives inherently involve relational coupling between samples [37, 39]. Given unlabeled data X = {xi}Ni=1 , losses typically take the form: 
+
+L(θ) = F
+
+(
+
+{φθ (xi), {φθ (xj )}j∈R (xi )}Ni=1 
+
+)
+
+where φθ is a representation encoder and R(xi) denotes a relational set (for example, neighbors used in contrastive learning). The corresponding mini-batch gradient commonly used in practice is ˜gk = ∇θF ({φθ (xj ), {φθ (xl)}l∈R (xj )∩B k }j∈B k
+
+)
+
+which gives rise to two challenges beyond the usual stochastic gradient variance [40]: 
+
+• Relation truncation : the intersection R(xj ) ∩ B k may omit important long-range dependen-cies, degrading the fidelity of the batch-wise objective; 
+
+• Biased statistics : dataset-level operators F (e.g., distribution-matching or global moments) produce skewed statistics when evaluated on small batches, resulting in biased gradient estimates. While reducing the step size can mitigate the effect of stochasticity, it slows convergence. To achieve fast convergence with constant step sizes, we therefore seek stochastic gradient algorithms that produce (or closely approximate) unbiased gradient estimates in the presence of inter-sample coupling. 
+
+## 2.2 Setup 
+
+In the following, for convenience and consistency we express the loss as: 
+
+L(θ) = F (Y (θ))
+
+where Y (θ) ∈ RN ×d is the output matrix whose rows are sample-wise outputs, and F is a nonlinear function. To facilitate analysis, we focus on domains where F is locally convex in Y , a condition often met in neural-network optimization landscapes. 4In traditional mini-batch training one evaluates the model on a subset (batch) Bk and uses the resulting batch-based quantity to form an update. To represent this formally we use a masking interpretation: let mask B : RN ×d → RN ×d denote the operator that keeps rows indexed by B
+
+and ignores (i.e., masks out) other rows. We then denote the batch-evaluated object by YB := mask B(Y ). Note that when F is sample-wise separable (i.e., F (Y ) = ∑ 
+
+> n
+
+f (Yn)) this mask is equivalent to zeroing out the non-batch rows; however, when F depends on global statistics (e.g., 
+
+Y ⊤Y or distribution-matching operators) zeroing out the non-batch rows is not equivalent to true batch evaluation. In such cases, we treat the batch operator as “apply F only to the submatrix formed by the batch rows” (i.e., evaluate F on the dataset restricted to B), and denote this by 
+
+FB (Y ). By the chain rule the full-parameter gradient can be written compactly using a contraction over the sample and output indices. For notational clarity, we denote this contraction by ×.Concretely, for an N × d matrix A and an N × d × s tensor B, we define 
+
+A × B ∈ Rs, (A × B)m =
+
+> N
+
+∑
+
+> n=1
+> d
+
+∑
+
+> j=1
+
+Anj Bnjm ,
+
+so that 
+
+∇θ L = ∇Y F (Y (θ)) × ∇ θ Y (θ),
+
+Equivalently, writing per-sample Jacobians ∇θYn(θ) ∈ Rd×s and the n-th row ∇Y Fn ∈ Rd, we have the componentwise expansion 
+
+∇θ L =
+
+> N
+
+∑
+
+> n=1
+
+(∇Y F )n · ∇ θ Yn(θ)where the dot denotes multiplication of a row vector with a d × s Jacobian yielding an s-vector. In the mini-batch formulation, the gradient commonly computed in implementations can be written as ˜gk = ∇θ F (YBk (θk)) = ∇Y F (YBk (θk)) × ∇ θ Y (θk).
+
+When ∇Y F (YBk (θk)) is nonzero only on rows indexed by Bk the contraction reduces to summation over n ∈ B k. In practical implementations one only computes the per-sample Jacobians ∇θ Yn(θk)for n ∈ B k (i.e., the |B k| × d block), and automatic differentiation yields these Jacobians exactly for the current batch; thus the potential source of statistical bias in ˜ gk is the batch-evaluated output-gradient ∇Y F (YBk ) (or more generally the batch operator F (YBk ) ) rather than the per-sample Jacobians. When F is non-separable or depends on global statistics, it is typical that 
+
+EB [∇Y F (YB )] 6 = ∇Y F (Y ), and hence ˜ g is biased. Revisiting the example from Section 2.1, consider 
+
+L(θ) = F
+
+(
+
+{φθ (xi), {φθ (xj )}j∈R (xi )}Ni=1 
+
+)
+
+where φθ is a representation encoder and R(xi) denotes a relational set. The practical mini-batch evaluation replaces the global interactions by their batch-restricted counterparts, leading to a batch gradient of the form ˜gk = ∇Y F ({φθ(xj ), {φθ (xl)}l∈R (xj )∩B k }j∈B k
+
+) × ∇ θ Y (θk),
+
+with the output-gradient factor alone carrying the relation truncation and skewed statistics. The per-sample Jacobian slices ∇θ Yn for n ∈ B are deterministic given θ and are computed exactly by automatic differentiation, hence they do not introduce statistical bias; therefore the bias of the mini-batch estimator is determined primarily by the output-gradient ∇Y F (or the batch operator FB ). To mitigate this bias while preserving per-iteration efficiency, we next introduce no-tation and approximations that allow us to construct batch gradients that more faithfully estimate the true parameter gradient. 52.3 Ideal and Surrogate Stochastic Gradient Descent 
+
+We will use the following names and symbols for the gradient estimators that appear throughout the paper. The ideal per-batch gradient, denoted G, corresponds to selecting the rows of the full output-gradient ∇Y F associated with the current batch and contracting them with the per-sample Jacobians; G is unbiased but typically requires access to global data-dependent quantities. The cached surrogate gradient, denoted H, replaces expensive global terms in ∇Y F by cheap surrogates computed from the cached outputs ˜Y ; H is computationally efficient and reduces to G when the cached quantities are exact. Define the ideal batch-evaluated gradient (using the masked full output) as 
+
+G = ∇BF (Y (θ)) × ∇ θ Y (θ),
+
+where ∇BF is the N × d matrix that equals ∇Y F on rows indexed by the batch B and is zero elsewhere. Since ∇θY can be viewed as the vertical concatenation of per-sample Jacobians, 
+
+∇θ Y =
+
+
+
+∇θ Y1
+
+∇θ Y2
+
+...
+
+∇θ YN
+
+ , ∇θ Yn = ∂Y n
+
+∂θ ∈ Rd×s.
+
+Here ∇θYn is the Jacobian of the n-th sample’s output Yn ∈ Rd with respect to parameters θ.Thus the parameter gradient can be written as 
+
+∇θ L = ∇Y F (Y (θ)) × ∇ θ Y =
+
+> N
+
+∑
+
+> n=1
+
+(∇Y F )n · ∇ θ Yn(θ)where ( ∇Y F )n is the n-th row of ∇Y F and ∇θ Yn(θ) is the Jacobian of the n-th output. Therefore, 
+
+G = ∇BF (Y (θ)) × ∇ θY (θ) = ∑
+
+> n∈B
+
+(∇Y F )n · ∇ θ Yn(θ)which matches the computational pattern of standard mini-batch gradients and, by construction, unbiasedly estimates ∇θ L.Computing the exact rows ( ∇Y F )n is non-trivial because the n-th row generally couples to all other rows of Y through the global operator F . To address this we introduce an approximate output-gradient ˜∇Y F that depends on a cached approximation ˜Y and on the current Y :
+
+˜∇Y F = ˜∇Y F ( ˜Y , Y ),
+
+and define the practical batch estimator 
+
+H = ˜∇B F (Y (θ)) × ∇ θ Y (θ) = ∑
+
+> n∈B
+
+( ˜∇Y F )n · ∇ θ Yn(θ),
+
+where ˜∇BF equals ˜∇Y F on rows in B and is zero elsewhere. The approximation ˜∇Y F ( ˜Y , Y ) is constructed by evaluating computationally inexpensive terms at the current Y while substituting ˜Y for the expensive-to-evaluate global terms. Concretely: 
+
+• ˜Y is a cached approximation of Y maintained across iterations; on iteration k we update the cached rows for the current batch and keep other rows unchanged: ( ˜Ynew )n =
+
+{ (Ynew )n if n ∈ B 
+
+( ˜Yold )n if n / ∈ B 
+
+6• The approximation replaces only the expensive parts of ∇Y F by expressions evaluated at ˜Y ;inexpensive or local terms are evaluated at the current Y .
+
+• This design allows incremental updates of global quantities (e.g., ˜Y ⊤ ˜Y ) using low-cost rank-
+
+|B| updates. For instance, if ∇Y F (Y ) = AY + BY ⊤Y with A sparse or diagonal, then AY 
+
+can be evaluated at the current Y while BY ⊤Y is approximated using ˜Y . The cached Gram matrix admits the cheap update ˜Y ⊤ 
+
+> new
+
+˜Ynew = ˜Y ⊤ 
+
+> old
+
+˜Yold − ∑
+
+> n∈B
+
+( ˜Yold )⊤ 
+
+> n
+
+( ˜Yold )n + ∑
+
+> n∈B
+
+( ˜Ynew )⊤ 
+
+> n
+
+( ˜Ynew )n.
+
+Hence one can update ˜∇B F without recomputing quantities over Bc (more precisely over 
+
+Bc 
+
+> new
+
+∩ B c
+
+> old
+
+). Note that whereas the standard mini-batch gradient is obtained directly by automatic differ-entiation, our proposed gradient requires additional processing. Concretely, one can obtain the parameter update by differentiating the surrogate objective 1
+
+2 tr( YB (θ)⊤∇B F )
+
+(
+
+or 1
+
+2 tr( YB (θ)⊤ ˜∇B F )
+
+)
+
+,
+
+treating YB(θ) as a function of θ while holding ∇BF (or ˜∇BF ) fixed. Although the proposed batch gradient can be unbiased, it may still converge only to a neigh-borhood of optimal points, similar to the SGD analysis [10]. In the next section we show that under additional conditions the estimator can converge asymptotically to the exact optimum. 
+
+## 2.4 Example of the gradient algorithm 
+
+In this section, we discuss the relationship between the proposed method and existing algorithms. Under specific conditions the proposed estimator coincides with prior methods. 
+
+• Sample-wise separable losses. If the loss decomposes per sample, 
+
+L(θ) = 
+
+> N
+
+∑
+
+> n=1
+
+fn(yn(θ)) ,
+
+then the Jacobian ∇Y F is block-diagonal and the parameter gradient decomposes into in-dependent per-sample terms. In this case the mini-batch update equals the ideal per-batch gradient ‘ G’, so the cached surrogate ‘ H’ is unnecessary and the method reduces to standard mini-batch SGD. 
+
+• Relation to SpecNet2 [41]. For the SpecNet2 objective, practical batch-gradient schemes (local/batch-restricted, full-data, or neighborhood-based) correspond to different choices of per-row output-gradients in our framework. Concretely: 
+
+– Full-data evaluation (use rows computed from the entire dataset) yields the ideal gra-dient ‘ G’. 
+
+– Batch-restricted / naive evaluation (use only rows from the current batch) yields the usual mini-batch gradient, which can be biased. 
+
+– Neighbor/localized evaluation (use cached or neighborhood-based rows) corresponds to the surrogate ‘ H’. 7Actually, our approach is inspired by these revision and approximation strategies: we ap-proximate costly global terms by cached or localized surrogates while leveraging per-sample Jacobians computed by automatic differentiation. The same principles apply to the gradient schemes Chen et al. propose for SpecNet1. 
+
+# 3 Local convergence analysis for the ideal per-batch gradi-ent 
+
+In this section, we assume that F is locally convex around Y ∗. Within this local region, we analyze the convergence of the ideal per-batch gradient. Specifically, it will be shown that when F is locally strongly convex around Y ∗, the algorithm exhibits local linear convergence; whereas when F is merely locally convex around Y ∗, it exhibits local sublinear convergence. To formalize this analysis, the section proceeds in two parts. Section 3.1 establishes the required notation and standing assumptions; Section 3.2 then states and proves the convergence theorems under these assumptions. 
+
+## 3.1 Notation and standing assumptions 
+
+In this section, we adopt the same notation as in sections 2.2 and 2.3 (in particular Y ∈ RN ×d,
+
+∇Y F , per-sample Jacobians ∇θ Yn, and the definition G = ∇BF (Y ) × ∇ θ Y ). For later reference, define 
+
+zi := (( ∇Y F )i · ∇ θ Yi)⊤ ,
+
+so that the (transposed) batch gradient used by the algorithm is G⊤ = ∑
+
+> i∈B
+
+zi. If we use θ+ to represent the updated parameters, with a fixed step size η > 0, the parameter update is 
+
+θ+ = θ − η · G⊤ = θ − η · ∑
+
+> i∈B
+
+zi,
+
+and to simplify the subsequent proofs, we assume all mini-batches have the same size b = |B| . The results could be extended to variable batch sizes. Having specified notational conventions, we now state the standing assumptions used through-out the convergence analysis. 
+
+Assumptions. 
+
+• (A 1) ‖∇ Y F ‖F locally uniformly bounded by B0.
+
+• (A 2) The map Y 7 → ∇ Y F (Y ) is L-Lipschitz in Frobenius norm; i.e. for all Y, Y ′ in the local region, 
+
+‖∇ Y F (Y ) − ∇ Y F (Y ′)‖F ≤ L‖Y − Y ′‖F.
+
+(Equivalently, ∇Y F has Lipschitz constant L.) 
+
+• (A 3) ‖∇ θY ‖F is locally uniformly bounded by B1.
+
+• (A 4) ‖∇ 2
+
+> θ
+
+Y ‖F is locally uniformly bounded by B2.
+
+• (A 5) The smallest eigenvalue of ∇θ Y ·(∇θ Y )⊤ admits a locally uniform positive lower bound: 
+
+λmin 
+
+(∇θ Y · (∇θ Y )⊤) ≥ λmin > 0.
+
+8Remark 3.1 . Assumption A 5 requires a uniform positive lower bound on the smallest eigenvalue of ∇θ Y (θ) · ∇ θY (θ)⊤ (equivalently the smallest nonzero singular value of the empirical Jacobian) in the optimization region of interest. We emphasize three points. First, Assumption A 5 is a local non-degeneracy condition: it is assumed to hold along the optimization path or within the neighborhood where the analysis applies, not necessarily globally over the entire parameter space. Second, similar non-degeneracy has been rigorously or empirically observed in several overparam-eterized regimes; for example, NTK-style results establish spectral stability for sufficiently wide networks at initialization and for short training times (see [42, 43] and follow-ups). We therefore expect Assumption A 5 to hold approximately for wide architectures under standard initialization and training regimes, though extending such guarantees to long training horizons and finite widths may require additional assumptions. Third, Assumption A 5 is empirically verifiable: one can mon-itor the smallest singular value of a small empirical Jacobian (e.g., computed on a fixed held-out subset) during training. If this quantity approaches zero for a particular model, the theoretical guarantees relying on Assumption A 5 may not apply and empirical evaluation should be used. 
+
+## 3.2 Main theorems and lemmas 
+
+The lemmas and propositions stated below serve as the principal technical components for the convergence analysis of the algorithm. For brevity, we present their statements and brief de-scription here and defer all proofs to Appendix A. Our main convergence results are as follows. Theorem 3.4 establishes linear convergence of the algorithm under local strong convexity, and Theorem 3.6 establishes O(1 /k ) sublinear convergence under local convexity. The following lemma relates the per-step actual gradient estimator to the full gradient, pro-viding a norm inequality that will be used repeatedly in the single-step bounds. 
+
+Lemma 3.1. If Assumption A 3 holds, then ‖G‖F ≤ B1‖∇ Y F ‖F.
+
+Then, we explain the single-step descent situation through Lemma 3.2 and Lemma 3.3. 
+
+Lemma 3.2. If Assumptions A 1-A 4 hold, denote Y + = Y (θ+), then there exists a constant c2 ≥ 0
+
+such that 
+
+F (Y +) ≤ F (Y ) − η ·
+
+> N
+
+∑
+
+> i=1
+
+〈zi, G ⊤〉 + c2 · η2‖∇ Y F ‖2F.
+
+Specifically, one may take c2 = 1
+
+> 2
+
+(LB 21 + B0B2
+
+) c1, where c1 = B21 .
+
+Lemma 3.3. If Assumptions A 1-A 5 hold, while η < |B|  
+
+> N
+
+· λmin  
+
+> c2
+
+, there exists a constant c3 > 0, such that 
+
+EB[F (Y +)] ≤ F (Y ) − c3 · η‖∇ Y F ‖2F.
+
+Specifically, one may take c3 =
+
+( |B|  
+
+> N
+
+λmin − c2η
+
+)
+
+.Remark 3.2 . Up to and including Lemma 3.3 we have not used local convexity of F in Y . Hence Lemma 3.3 already yields the standard stochastic stationarity guarantee. Summing the inequality in Lemma 3.3 over k = 0 , . . . , T and taking total expectation gives 
+
+> T
+
+∑
+
+> k=0
+
+E[‖∇ Y F (Y (θk)) ‖2F
+
+] = 1
+
+c3 · η ·
+
+(
+
+F (Y (θ0)) − E[F (Y (θT +1 )) ])
+
+≤ 1
+
+c3 · η · F (Y (θ0)) .
+
+Thus min   
+
+> k=0 ,··· ,T
+
+E[‖∇ Y F (Y (θk)) ‖2F
+
+] ≤ F (Y (θ0)) 
+
+c3 · η · (T + 1) ,
+
+which implies min k≤T E[‖∇ Y F (Y (θk)) ‖F
+
+] = O(T −1/2). The detailed step-by-step derivation is given in Appendix A.4. 9With the preceding lemmas in place, we now state the main convergence results. 
+
+Theorem 3.4. Suppose F is locally strongly convex around Y ∗ with strong convexity constant 
+
+cY > 0. If Assumptions A 1-A 5 hold and the step size satisfies 
+
+η < min 
+
+{ |B| 
+
+N · λmin 
+
+c2
+
+, 1
+
+2c3cY
+
+}
+
+,
+
+then while the iterates remain in a neighborhood of Y ∗ where the local assumptions hold, the expected optimality gap converges linearly to zero: there exist constants C > 0 and ρ ∈ (0 , 1) such that 
+
+E[F (Y (θk)) ] − F (Y ∗) ≤ Cρ k ,
+
+where E[F (Y (θk)) ] denotes EB0 ,··· ,Bk−1
+
+[F (Y (θk)) ] and Y ∗ is the minimum point of F .
+
+Corollary 3.5. Under the assumptions of Theorem 3.4, while the iterates remain in the neighbor-hood of Y ∗, the optimality gap F (Y (θk)) − F (Y ∗) converges to zero almost surely at a linear rate. More precisely, for almost every sample path ω, there exist ρ(ω) ∈ (0 , 1) and k0(ω) ∈ N such that 
+
+F (Y (θk)) − F (Y ∗) ≤ ρ(ω)k, ∀k ≥ k0(ω).
+
+Theorem 3.6. Suppose F is locally convex around Y ∗. If Assumptions A 1-A 5 hold and the step size satisfies η < |B|  
+
+> N
+
+· λmin  
+
+> c2
+
+, then while the iterates remain in a neighborhood of Y ∗ where the local assumptions hold, the expected optimality gap converges sublinearly to zero at a rate of O(1 /k ):there exists a constant C > 0 such that 
+
+E[F (Y (θk)) ] − F (Y ∗) ≤ C
+
+k ,
+
+where E[F (Y (θk)) ] denotes EB0 ,··· ,Bk−1
+
+[F (Y (θk)) ] and Y ∗ is a minimum point of F .
+
+Corollary 3.7. Under the assumptions of Theorem 3.6, while the iterates remain in the neigh-borhood of Y ∗, the following hold: 
+
+• F (Y (θk)) − F (Y ∗) converges to zero almost surely. 
+
+• The sequence F (Y (θk )) admits almost surely convergent random subsequences at rate of 
+
+O(1 /k ), i.e., for almost every sample path ω, there exist a subsequence kn(ω) and a constant 
+
+C(ω) such that 
+
+F (Y (θkn )) − F (Y ∗) ≤ C(ω)
+
+kn
+
+, ∀ n ∈ N.
+
+Remark 3.3 . By applying Markov’s inequality to the O(1 /k ) expectation bound of Theorem 3.6 and invoking the Borel–Cantelli lemma, one obtains deterministic (albeit sparse) subsequences along which almost sure polynomial rates arbitrarily close to 1 /k hold. Concretely, for any ǫ > 0the deterministic subsequence kn(ǫ) := ⌊n2/ǫ ⌋ + 1 satisfies, for almost every ω, the bound 
+
+F (Y (θkn (ǫ)))( ω) − F (Y ∗) ≤ C(ω, ǫ )kn(ǫ)−1+ ǫ, ∀n ∈ N.
+
+for some path-dependent constant C(ω, ǫ ). This subsequence construction is mainly of theoretical interest; nevertheless, it offers a heuristic for practical verification of near-optimal iterates in long runs. Full discussion and proof are in Appendix A.9. 10 4 The local convergence for the cached surrogate gradient 
+
+In this section we show that approximating the ideal per-batch gradient by the cached surrogate gradient preserves the same local convergence behavior derived in Section 3. Specifically, we prove that the cached surrogate gradient inherits the same linear and O(1 /k ) sublinear convergence guarantees, albeit under slightly more restrictive step-size conditions. The section is organized in two parts: Section 4.1 introduces additional notation and standing assumptions; Section 4.2 states and proves the corresponding convergence results. 
+
+## 4.1 Notation and standing assumptions 
+
+We adopt the notation and assumptions from Section 3 (subsections 3.1 and 2.3). Let θk denote the parameters at iteration k, and, for brevity, set 
+
+θ := θk, θ+ := θk+1 , θ− := θk−1,
+
+and correspondingly 
+
+Y := Y (θ), Y + := Y (θ+), Y − := Y (θ−).
+
+Furthermore, we have ˜Y at step k and ˜Y + at step k + 1 satisfying ( ˜Y )n =
+
+{ (Y )n if n ∈ B −
+
+( ˜Y −)n if n / ∈ B −
+
+and ( ˜Y +)n =
+
+{ (Y +)n if n ∈ B 
+
+( ˜Y )n if n / ∈ B ,
+
+where B− is the mini-batch sampled at the step following θ−, and B is the mini-batch sampled at the step following θ.For notational convenience define 
+
+pi =
+
+(
+
+( ˜∇Y F )i · ∇ θ Yi
+
+)⊤
+
+∈ Rs, ˜∇Y F = ˜∇Y F ( ˜Y , Y ).
+
+Then H⊤ = ∑
+
+> i∈B
+
+pi and with fixed step size η > 0 the parameter update is 
+
+θ+ = θ − η · H⊤ = θ − η · ∑
+
+> i∈B
+
+pi,
+
+As in Section 3, we assume all mini-batches have a common size b = |B| .Treating ˜∇Y F ( ˜Y , Y ) as a function of ˜Y with Y held fixed, we consider its first-order approx-imation. Using the integral form of Taylor’s theorem, we have 
+
+˜∇Y F ( ˜Y , Y ) = ˜∇Y F (Y, Y )+ 
+
+∫ 10
+
+T (Y +t( ˜Y −Y ))[ ˜Y −Y ]d t = ∇Y F +
+
+∫ 10
+
+T (Y +t( ˜Y −Y ))[ ˜Y −Y ]d t, 
+
+where for each Θ, T (Θ) is a fourth-order tensor and T (Θ)[∆] denotes the contraction of this tensor with the matrix ∆ = ˜Y − Y (i.e. the linear operator induced by the tensor acting on matrices). Complementing Assumptions A 1-A 5 established from Section 3, we introduce the following additional standing assumption for the analysis in this section: 
+
+• (A 6) The tensor operator norm (Frobenius-induced) of T is locally uniformly bounded: there exists B3 > 0 such that for all relevant Θ, 
+
+‖T (Θ) ‖F ≤ B3.
+
+In particular, this bound controls the magnitude of the linearization error T (Θ)[ ˜Y − Y ] via 
+
+‖T (Θ)[ ˜Y − Y ]‖F ≤ B3‖[ ˜Y − Y ]‖F.
+
+11 4.2 Main theorems and lemmas 
+
+The next group of lemmas are analogues of Lemmas 3.1–3.3 for the surrogate gradient ˜∇Y F and the corresponding batch quantity H. Full details are given in Appendix A.10–A.15. Our main convergence results for the surrogate gradient are as follows. Theorem 4.7 establishes linear con-vergence under local strong convexity, and Theorem 4.9 establishes O(1 /k ) sublinear convergence under local convexity. 
+
+Lemma 4.1. If Assumption A 3 holds, then ‖H‖F ≤ B1‖ ˜∇Y F ‖F.
+
+Lemma 4.2. Using c2 from Lemma 3.2, if Assumptions A 1-A 4 hold, we similarly have 
+
+F (Y +) ≤ F (Y ) − η · ∑
+
+> i
+
+〈zi, H ⊤〉 + c2 · η2‖ ˜∇Y F ‖2F,
+
+where zi = (( ∇Y F )i · ∇ θ Yi)⊤ is as defined in Section 3.1. 
+
+Lemma 4.3. If Assumptions A 1-A 4 hold, then for any constant s > 0, we have 
+
+E[‖ ˜Y + − Y +‖2F
+
+] ≤ (1 + 1
+
+s )
+
+(
+
+1 − |B| 
+
+N
+
+)
+
+‖ ˜Y − Y ‖2F + η2 · (1 + s)B41 ‖ ˜∇Y F ‖2F.
+
+Lemma 4.4. If Assumptions A 1-A 4 hold, denote 
+
+μ := 
+
+√
+
+1 − |B| 
+
+N ∈ (0 , 1) .
+
+Then for every k ≥ 1,
+
+E‖ ˜Y (θk) − Y (θk)‖2F ≤ B41 · η2
+
+μ(1 − μ)
+
+> k−1
+
+∑
+
+> i=1
+
+μiE‖ ˜∇Y F
+
+( ˜Y (θk−i), Y (θk−i)
+
+)
+
+‖2F,
+
+Lemma 4.5. If Assumptions A 1, A 2, A 3, A 4 and A 6 hold, denote 
+
+c4 := 4 B21 L(1 + B21 L) and μ := 
+
+√
+
+1 − |B| 
+
+N ∈ (0 , 1) 
+
+while the step size satisfies 
+
+η < min 
+
+{
+
+1
+
+c4
+
+· |B| 
+
+2N ,
+
+√2μ(1 − μ)|B| 
+
+8B21 B3(2 N − |B| ) , 1
+
+}
+
+,
+
+for every iteration k, we have 
+
+1
+
+4 E‖∇ Y F (Y (θk)) ‖2F ≤ E‖ ˜∇Y F
+
+( ˜Y (θk), Y (θk)
+
+)
+
+‖2F ≤ 4E‖∇ Y F (Y (θk)) ‖2F, (4.1) (1 − c4 · η)E‖∇ Y F (Y (θk)) ‖2F ≤ E‖∇ Y F (Y (θk+1 )) ‖2F ≤ (1 + c4 · η)E‖∇ Y F (Y (θk)) ‖2F. (4.2) 
+
+Lemma 4.6. If Assumptions A 1-A 6 hold, denote 
+
+ν := μ
+
+1 − c4 · η and c5 := 4 c2 + |B| 
+
+2N B41 + 2|B| · B41 B23
+
+N μ (1 − μ)(1 − ν) ,
+
+then ν < 1. Moreover, while 
+
+η < min 
+
+{
+
+1
+
+c4
+
+· |B| 
+
+2N ,
+
+√2μ(1 − μ)|B| 
+
+8B21 B3(2 N − |B| ) , 1, |B| 
+
+c5N λmin 
+
+}
+
+,
+
+12 there exists a constant c6 > 0, such that 
+
+E[F (Y (θk+1 )) ] ≤ E[F (Y (θk)) ] − c6 · ηE[‖∇ Y F (Y (θk)) ‖2F
+
+].
+
+Specifically, one may take c6 =
+
+( |B|  
+
+> N
+
+λmin − c5η
+
+)
+
+.Remark 4.1 . By the same summation argument used in Remark 3.2, the descent inequality of Lemma 4.6 implies min   
+
+> k=0 ,··· ,T
+
+E[‖∇ Y F (Y (θk)) ‖F
+
+] ≤
+
+√
+
+F (Y (θ0)) 
+
+c6 · η · (T + 1) = O(T −1/2).
+
+Note that the constant here is c6 (given in Lemma 4.6) and differs from the earlier constant c3
+
+in Remark 3.2; c6 depends explicitly on the minibatch size |B| , the step-size η, and the model constants (see Lemma 4.6). 
+
+Theorem 4.7. Suppose F is locally strongly convex around Y ∗ with strong convexity constant 
+
+cY > 0. If Assumptions A 1-A 6 hold and the step size satisfies 
+
+η < min 
+
+{
+
+1
+
+c4
+
+· |B| 
+
+2N ,
+
+√2μ(1 − μ)|B| 
+
+8B21 B3(2 N − |B| ) , 1, |B| 
+
+c5N λmin 
+
+}
+
+,
+
+then while the iterates remain in a neighborhood of Y ∗ where the local assumptions hold, the expected optimality gap converges linearly to zero: there exist constants C > 0 and ρ ∈ (0 , 1) such that 
+
+E[F (Y (θk)) ] − F (Y ∗) ≤ Cρ k ,
+
+where E[F (Y (θk)) ] denotes EB0 ,··· ,Bk−1
+
+[F (Y (θk)) ] and Y ∗ is the minimum point of F .Proof. Proof of Theorem 4.7 proceeds identically to that of Theorem 3.4, replacing c3 with c6 and appealing to Lemma 4.6 instead of Lemma 3.3. We omit the details. 
+
+Corollary 4.8. Under the assumptions of Theorem 4.7, while the iterates remain in the neighbor-hood of Y ∗, the optimality gap F (Y (θk)) − F (Y ∗) converges to zero almost surely at a linear rate. More precisely, for almost every sample path ω, there exist ρ(ω) ∈ (0 , 1) and k0(ω) ∈ N such that 
+
+F (Y (θk)) − F (Y ∗) ≤ ρ(ω)k, ∀k ≥ k0(ω).
+
+Proof. Proof of Corollary 4.8 proceeds identically to that of Theorem 3.5, appealing to Lemma 4.6 and Theorem 4.7 instead of Lemma 3.3 and Theorem 3.4. We omit the details. 
+
+Theorem 4.9. Suppose F is locally convex around Y ∗. If Assumptions A 1-A 6 hold and the step size satisfies 
+
+η < min 
+
+{
+
+1
+
+c4
+
+· |B| 
+
+2N ,
+
+√2μ(1 − μ)|B| 
+
+8B21 B3(2 N − |B| ) , 1, |B| 
+
+c5N λmin 
+
+}
+
+,
+
+then while the iterates remain in a neighborhood of Y ∗ where the local assumptions hold, the expected optimality gap converges sublinearly to zero at a rate of O(1 /k ): there exists a constant 
+
+C > 0,
+
+E[F (Y (θk)) ] − F (Y ∗) ≤ C
+
+k ,
+
+where E[F (Y (θk)) ] denotes EB0 ,··· ,Bk−1
+
+[F (Y (θk)) ] and Y ∗ is a minimum point of F .
+
+13 Proof. Proof of Theorem 4.9 proceeds identically to that of Theorem 3.6, replacing c3 with c6 and appealing to Lemma 4.6 instead of Lemma 3.3. We omit the details. 
+
+Corollary 4.10. Under the assumptions of Theorem 4.9, while the iterates remain in the neigh-borhood of Y ∗, the following hold: 
+
+• F (Y (θk)) − F (Y ∗) converges to zero almost surely. 
+
+• The sequence F (Y (θk )) admits almost surely convergent random subsequences at rate of 
+
+O(1 /k ), i.e., for almost every sample path ω, there exist a subsequence kn(ω) and a constant 
+
+C(ω) such that 
+
+F (Y (θkn )) − F (Y ∗) ≤ C(ω)
+
+kn
+
+, ∀ n ∈ N.
+
+Proof. Proof of Corollary 4.10 proceeds identically to that of Theorem 3.7, appealing to Lemma 4.6 and Theorem 4.9 instead of Lemma 3.3 and Theorem 3.6. We omit the details. 
+
+# 5 Numerical experiment 
+
+We conduct two numerical experiments to validate the main theoretical claims of the paper: 
+
+• (i) The effect of local convexity on convergence rates: we demonstrate the stark contrast between linear (exponential) convergence under a locally strongly convex objective and sub-linear (polynomial) convergence under a convex but non-strongly-convex objective. 
+
+• (ii) For sample-coupled objectives the proposed cached surrogate gradient (‘ H’) effectively approximates the ideal per-batch gradient (‘ G’) and significantly outperforms the naive batch-local estimator. Below we summarize the settings and the numerical results, and then discuss the relation between the numerical results and our theoretical results. 
+
+## 5.1 Experiment 1: Convergence Rates under Different Convexity As-sumptions 
+
+We examine the convergence behavior under two convexity regimes using the same model architec-ture (a small three-layer MLP with input 4 → 64 → 64 → output 2) and synthetic data ( N = 10) generated by independent uniform sampling: each input xi is drawn uniformly from [0 , 1] 4 and each target yi is drawn independently and uniformly from [0 , 1] 2. Training is performed with sample-wise updates (mini-batch size 1), and each experiment is repeated 5 times with different random seeds; reported curves are averaged over runs. We compare two loss functions: 
+
+• Strongly Convex Case: mean squared error ( ∑(ˆ y − y)2), trained with a fixed learning rate 
+
+η = 0 .01 for 10 5 epochs. 
+
+• Non-Strongly Convex Case: fourth-power loss ( ∑(ˆ y − y)4), trained with a fixed learning rate 
+
+η = 0 .001 for 5 × 10 5 epochs. The results are summarized in Fig. 5.1. The results validate our theoretical analysis: the strongly convex MSE objective drives linear convergence, evidenced by the straight-line trend on a semilog plot. In contrast, the convex but non-strongly-convex fourth-power objective results in sublinear convergence, following a clear polynomial law on a log–log plot. The fitted exponents confirm the problem-dependent nature of the convergence rate, which is faster than the worst-case O(1 /k ) bound but remains sublinear. 14 0 0000 0000 0000 0000 00000  
+
+> 
+> 0 
+> 0 
+> 0 0
+> 0 
+> 0 
+>  
+> 
+>  
+
+(a) MSE: exponential decay.       
+
+> 1   1  11  1  1  1  
+> 
+> 1  
+> 1  1
+>  
+> 
+>  
+
+(b) Fourth-power: polynomial decay. 
+
+Figure 5.1: Convergence contrast under different convexity assumptions. (a) The MSE loss exhibits linear (exponential) convergence. A late-stage linear fit on log(loss) yields a slope of 
+
+≈ − 2.96 × 10 −4(R2 ≈ 0.999), confirming Fk ∝ 0.9996 k. (b) The fourth-power loss exhibits sub-linear (polynomial) convergence. A late-stage log–log fit yields a slope of ≈ − 2.65 ( R2 ≈ 0.995), confirming Fk ∝ k−2.65 .
+
+0 00 00 00 
+
+> 
+
+0 
+
+0 
+
+> F ! F
+
+      
+
+> 
+> 
+>  
+
+0 00 00 00 
+
+> 
+
+0
+
+0 
+
+00   
+
+    
+
+> 
+> 
+>  
+
+Figure 5.2: Full objective gap F (Y ) − F ∗ and gradient norm ‖∇ Y F ‖F (log scale) for the three schemes G/H/naive . This composite figure shows the evolution of the full objective gap and the corresponding gradient magnitude over training. 
+
+## 5.2 Experiment 2: Gram objective 
+
+We consider the coupled-sample objective 
+
+F (Y ) = 1
+
+2 ‖ 1
+
+d Y Y ⊤ − S‖2F,
+
+with d = 8, Y ∈ R200 ×8, batch size 16. We parameterize each row y⊤ 
+
+> i
+
+of Y by a single-hidden-layer MLP (32 → 128 → 8) with LeakyReLU activation, mapping fixed random inputs xi ∈ R32 . We compare three update schemes executed in parallel from the same randomized initialization: (i) ‘G’ – ideal per-batch rows of the full ∇Y F ; (ii)‘ H’ – cached surrogate using ˜Y and incremental Gram updates; (iii) naive – batch-local computation restricted to the batch. For each scheme we record the full objective F (Y ) and the Frobenius norm ‖∇ Y F ‖F and perform 5 independent runs and report averaged curves. See Fig. 5.2 and Fig. 5.3. The experiments show that the ideal method ‘ G’ and the cached surrogate ‘ H’ produce nearly indistinguishable reductions in the full objective F , and both substantially outperform the naive 15 1  1 1 1  1  1               
+
+> 
+> 1 1
+> 1 
+> 
+>     G
+>  
+>     ! 1   1 1
+> 1 1 11 1 1
+> 
+> 1 1
+> 1 
+> 
+>     
+>  
+>     ! 1   1 
+
+Figure 5.3: Diagnostics for methods G (left) and H (right). Log–log plot of training loss versus epochs. Late-stage log–log fits yield slopes ≈ − 1.467 ( R2 ≈ 0.9854) for G and ≈ − 1.483 ( R2 ≈
+
+0.9871) for H, indicating Fk ∝ k−1.467 and Fk ∝ k−1.483 respectively. estimator; the gradient-norm plots give the same ordering. Furthermore, in the experiments, late-stage log–log diagnostics reveal sublinear decay of the gap F − F ∗, consistent with the O(1 /k )convergence behavior established theoretically. Collectively, the two experiments confirm the main theoretical messages: locally strongly convex losses admit exponential (linear) convergence under fixed-step updates; convex but non-strongly convex losses degrade to sublinear decay; and for sample-coupled objectives the cached-surrogate ‘ H’ provides a practical, low-cost route to approximate the ideal per-batch gradient ‘G’ and achieve markedly improved convergence relative to naive batch-local estimators. While the experiments here are synthetic and intended to isolate theoretical phenomena, comparable empirical evaluations on real datasets are reported in SpecNet2 [41]. 
+
+# 6 Conclusion 
+
+We propose an SGD-style framework for sample-coupled objectives that uses two batch-gradient constructs: the ideal per-batch gradient ‘ G’, and a cached-surrogate gradient ‘ H’ that approxi-mates ‘ G’ when full-data quantities are costly to compute. Our main contribution is a unified local convergence theory: under mild smoothness and Jacobian-boundedness assumptions (A 1-A 6) we develop a unified local convergence theory showing that both ‘ G’-driven and ‘ H’-driven updates enjoy the same qualitative regimes: linear convergence under local strong convexity, and sublinear convergence under mere local convexity ( O(1 /k ) in expectation). Controlled experiments corrob-orate the theoretical regimes and show that ‘ H’ closely tracks ‘ G’ in practice, while incurring only modest additional computation or storage compared with standard mini-batch SGD. Fu-ture work includes sharpening quantitative trade-offs (cache staleness, approximation error, batch size), extending the analysis beyond local neighborhoods toward global guarantees, and adapting the surrogate idea to momentum and adaptive optimizers. 16 A Proofs and Detailed Derivations 
+
+## A.1 Proof of Lemma 3.1 
+
+Proof. By the Cauchy–Schwarz inequality, 
+
+‖G‖2F =
+
+∥∥∥∑
+
+> i∈B
+
+zi
+
+∥∥∥2F
+
+=
+
+∥∥∥∑
+
+> i∈B
+
+(∇Y F )i · ∇ θYi
+
+∥∥∥2F
+
+≤
+
+(∑ 
+
+> i∈B
+
+‖(∇Y F )i · ∇ θYi‖F
+
+)2
+
+≤
+
+(∑ 
+
+> i∈B
+
+‖(∇Y F )i‖2 ‖∇ θ Yi‖F
+
+)2
+
+≤
+
+(∑ 
+
+> i∈B
+
+‖(∇Y F )i‖22
+
+)(∑ 
+
+> i∈B
+
+‖∇ θ Yi‖2F
+
+)
+
+≤ B21 ‖∇ Y F ‖2F.
+
+## A.2 Proof of Lemma 3.2 
+
+Proof. By the Taylor expansion with integral remainder, we have 
+
+Y + − Y = ∇θ Y (θ)( θ+ − θ) + R
+
+where 
+
+R =
+
+∫ 10
+
+(1 − t)∇2 
+
+> θ
+
+Y (θ + t(θ+ − θ))[ θ+ − θ, θ + − θ] d t, 
+
+and ∇2 
+
+> θ
+
+Y is the second-order derivative tensor of Y with respect to θ. Then, by taking the Frobenius norm and Assumption A 4 on the line segment between θ and θ+, we obtain 
+
+‖R‖F ≤ B2
+
+2 ‖θ+ − θ‖2F = B2
+
+2 · η2‖G‖2F.
+
+Similarly, for the first-order difference, we have 
+
+‖Y + − Y ‖F ≤ sup 
+
+> t∈[0 ,1]
+
+‖∇ θY (θ + t(θ+ − θ)) ‖F · ‖ θ+ − θ‖F ≤ B1 · η‖G‖F.
+
+Since ∇Y F is L-Lipschitz by Assumption A 2 (i.e. F is L-smooth in Y ), we have the standard quadratic upper bound 
+
+F (Y +) ≤ F (Y ) + 〈∇ Y F, Y + − Y 〉 + L
+
+2 ‖Y + − Y ‖2F.
+
+17 Substituting the per-row decomposition and summing over i = 1 , · · · , N gives 
+
+F (Y +) ≤ F (Y ) + 〈∇ Y F, Y + − Y 〉 + L
+
+2 ‖Y + − Y ‖2F
+
+= F (Y ) + tr ((Y + − Y )⊤(∇Y F )) + L
+
+2 ‖Y + − Y ‖2F
+
+= F (Y ) + tr ((∇θ Y (θ)( θ+ − θ) + R)⊤(∇Y F )) + L
+
+2 ‖Y + − Y ‖2F
+
+= F (Y ) + tr 
+
+( N∑
+
+> i=1
+
+∇θ Yi(θ)( θ+ − θ)( ∇Y F )i
+
+)
+
++ 〈∇ Y F, R 〉 + L
+
+2 ‖Y + − Y ‖2F
+
+≤ F (Y ) − η · tr ( N∑
+
+> i=1
+
+∇θYi(θ) · G⊤(∇Y F )i
+
+) +
+
+(
+
+‖∇ Y F ‖2 · B2
+
+2 + L
+
+2 B21
+
+)
+
+· η2‖G‖2F
+
+= F (Y ) − η ·
+
+> N
+
+∑
+
+> i=1
+
+tr ( (( ∇Y F )i · ∇ θYi) · G⊤) +
+
+(
+
+‖∇ Y F ‖F · B2
+
+2 + L
+
+2 B21
+
+)
+
+· η2‖G‖2F
+
+= F (Y ) − η ·
+
+> N
+
+∑
+
+> i=1
+
+〈zi, G ⊤〉 + 1
+
+2
+
+(B0B2 + LB 21
+
+) · η2‖G‖2F
+
+≤ F (Y ) − η ·
+
+> N
+
+∑
+
+> i=1
+
+〈zi, G ⊤〉 + 1
+
+2
+
+(B0B2 + LB 21
+
+) c1 · η2‖∇ Y F ‖2F,
+
+where we denote c1 = B21 and then ‖G‖2F ≤ c1‖∇ Y F ‖2F. Let c2 = 1
+
+> 2
+
+(B0B2 + LB 21
+
+) c1. Then 
+
+F (Y +) ≤ F (Y ) − η ·
+
+> N
+
+∑
+
+> i=1
+
+〈zi, G ⊤〉 + c2 · η2‖∇ Y F ‖2F.
+
+## A.3 Proof of Lemma 3.3 
+
+Proof. Starting from Lemma 3.2 we have the deterministic bound 
+
+F (Y +) ≤ F (Y ) − η ·
+
+> N
+
+∑
+
+> i=1
+
+〈zi, G ⊤〉 + c2 · η2‖∇ Y F ‖2F.
+
+Take conditional expectation with respect to the current mini-batch B. Under the usual uniform sampling assumption where each index is included in B with probability |B| /N (this holds for both sampling with replacement and for sampling without replacement under the usual i.i.d. or exchangeable data assumptions), the conditional expectation of G⊤ satisfies 
+
+EB[G⊤] = |B| 
+
+N
+
+> N
+
+∑
+
+> i
+
+zj .
+
+18 Hence 
+
+EB
+
+[F (Y +)] ≤ EB
+
+[F (Y ) − η ·
+
+> N
+
+∑
+
+> i=1
+
+〈zi, G ⊤〉 + c2 · η2‖∇ Y F ‖2F
+
+]
+
+= F (Y ) − η · |B| 
+
+N ·
+
+> N
+
+∑
+
+> i=1
+> N
+
+∑
+
+> j
+
+〈zi, z j 〉 + c2 · η2‖∇ Y F ‖2F
+
+= F (Y ) − η · |B| 
+
+N ·
+
+> N
+
+∑
+
+> i=1
+> N
+
+∑
+
+> j
+
+(∇Y F )i · ∇ θ Yi · ∇ θ Y ⊤ 
+
+> j
+
+· (∇Y F )⊤ 
+
+> j
+
++ c2 · η2‖∇ Y F ‖2F
+
+= F (Y ) − η · |B| 
+
+N · ˆg(∇θ Y · (∇θ Y )⊤)ˆg⊤ + c2 · η2‖∇ Y F ‖2F,
+
+where ˆ g = ((∇Y F )1, (∇Y F )2, · · · , (∇Y F )N
+
+) ∈ R1×N d is the row vector formed by horizontally concatenating ( ∇Y F )i, then since Assumption A5 holds, we have ˆg(∇θ Y · (∇θ Y )⊤)ˆg⊤ ≥ λmin ‖ˆg‖22.
+
+Noting that ‖ˆg‖22 = N∑
+
+> i=1
+
+‖(∇Y F )i‖22 = ‖∇ Y F ‖2F, we obtain 
+
+EB
+
+[F (Y +)] ≤ F (Y ) − η · |B| 
+
+N · ˆg(∇θY · (∇θ Y )⊤)ˆg⊤ + c2 · η2‖∇ Y F ‖2F
+
+≤ F (Y ) − η · |B| 
+
+N · λmin ‖∇ Y F ‖2F + c2 · η2‖∇ Y F ‖2F
+
+= F (Y ) − η · [ |B| 
+
+N λmin − c2η]‖∇ Y F ‖2F.
+
+Let c3 = |B|  
+
+> N
+
+λmin − c2η, since η < |B|  
+
+> N
+
+· λmin  
+
+> c2
+
+, we have c3 > 0, i.e., there exists a constant c3 > 0, such that 
+
+EB[F (Y +)] ≤ F (Y ) − c3 · η‖∇ Y F ‖2F.
+
+## A.4 Detailed Derivation for Remark 3.2 
+
+Summing the inequality from Lemma 3.3 over k = 0 , · · · , T and taking total expectation gives 
+
+> T
+
+∑
+
+> k=0
+
+E[‖∇ Y F (Y (θk)) ‖2F
+
+] ≤ 1
+
+c3 · η ·
+
+> T
+
+∑
+
+> k=0
+
+(
+
+E[F (Y (θk)) ] − E[F (Y (θk+1 )) ])
+
+= 1
+
+c3 · η ·
+
+(
+
+F (Y (θ0)) − E[F (Y (θT +1 )) ])
+
+≤ 1
+
+c3 · η · F (Y (θ0)) ,
+
+where for brevity we write E[‖∇ Y F (Y (θk)) ‖2F
+
+] as a shorthand for E[‖∇ Y F (Y (θk)) ‖2F|B 0, · · · , Bk−1
+
+]
+
+and similarly E[F (Y (θk)) ] denotes EB0,··· ,Bk−1
+
+[F (Y (θk)) ]. Hence min   
+
+> k=0 ,··· ,T
+
+E[‖∇ Y F (Y (θk)) ‖2F
+
+] ≤ F (Y (θ0)) 
+
+c3 · η · (T + 1) ,
+
+19 It follows that the expected squared Frobenius norm of the gradient decays as O(1 /T ), Conse-quently, the expected Frobenius norm of the gradient satisfies min   
+
+> k=0 ,··· ,T
+
+E[‖∇ Y F (Y (θk)) ‖F
+
+] ≤
+
+√
+
+F (Y (θ0)) 
+
+c3 · η · (T + 1) = O(T −1/2).
+
+Therefore, for the nonconvex case we obtain the standard stochastic stationarity guarantee: the gradient norm vanishes in expectation at rate O(T −1/2). This is a weak stationarity result and does not affect the stronger convergence claims derived under convexity. 
+
+## A.5 Proof of Theorem 3.4 
+
+Proof. By local strong convexity around Y ∗ we have the standard inequality 
+
+‖∇ Y F (Y (θ)) ‖2F ≥ 2cY
+
+(F (Y (θ)) − F (Y ∗)),
+
+where Y ∗ is the minimum point of F . Then, by Lemma 3.3 and by applying the strong-convexity inequality to the conditional expectation of the squared gradient, we get 
+
+EB0,··· ,Bk
+
+[F (Y (θk+1 )) − F (Y ∗)]
+
+=EB0,··· ,Bk−1 EBk
+
+[F (Y (θk+1 )) − F (Y ∗) | B 0, · · · , Bk−1
+
+]
+
+≤EB0,··· ,Bk−1
+
+[F (Y (θk)) − F (Y ∗) − c3 · η‖∇ Y F (θk)‖2F
+
+]
+
+≤EB0,··· ,Bk−1
+
+[F (Y (θk)) − F (Y ∗) − c3 · η · 2cY
+
+(F (Y (θk)) − F (Y ∗))] 
+
+≤(1 − 2c3cY η)EB0 ,··· ,Bk−1
+
+[F (Y (θk)) − F (Y ∗)]
+
+≤ · · · ≤(1 − 2c3cY η)k+1 · (F (Y (θ0)) − F (Y ∗)).
+
+Let C = F (Y (θ0)) − F (Y ∗) and ρ = 1 − 2c3cY η, then 
+
+E[F (Y (θk)) ] − F (Y ∗) ≤ Cρ k ,
+
+where C > 0, ρ ∈ (0 , 1) and E[F (Y (θk)) ] denotes EB0,··· ,Bk−1
+
+[F (Y (θk)) ], which means E[F (Y (θk)) ]−
+
+F (Y ∗) converges linearly to zero. 
+
+## A.6 Proof of Corollary 3.5 
+
+Proof. First note from Lemma 3.3 that, for the chosen η, there exists a deterministic constant 
+
+c3 > 0, such that 
+
+E[F (Y (θk+1 )) |F k
+
+] ≤ F (Y (θk )) − c3 · η‖∇ Y F (Y (θk)) ‖2F,
+
+where Fk is the filtration generated by B0, · · · , Bk. In particular, 
+
+E[F (Y (θk+1 )) |F k
+
+] ≤ F (Y (θk )) .
+
+Hence F (Y (θk)) is a supermartingale with respect to Fk. Since F (Y (θk)) ≥ F (Y ∗) and, under our assumptions, the random variables F (Y (θk)) are integrable under our assumptions, Doob’s super-martingale convergence theorem implies that F (Y (θk)) converges almost surely to a finite random limit L0. Note from Theorem 3.4 that E[F (Y (θk)) ] → F (Y ∗) as k → ∞ . Since F (Y (θk)) a.s. 
+
+−−→ L0
+
+and F (Y (θk)) ≥ F (Y ∗), Fatou’s lemma gives 
+
+E[L0] ≤ lim inf  
+
+> k→∞
+
+E[F (Y (θk)) ] = F (Y ∗).
+
+20 But L0 ≥ F (Y ∗) almost surely, hence the only possibility is L0 = F (Y ∗). Thus F (Y (θk)) converges almost surely to F (Y ∗). Next we upgrade the expected linear rate to an almost sure (pathwise) linear tail bound. From Theorem 3.4 there exist deterministic constants C > 0 and ρ ∈ (0 , 1) such that 
+
+E[F (Y (θk)) − F (Y ∗)] ≤ Cρ k, ∀k ≥ 0,
+
+Fix any ǫ > 0 and define events: 
+
+Bk(ǫ) := {F (Y (θk)) − F (Y ∗) > [ρ(1 + ǫ)] k} , k = 1 , 2, . . . 
+
+By Markov’s inequality and the expectation bound: 
+
+P(Bk(ǫ)) = P
+
+(
+
+F (Y (θk)) − F (Y ∗) > [ρ(1 + ǫ)] k
+
+)
+
+≤ E[F (Y (θk )) − F (Y ∗)] 
+
+[ρ(1 + ǫ)] k
+
+≤ Cρ k
+
+[ρ(1 + ǫ)] k = C(1 + ǫ)−k.
+
+Let α := (1 + ǫ)−1 ∈ (0 , 1). The series ∑∞ 
+
+> k=1
+
+αk converges, so: 
+
+> ∞
+
+∑
+
+> k=1
+
+P(Bk(ǫ)) ≤ C
+
+> ∞
+
+∑
+
+> k=1
+
+αk < ∞.
+
+By the Borel-Cantelli lemma, P (lim sup k→∞ Bk(ǫ)) = 0. Thus, a.s. there exists a random index 
+
+Kǫ ∈ N (depending on the sample path) such that for all k ≥ Kǫ:
+
+F (Y (θk)) − F (Y ∗) ≤ [ρ(1 + ǫ)] k.
+
+This implies that the convergence rate is linear with base ρ(1 + ǫ) while k ≥ Kǫ for any ǫ > 0. Equivalently, for almost every sample path ω, there exist ρ(ω) ∈ (ρ, 1) and k0(ω) ∈ N, such that 
+
+F (Y (θk )) − F (Y ∗) ≤ ρ(ω)k, ∀k ≥ k0(ω).
+
+## A.7 Proof of Theorem 3.6 
+
+Proof. By assumption, for all k ≥ 0, there exist B > 0 and a minimum point Y ∗ such that 
+
+Y (θk ∈ B(Y ∗, B ). Then local convexity gives 0 ≤ F (Y (θk)) − F (Y ∗) ≤ 〈∇ Y F, Y (θk) − Y ∗〉 ≤ ‖∇ Y F ‖F‖Y (θk) − Y ∗‖F ≤ B‖∇ Y F (θk)‖F.
+
+Taking expectations and setting ek = E[F (Y (θk)) − F (Y ∗)] and dk = E‖∇ Y F (θk)‖2F, we get 
+
+ek ≤ B · E‖∇ Y F (θk)‖F ≤ B√E‖∇ Y F (θk)‖2F = B√dk, hence dk ≥ e2
+
+> k
+
+/B 2.Next, Lemma 3.3 gives the single-step descent inequality 
+
+E[F (Y (θk+1 )) |F k
+
+] ≤ F (Y (θk )) − c3 · η‖∇ Y F (Y (θk)) ‖2F,
+
+where Fk is the filtration generated by B0, · · · , Bk. Taking total expectation and subtracting 
+
+F (Y ∗) from both sides yields 
+
+ek+1 ≤ ek − c3ηd k ≤ ek − c3η
+
+B2 e2 
+
+> k
+
+≤ ek − c3η
+
+B2 ekek+1 .
+
+21 Hence 1
+
+ek+1 
+
+− 1
+
+ek
+
+≥ c3η
+
+B2
+
+and telescoping yields 
+
+ek ≤ B2
+
+c3η · 1
+
+k
+
+for all k ≥ 1. Then there exists a constant C > 0 such that 
+
+ek ≤ C
+
+k , i.e. E[F (Y (θk)) ] − F (Y ∗) ≤ C
+
+k .
+
+## A.8 Proof of Corollary 3.7 
+
+Proof. Let Fk = σ(B0, . . . , Bk). By Lemma 3.3 we have almost surely 
+
+E[F (Y (θk+1 )) |F k
+
+] ≤ F (Y (θk )) − c3 · η‖∇ Y F (Y (θk)) ‖2F.
+
+Dropping the nonpositive term on the right-hand side yields 
+
+E[F (Y (θk+1 )) |F k
+
+] ≤ F (Y (θk)) a.s. ,
+
+so ( F (Y (θk))) k ≥ 0 is a supermartingale bounded below by F (Y ∗). Under Assumptions A 1-A 5
+
+the random variables F (Y (θk)) are integrable, hence Doob’s supermartingale convergence theorem implies the existence of a finite random variable F∞ such that 
+
+F (Y (θk)) → F∞ a.s. By Theorem 3.6 we have E[F (Y (θk))] ↓ F (Y ∗), therefore F∞ = F (Y ∗) almost surely. This proves (i). Regarding (ii), set ek := E[F (Y (θk))] − F (Y ∗) ≥ 0. By Theorem 3.6 there exists C > 0 such that ek ≤ C/k for all k. Define the nonnegative random variables 
+
+Xk := k(F (Y (θk)) − F (Y ∗)).
+
+By Fatou’s lemma and the bound on ek we obtain 
+
+E[ lim inf  
+
+> k→∞
+
+Xk
+
+] ≤ lim inf  
+
+> k→∞
+
+E[Xk
+
+] = lim inf  
+
+> k→∞
+
+ke k ≤ C. 
+
+Hence lim inf k→∞ Xk < ∞ almost surely. Consequently, for almost every ω there exists an in-creasing subsequence kn(ω) along which Xkn (ω)(ω) is bounded; equivalently, there exists C(ω)such that 
+
+F (Y (θkn )) − F (Y ∗) ≤ C(ω)
+
+kn(ω) , ∀ n ∈ N,
+
+which means the sequence F (Y (θk )) admits almost surely convergent random subsequences at rate of O(1 /k ). 
+
+22 A.9 Detailed Derivation for Remark 3.3 
+
+Using Markov’s inequality together with the O(1 /k ) expectation bound from Theorem 3.6 and then applying the Borel-Cantelli lemma, one obtains deterministic (but very sparse) subsequences along which almost-sure polynomial rates arbitrarily close to 1 /k hold. Concretely, for any ǫ > 0define the deterministic subsequence kn(ǫ) := ⌊n2/ǫ ⌋ + 1. Then for almost every ω there exists a path-dependent constant C(ω, ǫ ) > 0 such that 
+
+F (Y (θkn (ǫ)))( ω) − F (Y ∗) ≤ C(ω, ǫ )kn(ǫ)−1+ ǫ, ∀n ∈ N.
+
+This deterministic-subsequence statement is primarily of theoretical interest: the subsequence is sparse and the multiplicative constant C(ω, ǫ ) depends on the sample path. Nevertheless, it has a practical implication. Although the pathwise convergence rate for the full sequence re-mains unquantified, the guaranteed existence of almost-surely convergent subsequences ensures the asymptotic attainability of near-optimal solutions along predetermined iterates. In practice, one may exploit this fact by implementing checkpointing protocols that evaluate and store iterates at the prescribed deterministic indices kn(ǫ); such checkpoints provide implementable verification mechanisms that, with probability one, eventually observe iterates achieving the stated polynomial rates. Thus, while the result is theoretically weaker than a uniform pathwise rate, it supplies an actionable strategy for empirical validation and for selecting iterates likely to be near-optimal in long runs. 
+
+## A.10 Proof of Lemma 4.1 
+
+Proof. Recall H = ∑ 
+
+> i∈B
+
+pi with pi = ( ˜∇Y F )i · ∇ θ Yi. By the Cauchy–Schwarz inequality for sums, 
+
+‖H‖2F =
+
+∥∥∥∑
+
+> i∈B
+
+pi
+
+∥∥∥2F ≤
+
+(∑ 
+
+> i∈B
+
+‖pi‖F
+
+)2
+
+=
+
+(∑ 
+
+> i∈B
+
+‖( ˜∇Y F )i · ∇ θ Yi‖F
+
+)2
+
+≤
+
+(∑ 
+
+> i∈B
+
+‖( ˜∇Y F )i‖2 ‖∇ θYi‖F
+
+)2
+
+≤
+
+(∑ 
+
+> i∈B
+
+‖( ˜∇Y F )i‖22
+
+)(∑ 
+
+> i∈B
+
+‖∇ θYi‖2F
+
+)
+
+≤ B21 ‖ ˜∇Y F ‖2F.
+
+## A.11 Proof of Lemma 4.2 
+
+Proof. By the Taylor expansion with integral remainder, we have 
+
+Y + − Y = ∇θ Y (θ)( θ+ − θ) + R
+
+where 
+
+R =
+
+∫ 10
+
+(1 − t)∇2 
+
+> θ
+
+Y (θ + t(θ+ − θ))[ θ+ − θ, θ + − θ] d t, 
+
+and ∇2 
+
+> θ
+
+Y is the second-order derivative tensor of Y with respect to θ. Then, by taking the Frobenius norm and Assumption A 4 on the line segment between θ and θ+, we obtain 
+
+‖R‖F ≤ B2
+
+2 ‖θ+ − θ‖2F = B2
+
+2 · η2‖H‖2F.
+
+23 Similarly, for the first-order difference, we have 
+
+‖Y + − Y ‖F ≤ sup 
+
+> t∈[0 ,1]
+
+‖∇ θY (θ + t(θ+ − θ)) ‖F · ‖ θ+ − θ‖F ≤ B1 · η‖H‖F.
+
+Since ∇Y F is L-Lipschitz by Assumption A 2 (i.e. F is L-smooth in Y ), we have the standard quadratic upper bound 
+
+F (Y +) ≤ F (Y ) + 〈∇ Y F, Y + − Y 〉 + L
+
+2 ‖Y + − Y ‖2F.
+
+Substituting the per-row decomposition and summing over i = 1 , · · · , N gives 
+
+F (Y +) ≤ F (Y ) + 〈∇ Y F, Y + − Y 〉 + L
+
+2 ‖Y + − Y ‖2F
+
+= F (Y ) + tr ((∇θ Y (θ)( θ+ − θ) + R)⊤(∇Y F )) + L
+
+2 ‖Y + − Y ‖2F
+
+= F (Y ) + tr 
+
+( N∑
+
+> i=1
+
+∇θYi(θ)( θ+ − θ)( ∇Y F )i
+
+)
+
++ 〈∇ Y F, R 〉 + L
+
+2 ‖Y + − Y ‖2F
+
+≤ F (Y ) − η · tr ( N∑
+
+> i=1
+
+∇θ Yi(θ) · H⊤(∇Y F )i
+
+) +
+
+(
+
+‖∇ Y F ‖F · B2
+
+2 + L
+
+2 B21
+
+)
+
+· η2‖H‖2F
+
+= F (Y ) − η ·
+
+> N
+
+∑
+
+> i=1
+
+tr ( (( ∇Y F )i · ∇ θ Yi) · H⊤) +
+
+(
+
+‖∇ Y F ‖F · B2
+
+2 + L
+
+2 B21
+
+)
+
+· η2‖H‖2F
+
+= F (Y ) − η ·
+
+> N
+
+∑
+
+> i=1
+
+〈zi, H ⊤〉 + 1
+
+2
+
+(B0B2 + LB 21
+
+) · η2‖H‖2F
+
+≤ F (Y ) − η ·
+
+> N
+
+∑
+
+> i=1
+
+〈zi, H ⊤〉 + c2 · η2‖ ˜∇Y F ‖2F,
+
+where zi = (( ∇Y F )i · ∇ θ Yi)⊤ is as defined in Section 3.1. 
+
+## A.12 Proof of Lemma 4.3 
+
+Proof. We sample a mini-batch B for the current update, which determines the batch gradient 
+
+H and, in turn, ˜Y + and Y +, while ˜Y and Y remain fixed from the preceding step. Using the Frobenius-norm representation, 
+
+‖ ˜Y + − Y +‖2F = ∑
+
+> i∈B c
+
+‖ ˜Y + 
+
+> i
+
+− Y + 
+
+> i
+
+‖2F.
+
+For each i ∈ B c, we decompose ˜Y + 
+
+> i
+
+− Y + 
+
+> i
+
+= ˜Yi − Y + 
+
+> i
+
+= ( ˜Yi − Yi) + ( Yi − Y + 
+
+> i
+
+).
+
+Expanding the squared norm and applying the inequality 2 〈a, b 〉 ≤ s|a|2 + 1 
+
+> s
+
+|b|2 (valid for any 
+
+s > 0) yields 
+
+‖ ˜Yi − Y + 
+
+> i
+
+‖22 ≤ (1 + 1
+
+s )‖ ˜Yi − Yi‖22 + (1 + s)‖Yi − Y + 
+
+> i
+
+‖22.
+
+Let F denote the filtration generated by all randomness up to the current iterate. By the tower property, the total expectation decomposes as 
+
+E[·] = EF
+
+[
+
+EB
+
+[· | F ]]
+
+,
+
+24 where the inner expectation is taken over the random mini-batch B. For the single-step analysis, we focus on this inner expectation. Summing over i ∈ B c and taking conditional expectation given 
+
+F yields 
+
+EB
+
+[
+
+‖ ˜Y + − Y +‖2F
+
+∣∣∣ F
+
+]
+
+≤
+
+(
+
+1 + 1
+
+s
+
+)
+
+EB
+
+[ ∑
+
+> i∈B c
+
+‖ ˜Yi − Yi‖2F
+
+∣∣∣∣∣ F
+
+]
+
++ (1 + s) EB
+
+[ ∑
+
+> i∈B c
+
+‖Yi − Y + 
+
+> i
+
+‖2F
+
+∣∣∣∣∣ F
+
+]
+
+.
+
+In the remainder of this section, we abbreviate EB[· | F ] as EB [·]. Because ˜Yi − Yi is independent of the random batch B, every index i ∈ { 1, . . . , N } is excluded from B with the same probability 1 − |B|  
+
+> N
+
+. By linearity of expectation, 
+
+EB
+
+[ ∑ 
+
+> i∈B c
+
+‖ ˜Yi − Yi‖2F
+
+] = (1 − |B| 
+
+N )
+
+> N
+
+∑
+
+> i=1
+
+‖ ˜Yi − Yi‖2F = (1 − |B| 
+
+N )‖ ˜Y − Y ‖2F.
+
+For the second term note that summing over Bc is bounded by summing over all samples: 
+
+EB
+
+[ ∑ 
+
+> i∈B c
+
+‖Yi − Y + 
+
+> i
+
+‖2F
+
+] ≤ EB
+
+[ N∑
+
+> i=1
+
+‖Yi − Y + 
+
+> i
+
+‖2F
+
+] = EB
+
+[‖Y − Y +‖2F
+
+].
+
+Using the update θ+ − θ = −ηH T and ‖∇ θY ‖F ≤ B1 (Assumption A 3), we have 
+
+‖Y − Y +‖F ≤ B1‖θ − θ+‖F = B1η‖H‖F.
+
+Applying Lemma 4.1 ( ‖H‖F ≤ B1‖ ˜∇Y F ‖F) yields 
+
+EB
+
+[‖Y − Y +‖2F
+
+] ≤ η2B21 EB
+
+[‖H‖2F
+
+] ≤ η2B41 ‖ ˜∇Y F ‖2F.
+
+Combining the preceding bounds gives the stated inequality 
+
+EB
+
+[‖ ˜Y + − Y +‖2F
+
+] ≤ (1 + 1
+
+s )
+
+(
+
+1 − |B| 
+
+N
+
+)
+
+‖ ˜Y − Y ‖2F + (1 + s) · η2B41 ‖ ˜∇Y F ‖2F.
+
+## A.13 Proof of Lemma 4.4 
+
+Proof. Starting from Lemma 4.3, for each k we have (for any sk > 0) 
+
+E‖ ˜Y (θk) − Y (θk)‖2F
+
+=EB0 ,··· ,Bk−1 ‖ ˜Y (θk) − Y (θk)‖2F
+
+=EB0 ,··· ,Bk−2 EBk−1
+
+[‖ ˜Y (θk ) − Y (θk)‖2F|B 0, · · · , Bk−2
+
+]
+
+≤(1 + 1
+
+sk
+
+)
+
+(
+
+1 − |B| 
+
+N
+
+)
+
+E‖ ˜Y (θk−1) − Y (θk−1)‖2F
+
++ η2(1 + sk)B41 E‖ ˜∇Y F
+
+( ˜Y (θk−1), Y (θk−1)
+
+)
+
+‖2F.
+
+25 Then 
+
+E‖ ˜Y (θk) − Y (θk )‖2F
+
+≤(1 + 1
+
+sk
+
+)
+
+(
+
+1 − |B| 
+
+N
+
+)
+
+E‖ ˜Y (θk−1) − Y (θk−1)‖2F + η2(1 + sk)B41 E‖ ˜∇Y F
+
+( ˜Y (θk−1), Y (θk−1)
+
+)
+
+‖2F
+
+≤(1 + 1
+
+sk−1
+
+)(1 + 1
+
+sk
+
+)
+
+(
+
+1 − |B| 
+
+N
+
+)2
+
+E‖ ˜Y (θk−2) − Y (θk−2)‖2F
+
++ η2B41 (1 + sk−1)(1 + 1
+
+sk
+
+)
+
+(
+
+1 − |B| 
+
+N
+
+)
+
+E‖ ˜∇Y F
+
+( ˜Y (θk−2), Y (θk−2)
+
+)
+
+‖2F
+
++ η2B41 (1 + sk)E‖ ˜∇Y F
+
+( ˜Y (θk−1), Y (θk−1)
+
+)
+
+‖2F
+
+≤ · · · ≤
+
+
+
+> k
+
+∏
+
+> j=1
+
+(1 + 1
+
+sj
+
+)
+
+ ·
+
+(
+
+1 − |B| 
+
+N
+
+)k
+
+E‖ ˜Y (θ0) − Y (θ0)‖2F
+
++
+
+> k
+
+∑
+
+> i=1
+
+η2B41 (1 + sk+1 −i) ·
+
+
+
+> i−2
+
+∏
+
+> j=0
+
+(1 + 1
+
+sk−j
+
+)
+
+ ·
+
+(
+
+1 − |B| 
+
+N
+
+)i−1
+
+E‖ ˜∇Y F
+
+( ˜Y (θk−i), Y (θk−i)
+
+)
+
+‖2F
+
+=
+
+> k
+
+∑
+
+> i=1
+
+η2B41 (1 + sk+1 −i) ·
+
+
+
+> i−2
+
+∏
+
+> j=0
+
+(1 + 1
+
+sk−j
+
+)
+
+ ·
+
+(
+
+1 − |B| 
+
+N
+
+)i−1
+
+E‖ ˜∇Y F
+
+( ˜Y (θk−i), Y (θk−i)
+
+)
+
+‖2F,
+
+(A.1) where the last equality holds because the cached value coincides with the true value at initialization, i.e., ˜Y (θ0) = Y (θ0). Set for j ≥ 1
+
+sj := μ(1 − μj−1)
+
+(1 − μ) ,
+
+One checks that sj > 0 for μ ∈ (0 , 1). With this choice, 
+
+> i−2
+
+∏
+
+> j=0
+
+(1 + 1
+
+sk−j
+
+) = 
+
+> i−2
+
+∏
+
+> j=0
+
+(
+
+1 + 1 − μ
+
+μ(1 − μk−j−1)
+
+)
+
+=
+
+> i−2
+
+∏
+
+> j=0
+
+( 1 − μk−j
+
+μ(1 − μk−j−1)
+
+)
+
+= 1 − μk
+
+μi−1(1 − μk−i+1 ) . (A.2) Therefore, subsitute sk+1 −i and equality A.2 into inequality A.1, we have 
+
+E‖ ˜Y (θk) − Y (θk)‖2F
+
+≤
+
+> k
+
+∑
+
+> i=1
+
+η2B41 (1 + μ − μk−i+1 
+
+1 − μ ) · 1 − μk
+
+μi−1(1 − μk−i+1 ) · μ2i−2E‖ ˜∇Y F
+
+( ˜Y (θk−i), Y (θk−i)
+
+)
+
+‖2F
+
+=
+
+> k
+
+∑
+
+> i=1
+
+η2B41
+
+1 − μk−i+1 
+
+1 − μ · 1 − μk
+
+1 − μk−i+1 · μi−1E‖ ˜∇Y F
+
+( ˜Y (θk−i), Y (θk−i)
+
+)
+
+‖2F
+
+=
+
+> k
+
+∑
+
+> i=1
+
+η2B41
+
+1 − μk
+
+μ(1 − μ) μiE‖ ˜∇Y F
+
+( ˜Y (θk−i), Y (θk−i)
+
+)
+
+‖2F
+
+=B41 · η2 · (1 − μk)
+
+μ(1 − μ)
+
+> k
+
+∑
+
+> i=1
+
+μiE‖ ˜∇Y F
+
+( ˜Y (θk−i), Y (θk−i)
+
+)
+
+‖2F
+
+≤B41 · η2
+
+μ(1 − μ)
+
+> k
+
+∑
+
+> i=1
+
+μiE‖ ˜∇Y F
+
+( ˜Y (θk−i), Y (θk−i)
+
+)
+
+‖2F.
+
+26 A.14 Proof of Lemma 4.5 
+
+Proof. We prove both assertions by induction on k. The base case k = 0 is immediate since ˜Y (θ0) = 
+
+Y (θ0), so ˜∇Y F = ∇Y F and the inequality 4.1 holds trivially. We first establish inequality 4.2 for 
+
+k = 0. By Taylor expansion of ∇Y F around Y (θ0), we have the following integral form: 
+
+∇Y F (Y (θ1)) = ∇Y F (Y (θ0)) + R0,
+
+where 
+
+R0 =
+
+∫ 10
+
+∇2 
+
+> Y
+
+F (Y (θ0) + t (Y (θ1) − Y (θ0)) ) (Y (θ1) − Y (θ0)) d t. 
+
+Using the parameter update θ1 − θ0 = −ηH (θ0)⊤ and the chain rule, 
+
+Y (θ1) − Y (θ0) = 
+
+∫ 10
+
+∇θ Y (θ0 + t(θ1 − θ0))( θ1 − θ0)d t, 
+
+here, rather than considering ∇θY as a matrix, we retain its tensor form. So, with the bound 
+
+‖∇ 2 
+
+> Y
+
+F ‖F ≤ L (Assumption A 2) and ‖∇ θ Y ‖F ≤ B1 (Assumption A 3), 
+
+‖R0‖F ≤ L‖Y (θ1) − Y (θ0)‖F ≤ LB 1η‖H(θ0)‖F.
+
+Taking expectation, applying Lemma 4.1 ( ‖H‖F ≤ B1‖ ˜∇Y F ‖F) and using ˜∇Y F ( ˜Y , Y ) = ∇Y F (Y )at θ0, we obtain 
+
+E‖R0‖2F ≤ (B21 L)2η2E‖∇ Y F (Y (θ0)) ‖2F.
+
+Then by Minkowski inequality one gets 
+
+√
+
+E‖∇ Y F (Y (θ0)) + R0‖2F ≤
+
+√
+
+E‖∇ Y F (Y (θ0)) ‖2F +
+
+√
+
+E‖R0‖2F,
+
+hence 
+
+E‖∇ Y F (Y (θ1)) ‖2F =E‖∇ Y F (Y (θ0)) + R0‖2F
+
+≤E‖∇ Y F (Y (θ0)) ‖2F + 2 
+
+√
+
+E‖∇ Y F (Y (θ0)) ‖2F · E‖R0‖2F + E‖R0‖2F
+
+≤‖∇ Y F (Y (θ0)) ‖2F + 2 B21 L · η ·
+
+√
+
+‖∇ Y F (Y (θ0)) ‖2F · ‖∇ Y F (Y (θ0)) ‖2F
+
++ ( B21 L)2 · η2 · ‖∇ Y F (Y (θ0)) ‖2F
+
+= (1 + 2 B21 Lη + ( B21 L)2 · η2) ‖∇ Y F (Y (θ0)) ‖2F
+
+≤ (1 + 2 B21 Lη + ( B21 L)2 · η) ‖∇ Y F (Y (θ0)) ‖2F
+
+≤ (1 + c4 · η) ‖∇ Y F (Y (θ0)) ‖2F,
+
+where the penultimate inequality follows from η < 1. Similarly the matching lower bound yields 
+
+E‖∇ Y F (Y (θ1)) ‖2F =E‖∇ Y F (Y (θ0)) + R0‖2F
+
+≥E (‖∇ Y F (Y (θ0)) ‖F − ‖ R0‖F)2
+
+≥E‖∇ Y F (Y (θ0)) ‖2F − 2
+
+√
+
+E‖∇ Y F (Y (θ0)) ‖2F · E‖R0‖2F + E‖R0‖2F
+
+≥E‖∇ Y F (Y (θ0)) ‖2F − 2
+
+√
+
+E‖∇ Y F (Y (θ0)) ‖2F · E‖R0‖2F − E‖R0‖2F
+
+≥ (1 − 2B21 Lη − (B21 L)2 · η2) ‖∇ Y F (Y (θ0)) ‖2F
+
+≥(1 − c4 · η)‖∇ Y F (Y (θ0)) ‖2F.
+
+27 Thus inequality 4.2 holds at k = 0. Assume that inequality 4.1 and 4.2 hold for all indices i < k .Then we prove them for k.Under Assumption A 6 the approximation operator satisfies the linearization bound 
+
+˜∇Y F ( ˜Y , Y ) = ∇Y F (Y ) + 
+
+∫ 10
+
+T (Y + t( ˜Y − Y ))[ ˜Y − Y ]d t, 
+
+with ‖T (Θ)[∆] ‖F ≤ B3‖∆‖F for all relevant Θ. Hence 
+
+‖ ˜∇Y F ( ˜Y , Y )‖2F ≤2‖∇ Y F (Y )‖2F + 2 ‖
+
+∫ 10
+
+T (Y + t( ˜Y − Y ))[ ˜Y − Y ]d t‖2F
+
+≤2‖∇ Y F (Y )‖2F + 2 
+
+∫ 10
+
+B23 ‖ ˜Y − Y ‖2Fdt
+
+≤2‖∇ Y F (Y )‖2F + 2 B23 ‖ ˜Y − Y ‖2F.
+
+(A.3) Combining Lemma 4.4 and the induction hypothesis, 
+
+E‖ ˜Y (θk) − Y (θk)‖2F ≤B41 · η2
+
+μ(1 − μ)
+
+> k
+
+∑
+
+> i=1
+
+μiE‖ ˜∇Y F
+
+( ˜Y (θk−i), Y (θk−i)
+
+)
+
+‖2F
+
+≤B41 · 4η2
+
+μ(1 − μ)
+
+> k
+
+∑
+
+> i=1
+
+μiE‖∇ Y F (Y (θk−i)) ‖2F
+
+≤B41 · 4η2
+
+μ(1 − μ)
+
+> k
+
+∑
+
+> i=1
+
+μi(1 − c4 · η)−iE‖∇ Y F (Y (θk)) ‖2F.
+
+Set ν := μ(1 − c4η)−1. Under the first constraint on η from the lemma statement one checks that 
+
+ν < 1 ( ν ≤ (1 − |B| /2N )−1 < 1). Hence summing the geometric series yields 
+
+> k
+
+∑
+
+> i=1
+
+μi(1 − c4 · η)−i ≤
+
+> ∞
+
+∑
+
+> i=1
+
+νi = ν
+
+1 − ν ≤ 1
+
+1 − ν .
+
+Therefore 
+
+E‖ ˜Y (θk) − Y (θk)‖2F ≤ B41 · 4η2
+
+μ(1 − μ) · 1
+
+1 − ν E‖∇ Y F (Y (θk)) ‖2F.
+
+Plugging this bound into inequality A.3 gives 
+
+E‖ ˜∇Y F ( ˜Y (θk), Y (θk)) ‖2F ≤2E‖∇ Y F (Y (θk)) ‖2F + 2 B23 E‖ ˜Y (θk) − Y (θk)‖2F
+
+≤2E‖∇ Y F (Y (θk)) ‖2F + 2 B23 B41 · 4η2
+
+μ(1 − μ) · 1
+
+1 − ν E‖∇ Y F (Y (θk)) ‖2F
+
+≤2E‖∇ Y F (Y (θk)) ‖2F + 8B23 B41
+
+μ(1 − μ) · μ(1 − μ)|B| 2
+
+32 B41 B23 (2 N − |B )|2 · 1
+
+1 − ν E‖∇ Y F (Y (θk)) ‖2F
+
+=2 E‖∇ Y F (Y (θk)) ‖2F + 1
+
+2 · |B| 2
+
+2(2 N − |B )|2 · 1
+
+1 − ν E‖∇ Y F (Y (θk)) ‖2F.
+
+Since 1 − ν =1 − μ
+
+1 − c4 · η > 1 − μ
+
+1 − |B| /(2 N )=1 −
+
+√
+
+1 − |B| /N 
+
+[1 − |B| /(2 N )] 2 = 1 −
+
+√
+
+1 − |B| 2
+
+(2 N − |B| )2
+
+>1 −
+
+(
+
+1 − |B| 2
+
+2(2 N − |B| )2
+
+)
+
+= |B| 2
+
+2(2 N − |B| )2 ,
+
+28 where the last inequality follows from √1 − x ≤ 1 − x/ 2, then 
+
+E‖ ˜∇Y F ( ˜Y (θk), Y (θk)) ‖2F ≤2E‖∇ Y F (Y (θk)) ‖2F + 1
+
+2 · |B| 2
+
+2(2 N − |B )|2 · 1
+
+1 − ν E‖∇ Y F (Y (θk)) ‖2F
+
+≤4E‖∇ Y F (Y (θk)) ‖2F.
+
+(A.4) Similarly, 
+
+E‖∇ Y F (Y (θk)) ‖2F =E‖ ˜∇Y F ( ˜Y (θk), Y (θk)) −
+
+∫ 10
+
+T
+
+(
+
+Y (θk) + t( ˜Y (θk) − Y (θk)) 
+
+)
+
+[ ˜Y (θk) − Y (θk)]d t‖2F
+
+≤2E‖ ˜∇Y F ( ˜Y (θk), Y (θk)) ‖2F + 2 B23 E‖ ˜Y (θk) − Y (θk)‖2F
+
+≤2E‖ ˜∇Y F ( ˜Y (θk), Y (θk)) ‖2F + 1
+
+2 E‖∇ Y F (Y (θk)) ‖2F,
+
+which means E‖∇ Y F (Y (θk )) ‖2F ≤ 4E‖ ˜∇Y F ( ˜Y (θk), Y (θk)) ‖2F. At last, according to Taylor expan-sion as at the beginning of the proof: 
+
+∇Y F (Y (θk+1 )) = ∇Y F (Y (θk )) + Rk,
+
+where 
+
+Rk =
+
+∫ 10
+
+∇2 
+
+> Y
+
+F (Y (θk ) + t(Y (θk+1 ) − Y (θk))) ( Y (θk+1 ) − Y (θk))d t. 
+
+And here, likewise, rather than considering ∇θ Y as a matrix, we retain its tensor form. Then according to Lemma 4.1 and inequality A.4 
+
+E‖Rk‖2F ≤E[ ∫ 10
+
+L2‖Y (θk+1 ) − Y (θk)‖2F
+
+]
+
+≤L2 · B21 · η2 · E‖H(θk)‖2F
+
+≤(B21 L)2 · η2 · E‖ ˜∇Y F
+
+( ˜Y (θk), Y (θk)
+
+)
+
+‖2F
+
+≤(B21 L)2 · η2 · 4E‖∇ Y F (Y (θk)) ‖2F.
+
+Hence, similar to the proof for k = 0, we have 
+
+E‖∇ Y F (Y (θk+1 )) ‖2F =E‖∇ Y F (Y (θk)) + Rk‖2F
+
+≤E‖∇ Y F (Y (θk)) ‖2F + 2 
+
+√
+
+E‖∇ Y F (Y (θk)) ‖2F · E‖Rk‖2F + E‖Rk‖2F
+
+≤‖∇ Y F (Y (θk)) ‖2F + 4 B21 L · η ·
+
+√
+
+E‖∇ Y F (Y (θk)) ‖2F · E‖∇ Y F (Y (θk)) ‖2F
+
++ (2 B21 L)2 · η2 · E‖∇ Y F (Y (θk)) ‖2F
+
+= (1 + 4 B21 Lη + 4( B21 L)2 · η2) ‖∇ Y F (Y (θk)) ‖2F
+
+≤ (1 + 4 B21 Lη + 4( B21 L)2 · η) ‖∇ Y F (Y (θk )) ‖2F
+
+= (1 + c4 · η) ‖∇ Y F (Y (θk)) ‖2F,
+
+where the penultimate inequality follows from η < 1. In the same way, we can get 
+
+E‖∇ Y F (Y (θk+1 )) ‖2F ≥ (1 − 4B21 Lη − 4( B21 L)2 · η2) ‖∇ Y F (Y (θk)) ‖2F = (1 −c4 ·η)‖∇ Y F (Y (θk )) ‖2F.
+
+Thus, we have completed the proof the induction step for k. Therefore, by mathematical induction, the lemma holds. 
+
+29 A.15 Proof of Lemma 4.6 
+
+Proof. According to Lemma 4.2, 
+
+F (Y +) ≤ F (Y ) − η ·
+
+> N
+
+∑
+
+> i=1
+
+〈zi, H ⊤〉 + c2 · η2‖ ˜∇Y F ‖2F.
+
+Let F denote the filtration generated by all randomness up to the current iterate. For the single-step analysis of this theorem, we take conditional expectation over the random mini-batch B given 
+
+F, denoted by EB [·] := E[· | F ]. This yields 
+
+EB
+
+[F (Y +)] ≤ EB
+
+[F (Y ) − η ·
+
+> N
+
+∑
+
+> i=1
+
+〈zi, H ⊤〉 + c2 · η2‖ ˜∇Y F ‖2F
+
+]
+
+= F (Y ) − η ·
+
+> N
+
+∑
+
+> i=1
+
+〈zi, EB [H⊤]〉 + c2 · η2‖ ˜∇Y F ‖2F
+
+= F (Y ) − η ·
+
+> N
+
+∑
+
+> i=1
+
+〈zi, |B| 
+
+N
+
+> N
+
+∑
+
+> j=1
+
+pj 〉 + c2 · η2‖ ˜∇Y F ‖2F,
+
+where pj denotes the per-sample contribution and we used EB [H] = |B| 
+
+> N
+
+∑ 
+
+> j
+
+pj since pj is F-measurable (determined by the history up to the current iterate) and is thus independent of the current mini-batch B. Rewriting the double sum in matrix form and using the identification (row-wise concatenation) of the block gradient vectors, the main descent term can be written as 
+
+EB
+
+[F (Y +)] ≤ F (Y ) − η · |B| 
+
+N ·
+
+> N
+
+∑
+
+> i=1
+> N
+
+∑
+
+> j=1
+
+〈zi, p j 〉 + c2 · η2‖ ˜∇Y F ‖2F
+
+= F (Y ) − η · |B| 
+
+N ·
+
+> N
+
+∑
+
+> i=1
+> N
+
+∑
+
+> j=1
+
+(∇Y F )i · ∇ θ Yi · ∇ θ Y ⊤ 
+
+> j
+
+· ( ˜∇Y F )⊤ 
+
+> j
+
++ c2 · η2‖ ˜∇Y F ‖2F
+
+= F (Y ) − η · |B| 
+
+N · ˆg(∇θ Y · (∇θ Y )⊤)ˆh⊤ + c2 · η2‖ ˜∇Y F ‖2F,
+
+where ˆ g corresponds to the row-vectorized ∇Y F and ˆh corresponds to the row-vectorized ˜∇Y F .Since 
+
+˜∇Y F = ˜∇Y F ( ˜Y , Y ) = ˜∇Y F (Y, Y ) + 
+
+∫ 10
+
+T (Y + t( ˜Y − Y ))[ ˜Y − Y ]d t
+
+=∇Y F +
+
+∫ 10
+
+T (Y + t( ˜Y − Y ))[ ˜Y − Y ]d t. 
+
+Considering the row-vectorized form, let ˆT denote the corresponding derivative matrix (Jacobian) induced by row-wise vectorization, satisfying vec r (T (Θ)[∆]) = ˆT (Θ)[vec r (∆)] for any matrix ∆. Denote 
+
+Rr =
+
+∫ 10
+
+ˆT (Y + t( ˜Y − Y ))[vec r ( ˜Y − Y )]d t, 
+
+30 by Assumption A 6, we have ‖Rr‖F ≤ B3‖ ˜Y − Y ‖F. Then ˆh = ˆ g + Rr, and furthermore 
+
+EB
+
+[F (Y +)] ≤F (Y ) − η · |B| 
+
+N · ˆg(∇θ Y · (∇θ Y )⊤)ˆh⊤ + c2 · η2‖ ˜∇Y F ‖2F
+
+=F (Y ) − η · |B| 
+
+N · ˆg(∇θ Y · (∇θ Y )⊤)ˆg⊤ + c2 · η2‖ ˜∇Y F ‖2F
+
+− η2 · |B| 
+
+N · ˆg(∇θ Y · (∇θ Y )⊤) · 1
+
+η R⊤
+
+> r
+
+≤F (Y ) − η · |B| 
+
+N · λmin ‖ˆg‖2F + c2 · η2‖ ˜∇Y F ‖2F
+
++ η2 · |B| 
+
+N · 1
+
+2
+
+(
+
+‖ˆg(∇θ Y · (∇θ Y )⊤)‖2F + 1
+
+η2 ‖Rr‖2F
+
+)
+
+≤F (Y ) − η · |B| 
+
+N · λmin ‖ˆg‖2F + c2 · η2‖ ˜∇Y F ‖2F
+
++ η2 · |B| 
+
+2N · B41 ‖ˆg‖2F + η2 · |B| 
+
+2N · B23
+
+η2 ‖ ˜Y − Y ‖2F
+
+=F (Y ) − η · |B| 
+
+N
+
+(
+
+λmin − B41 η
+
+2
+
+)
+
+‖∇ Y F ‖2F + c2 · η2‖ ˜∇Y F ‖2F + |B| · B23
+
+2N ‖ ˜Y − Y ‖2F.
+
+According to Lemma 4.4 and 4.5 we have 
+
+E‖ ˜Y (θk) − Y (θk )‖2F ≤B41 · η2
+
+μ(1 − μ)
+
+> k
+
+∑
+
+> i=1
+
+μiE‖ ˜∇Y F
+
+( ˜Y (θk−i), Y (θk−i)
+
+)
+
+‖2F
+
+≤B41 · 4η2
+
+μ(1 − μ)
+
+> k
+
+∑
+
+> i=1
+
+μiE‖∇ Y F (Y (θk−i)) ‖2F
+
+≤B41 · 4η2
+
+μ(1 − μ)
+
+> k
+
+∑
+
+> i=1
+
+μi(1 − c4 · η)−iE‖∇ Y F (Y (θk)) ‖2F
+
+≤B41 · 4η2
+
+μ(1 − μ) · 1
+
+1 − ν E‖∇ Y F (Y (θk)) ‖2F.
+
+Further applying Lemma 4.5 yields 
+
+E[F (Y (θk+1 )) ] ≤E[F (Y (θk)) ] − η · |B| 
+
+N
+
+(
+
+λmin − B41 η
+
+2
+
+)
+
+E‖∇ Y F (Y (θk)) ‖2F
+
++ c2 · η2 · 4E‖∇ Y F (Y (θk)) ‖2F + 2|B| · B41 B23
+
+N μ (1 − μ)(1 − ν) · η2 · E‖∇ Y F (Y (θk)) ‖2F
+
+=E[F (Y (θk)) ] − η ·
+
+( |B| 
+
+N λmin − c5 · η
+
+)
+
+E‖∇ Y F (Y (θk)) ‖2F.
+
+Take c6 = |B|  
+
+> N
+
+λmin − c5 · η, then 
+
+E[F (Y (θk+1 )) ] ≤ E[F (Y (θk)) ] − c6 · ηE‖∇ Y F (Y (θk)) ‖2F.
+
+31 Reference 
+
+[1] John Duchi, Elad Hazan, and Yoram Singer. “Adaptive subgradient methods for online learning and stochastic optimization”. In: Journal of Machine Learning Research 12.7 (2011), pp. 2121–2159. url : http://jmlr.org/papers/v12/duchi11a.html .[2] Matthew D. Zeiler. “ADADELTA: An adaptive learning rate method”. In: arXiv preprint 
+
+(2012). arXiv: 1212.5701 [cs.LG] .[3] Diederik P. Kingma and Jimmy Ba. “Adam: A method for stochastic optimization”. In: 
+
+arXiv preprint (2014). arXiv: 1412.6980 [cs.LG] .[4] Mark Schmidt, Nicolas Le Roux, and Francis Bach. “Minimizing finite sums with the stochas-tic average gradient”. In: Mathematical Programming 162.1 (2017), pp. 83–112. doi : 10.1007/s10107-
+
+[5] Rie Johnson and Tong Zhang. “Accelerating stochastic gradient descent using predictive vari-ance reduction”. In: Advances in Neural Information Processing Systems (NeurIPS) . Vol. 26. 2013, pp. 315–323. url : https://proceedings.neurips.cc/paper/2013/hash/ac1dd209cbcc5e5d1 
+
+[6] Aaron Defazio, Francis Bach, and Simon Lacoste-Julien. “SAGA: A fast incremental gra-dient method with support for non-strongly convex composite objectives”. In: Advances in Neural Information Processing Systems (NeurIPS) . Vol. 27. 2014, pp. 1646–1654. url :
+
+https://proceedings.neurips.cc/paper/2014/hash/f7cade80b7cc92b991cf4d2806d6bd78-Abst 
+
+[7] Purushottam Kar, Harikrishna Narasimhan, and Prateek Jain. “Online and Stochastic Gra-dient Methods for Non-decomposable Loss Functions”. In: Advances in Neural Information Processing Systems . Ed. by Z. Ghahramani et al. Vol. 27. Curran Associates, Inc., 2014. url :
+
+https://proceedings.neurips.cc/paper_files/paper/2014/file/9638ddfc7e3d56a611292c157 
+
+[8] Ching-Yao Chuang et al. “Debiased Contrastive Learning”. In: Advances in Neural Infor-mation Processing Systems . Vol. 33. Curran Associates, Inc., 2020, pp. 8765–8775. url :
+
+https://neurips.cc/virtual/2020/public/poster_63c3ddcc7b23daa1e42dc41f9a44a873.html .[9] Soham Dan and Dushyant Sahoo. “Variance Reduced Stochastic Proximal Algorithm for AUC Maximization”. In: Machine Learning and Knowledge Discovery in Databases. Research Track . Springer International Publishing, 2021, pp. 184–199. isbn : 9783030865238. doi :
+
+10.1007/978-3-030-86523-8_12 . url : http://dx.doi.org/10.1007/978-3-030-86523-8_12 .[10] L´ eon Bottou, Frank E. Curtis, and Jorge Nocedal. “Optimization methods for large-scale machine learning”. In: SIAM Review 60.2 (2018), pp. 223–311. doi : 10.1137/16M1080173 .[11] Arkadi Nemirovski et al. “Robust stochastic approximation approach to stochastic program-ming”. In: SIAM Journal on Optimization 19.4 (2009), pp. 1574–1609. doi : 10.1137/070704277 .[12] Yurii Nesterov. “Gradient methods for minimizing composite functions”. In: Mathematical Programming 140.1 (2013), pp. 125–161. doi : 10.1007/s10107-012-0629-5 .[13] Ilya Sutskever et al. “On the importance of initialization and momentum in deep learn-ing”. In: Proceedings of the 30th International Conference on Machine Learning (ICML) .Vol. 28. Proceedings of Machine Learning Research. PMLR, 2013, pp. 1139–1147. url :
+
+https://proceedings.mlr.press/v28/sutskever13.html .[14] Michael Cohen, Jelena Diakonikolas, and Lorenzo Orecchia. “On Acceleration with Noise-Corrupted Gradients”. In: Proceedings of the 35th International Conference on Machine Learning . Ed. by Jennifer Dy and Andreas Krause. Vol. 80. Proceedings of Machine Learning Research. 10–15 July. PMLR, July 2018, pp. 1019–1028. url : https://proceedings.mlr.press/v80/ 
+
+[15] Zeyuan Allen-Zhu. “Katyusha: The first direct acceleration of stochastic gradient methods”. In: Journal of Machine Learning Research 18.221 (2018), pp. 1–51. url : http://jmlr.org/papers/v1 
+
+32 [16] Hongzhou Lin, Julien Mairal, and Zaid Harchaoui. “A Universal Catalyst for First-Order Op-timization”. In: Advances in Neural Information Processing Systems . Ed. by C. Cortes et al. Vol. 28. Curran Associates, Inc., 2015. url : https://proceedings.neurips.cc/paper_files/paper 
+
+[17] Roy Frostig et al. “Un-regularizing: Approximate proximal point and faster stochastic al-gorithms for empirical risk minimization”. In: International Conference on Machine Learn-ing . Vol. 37. Proceedings of Machine Learning Research. PMLR, 2015, pp. 2540–2548. url :
+
+https://proceedings.mlr.press/v37/frostig15.html .[18] Yunwen Lei et al. “Stochastic gradient descent for nonconvex learning without bounded gradient assumptions”. In: IEEE Transactions on Neural Networks and Learning Systems 
+
+31.10 (2019), pp. 4394–4400. doi : 10.1109/TNNLS.2019.2952217 .[19] Xiaoyu Li and Francesco Orabona. “On the convergence of stochastic gradient descent with adaptive stepsizes”. In: International Conference on Artificial Intelligence and Statis-tics . Vol. 89. Proceedings of Machine Learning Research. PMLR, 2019, pp. 983–992. url :
+
+https://proceedings.mlr.press/v89/li19c.html .[20] Chiyuan Zhang et al. “Understanding deep learning (still) requires rethinking generaliza-tion”. In: Communications of the ACM 64.3 (2021), pp. 107–115. doi : 10.1145/3446776 .[21] Mingxing Tan and Quoc V. Le. “Efficientnet: Rethinking model scaling for convolutional neural networks”. In: Proceedings of the 36th International Conference on Machine Learning (ICML) . Vol. 97. Proceedings of Machine Learning Research. PMLR, 2019, pp. 6105–6114. 
+
+url : https://proceedings.mlr.press/v97/tan19a.html .[22] Yanping Huang et al. “Gpipe: Efficient training of giant neural networks using pipeline par-allelism”. In: Advances in Neural Information Processing Systems (NeurIPS) . Vol. 32. 2019, pp. 103–112. url : https://proceedings.neurips.cc/paper/2019/hash/093f65e080a295f8076b1c 
+
+[23] Alexander Kolesnikov et al. “Big transfer (bit): General visual representation learning”. In: 
+
+Computer Vision – ECCV 2020: 16th European Conference . Vol. 12350. Lecture Notes in Computer Science. Springer, 2020, pp. 491–507. doi : 10.1007/978-3-030-58558-7_29 .[24] Mikhail Belkin et al. “Reconciling modern machine-learning practice and the classical bias– variance trade-off”. In: Proceedings of the National Academy of Sciences 116.32 (2019), pp. 15849–15854. doi : 10.1073/pnas.1903070116 .[25] Gao Huang et al. “Densely connected convolutional networks”. In: Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (CVPR) . 2017, pp. 4700–4708. 
+
+doi : 10.1109/CVPR.2017.243 .[26] Levent Sagun et al. “Empirical analysis of the Hessian of over-parametrized neural networks”. In: arXiv preprint (2017). arXiv: 1706.04454 [cs.LG] .[27] Raef Bassily, Mikhail Belkin, and Siyuan Ma. On exponential convergence of SGD in non-convex over-parametrized learning . Tech. rep. arXiv, 2018. arXiv: 1802.06904 [cs.LG] .[28] Sharan Vaswani, Francis Bach, and Mark Schmidt. “Fast and faster convergence of SGD for over-parameterized models and an accelerated perceptron”. In: International Conference on Artificial Intelligence and Statistics . Vol. 89. Proceedings of Machine Learning Research. PMLR, 2019, pp. 1195–1204. url : https://proceedings.mlr.press/v89/vaswani19a.html .[29] Chaoyue Liu et al. “Aiming towards the minimizers: fast convergence of SGD for over-parametrized problems”. In: Advances in Neural Information Processing Systems . Ed. by A. Oh et al. Vol. 36. Curran Associates, Inc., 2023, pp. 60748–60767. url : https://proceedings.neurip 
+
+[30] Ahmed Khaled and Peter Richt´ arik. “Better theory for SGD in the nonconvex world”. In: 
+
+arXiv preprint (2020). arXiv: 2002.03329 [cs.LG] .33 [31] Robert M. Gower, Othmane Sebbouh, and Nicolas Loizou. “SGD for structured noncon-vex functions: Learning rates, minibatching and interpolation”. In: International Conference on Artificial Intelligence and Statistics . Vol. 130. Proceedings of Machine Learning Research. PMLR, 2021, pp. 1311–1319. url : https://proceedings.mlr.press/v130/gower21a.html .[32] Othmane Sebbouh, Robert M. Gower, and Aaron Defazio. “Almost sure convergence rates for stochastic gradient descent and stochastic heavy ball”. In: Conference on Learning Theory .Vol. 134. Proceedings of Machine Learning Research. PMLR, 2021, pp. 3932–3972. url :
+
+https://proceedings.mlr.press/v134/sebbouh21a.html .[33] Qiang Fu, Dongchu Xu, and Ashia Camage Wilson. “Accelerated stochastic optimization methods under quasar-convexity”. In: International Conference on Machine Learning . Vol. 202. Proceedings of Machine Learning Research. PMLR, 2023, pp. 10535–10562. url : https://proceeding 
+
+[34] Jikai Jin. “On the convergence of first order methods for quasar-convex optimization”. In: 
+
+arXiv preprint (2020). arXiv: 2010.04937 [cs.LG] .[35] Herbert Robbins and Sutton Monro. “A Stochastic Approximation Method”. In: The Annals of Mathematical Statistics 22.3 (Sept. 1951), pp. 400–407. issn : 0003-4851. doi : 10.1214/aoms/117772 
+
+url : http://dx.doi.org/10.1214/aoms/1177729586 .[36] L´ eon Bottou. “Large-Scale Machine Learning with Stochastic Gradient Descent”. In: Pro-ceedings of COMPSTAT’2010 . Ed. by Yves Lechevallier and Gilbert Saporta. Heidelberg: Physica-Verlag HD, 2010, pp. 177–186. isbn : 978-3-7908-2604-3. [37] Jeffrey Dean et al. “Large Scale Distributed Deep Networks”. In: Advances in Neural In-formation Processing Systems . Ed. by F. Pereira et al. Vol. 25. Curran Associates, Inc., 2012. 
+
+url : https://proceedings.neurips.cc/paper_files/paper/2012/file/6aca97005c68f12068238 
+
+[38] Manzil Zaheer et al. “Deep Sets”. In: Advances in Neural Information Processing Systems .Ed. by I. Guyon et al. Vol. 30. Curran Associates, Inc., 2017. url : https://proceedings.neurips.cc 
+
+[39] Nitish Shirish Keskar et al. “On Large-Batch Training for Deep Learning: Generalization Gap and Sharp Minima”. In: International Conference on Learning Representations . 2017. 
+
+url : https://openreview.net/forum?id=H1oyRlYgg .[40] Sebastian Ruder. “An overview of gradient descent optimization algorithms”. In: CoRR 
+
+abs/1609.04747 (2016). arXiv: 1609.04747 . url : http://arxiv.org/abs/1609.04747 .[41] Ziyu Chen, Yingzhou Li, and Xiuyuan Cheng. “SpecNet2: Orthogonalization-free spectral embedding by neural networks”. In: Proceedings of Mathematical and Scientific Machine Learning . Vol. 190. Proceedings of Machine Learning Research. PMLR, 2022. [42] Arthur Jacot, Franck Gabriel, and Cl´ ement Hongler. “Neural tangent kernel: Convergence and generalization in neural networks”. In: Advances in Neural Information Processing Sys-tems . Vol. 31. 2018. [43] Zeyuan Allen-Zhu, Yuanzhi Li, and Zhao Song. “A convergence theory for deep learning via over-parameterization”. In: International Conference on Machine Learning . Vol. 97. Pro-ceedings of Machine Learning Research. PMLR, 2019, pp. 242–252. 34
