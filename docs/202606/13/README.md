@@ -1,0 +1,33 @@
+# 日报 · 2026-06-13
+
+- 生成时间：2026-06-13 21:36:31 UTC
+- 当次推荐总数：15
+- 精读区：7
+- 速读区：8
+
+## 今日简报（AI）
+今日精选15篇论文，精读7篇，重点关注无限维流形加权通用逼近与终身导航强化学习突破。
+最值得看：加权通用逼近理论（9.0）拓展神经网络理论基础，AllDayNav（9.0）实现真实世界持续导航。
+建议深入研读这两篇精读论文，理解理论对实践的启示，并关注导航系统中RL的设计细节。
+
+## 精读区
+1. [Weighted universal approximation of differentiable maps on infinite-dimensional manifolds](/202606/13/2606.09820v1-weighted-universal-approximation-of-differentiable-maps-on-infinite-dimensional-manifolds) （9.0/10）
+2. [AllDayNav: Lifelong Navigation via Real-World Reinforcement Learning](/202606/13/2606.10927v1-alldaynav-lifelong-navigation-via-real-world-reinforcement-learning) （9.0/10）
+3. [Generalization in Deep Neural Networks: Minimax Rates for Gradient Methods](/202606/13/2606.06772v1-generalization-in-deep-neural-networks-minimax-rates-for-gradient-methods) （8.0/10）
+4. [From Player to Master: Enhancing Test-Time Learning of LLM Agents via Reinforcement Learning over Memory](/202606/13/2606.08656v1-from-player-to-master-enhancing-test-time-learning-of-llm-agents-via-reinforcement-learning-over-memory) （8.0/10）
+5. [Numerical Analysis on Backward Stochastic Differential Equations by Finite Transposition Method](/202606/13/2606.08731v1-numerical-analysis-on-backward-stochastic-differential-equations-by-finite-transposition-method) （8.0/10）
+6. [Generalization in Nonlinear Least Squares via Learned Feature Geometry](/202606/13/2606.08799v2-generalization-in-nonlinear-least-squares-via-learned-feature-geometry) （8.0/10）
+7. [Counterfactual Transport Flows for Offline Conservative Trajectory Refinement](/202606/13/2606.09115v1-counterfactual-transport-flows-for-offline-conservative-trajectory-refinement) （8.0/10）
+
+## 速读区
+1. [Flatland: The Adventures of Gradient Descent with Large Step Sizes](/202606/13/2606.06722v1-flatland-the-adventures-of-gradient-descent-with-large-step-sizes) （7.0/10）
+2. [What Does Debiasing Really Remove? A Geometric Study of PCA-Based Gender Debiasing in Word Embeddings](/202606/13/2606.07964v1-what-does-debiasing-really-remove-a-geometric-study-of-pca-based-gender-debiasing-in-word-embeddings) （7.0/10）
+3. [A Geometric Measure of Linear Separability for Neural Representations](/202606/13/2606.08721v1-a-geometric-measure-of-linear-separability-for-neural-representations) （7.0/10）
+4. [Scaling by Diversified Experience for Vision-Language-Action Models](/202606/13/2606.09009v1-scaling-by-diversified-experience-for-vision-language-action-models) （7.0/10）
+5. [Intrinsic Riemannian Cross-covariance for Manifold-valued Random Objects](/202606/13/2606.10212v2-intrinsic-riemannian-cross-covariance-for-manifold-valued-random-objects) （7.0/10）
+6. [DRIFT: From Robustness Gaps to Invariance Manifolds for AI-Generated Image Detection](/202606/13/2606.06918v1-drift-from-robustness-gaps-to-invariance-manifolds-for-ai-generated-image-detection) （6.0/10）
+7. [Self-evolving LLM agents with in-distribution Optimization](/202606/13/2606.07367v1-self-evolving-llm-agents-with-in-distribution-optimization) （6.0/10）
+8. [Learning Dynamics Reveal a Hierarchy of Weight-Induced Layerwise Gram Metrics](/202606/13/2606.09744v2-learning-dynamics-reveal-a-hierarchy-of-weight-induced-layerwise-gram-metrics) （6.0/10）
+
+---
+使用键盘方向键可在日报/论文之间快速切换。
