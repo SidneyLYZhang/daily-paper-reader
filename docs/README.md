@@ -6,69 +6,59 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-06-13
-- 运行时间：2026-06-13 21:36:31 UTC
+- 最新运行日期：2026-06-14
+- 运行时间：2026-06-14 21:38:37 UTC
 - 运行状态：成功
-- 本次总论文数：15
-- 精读区：7
-- 速读区：8
+- 本次总论文数：13
+- 精读区：2
+- 速读区：11
 
 ### 今日简报（AI）
-今日精选15篇论文，精读2篇9分神作：无限维流形上的微分映射加权万能逼近，以及基于强化学习的终身导航系统AllDayNav。
-
-最值得关注的是加权万能逼近理论突破和终身导航的实世界强化学习应用，分别探索了深度学习泛化极限与机器人持续学习。
-
-普通读者可重点关注速读中“梯度下降大步长”与“PCA去偏”的几何分析，这些对理解模型陷阱与公平性有直观启发。
-- 详情：[/202606/13/README](/202606/13/README)
+今日精读2篇高分强化学习论文（9.0及8.0分），速读11篇，涵盖多任务技能迁移与隐状态递归推理。最值得关注的是《Learning to Adapt》中表示学习驱动的多任务强化学习和《Demystifying Hidden-State Recurrence》中策略性隐状态推理机制。建议普通读者优先精读这两篇，理解如何通过表征适配与可控递归提升RL泛化能力。
+- 详情：[/202606/14/README](/202606/14/README)
 
 ### 精读区论文标签
-1. [Weighted universal approximation of differentiable maps on infinite-dimensional manifolds](/202606/13/2606.09820v1-weighted-universal-approximation-of-differentiable-maps-on-infinite-dimensional-manifolds)  
-   标签：评分：9.0/10、query:ml-theory
-   evidence：流形上可微映射的通用逼近定理
-2. [AllDayNav: Lifelong Navigation via Real-World Reinforcement Learning](/202606/13/2606.10927v1-alldaynav-lifelong-navigation-via-real-world-reinforcement-learning)  
+1. [Learning to Adapt: Representation-Based Reinforcement Learning for Multi-Task Skill Transfer](/202606/14/2606.12890v1-learning-to-adapt-representation-based-reinforcement-learning-for-multi-task-skill-transfer)  
    标签：评分：9.0/10、query:rl-semantic
-   evidence：终身导航强化学习与语义场景理解
-3. [Generalization in Deep Neural Networks: Minimax Rates for Gradient Methods](/202606/13/2606.06772v1-generalization-in-deep-neural-networks-minimax-rates-for-gradient-methods)  
-   标签：评分：8.0/10、query:ml-theory
-   evidence：使用梯度方法的深度神经网络泛化分析
-4. [From Player to Master: Enhancing Test-Time Learning of LLM Agents via Reinforcement Learning over Memory](/202606/13/2606.08656v1-from-player-to-master-enhancing-test-time-learning-of-llm-agents-via-reinforcement-learning-over-memory)  
+   evidence：使用谱MDP分解进行多任务强化学习中的状态表示学习
+2. [Demystifying Hidden-State Recurrence: Switchable Latent Reasoning with On-Policy Reinforcement Learning](/202606/14/2606.13106v1-demystifying-hidden-state-recurrence-switchable-latent-reasoning-with-on-policy-reinforcement-learning)  
    标签：评分：8.0/10、query:rl-semantic
-   evidence：使用强化学习训练LLM智能体的记忆更新，有效学习状态表征
-5. [Numerical Analysis on Backward Stochastic Differential Equations by Finite Transposition Method](/202606/13/2606.08731v1-numerical-analysis-on-backward-stochastic-differential-equations-by-finite-transposition-method)  
-   标签：评分：8.0/10、query:npl-bdl-saig
-   evidence：随机分析：BSDE数值方法
-6. [Generalization in Nonlinear Least Squares via Learned Feature Geometry](/202606/13/2606.08799v2-generalization-in-nonlinear-least-squares-via-learned-feature-geometry)  
-   标签：评分：8.0/10、query:ml-theory
-   evidence：通过学习特征几何的泛化界
-7. [Counterfactual Transport Flows for Offline Conservative Trajectory Refinement](/202606/13/2606.09115v1-counterfactual-transport-flows-for-offline-conservative-trajectory-refinement)  
-   标签：评分：8.0/10、query:rl-semantic
-   evidence：离线强化学习中使用潜在轨迹空间进行反事实检索和细化
+   evidence：基于在线强化学习的潜在推理；隐藏状态递归
 
 ### 速读区论文标签
-1. [Flatland: The Adventures of Gradient Descent with Large Step Sizes](/202606/13/2606.06722v1-flatland-the-adventures-of-gradient-descent-with-large-step-sizes)  
-   标签：评分：7.0/10、query:ml-theory
-   evidence：深度学习非凸优化中大步长与稳定性边缘理论
-2. [What Does Debiasing Really Remove? A Geometric Study of PCA-Based Gender Debiasing in Word Embeddings](/202606/13/2606.07964v1-what-does-debiasing-really-remove-a-geometric-study-of-pca-based-gender-debiasing-in-word-embeddings)  
+1. [Conditional Random Ordered Transport Spaces](/202606/14/2606.08113v1-conditional-random-ordered-transport-spaces)  
    标签：评分：7.0/10、query:npl-bdl-saig
-   evidence：通过PCA对嵌入空间的几何研究，与信息几何相关
-3. [A Geometric Measure of Linear Separability for Neural Representations](/202606/13/2606.08721v1-a-geometric-measure-of-linear-separability-for-neural-representations)  
-   标签：评分：7.0/10、query:ml-theory
-   evidence：神经表示线性可分性的几何度量，与几何深度学习相关
-4. [Scaling by Diversified Experience for Vision-Language-Action Models](/202606/13/2606.09009v1-scaling-by-diversified-experience-for-vision-language-action-models)  
-   标签：评分：7.0/10、query:rl-semantic
-   evidence：使用强化学习管线进行状态表示学习
-5. [Intrinsic Riemannian Cross-covariance for Manifold-valued Random Objects](/202606/13/2606.10212v2-intrinsic-riemannian-cross-covariance-for-manifold-valued-random-objects)  
+   evidence：条件随机有序传输空间，具有信息几何特点
+2. [Bayesian Probing on Graphs](/202606/14/2606.09729v1-bayesian-probing-on-graphs)  
    标签：评分：7.0/10、query:npl-bdl-saig
-   evidence：流形上的黎曼几何协方差估计
-6. [DRIFT: From Robustness Gaps to Invariance Manifolds for AI-Generated Image Detection](/202606/13/2606.06918v1-drift-from-robustness-gaps-to-invariance-manifolds-for-ai-generated-image-detection)  
-   标签：评分：6.0/10、query:ml-theory
-   evidence：学习不变性流形并分解表示空间，与几何深度学习相关
-7. [Self-evolving LLM agents with in-distribution Optimization](/202606/13/2606.07367v1-self-evolving-llm-agents-with-in-distribution-optimization)  
+   evidence：引入图上带随机相关性的贝叶斯探测
+3. [PRISM: PRior-guided Imagination Sampling in world Models](/202606/14/2606.07974v1-prism-prior-guided-imagination-sampling-in-world-models)  
    标签：评分：6.0/10、query:rl-semantic
-   evidence：LLM代理的分布内强化学习及过程奖励标注
-8. [Learning Dynamics Reveal a Hierarchy of Weight-Induced Layerwise Gram Metrics](/202606/13/2606.09744v2-learning-dynamics-reveal-a-hierarchy-of-weight-induced-layerwise-gram-metrics)  
+   evidence：世界模型、潜在状态表示、规划中的动作先验
+4. [IntentNav: Learning Spatial-Visual Object Navigation from Human Demonstrations](/202606/14/2606.08029v1-intentnav-learning-spatial-visual-object-navigation-from-human-demonstrations)  
+   标签：评分：6.0/10、query:rl-semantic
+   evidence：从演示中学习空间视觉表示用于导航
+5. [Towards End to End Motion Planning and Execution for Autonomous Underwater Vehicles Using Reinforcement Learning](/202606/14/2606.08513v1-towards-end-to-end-motion-planning-and-execution-for-autonomous-underwater-vehicles-using-reinforcement-learning)  
+   标签：评分：6.0/10、query:rl-semantic
+   evidence：分层强化学习直接从原始传感器数据生成状态表示
+6. [Flow-based generative models for amortized Bayesian inference in regression and inverse PDE problems](/202606/14/2606.10370v1-flow-based-generative-models-for-amortized-bayesian-inference-in-regression-and-inverse-pde-problems)  
+   标签：评分：6.0/10、query:npl-bdl-saig
+   evidence：基于流的摊销贝叶斯推断方法
+7. [AllDayNav: Lifelong Navigation via Real-World Reinforcement Learning](/202606/14/2606.10927v1-alldaynav-lifelong-navigation-via-real-world-reinforcement-learning)  
+   标签：评分：6.0/10、query:rl-semantic
+   evidence：通过多模态记忆为RL导航进行场景隐式编码
+8. [The Art of Interrogation: Consistency Amplifies Factuality in Spatial Reasoning](/202606/14/2606.11918v1-the-art-of-interrogation-consistency-amplifies-factuality-in-spatial-reasoning)  
+   标签：评分：6.0/10、query:rl-semantic
+   evidence：基于一致性验证器的自监督强化学习用于空间推理
+9. [Deep Unfolded Latent Optimally Partitioned-l2/l1 Networks for Data-driven Block-Sparse Recovery](/202606/14/2606.12740v1-deep-unfolded-latent-optimally-partitioned-l2l1-networks-for-data-driven-block-sparse-recovery)  
    标签：评分：6.0/10、query:ml-theory
-   evidence：神经网络学习动力学中的层间Gram度量与几何结构
+   evidence：深度展开网络结合非凸优化用于稀疏恢复
+10. [Abstract Dynamic Programming on Partially Ordered Spaces](/202606/14/2606.12777v1-abstract-dynamic-programming-on-partially-ordered-spaces)  
+   标签：评分：6.0/10、query:npl-bdl-saig
+   evidence：策略迭代与随机过程中的收敛性分析
+11. [Characterizing metric-space-valued processes: separating classes and weak invariance principles for measure-theoretic inference](/202606/14/2606.13084v1-characterizing-metric-space-valued-processes-separating-classes-and-weak-invariance-principles-for-measure-theoretic-inference)  
+   标签：评分：6.0/10、query:npl-bdl-saig
+   evidence：度量空间值过程、等距Hilbert嵌入、球性质、几何结构
 
 
 <div class="dpr-home-promo-card">

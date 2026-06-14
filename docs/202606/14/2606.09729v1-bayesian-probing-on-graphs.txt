@@ -1,0 +1,1405 @@
+Title: Bayesian Probing on Graphs
+
+URL Source: https://arxiv.org/pdf/2606.09729v1
+
+Published Time: Tue, 09 Jun 2026 02:37:39 GMT
+
+Number of Pages: 31
+
+Markdown Content:
+# Bayesian Probing on Graphs 
+
+Anupam Gupta New York University Benjamin Moseley Carnegie Mellon University Rudy Zhou Microsoft June 9, 2026 
+
+Abstract 
+
+We introduce a stochastic probing problem with correlated items. In our model, which we call Bayesian Probing , the correlations are modeled by an underlying graph G. Each vertex is independently active with a known probability. Each item corresponds to an edge in the graph. Probing an edge has some cost, gives some reward if both endpoints are active, and also reveals the state of its endpoints. Hence a probe induces a Bayesian update on the remaining edges. The goal is to adaptively probe items/edges subject to a knapsack constraint to maximize the expected total reward obtained from the probed edges. Bayesian Probing generalizes stochastic knapsack and stochastic probing by allowing cor-relations between items. Moreover, it gives a tractable model for the Bayesian Active Search 
+
+problem, a popular problem considered in the machine learning community. In Bayesian Active Search, the goal is to find items in a particular class by adaptively probing at most, say k, items. Given a prior distribution over items, we want to compute a Bayesian policy to maximize the number of such items found. For this general problem with arbitrary priors, there are strong lower bounds on efficiently computing good policies. In this paper, we design efficient approximation algorithms for Bayesian Probing: 
+
+• We give asymptotically tight bounds on the adaptivity gap : we design a non-adaptive 
+
+O(dmax · S)-approximation algorithm, where dmax is the maximum vertex degree of G
+
+and S is the ratio of the maximum and minimum edge costs. We also show a matching Ω( dmax · S) lower bound for non-adaptive policies. 
+
+• We design an adaptive policy that achieves a O(dens (G) · S2)-approximation, where 
+
+dens (G) is the density of the densest subgraph of G.These results give the first efficient approximation algorithms for Bayesian Active Search, for a class of practically-relevant prior distributions. 
+
+> arXiv:2606.09729v1 [cs.DS] 8 Jun 2026
+
+# 1 Introduction 
+
+Active search is a fundamental problem in applications like fraud detection and drug discovery [13], where the objective is to identify elements of a target class within a large search space under a limited budget. In this paradigm, items within the search space – such as financial transactions or chemical compounds – are often interrelated; transactions may share metadata, or chemical compounds may have common substructures. Consequently, evaluating a single item can provide information about others, a process often modeled via a Bayesian update on the likelihood of other items belonging to the target class. Bayesian optimization provides a popular framework for sequentially selecting items to evaluate, leveraging the outcomes of past evaluations to inform future choices. See the book by Garnett [12] and the work of Jiang et al. [23, 24] for an overview. More formally, in the Active Search problem [14], as input we are given a finite set of elements 
+
+X and budget k ∈ N. We assume there is an unknown subset T ⊂ X of targets but with known distribution T ∼ D . Note that in general, there may be correlations among different elements being in the target set. For each x ∈ X, we do not know if x ∈ T initially, but we can request a binary test for x, which returns either “ x ∈ T ” or “ x / ∈ T ”. The goal is to adaptively choose a set of at most 
+
+k tests, say P ⊂ X to maximize the expected total number of targets found: E[P 
+
+> x∈P
+
+1(x ∈ T )]. Prior work has focused on computing the optimal policy for a given objective function – typically maximizing the number of items found in the class as stated above – but unfortunately the optimal policy requires exponential space and time in general. Further, for general correlation models, no polynomial time algorithm can have better than a polylogartihmic approximation ratio for this objective [24]. While this lower bound is known, there has been no progress on upper bounds on the approximation ratio. Instead, researchers have focused on heuristic methods with no performance guarantees [32, 24]. The main motivation of this paper is to give a concrete correlation model for Bayesian active search that enables us to efficiently compute provably near-optimal policies. This work gives the foundation for algorithms with provable guarantees for Bayesian active search problem by leveraging techniques from stochastic combinatorial optimization. 
+
+Bayesian Probing Problem Motivated by Bayesian active search, we introduce the Bayesian probing problem (BayesProbe ): We are given as input an undirected graph G = ( V, E )1, where each vertex v ∈ V is independently active with probability pv ∈ [0 , 1]. The probabilities are known 
+
+to the algorithm apriori. We assume that the probabilities pv’s are known, but the active vertices are not. We let Xv be the indicator random variable for vertex v being active. Each edge uv ∈ E
+
+has a random reward Ruv = wuv · XuXv, where wuv ≥ 0 and suv > 0 are the weight and size of this edge, respectively. We can access the graph only through edge probes . We are given a budget B > 0. Probing edge 
+
+e uses se of the budget and gives us reward Re. Further, we learn the outcome of both endpoint vertices, Xu and Xv. We allow probes to be chosen adaptively, so the subsequent probes can depend on the information learned from prior ones. The goal is to adaptively probe edges of total size at most B to maximize the expected reward obtained from the probed edges – precisely: 
+
+E X 
+
+> e∈P
+
+Re
+
+ = E X 
+
+> uv ∈P
+
+ruv · XuXv
+
+,
+
+> 1We allow parallel edges, but not self loops; given a graph with self loops, for each such edge we create a dummy vertex with probability 1 and make one endpoint of the self loop this dummy vertex.
+
+1where P is the adaptively-chosen probe set. We note that BayesProbe captures a version of Bayesian active search with a particular correlation model and Bayesian update. The edges of G correspond to the items to be tested, and probing an edge corresponds to testing whether that item belongs to the target set. In our model, each item’s status is determined by two “features” – its endpoints (e.g. each chemical compound may have two ingredients in a drug discovery setting). An item is in the target set if and only if both its corresponding vertices are active. Since edges can share endpoints, probing one edge reveals information about its vertices, thereby updating the expected reward of all other edges incident to those same vertices. 
+
+Example 1.1. For a concrete example, consider a network of financial entities (vertices) and the transactions between them (edges). Each entity has a certain probability of being “corrupt” (active) or “legitimate” (inactive). A transaction is flagged as fraudulent (yielding a reward) only if both participating entities are corrupt. An investigator can spend resources to audit a specific transaction (probe an edge). This audit reveals whether the transaction is fraudulent and, crucially, also confirms the status (corrupt or legitimate) of the two entities involved. The investigator’s goal is to use a limited budget to adaptively audit transactions and uncover the maximum possible amount of fraud. For the remainder of this paper, we focus on designing algorithms for BayesProbe . One can compute the optimal adaptive policy – which can be represented by a decision tree – via a dynamic program, but unfortunately computing this policy and its representation may require exponential time/space. Thus, we focus on efficient approximation algorithms . For any α ≥ 1, we say an algorithm, Alg , is an α-approximation for BayesProbe if for any instance I, we have E[Opt (I)]  
+
+> E[Alg (I)]
+
+≤
+
+α, where Opt is the reward of the optimal adaptive policy. We observe that the deterministic version of the problem, where pv = 1 for all v ∈ V is exactly the classic knapsack problem, which admits a Fully Polynomial Time Approximation Scheme (FPTAS) [22, 26], so for any ϵ ∈ (0 , 1), we can obtain a 11−ϵ -approximate solution in polynomial time in the input size and 1 
+
+> ϵ
+
+. However, beyond this special case, there is no non-trivial approximation result for BayesProbe .
+
+1.1 Applications and related work 
+
+Beyond the Bayesian active search problem described above, BayesProbe is related to many other directions in stochastic combinatorial optimization. 
+
+Stochastic probing Bayesian probing is closely connected with stochastic probing. In stochastic probing, we are given a collection of elements E, such that each element is active independently with known probability. We can adaptively probe elements to learn if they are active or not. Further, we are given a set function f : 2 E −→ R. The goal of stochastic probing is to adaptively probe elements, say P ⊂ E, and choose a subset Q ⊂ P of the probe set to maximize E[f (Q ∩ A)], where 
+
+A ⊂ E is the random subset of active elements. Stochastic probing has been studied for different 
+
+f (linear, submodular, XOS) and constraints on the P and chosen subset Q [18, 19, 20]. The main distinction is that in BayesProbe , we remove the assumption that the elements are active independently. There has been some prior work on probing problems with correlated el-ements. However, the results rely on strong assumptions on the correlation model and function 
+
+f . Most relevant to our work is the work of [15], where they introduce a property called adap-tive submodularity (Definition 3.4), which enables simple greedy-type O(1)-approximations for a 2variety of stochastic probing problems. We will show that BayesProbe does not satisfy adaptive submodularity (Section B), so our work is not subsumed by theirs. 
+
+Stochastic knapsack Stochastic knapsack is a well-studied generalization of the classic knapsack problem. In stochastic knapsack, we are given a deterministic knapsack budget, say B, but the items are stochastic. There are O(1)-approximations known for multiple variants of the problem, the simplest being that each item has a random size with known distribution but deterministic reward [8]. This has been generalized to random sizes with random rewards such that the size and reward distributions of an item may be arbitrarily correlated [17], and even further such that each item is a Markov chain [28]. However, in all of these variations, it is assumed that the size/reward distributions are independent across items .In contrast, BayesProbe is another variation of stochastic knapsack where instead the sizes are deterministic, but the rewards are random and correlated with each other. To the best of our knowledge, we give the first positive results for stochastic knapsack with correlations across items for any correlation model. 
+
+Algorithmic site percolation Site percolation is a model of random graphs studied in prob-abilistic combinatorics. Given a graph G and probability parameter p ∈ [0 , 1], let G[Vp] be the random induced subgraph on Vp ⊂ V (G), where each vertex v ∈ V (G) is in Vp independently with probability p.Researchers have focused on proving threshold results for graph properties of the percolated graph, 
+
+G[Vp], such as for what range of p does G[Vp] contains a linear-sized component [25, 16] or properties of particular families of graphs such as the grid graph [30]. Further, percolation theory has been applied to model and predict the spread of diseases [7] and the extinction of species [2]. Given a graph G and probability parameter p, consider the Bayesian probing instance where pv = p
+
+for all v ∈ V (G). The edges which give non-zero reward are exactly those that are in the percolated graph G[Vp]. Thus, BayesProbe captures an algorithmic question on the percolated graph: How much of the percolated graph can we discover given a budget of edge queries? This question is of particular relevance to the above applications, where it is expensive to query the underlying graph, which involves expensive diagnoses or field work, respectively. 
+
+Stochastic optimization with correlations Another common theme throughout stochastic combinatorial optimization is the independence assumption: We typically assume that the jobs to be scheduled, items to be packed, or elements to be probed are independent of one another. There has been recent interest in relaxing this assumption by allowing correlations in problems such as Pandora’s box [4], mechanism design [3], and prophet inequality [27]. Our work on BayesProbe 
+
+adds stochastic knapsack and probing to this list. 
+
+1.2 Our results 
+
+Our main question is how well can efficiently-computable policies approximate the optimal adaptive policy for BayesProbe ?First, we consider the simplest class of policies: non-adaptive policies . A non-adaptive policy fixes a probe set P ⊂ E up-front without any knowledge of the probe outcomes. In other words, a non-adaptive policy performs no Bayesian updates. Our first result gives an upper bound on the approximation ratio achieved by non-adaptive policies. 3Theorem 1.2. There exists a poly-time algorithm for BayesProbe that outputs a non-adaptive policy that O(dmax · S)-approximates the optimal adaptive policy, where dmax is the max degree of 
+
+G and S is the ratio between the maximum and minimum edge sizes in G.
+
+Observe that the problem of finding the optimal non-adaptive policy is exactly the classic knapsack problem, which has an O(1)-approximation, e.g. [22, 26]. Thus, the interesting aspect of The-orem 1.2 is that the optimal non-adaptive policy O(dmax · S)-approximates the optimal adaptive policy . In other words, we upper bound the adaptivity gap of BayesProbe by O(dmax · S). We define the adaptivity gap for BayesProbe by max I E[Opt A(I)]  
+
+> E[Opt N A (I)]
+
+, where Opt A and Opt N A are the reward obtained by the optimal adaptive and non-adaptive policies, respectively. Further, we show that our upper bound is asympotically best possible by lower bounding the 
+
+adaptivity gap of BayesProbe .
+
+Lemma 1.3. The adaptivity gap of BayesProbe is Ω( dmax · S).
+
+In terms of the size of the graph G itself, we have a different adaptivity gap lower bound. 
+
+Lemma 1.4. The adaptivity gap of BayesProbe is Ω( |V |2) or Ω( |E|).
+
+Thus, to improve over our first algorithm, we need to use adaptivity. We consider a class of adaptive policies that have two phases: an exploration phase and an exploitation phase. Roughly speaking, in the exploration phase we first use half of the overall budget to learn information (which vertices are active or not). Then in the exploitation phase, we use the remaining half of the budget to gain reward conditioned on what we learned. See Definition 1.8 for a formal definition of such policies. We show that this allows us to improve dmax -dependence for non-adaptive policies to 
+
+dens (G) = max H⊂V (G) |E[H]||H| – the density of the densest subgraph of G.
+
+Theorem 1.5. There exists a poly-time algorithm for BayesProbe that computes an adaptive pol-icy that O(dens (G)·S2)-approximates the optimal adaptive policy, where dens (G) = max H⊂V (G) |E[H]||H|
+
+is the density of the densest subgraph of G and S is the ratio between the maximum and minimum edge sizes in G.
+
+One special case of particular interest is Bayesian active search, where every edge has size 1. In this case, we obtain a O(dmax )-approximation by a non-adaptive policy, but a O(dens (G))-approximation with an efficiently computable adaptive policy. These are the first provable approx-imation guarantees for Bayesian active search, and we hope that our work showcases the potential of applying algorithmic and modeling techniques from stochastic combinatorial optimization to problems in Bayesian machine learning. 
+
+1.3 Technical overview 
+
+We highlight our main ideas with a running example. 
+
+Example 1.6. Let d ∈ N. Then let G be a collection d stars, each with d leaves. The center of each star is active with probability 1 
+
+> d
+
+and each leaf with probability 1. Further, each edge weight and size is 1, and our budget is d. See Figure 1. This completes the description of the Bayesian probing instance. Thus, our goal in this instance is to probe at most d edges to maximize the expected number of active edges (those with both endpoints active) probed. 4Figure 1: A single star in G. Vertices are labeled with their probabilities. All edges have we = 1 and se = 1 .
+
+First, consider probing any edge of a star. Doing so, we learn the realized value of its center. If its center is active, then we now know all edges in this star are active and will give reward 1. Otherwise, every such edge gives reward 0. In contrast, prior to probing this edge, every edge of this star gives expected reward 1 
+
+> d
+
+.Interestingly, such stars correspond exactly to clumps in the Bayesian active search literature. In the language of Bayesian active search, a clump is a subcollection of items such that either all items in the clump are active or all are inactive (with some probability). Collections of clumps were introduced in [14] as a hard instance for Bayesian active search. Thus, the algorithms we will design for BayesProbe can provably perform well on hard benchmarks for Bayesian active search. Going back to our particular instance in Example 1.6, an adaptive policy on this instance can probe one edge per star until it finds a star with an active center. Then, it uses its remaining budget to probe edges in this particular star. The adaptive policy finds an active center within its first d
+
+> 2
+
+probes with at least constant probability, and – conditioned on this – probes at least d 
+
+> 2
+
+edges that each give reward 1. This policy has expected reward Ω( d). On the other hand, a non-adaptive policy can only fix a set of d edges to probe in advance, each of which gives expected reward 1 
+
+> d
+
+. Thus, any non-adaptive policy has expected reward at most 1, so the adaptivity gap of this example is Ω( d) = Ω( dmax ). We can see in this example that the benefit of adaptivity is that probing edge immediately tells us whether all d edges in the same star have reward 0 or 1. Indeed, our lower bound guaranteed by Lemma 1.3 is a slight modification of the above example that takes advantage of the edge sizes and weights as well. Further, this example highlights the key difference between BayesProbe and other stochastic combinatorial optimization problems: In BayesProbe the reward obtained from an edge is not in-dependent of the decision to probe that edge . A common approach in other stochastic combinatorial optimization problems is to define a linear programming (LP) relaxation of the problem and show that the marginals of the optimal adaptive policy certify that the relaxation is a good one. Let’s try this approach for Bayesian probing. The natural LP relaxation for BayesProbe is exactly the knapsack LP 
+
+LP (G, B ) = max  
+
+> x
+
+{ X
+
+> e∈E(G)
+
+E[Re] · xe | X
+
+> e∈E(G)
+
+se · xe ≤ B, xe = 0 if se > B, 0 ≤ x ≤ 1}. (1) Note that LP (G, B ) exactly models the problem of finding the optimal non-adaptive policy. Through-out this paper, we use LP (G, B ) to denote the LP itself and its optimal objective value. Simi-larly, we use Opt (G, B ) to denote the optimal adaptive policy and its reward. Consider setting 5xe = Pr( e ∈ Q), where the event e ∈ Q is with respect to the optimal adaptive policy Opt (G, B ). This solution is feasible for LP (G, B ) and achieves objective value P 
+
+> e∈E(G)
+
+E[Re] · Pr( e ∈ Q). On the instance in Example 1.6, this is P 
+
+> e∈E(G) 1
+> d
+
+· Pr( e ∈ Q) ≤ 1, whereas E[Opt (G, B )] = Ω( d), so this LP is not a good benchmark. The issue is that E[Re] · Pr( e ∈ Q)̸ = E[Re · 1e∈Q] since for many edges, the optimal adaptive policy queries those edges only if it knows that it will give reward 1. To overcome this issue, instead of strengthening the LP by adding more constraints – perhaps surprisingly – we actually simplify the LP by restricting it to a simpler subgraph where the LP is a good benchmark. This is in contrast to prior work on generalizations of stochastic knapsack, where a stronger time-indexed LP is used [17, 28]. Suppose that G is a matching (no two edges share an endpoint). Now probing an edge gives no information about other edges, so the event {e ∈ Q} is independent of the reward Re. This allows us to carry out the idealized calculation above to obtain 
+
+LP (G, B ) ≥ P 
+
+> e∈E(G)
+
+E[Re] · Pr( e ∈ Q) = P 
+
+> e∈E(G)
+
+E[Re · 1e∈Q] = E[Opt (G, B )]. Our main technical tool is a decomposition lemma that allows us to decompose the input graph G
+
+into simpler graphs – say, matchings – and relate Opt (G, B ) to Opt on these simpler graphs (up to a multiplicative violation of the budget). 
+
+Lemma 1.7 (Decomposition Lemma) . Given graph G, let G1, . . . , G ℓ be graphs on the same vertex set as G such that E(G1) ∪ · · · ∪ E(Gℓ) = E(G). Then we have E[Opt (G1, 2S · B)] + · · · +
+
+E[Opt (Gℓ, 2S · B)] ≥ E[Opt (G, B )] for any budget B.
+
+Thus, to design our non-adaptive policy, we decompose the input graph G into O(dmax )-many matchings. On some such matching, say M ⊂ G, by averaging we have LP (M, 2S · B) ≥
+
+E[Opt (M, 2S · B)] = Ω( 1 
+
+> dmax
+
+) · E[Opt (G, B )]. We use LP (M, 2S · B) (up to a budget rescaling argument) as the benchmark for our algorithm, which will be a standard knapsack LP rounding algorithm. This gives the O(S · dmax )-approximation guaranteed by Theorem 1.2. How can we improve on this with an adaptive policy? Let’s go back to Example 1.6, and slightly modify the adaptive policy that achieves expected reward Ω(1): First, we pick d 
+
+> 2
+
+arbitrary stars and probe one edge per star. Then, conditioned on the outcomes of those probes , we non-adaptively probe the d 
+
+> 2
+
+edges with the largest expected reward. As before, with at least constant probability, in the first phase, we find an edge that gives reward 1 and thus a center that is active. In this case, in the second phase, we are guaranteed to probe d 
+
+> 2
+
+edges that each give reward 1. We define 
+
+explore-exploit ( EE ) policies to capture this type of policy. 
+
+Definition 1.8 (Explore-Exploit ( EE ) Policy) . For any B > 0, an explore-exploit policy with budget B on graph G = ( V, E ) has two phases, an exploration phase and exploitation phase. 
+
+• (Exploration ) First, the policy has budget B 
+
+> 2
+
+for adaptive vertex probes . In each vertex probe the policy chooses a vertex v ∈ V , and learns the realized value of Xv (obtaining no reward). We say the policy explores vertex v. The cost of this probe is sv = min uv ∈E suv .
+
+• (Exploitation) After the policy has explored PV ⊂ V and learned the values of Xv for all 
+
+v ∈ PV – conditioned on these outcomes – the policy non-adaptively probes an exploitation set PE ⊂ E of size at most B 
+
+> 2
+
+(with respect to the edge sizes se for e ∈ E). The total reward of such a policy is the rewards of all edges probes in the exploitation phase, 
+
+E[P 
+
+> e∈PE
+
+Re]. It turns out that EE policies are sufficient 2 to obtain a O(S2·dens (G))-approximation for BayesProbe ,
+
+> 2up to the standard knapsack issue of needing to take the single best item sometimes
+
+6as in Example 1.6. To achieve this, we again simplify our LP benchmark to make it more amenable to analysis. Instead of restricting to a matching as in the non-adaptive case, now we restrict to a collection of stars and condition on the outcome of the exploration phase. In a collection of stars, conditioning on the exploration phase has a nice structure. Consider exploring the center vertex of some star. If it is active, then the rewards of all incident edges are now independent (since their rewards are completely determined by their leaf values). If it is inactive, then all incident edges give reward 0 and can be ignored. Using this idea, an analogous calculation to the matching case shows show that the knapsack LP conditioned on the exploration phase gives a good LP relaxation for the reward obtained in the subsequent exploitation phase. Thus, we view the exploration phase as adaptively exploring vertices to maximize the knapsack LP value conditioned on the outcomes of the explored vertices. Since vertices are active independently, the upshot of this view is that we can leverage techniques for stochastic probing with independent items to efficiently find a good exploration set. To summarize, in a collection of stars, our adaptive EE policy will use the first half of the budget to maximize a conditional knapsack LP benchmark. Then we will round the resulting knapsack LP to pick the edges to exploit with the remaining half of the budget. To lift the above algorithm on collections of stars to general graphs, we again use the decomposition lemma to decompose an arbitrary graph G into O(dens (G))-many collections of stars. 
+
+# 2 Non-adaptive policies 
+
+Our goals in this section are to show that the adaptivity gap for BayesProbe is Θ( dmax · S) and to give a non-adaptive algorithm that achieves this approximation ratio. We first give our algorithm (Theorem 1.2) and then prove a matching lower bound on the adaptivity gap (Lemma 1.3). 
+
+2.1 Non-Adaptive algorithm 
+
+First, we observe that the problem of finding a non-adaptive policy that approximates the optimal 
+
+non-adaptive policy is just the classic knapsack problem: Our goal is to choose a subset of edges 
+
+Q of total size at most B to maximize P 
+
+> e∈Q
+
+E[Re]. For this problem a fully polynomial time approximation scheme (FPTAS) is known, so we can obtain a (1 + ϵ)-approximate solution in time 
+
+poly (n, 1 
+
+> ϵ
+
+) [22, 26]. However, it will be convenient for our analysis here and when we later design adaptive policies to use the standard 2-approximate greedy algorithm. 
+
+NonAdapt : Given input graph G to BayesProbe with budget B > 0: Pick the best of the following two solutions: 
+
+• Sort the edges in decreasing order of value density : E[Re] 
+
+> se
+
+. Probe edges in this order until we use up the budget. 
+
+• Probe the single edge with largest expected reward. It is known that this algorithm has the following LP-based performance guarantee, see e.g. Exercise 3.1 in [33]: 
+
+Proposition 2.1. Given input graph G and budget B > 0, NonAdapt outputs a solution with reward satisfying NonAdapt (G, B ) ≥ 12 · LP (G, B ).
+
+7Suppose we run NonAdapt to output a non-adaptive policy that obtains expected reward at least  
+
+> 12
+
+LP (G, B ). However, as we saw in the technical overview (Section 1.3), LP (G, B ) is not a good relaxation for E[Opt (G, B )] in general, but it is a good relaxation if G is a matching. Our strategy to overcome this is to choose an appropriate matching, say M ⊂ G, so we have LP (G, B ) ≥
+
+LP (M, B ) ≥ E[Opt (M, B )]. It remains to relate back E[Opt (M, B )] with E[Opt (G, B )]. The challenge here is that the edges in E(G) \ E(M ) not only allow Opt (G, B ) to obtain more reward, but also more information, which allows Opt (G, B ) to better exploit the edges in E(M ). To bound this discrepancy in both reward and information, we use our decomposition lemma. 
+
+Lemma 1.7 (Decomposition Lemma) . Given graph G, let G1, . . . , G ℓ be graphs on the same vertex set as G such that E(G1) ∪ · · · ∪ E(Gℓ) = E(G). Then we have E[Opt (G1, 2S · B)] + · · · +
+
+E[Opt (Gℓ, 2S · B)] ≥ E[Opt (G, B )] for any budget B.
+
+This allows us, by averaging, to choose the matching M such that E[Opt (M, 2S · B)] = Ω( 1 
+
+> dmax
+
+) ·
+
+E[Opt (G, B )]. Then to complete the proof, we argue that re-scaling down the budget by 2 S scales the LP solution value by the same factor. In the remainder of this section, we prove the decomposition lemma and then Theorem 1.2. 
+
+2.2 Proof of decomposition lemma: Lemma 1.7 
+
+First, we prove the decomposition lemma. The proof of the decomposition lemma follows by applying the next lemma to each of the graphs G1, . . . , G ℓ, which states that by increasing our budget by a 2 S-factor, we can simulate an adaptive policy from G on a subgraph H of G. The main idea is to simulate the information gained from probing edges in E(G) \ E(H) by instead probing incident edges in E(H). These edges may have size at most a S-factor larger than their counterparts in E(G) \ E(H), which leads to the increased budget in the lemma. 
+
+Lemma 2.2. Given graphs G, H on the same vertex set such that E(H) ⊂ E(G) and bud-get B, there exists a policy on graph H with budget 2S · B achieving expected reward at least 
+
+E[P  
+
+> e∈P∩E(H)
+
+Re], where P is the adaptively-chosen set of edges probed by policy Opt (G, B ).Proof. We prove the lemma by modifying the Bayesian probing problem and the initial policy given by Opt (G, B ). First, we restrict Opt (G, B ) so it can only obtain rewards from edges in E(H). To do this, consider the graph G′ with differs from G only on its edge weights, which we denote by w′
+
+> e
+
+for G′. For edges e ∈ E(H), we set w′ 
+
+> e
+
+= we. For all other edges, e ∈ E(G) \ E(H), we set w′ 
+
+> e
+
+= 0. This completes the description of G′.We claim that E[Opt (G′, B )] ≥ E[P  
+
+> e∈P∩E(H)
+
+Re]. To see this, note that a feasible policy in G′ is to follow the probes of Opt (G, B ); we obtain the same information from each probe, but we only obtain rewards from edges in E(H). It remains to show that by multiplying the budget by 2 S, we can modify Opt (G′, B ) such that we only probe edges in E(H), so we do not even need information from edges in E(G) \ E(H). To do so, consider the following policy on H: First, for every vertex v ∈ V (G) that is isolated in H but not in G we sample X′ 
+
+> v
+
+∼ Xv independently. Now if Opt (G′, B ) probes an edge in E(H), then we also probe the same edge, obtaining the same information and reward at the same cost. Otherwise Opt (G′, B ) probes an edge in E(G) \ E(H). Note that Opt (G′, B ) only obtains infor-mation about the endpoints of this edge but no reward. For each endpoint, say v, there are two cases. If v is incident to some edge in H, then we probe the cheapest such edge in H. Note that 8this costs at most S-times more than the corresponding edge probed by Opt (G′, B ) Otherwise v is isolated in H but not in G. Then we do no probe, but we observe X′
+
+> v
+
+. Considering both endpoints, we learn the values of both endpoints at cost at most 2 S-times the corresponding edge probe by 
+
+Opt (G′, B ). Note that in our policy, some of our information is simulated if there are isolated in H, but such vertices do not affect the reward of our policy or Opt (G′, B ) – they only affect the distribution of the chosen edge probes of the latter, which we simulate with an identical distribution. To summarize, we have constructed an adaptive policy on H which certifies E[Opt (H, 2S · B)] ≥ E[Opt (G′, B )] ≥
+
+E[P  
+
+> e∈P∩E(H)
+
+Re], as required. The decomposition lemma follows quickly by applying the above lemma to each subgraph G1, . . . , G ℓ.
+
+Proof of Lemma 1.7. Applying Lemma 2.2 to each graph G1, . . . , G ℓ, we have E[Opt (Gi, 2S ·B)] ≥
+
+E[P  
+
+> e∈P∩E(Gi)
+
+Re] for all i = 1 , . . . , ℓ . Summing over all i and using the fact E(G1) ∪ · · · ∪ E(Gℓ) = 
+
+E(G) gives the desired result: 
+
+X
+
+> i
+
+E[Opt (Gi, 2S · B)] ≥ X
+
+> i
+
+E[ X 
+
+> e∈P∩E(Gi)
+
+Re] ≥ E[X
+
+> e∈Q
+
+Re] = Opt (G, B ).
+
+2.3 Analysis of NonAdapt: Theorem 1.2 
+
+Now using the decomposition lemma, we complete the proof of Theorem 1.2 by showing NonAdapt 
+
+has the desired O(dmax · S) approximation ratio. 
+
+Theorem 1.2. There exists a poly-time algorithm for BayesProbe that outputs a non-adaptive policy that O(dmax · S)-approximates the optimal adaptive policy, where dmax is the max degree of 
+
+G and S is the ratio between the maximum and minimum edge sizes in G.Proof. First, consider a proper edge coloring of G using ℓ = dmax + mmax ≤ 2dmax colors, where 
+
+mmax is the maximum number of parallel edges incident on any vertex. Each color class forms a matching. The existence of such an edge coloring is guaranteed by [11]. Let G1, . . . , G ℓ be the subgraphs of G with the same vertex set as G but the edges of each color class, respectively. Applying Lemma 1.7 to the Gi’s, there exists some such subgraph, say Gi∗ such that E[Opt (Gi∗ , 2S·
+
+B)] ≥ 1 
+
+> ℓ
+
+E[Opt (G, B )] ≥ 12dmax E[Opt (G, B )]. Now let Alg denote the reward obtained by NonAdapt (G, B ). Our goal is to show that E[Alg ] ≥
+
+Ω( 1 
+
+> dmax ·S
+
+) · E[Opt (G, B )]. Applying Proposition 2.1 gives 
+
+E[Alg ] ≥ 12 LP (G, B ) ≥ 12 LP (Gi∗ , B ) ≥ 14S LP (Gi∗ , 2S · B),
+
+where we use the facts that Gi∗ is a subgraph of G and that scaling the budget of the knapsack LP down by a 2 S-factor decreases the optimal value by at most a 2 S-factor. This is given in the following lemma, which we prove in Section A. 
+
+Lemma 2.3. For any graph G and budgets 0 < B ≤ B′ such that every edge in G has size at most 
+
+B, we have LP (G, B ) ≥ BB′ · LP (G, B ′).
+
+9Next, we use the fact that Gi∗ is a matching to argue that LP (Gi∗ , 2S · B) ≥ E[Opt (Gi∗ , 2S · B)]. Consider the setting of the x-variables given by xe = P(e ∈ P ) for all e ∈ E(Gi∗ ), where the probabilities are with respect to the policy Opt (Gi∗ , 2S · B). Since the size of P is almost surely at most 2 S · B by definition of Opt (Gi∗ , 2S · B), x is feasible for LP (Gi∗ , 2S · B). Further, this solution achieves objective value 
+
+X 
+
+> e∈E(Gi∗)
+
+E[Re] · Pr( e ∈ P ) = X 
+
+> e∈E(Gi∗)
+
+E[Re · 1e∈P ] = E[Opt (Gi∗ , 2S · B)] ,
+
+where we use the fact that Gi∗ is a matching, so the decision to probe edge e is independent of its reward Re (because previous probes have revealed no information about its endpoints). Finally, we use the property E[Opt (Gi∗ , 2S · B)] ≥ 12dmax E[Opt (G, B )], we can conclude 
+
+E[Alg ] ≥ 14S LP (Gi∗ , 2S · B) ≥ 14S E[Opt (Gi∗ , 2S · B)] ≥ 18dmax S E[Opt (G, B )] ,
+
+as required. 
+
+2.4 Adaptivity gap lower bound 
+
+Our lower bound construction that achieves Lemma 1.3 is a slight modification of Example 1.6. In that example, each component was a star, and further each edge size and weight was 1. This gave an adaptivity gap lower bound of Ω( dmax ). To obtain the stronger lower bound of Ω( dmax · S), we make one edge on each star have 0 weight but very small size. Such an edge is useless for a non-adaptive policy since it gives no reward, but it is useful for an adaptive policy to learn if the center is active or not. This idea is formalized below. 
+
+Lemma 1.3. The adaptivity gap of BayesProbe is Ω( dmax · S).Proof. Let d ∈ N and s ∈ (0 , 1) be parameters. Consider the graph G consisting of ds copies of a star with d + 1 leaves such that the center of each star has probability sd and every leaf has probability 1. Each such star has one special edge with we = 0 and se = s. The remaining edges of the star are normal edges with we = 1 and se = 1. This completes the description of G. See Figure 2.               
+
+> Figure 2: A single star in G. Vertices are labeled with their probabilities. The dotted edge is the special edge with we= 0 and se=s. The solid edges are the dremaining edges with we= 1 and se= 1 .
+
+To complete the instance, let the query budget be d. Note that G has max degree d + 1 and S = 1 
+
+> s
+
+,so it suffices to show a gap of Ω( ds ). Note that the special edges each have expected reward 0 and the normal edges each have expected reward sd , so the optimal non-adaptive policy will query 
+
+d-many normal edges, and obtain expected reward d · sd = s.10 On the other hand, consider the following adaptive policy: We process the stars in arbitrary order. For each considered star, we query the special edge from that star. This gives no reward, but we learn if the center of the star is active or not. If it is active, then we use the remainder of our budget the query the remaining normal edges of this star. Otherwise, if the center is not active, then we move on to the next star. This completes the description of the adaptive policy To analyze the expected reward of this policy, observe that with constant probability, we find a star with active center within the first d 
+
+> 2s
+
+queries of special edges (because we query disjoint special edges, these queried edges have independent outcomes). This costs us at most d 
+
+> 2s
+
+· s = d 
+
+> 2
+
+towards our budget. Conditioned on the center of this star being active, each such normal edge gives us reward 1. In this case, we query at least d/ 2 remaining edges of this star, each of which gives reward 1. We conclude, the expected reward of this policy is Ω( d). This gives the desired gap of Ω( ds ). 
+
+# 3 Adaptive policies 
+
+In the previous section, we showed that the adaptivity gap for this problem is Θ( dmax · S). Now, we show how to leverage adaptivity to go beyond this lower bound to achieve a O(dens (G) · S2) by combining a non-adaptive policy with a class of limited-adaptivity policies called explore-exploit (EE ) policies. We recall our main theorem and the definition of EE policies here 
+
+Theorem 1.5. There exists a poly-time algorithm for BayesProbe that computes an adaptive pol-icy that O(dens (G)·S2)-approximates the optimal adaptive policy, where dens (G) = max H⊂V (G) |E[H]||H|
+
+is the density of the densest subgraph of G and S is the ratio between the maximum and minimum edge sizes in G.
+
+Definition 1.8 (Explore-Exploit ( EE ) Policy) . For any B > 0, an explore-exploit policy with budget B on graph G = ( V, E ) has two phases, an exploration phase and exploitation phase. 
+
+• (Exploration ) First, the policy has budget B 
+
+> 2
+
+for adaptive vertex probes . In each vertex probe the policy chooses a vertex v ∈ V , and learns the realized value of Xv (obtaining no reward). We say the policy explores vertex v. The cost of this probe is sv = min uv ∈E suv .
+
+• (Exploitation) After the policy has explored PV ⊂ V and learned the values of Xv for all 
+
+v ∈ PV – conditioned on these outcomes – the policy non-adaptively probes an exploitation set PE ⊂ E of size at most B 
+
+> 2
+
+(with respect to the edge sizes se for e ∈ E). The total reward of such a policy is the rewards of all edges probes in the exploitation phase, 
+
+E[P 
+
+> e∈PE
+
+Re]. We recall that in to Example 1.6, where all stars are identical in number of edges, vertex probabili-ties, and edge sizes/weights (so S = 1), we argued that there exists a O(1)-approximate EE policy. The above result says that this holds much more generally – we can always find an EE policy (or non-adaptive one) that is O(dens (G) · S2)-approximate for any input graph (not just a collection of identical stars). Our proof strategy will be to use the decomposition lemma again to decompose the input graph into simpler subgraphs. In our non-adaptive algorithm, these simpler subgraphs were matchings, but here they will be collections of stars (graphs where each connected component is a star graph). We will show later that we can decompose any graph G into O(dens (G))-many collections of stars. 11 Thus, it remains to design a good adaptive policy for a collection of stars. To achieve this, we first prove some structural properties of EE policies on collections of stars. 
+
+3.1 Structural properties for collections of stars 
+
+We begin with a few structural properties of adaptive policies on collections of stars, which will facilitate our algorithm and analysis. Precisely, we say G is a collection of stars with center set 
+
+C if we can write G = ∪c∈C Gc, where Gc is a star graph with center c (so we index each star by its center vertex) and leaf set Lc. Thus, each Gc consists of its center c connected individually to each of its leaves ℓ ∈ Lc. Analogously as before, we define Opt EE (G, B ) to be the optimal EE 
+
+policy (and its reward) on graph G with budget B. First we relate optimal EE policies with typical optimal policies. 
+
+Lemma 3.1. For any graph G and budget B > 0, we have Opt EE (G, 4B) ≥ Opt (G, B ).Proof. Consider the policy Opt (G, B ), which we denote by Opt for convenience. We show how to simulate Opt with an EE policy P with four times the budget. Suppose Opt probes edge uv ∈ E.Then P will explore u and v. This ensures that P has at least as much information as Opt up until this point, and this costs P at most su + sv ≤ 2suv for each such uv . Thus, at the end of the exploration phase, we have the same information as Opt and have spent at most 2 B units of the budget on vertex probes. Then, in the exploitation phase, we go back and – with hindsight of all explored vertices – we exploit exactly the same edges that Opt did. Note that the exploitation phase costs at most 
+
+B. This completes the description of P. Since we exploit the same edges as Opt with the same information, we have P ≥ Opt 
+
+In light of the above lemma, it suffices to approximate the optimal EE policy (up to a budget-scaling argument). Further, if G is a collection of stars, then we can – up to a constant factor in the budget – we show that it suffices to explore the centers of the stars (as was the case in Example 1.6). Intuitively, this should be true because exploring a leaf only helps us decide if its single incident edge is worth exploiting, where we could just exploit this edge, anyways. On the other hand, exploring centers is much more valuable, because they tell us about multiple edges at once. The next lemma formalizes this intuition via a coupling argument. 
+
+Lemma 3.2. For any EE policy P on a collection of stars with budget B, there exists another EE 
+
+policy ˜P with budget 2B such that: 
+
+• The rewards of both policies satisfies E[ ˜P] ≥ E[P].
+
+• ˜P only explores centers of stars. Proof. We define ˜P as follows: Our goal is to simulate the exploration phase of P. In the exploration phase of P, if P explores a center, then ˜P does as well. If P explores a leaf, say ℓ, then ˜P
+
+simulates exploring ℓ by sampling X′ 
+
+> ℓ
+
+identically distributed as Xℓ, and using the outcome of X′
+
+> ℓ
+
+to simulate the subsequent adaptive decisions of P. We say ˜P fake-explores leaf ℓ. This concludes the description of ˜P. Note that we use at most B 
+
+> 2
+
+budget in the exploration phase of ˜P, since we do not pay anything for fake explorations. Next, we define the exploitation phase of ˜P. Before doing that, we first introduce our coupling between P and ˜P. Let C and L = ∪c∈C Lc be the collections of all centers and leaves respectively. We let ( Xv)v∈V be the realized X-values of the vertices for P and ( ˜Xv)v∈V for ˜P, respectively. We 12 couple the outcomes for the centers, so Xc = ˜Xc for all c ∈ C. For the leaves, recall that ( X′
+
+> ℓ
+
+)ℓ∈L
+
+determines the simulated explorations of ˜P. Here we couple Xℓ = X′ 
+
+> ℓ
+
+for all ℓ ∈ L, while the ˜Xℓ’s remain uncoupled, so they come from the same distribution as the Xℓ’s but are independent of the 
+
+Xℓ’s. This concludes the description of the coupling. By definition of the coupling, the set of centers (and their outcomes) explored by P and ˜P are the same per-realization. Similarly, the fake-explored leaves by ˜P are exactly those explored by P with the same outcomes. Now let P ⊂ E be the edges exploited by P. We partition P = PL ∪ (P \ PL), where PL is the subset of exploited edges such that their leaf-endpoint (note since the input graph is a collection of stars, every edge is between a center and one of its leaves) was previously explored by P. Further, define EL to be all edges such that their leaf-endpoint was explored by P, so 
+
+PL ⊂ EL. By our coupling, EL is also exactly the edges whose leaf-endpoint was fake-explored by ˜P.Now we are ready to define the exploitation phase of ˜P: in ˜P, we exploit all edges P \ PL and EL.This completes the description of ˜P.First we claim that this exploitation set is feasible (i.e. it costs at most B). First, P \ PL costs at most B 
+
+> 2
+
+since P has budget B, and P is exactly the exploitation set of P. Second, note that if P
+
+explores a leaf, say ℓ, it pays sℓ = scℓ , where cℓ is the unique center-leaf edge incident on ℓ. Thus, 
+
+P pays at most B 
+
+> 2
+
+budget exploring leaves, which is the same cost as simply exploiting all of their incident edges, EL.It remains to analyze the expected reward of ˜P, which we write as 
+
+X
+
+> cℓ ∈E
+
+E[ ˜Rcℓ · 1cℓ ∈P \PL ] + X
+
+> cℓ ∈E
+
+E[ ˜Rcℓ · 1cℓ ∈EL ],
+
+where we define ˜Rcℓ = rcℓ · ˜Xc ˜Xℓ for any cℓ ∈ E. By our coupling, we have Xc = ˜Xc for every center c almost surely. Further, the events {cℓ ∈ P \ PL} and {cℓ ∈ EL} ⇐⇒ {P explores ℓ} are both independent of Xℓ and ˜Xℓ. For the first sum, we have 
+
+X
+
+> cℓ ∈E
+
+E[ ˜Rcℓ · 1cℓ ∈P \PL ] = X
+
+> cℓ ∈E
+
+E[rcℓ · ˜Xc ˜Xℓ · 1cℓ ∈P \PL ]= X
+
+> cℓ ∈E
+
+E[rcℓ · Xc ˜Xℓ · 1cℓ ∈P \PL ]= X
+
+> cℓ ∈E
+
+E[rcℓ · Xc · 1cℓ ∈P \PL ] · E[ ˜Xℓ]= X
+
+> cℓ ∈E
+
+E[rcℓ · Xc · 1cℓ ∈P \PL ] · E[Xℓ]= X
+
+> cℓ ∈E
+
+E[rcℓ · XcXℓ · 1cℓ ∈P \PL ],
+
+which is exactly the expected reward that P obtains from exploiting P \ PL. The same calculation for the second sum gives P 
+
+> cℓ ∈E
+
+E[ ˜Rcℓ · 1cℓ ∈P \EL ] = P 
+
+> cℓ ∈E
+
+E[rcℓ · XcXℓ · 1cℓ ∈EL ]. Since PL ⊂ EL,we can further bound 
+
+X
+
+> cℓ ∈E
+
+E[ ˜Rcℓ · 1cℓ ∈P \EL ] ≥ X
+
+> cℓ ∈E
+
+E[rcℓ · XcXℓ · 1cℓ ∈PL ],
+
+which is exactly the expected reward that P obtains from exploiting PL. Combining our bounds for both sums gives E[ ˜P] ≥ E[P], as required. 13 Thus, we define Opt C
+
+> EE
+
+(G, B ) to be the optimal EE policy (and its reward) on collection of stars 
+
+G with budget B that only explores the centers of stars . We can compose the above two lemmas to obtain our main structural property for collections of stars. 
+
+Corollary 3.3. For any collection of stars G and budget B > 0, we have E[Opt C
+
+> EE
+
+(G, 8B)] ≥
+
+E[Opt (G, B )] .
+
+3.2 Exploration phase 
+
+Starting from Corollary 3.3, our goal is to understand EE policies that only explore centers of stars. As before, let G = ∪c∈C Gc be a collection of stars with center set C. Suppose we have already explored centers P ⊂ C. How should we decide which edges to exploit (non-adaptively, conditioned on the outcomes of P )? As a warm-up, assume that we will only exploit edges in the stars incident to P . This is because our final algorithm will randomize between an EE policy and non adaptive one, so the non adap-tive policy will be responsible for capturing the reward from edges not incident to P (since our exploration phase gives us no extra information on such edges). For the centers in P which are inactive, we know that exploiting any edge in those stars will give zero reward, so we may ignore such stars. For the active centers in P , any incident edge, say cℓ 
+
+now has reward conditionally-distributed as wcℓ · Xℓ, rather than wcℓ · XcXℓ before. Importantly, note that the rewards of such edges are conditionally independent of each other. We let A ⊂ C
+
+denote the subset of active centers. It follows – if we are only exploiting edges incident to P ∩ A – the best edges to exploit are exactly the optimal solution of the knapsack instance with one item per edge incident to P ∩ A, say cℓ , with reward wcℓ · E[Xℓ] and size scℓ . This motivates the following definition to capture conditioning on an active exploration set A ⊂ C. For any collection of stars G = S 
+
+> c∈C
+
+Gc and center set C′ ⊂ C,we define G | C′ to be the subgraph S 
+
+> c∈C′
+
+Gc, where we update the probabilities pc → 1 for every 
+
+c ∈ C′. In other words, we condition on C′ being the set of active centers and only consider those stars. In particular, the natural knapsack LP on instance G | C′ is given by 
+
+LP (G | C′, B ) = max  
+
+> x
+
+{ X
+
+> cℓ ∈E(G|C′)
+
+E[wcℓ ·Xℓ]·xcℓ | X
+
+> e∈E(G|C′)
+
+se·xe ≤ B, xe = 0 if se > B, 0 ≤ x ≤ 1}.
+
+(2) In an EE -policy with budget B, the exploitation phase non-adaptively probes edges of total size at most B/ 2. Thus, given that we already explored centers P and observed that P ∩ A ⊂ C was the active subset, we can simply run NonAdapt (G | P ∩ A, B/ 2) to choose a near-optimal exploitation set (again, recalling that at this point we only want to get reward from active probed stars). This gives expected conditional reward Ω  LP (G | P ∩ A, B/ 2) .The upshot of the above argument is that we can view the exploration phase as adaptively choosing a set of centers to probe P ⊂ C to maximize E[LP (G | P ∩ A, B/ 2)], where A ⊂ C is the subset of active centers. We will show that this function has a useful property called adaptive submodularity 
+
+that makes it easy to optimize adaptively. Informally, adaptive submodularity means that the expected marginal gain of probing an element only decreases as we probe more elements conditioned on any partial realization of the past probes. 14 Adaptive submodular maximization We set up the preliminaries needed to define adaptive submodularity. Suppose we have a ground set Y of elements such that each element y ∈ Y is in one of two possible states: inactive or active. Further, we have some probability distribution over the subset of active elements, say A on 2 Y ,Now let f : 2 Y ×2Y be a function. We interpret the first argument as the choice of our algorithm and the second as the realization of the active elements. Looking ahead, our algorithm will adaptively probe elements, observe if the probed element is active or not, and then probe the next element. We introduce partial realizations of active elements to capture the partial information revealed by our algorithm. A partial realization of a subset Y ′ ⊂ Y is a subset AY ′ ⊂ Y ′, which specifies the active elements in Y ′. For subsets Y1 ⊂ Y2 ⊂ Y with partial realizations AY1 and AY2 , respectively, we say these partial realizations are consistent if AY2 ∩ Y1 = AY1 (i.e. if they agree on the active elements in the smaller subset). Then we define, the marginal gain of adding element y ∈ Y to a subset Y ′ ⊂ Y of already-probed elements with partial realization AY ′ by 
+
+Gain (y, Y ′ | AY ′ ) = EA∼A [f (Y ′ ∪ { y}, A ) | A ∩ Y ′ = AY ′ ] − EA∼A [f (Y ′, A ) | A ∩ Y ′ = AY ′ ]. (3) We are now ready to define adaptive submodularity. 
+
+Definition 3.4 (Adaptive Submodularity) . The function f : 2 Y × 2Y → R≥0 is adaptive submod-ular (with respect to distribution A on 2 Y ) if for any subsets Y1 ⊂ Y2 ⊂ Y , y / ∈ Y2, and consistent partial realizations AY1 and AY2 of Y1 and Y2, respectively, we have 
+
+Gain (y, Y 1 | AY1 ) ≥ Gain (y, Y 2 | AY2 ),
+
+where Gain (·, · | · ) is defined as in (3). We note that one can define adaptive submodularity for more general state spaces (i.e. not only elements being active or inactive), but we chose to specialize our definition to prevent excess notation. See [15] for a more general definition. Adaptive submodularity is a useful property, which enables greedy-type algorithms to achieve good performance guarantees for a variety of optimization problems [15, 21, 10, 31, 5]. Of particular interest to us is the problem of maximizing an adaptive submodular function subject to a knapsack constraint ( AdaptSubmodKnapsack ). 
+
+Definition 3.5 (AdaptSubmodKnapsack ). In an instance of AdaptSubmodKnapsack , we are given an adaptive submodular function f : 2 Y × 2Y → R≥0 with respect to distribution A on 2Y , element costs cy ≥ 0 for y ∈ Y , and a budget B ≥ 0. The goal is to adaptive probe elements 
+
+P ⊂ Y of total cost at most B to maximize EA∼A ,P [f (P, A )]. This problem admits a O(1)-approximation by a natural adaptive greedy algorithm with respect to value density (marginal gain of adding an item divided by its cost) along with an edge case of picking the single best item. This is given in the next proposition due to [1]. 
+
+Proposition 3.6. Given an oracle that computes Gain (·, · | · ) for any inputs in polynomial time, there exists a polynomial time algorithm for AdaptSubmodKnapsack that adaptively probes P ⊂
+
+Y of total cost at most B such that E[f (P, A )] ≥ 19 · E[f (P ∗, A )] , where P ∗ is the optimal adaptive policy. 
+
+15 To apply the above proposition, we show that our function of interest, f (P, A ) = LP (G | P ∩ A, B )is adaptive submodular, and we give an efficient oracle for Gain .
+
+Lemma 3.7. For any collection of stars G with center set C and budget B ≥ 0, the function 
+
+f : 2 C × 2C → R≥0 defined by f (P, A ) = LP (G | P ∩ A, B ) is adaptive submodular. Further, there exists a polynomial time algorithm that, given any C′ ⊂ C, element c / ∈ c′, and partial realization 
+
+AC′ of C, computes Gain (c, C ′, A C′ ).Proof. Consider any subset C′ ⊂ C with partial realization C′ and any element c / ∈ C′. We can write Gain (c, C ′, A C′ ) as 
+
+Gain (c, C ′, A C′ ) = E[f (C′ ∪ { c}, A ) | A ∩ C′ = AC′ ] − E[f (C′, A ) | A ∩ C′ = AC′ ]= E[LP (G | (C′ ∪ { c}) ∩ A, B ) | A ∩ C′ = AC′ ] − E[LP (G | C′ ∩ A, B ) | A ∩ C′ = AC′ ]= E[LP (G | AC′ ∪ ({c} ∩ A), B ) | A ∩ C′ = AC′ ] − E[LP (G | AC′ , B ) | A ∩ C′ = AC′ ]= E[LP (G | AC′ ∪ ({c} ∩ A), B ) | A ∩ C′ = AC′ ] − LP (G | AC′ , B )Recall that our distribution over A includes c ∈ A independently for each c ∈ C with probability 
+
+pc. In particular, the event c ∈ A is independent of A ∩ C′ = AC′ , since c / ∈ C′. Thus, we can rewrite the first term as 
+
+E[LP (G | AC′ ∪ ({c} ∩ A), B ) | A ∩ C′ = AC′ ] = pc · LP (G | AC′ ∪ { c}, B ) + (1 − pc) · LP (G | AC′ , B ).
+
+Plugging this into Gain gives our final expression 
+
+Gain (c, C ′, A C′ ) = pc · (LP (G | AC′ ∪ { c}, B ) − LP (G | AC′ , B )) .
+
+To evaluate this expression, we need to solve two polynomially-sized LP’s, so it is clear that 
+
+Gain (c, C ′, A C′ ) can be computed efficiently. It remains to show that f is adaptive submodular. Again, using our expression for Gain , it suffices to show that the simpler function g : 2 C → R≥0
+
+defined by g(C′) = LP (G | C′, B ) is submodular in the usual sense (for any sets C1 ⊂ C2 ⊂ C
+
+and c / ∈ C2, we have g(C1 ∪ { c}) − g(C1) ≥ g(C2 ∪ { c}) − g(C2). This is given in the following proposition, which completes the proof of the lemma. 
+
+Proposition 3.8. For any collection of stars G with center set C and budget B ≥ 0, the set function g(P ) = LP (G | P, B ) for P ⊂ C is submodular. 
+
+We prove the proposition formally in Section A using standard properties of the knapsack LP. Roughly speaking, one can view the marginal gain of adding c to C1 as adding some new items to the knapsack instance defined by C1. These items may replace some of the items chosen by the optimal LP solution on C1. Since C1 ⊂ C2, the items replaced by adding c to C2 are only better than those replaced in C1, which gives the desired result. To summarize this section, we can reduce the problem of finding a good exploration set to an instance of AdaptSubmodKnapsack with objective function f (P, A ) = LP (G | P ∩ A, B/ 2). In the next section, we give our complete algorithm for collections of stars 
+
+3.3 Algorithm for collections of stars 
+
+Morally, our algorithm to find a good EE policy for collections of stars will use the algorithm guaranteed by Proposition 3.6 for AdaptSubmodKnapsack to find a good set of centers to explore. Then, conditioned on the outcome of the exploration phase, we run NonAdapt to choose the exploitation set. However, there are four technical details which we have swept under the rug until now: 16 • Our final goal is not to output an EE policy, but rather a policy that does edge queries. It is straightforward to simulate an EE policy with budget B by typical edge queries (given information and reward) with the same budget – if the EE policy explores some vertex, then we can perform an edge query on the cheapest edge incident to that vertex and obtain only more information (and possibly some reward). In the exploitation phase, we can query the same edges as the EE policy. Thus, it suffices for our algorithm to output an EE policy. 
+
+• In two steps so far, we have lost a constant factor in the budget: when comparing to the optimal EE policy rather than typical adaptive policy (Lemma 3.1) and when considering 
+
+EE policies that only explore centers (Lemma 3.2). To fix this, we will show that we can scale-down our budget by a constant factor at only a constant factor increase in our final approximation ratio. Here we use properties of the (conditional) knapsack LP. 
+
+• Although we are exploring to optimize f (·, A ), note that f (·, A ) only counts the reward from stars whose centers we have explored. In general, Opt C 
+
+> EE
+
+can obtain reward from stars with unexplored centers as well. To fix this, we randomly choose the exploitation phase to either choose edges based conditioned on the exploitation set (to get reward from explored centers) or ignoring it (to get reward from unexplored centers). 
+
+• One limitation of EE policies is that they can never obtain reward from large edges (edges e
+
+with size se > B/ 2). However, we will show that the adaptivity gap for the the subinstance of large edges is small, so we can simply run NonAdapt if such edges contribute a large amount to the optimal reward. Taking the above points into account, our EE policy, EEStar , is given below. 
+
+EEStar : Given input collection of stars G and budget B > 0: 1. (Exploration) Run the algorithm guaranteed by Proposition 3.6 on function f (P, A ) = 
+
+LP (G | P ∩ A, B/ 2) with budget B 
+
+> 2
+
+to adaptive explore centers, say Q ⊂ C.2. (Exploitation) With probability 12 each, run one of the two following algorithms: 
+
+• Exploit the edges output by NonAdapt (G | Q ∩ A, B/ 2). where A ⊂ C is the realized set of active centers. 
+
+• Exploit the edges output by NonAdapt (G, B/ 2). Our main guarantee for EEStar is given in the next theorem. Note that we are comparing against a stronger Opt with budget B′ ≥ B. This will be useful for future budget-scaling arguments. Also, note that we restrict ourselves to instances with only small edges ( se ≤ B/ 2); we defer the large edge case to later. 
+
+Theorem 3.9. Let G be a collection of stars and B′ ≥ B > 0 any budgets. If every edge 
+
+e ∈ E has size se ≤ B/ 2, then EEStar (G, B ) outputs an EE policy achieving expected reward 
+
+E[EEStar (G, B )] = Ω(( BB′ )2) · E[Opt (G, B ′)] 17 3.4 Analysis of EEStar: Proof of Theorem 3.9 
+
+We begin by passing from standard adaptive policies ( Opt ) to EE policies that only explore centers of stars ( Opt C
+
+> EE
+
+). By Corollary 3.3, we have 
+
+E[Opt C
+
+> EE
+
+(G, 8B′)] = Ω( E[Opt (G, B ′)]) .
+
+We further partition the reward obtain by Opt C 
+
+> EE
+
+into the reward obtain from exploiting edges whose center we previously explored or not, which we denote by Opt 1 and Opt 0, respectively: 
+
+Opt C
+
+> EE
+
+(G, 8B′) = Opt 1 + Opt 0.
+
+On the other hand, we can write the expected reward of our algorithm as 
+
+E[EEStar (G, B )] = 12 · E[NonAdapt (G | Q ∩ A, B/ 2)] + 12 · E[NonAdapt (G, B/ 2)] .
+
+To complete the proof, we bound E[NonAdapt (∪q∈Q∩AGq, B/ 2)] with respect to E[Opt 1] and 
+
+E[NonAdapt (G, B/ 2)] with respect to E[Opt 0] in order. The former bound is more involved; we relate Opt 1 to a solution of the conditional LP: LP (G |
+
+Q∗ ∩ A, 4B′), where Q∗ ⊂ C is the subset of explored centers chosen by Opt C
+
+> EE
+
+(G, 8B′). Then we compare our algorithm’s choices in both the exploration and exploitation phases to those of 
+
+Opt C
+
+> EE
+
+(G, 8B′) in terms of appropriate AdaptSubmodKnapsack instances. 
+
+Lemma 3.10. We have E[NonAdapt (G | Q ∩ A, B/ 2)] = Ω(( BB′ )2) · E[Opt 1].Proof. As in the discussion above, we let Q∗ be the exploration set of total size at most 4 B′, which is adaptively chosen by Opt C
+
+> EE
+
+(G, 8B′). We first bound the Opt 1 in terms of the conditional LP. Let 
+
+E1 ⊂ E be the subset of edges exploited by Opt C
+
+> EE
+
+(G, 8B′) whose center was previously explored. We may assume that E1 ⊂ S 
+
+> c∈Q∗∩A
+
+E(Gc) – i.e. E1 only contains edges incident on stars with active centers, since all edges incident to inactive centers give zero reward. For convenience, we define G(Q∗ ∩ A) = S 
+
+> c∈Q∗∩A
+
+Gc to be the random subgraph of such stars with explored and active centers. Then we can write E[Opt 1] as 
+
+E[Opt 1] = E X 
+
+> e∈E1
+
+Re
+
+
+
+= E[X
+
+> e∈E
+
+Re · 1e∈E1 · 1e∈G(Q∗∩A)]= E[X
+
+> e∈E
+
+E[Re · 1e∈E1 · 1e∈G(Q∗∩A) | Q∗ ∩ A]] = E[X
+
+> e∈E
+
+1e∈G(Q∗∩A) · E[Re · 1e∈E1 | Q∗ ∩ A]] = E[ X
+
+> e∈G(Q∗∩A)
+
+E[Re · 1e∈E1 | Q∗ ∩ A]] Now we observe that on the event cℓ ∈ E1, we already know that c is active, so Rcℓ = wcℓ · XcXℓ =
+
+wcℓ Xℓ. It follows, for any cℓ ∈ G(Q∗ ∩ A), we have 
+
+E[Rcℓ · 1cℓ ∈E1 | Q∗ ∩ A] = E[wcℓ Xℓ · 1cℓ ∈E1 | Q∗ ∩ A] = E[wcℓ Xℓ] · Pr( e ∈ E1 | Q∗ ∩ A).
+
+18 Plugging this expression into the above gives 
+
+E[Opt 1] = E[ X
+
+> e∈G(Q∗∩A)
+
+E[wcℓ Xℓ] · Pr( e ∈ E1 | Q∗ ∩ A)] .
+
+Now consider the random LP solution xe = Pr( e ∈ E1 | Q∗ ∩ A) for all e ∈ G(Q∗ ∩ A). Since E1 has total size at most 4 B′ almost surely, this setting of the x-variables is feasible for LP (G | Q∗ ∩A, 4B′), and it achieves objective value exactly P 
+
+> e∈G(Q∗∩A)
+
+E[wcℓ Xℓ] · Pr( e ∈ E1 | Q∗ ∩ A). We conclude that 
+
+E[Opt 1] ≤ E[LP (G | Q∗ ∩ A, 4B′)] .
+
+Since every edge e ∈ E(G) has size se ≤ B/ 2, we can apply Lemma 2.3 to obtain 
+
+E[Opt 1] = O( B′
+
+B ) · E[LP (G | Q∗ ∩ A, B/ 2)] .
+
+On the other hand, the quantity we are comparing to is 
+
+E[NonAdapt (G | Q ∩ A, B/ 2)] = Ω( E[LP (G | Q ∩ A, B/ 2)]) .
+
+To complete the proof of the lemma, it suffices to show E[LP (G | Q∗ ∩ A, B/ 2)] = O( B′ 
+
+> B
+
+) · E[LP (G |
+
+Q ∩ A, B/ 2)]. The main difference is that in the former expression, Opt C
+
+> EE
+
+(B, 8B′) adaptively chooses Q∗ of total size at most 4 B′, where our algorithm chooses Q of total size at most B/ 2. To do so, we leverage the submodularity of the function LP (G | · , B/ 2), which was shown in Proposition 3.8. Note that both sets Q and Q∗ are chosen adaptively, but it will be convenient to reason about non-adaptive exploration sets instead. The following proposition bounds that adaptivity gap for our particular instances of AdaptSubmodKnapsack . This follows from known adaptivity gaps for certain stochastic probing problems [19]. Just like for BayesProbe , we define the adaptivity gap for AdaptSubmodKnapsack by max I E[Opt A(I)]  
+
+> E[Opt N A (I)]
+
+, where Opt A and Opt N A are the reward obtained by the optimal adaptive and non-adaptive policies, respectively. See Section A for proof of the next proposition, which reduces AdaptSubmodKnapsack to an appropriate submodular probing problem and applies a known adaptivity gap result. 
+
+Proposition 3.11. Let G be any collection of stars and B > 0 any budget. Then consider any 
+
+AdaptSubmodKnapsack instance with any budget B′ > 0 on function f : 2 C × 2C → R≥0 defined by f (P, A ) = LP (G | P ∩A, B ) with respect to distribution A on 2C such that for A ∼ A , each c ∈ C
+
+is included in A independently with probability pc ∈ [0 , 1] . The adaptivity gap for such instances is at most 3.
+
+To apply Proposition 3.11, consider the following two AdaptSubmodKnapsack instances, both on the function f (P, A ) = LP (G | P ∩ A, B/ 2) with underlying active item distribution defined by the probabilities pc for all c ∈ C. The instance IB/ 2 has budget B/ 2 and the instance I4B′ has budget 4 B′.We recall that our algorithm ran the 9-approximation for AdaptSubmodKnapsack guaranteed by Proposition 3.6 to obtain Q. Thus, we have E[f (Q, A )] ≥ 19 · E[Opt (IB/ 2)]. On the other hand, Q∗ is a feasible solution to I4B′ , so E[f (Q∗, A )] ≤ E[Opt (I4B′ )] ≤ 3 ·
+
+E[Opt N A (I4B′ )], where in the final step we use the adaptivity gap (Proposition 3.11). Let Q′ ⊂ C
+
+be the optimal non-adaptive solution to I4B′ . Since every edge of G has size at most B/ 2, we can 19 partition Q′ = S 
+
+> k
+
+Q′ 
+
+> k
+
+into O( B′ 
+
+> B
+
+)-many subsets, Q′
+
+> k
+
+, each of which having total size in [ B/ 4, B/ 2]. Let g(P ) = LP (G | P, B/ 2). Then using the submodularity of g (Proposition 3.8), we have 
+
+E[Opt N A (I4B′ )] = E[g(Q′ ∩ A)] ≤ X
+
+> k
+
+E[g(Q′ 
+
+> k
+
+∩ A)] .
+
+In particular, by averaging, there exists some index k′ with E[g(Q′ 
+
+> k′
+
+∩A)] = Ω( BB′ )·E[Opt N A (I4B′ )]. Since Q′ 
+
+> k′
+
+has total size at most B/ 2, it is feasible for IB/ 2, so we conclude that 
+
+E[LP (G | Q∩A, B/ 2)] = Ω( E[Opt (IB/ 2)]) = Ω( E[LP (G | Q′ 
+
+> k′
+
+∩A, B/ 2]) = Ω( BB′ )·E[LP (G | Q∗∩A, B/ 2)] ,
+
+as required. The latter bound is the simpler one. Intuitively, Opt 0 has no advantage over a non-adaptive algorithm, since it exploits edges without any information about either endpoint, so we can relate 
+
+Opt 0 to the standard knapsack LP (G, 4B′). 
+
+Lemma 3.12. We have E[NonAdapt (G, B/ 2)] = Ω( BB′ ) · E[Opt 0].Proof. Let E0 ⊂ E be the subset of edges exploited by Opt C
+
+> EE
+
+(G, 8B′) whose center was not previously explored (i.e. E0 is exactly the subset of edges contributing to Opt 0. Then we can write E[Opt 0] as 
+
+E[Opt 0] = E X 
+
+> e∈E0
+
+Re
+
+ = X
+
+> e∈E
+
+E[Re · 1e∈E0 ] = X
+
+> e∈E
+
+E[Re] · Pr( e ∈ E0),
+
+where we use the fact that for any edge e ∈ E, the random variable Re is independent of the event e ∈ E0, since we do not explore either endpoint of e before deciding to exploit e. Thus, the marginals xe = Pr( e ∈ E) for all e ∈ E give a feasible solution to LP (G, 4B′) since we have budget 4B′ to exploit edges. This solution achieves objective value exactly P 
+
+> e∈E
+
+E[Re] · Pr( e ∈ E0) = 
+
+E[Opt 0]. We combine the guarantee for NonAdapt , Proposition 2.1, with the budget-scaling for the knapsack LP, Lemma 2.3, to complete the proof: 
+
+E[NonAdapt (G, B/ 2)] = Ω( LP (G, B )) = Ω( BB′ ) · LP (G, 4B′) = Ω( BB′ ) · E[Opt 0].
+
+We combine the above two lemmas to complete the proof of Theorem 3.9. 
+
+E[EEStar (G, B )] = 12 · E[NonAdapt (G | Q ∩ A, B/ 2)] + 12 · E[NonAdapt (G, B/ 2)] = Ω(( BB′ )2) · E[Opt 1] + Ω( BB′ ) · E[Opt 0]= Ω(( BB′ )2) · E[Opt C
+
+> EE
+
+(G, 8B′)] = Ω(( BB′ )2) · E[Opt (G, B ′)] ,
+
+as required. 20 3.5 Algorithm for large edges 
+
+The limitation of Theorem 3.9 is that we need all edges to be small (have size at most half the budget). To remedy this, in this section we show that our original non-adaptive algorithm, Non-Adapt , has good performance when all edges are large. Intuitively, this is because in this case, Opt 
+
+probes only few edges. Thus just non-adaptively taking the single best edge is a good algorithm. 
+
+Lemma 3.13. Let G be a collection of stars and B′ ≥ B > 0 any budgets. If every edge e ∈ E has size se ∈ (B/ 2, B ], then we have E[NonAdapt (G, B )] = Ω(( BB′ )2) · E[Opt (G, B ′)] .Proof. We first relate Opt with an EE policy that only explores centers of stars. By Corollary 3.3, we have E[Opt (G, B ′)] ≤ E[Opt C
+
+> EE
+
+(G, 8B′)]. Now consider the following subgraph M ⊂ G: For every star Gc of G, we keep only the single edge with largest expected reward, i.e. the edge, say 
+
+e∗ 
+
+> c
+
+achieving max cℓ ∈E(Gc) E[Rcℓ ] for all c ∈ C. Note that M is a matching. We bound the loss in expected reward by restricting Opt C 
+
+> EE
+
+to M in the next proposition. 
+
+Proposition 3.14. We have E[Opt C
+
+> EE
+
+(M, 16 B′)] = Ω( BB′ ) · E[Opt C
+
+> EE
+
+(G, 8B′)] .
+
+Proof. Note that M is also a collection of stars with the same center set as G. Further, since every edge in G (and thus M ) has size in ( B/ 2, B ], the cost of exploring a vertex in M and G is also always in ( B/ 2, B ]. With these observations in mind, we consider the following EE policy P on 
+
+M : In the exploration phase, P adaptively explores exactly the same centers as G. We couple the outcomes of both policies’ exploration phase such that they explore the same centers and observe the same outcomes. Then in the exploitation phase, for each star in G such that Opt C
+
+> EE
+
+(G, 8B′)exploits any edge in this star, our policy P will exploit the unique edge incident to that star in M
+
+(i.e. the edge with largest expected reward on that star from G). This completes the description of M .Note that M uses budget at most 8 B′ in each phase since in both graphs, the cost of explor-ing/exploiting a center/edge is always in ( B/ 2, B ], so E[Opt C
+
+> EE
+
+(M, 16 B′)] ≥ E[P]. It remains to show that E[P] = Ω( BB′ ) · E[Opt C
+
+> EE
+
+(G, 8B′)]. To see this, we condition on the outcome of the explo-ration phase (which is the same for both policies by our coupling). Conditioned on the exploration phase, we compare the expected conditional reward obtained by P and Opt C
+
+> EE
+
+(G, 8B′) per star. Consider any star with center c. Let Ec ⊂ E(Gc) be the subset of edges exploited by Opt C
+
+> EE
+
+(G, 8B′)in Gc. There are three cases to consider: 
+
+• If c is unexplored, then the expected conditional reward of Opt C
+
+> EE
+
+(G, 8B′) from Gc is exactly P 
+
+> e∈E(Gc)
+
+E[Re]. On the other hand, P exploits e∗ 
+
+> c
+
+∈ E(Gc) achieving expected conditional reward E[Re∗ 
+
+> c
+
+] = Ω( BB′ ) · P 
+
+> e∈E(Gc)
+
+E[Re]. This is because every edge has size at least B/ 2, 
+
+Opt C
+
+> EE
+
+(G, 8B′) can exploit at most O( B′ 
+
+> B
+
+) edges per star, and e∗ 
+
+> c
+
+maximizes the expected reward among edges in this star. 
+
+• Analogously, if c is explored and active, then the expected conditional reward of Opt C
+
+> EE
+
+(G, 8B′)from Gc is exactly P 
+
+> e∈E(Gc)
+
+E[Re | Xc = 1] = P 
+
+> e∈E(Gc)
+
+E[wcℓ Xℓ]. Recall by definition that 
+
+e∗ 
+
+> c
+
+is chosen to maximize E[Rcℓ ] = E[wcℓ · XcXℓ] = wcℓ · pcpℓ among edges with the same center c. This also implies that e∗ 
+
+> c
+
+maximizes E[Rcℓ | Xc = 1] = wcℓ pℓ among such edges, since they all share the same center. Thus, by an analogous argument as above, we have 
+
+E[Re∗ 
+
+> c
+
+| Xc = 1] = Ω( BB′ ) · P 
+
+> e∈E(Gc)
+
+E[Re | Xc = 1]. 
+
+• Finally, if c is explored and inactive, then both policies receive zero reward from this star. 21 To conclude, for each star, the expected conditional reward received by P from this star is at least a Ω( BB′ )-factor of the expected conditional reward received by Opt C
+
+> EE
+
+(G, 8B′). Summing over all stars completes the proof. Using the above proposition and recalling that EE policies are only weaker than typical adaptive policies, we have 
+
+E[Opt (G, B ′)] ≤ E[Opt C
+
+> EE
+
+(G, 8B′)] = O( B′
+
+B ) · E[Opt C
+
+> EE
+
+(M, 16 B′)] = O( B′
+
+B ) · E[Opt (M, 16 B′)] .
+
+Now observe that M is a matching and every edge has size in ( B/ 2, B ], so in particular M has max degree 1 and the ratio of maximum to minimum edge size is O(1). Thus, by Theorem 1.2, 
+
+NonAdapt (M, 16 B′) outputs a non-adaptive policy that is O(1)-approximate. We complete the proof by reasoning about NonAdapt via its LP guarantee (Proposition 2.1) and budget-scaling property (Lemma 2.3): 
+
+E[Opt (M, 16 B′)] = O(E[NonAdapt (M, 16 B′)]) = O(LP (M, 16 B′)) = O( B′
+
+B ) · LP (M, B ) = O( B′
+
+B ) · E[NonAdapt (M, B )] .
+
+To conclude, we obtain the final bound 
+
+E[Opt (G, B ′)] = O( B′
+
+B ) · E[Opt (M, 16 B′)] = O(( B′
+
+B )2) · E[NonAdapt (M, B )] ,
+
+as required. To summarize, we gave two different algorithms for graphs which are collections of stars. If all edges have size se ≤ B/ 2, then we designed an EE policy, EEStar , which uses adaptive submodular maximization and the conditional knapsack LP (2); see Theorem 3.9. Otherwise, if all edges have size se ∈ (B/ 2, B ], then our standard non-adaptive algorithm, using the standard knapsack LP (1), is already a good algorithm (Lemma 3.13). In the next section, we give our final algorithm for general graphs by decomposing the input graph into collections of stars with either small or large edges. 
+
+3.6 Putting it all together: Algorithm for general graphs 
+
+Finally, we are ready to prove the main result of the paper, Theorem 1.5, which we recall here. 
+
+Theorem 1.5. There exists a poly-time algorithm for BayesProbe that computes an adaptive pol-icy that O(dens (G)·S2)-approximates the optimal adaptive policy, where dens (G) = max H⊂V (G) |E[H]||H|
+
+is the density of the densest subgraph of G and S is the ratio between the maximum and minimum edge sizes in G.
+
+Our approach to proving Theorem 1.5 is natural: Using the decomposition lemma, Lemma 1.7, decompose G into collections of stars that either have all small ( se ≤ B/ 2) or all large ( se ∈
+
+(B/ 2, B ]) edges. Then we pick a random subcollection and run the appropriate algorithm – either 
+
+EEStar or NonAdapt – based on whether all edges are small or large, respectively. By averaging, our overall approximation ratio will be determined by how many collection of stars are needed to cover G. Using the Nash-Williams tree packing theorem, we can show that O(dens (G)) collections suffice [29]. 22 Lemma 3.15. Given any graph G, there exists a poly-time algorithm that outputs O(dens (G)) -many collections of stars each on vertex set V (G) such that these collections cover all edges E(G).
+
+Before proving the lemma, we use it to give our complete algorithm. 
+
+AdaptGeneral : Given input graph G and budget B ≥ 0: 
+
+• Run the algorithm guaranteed by Lemma 3.15 on G to obtain O(dens (G))-many collections of stars, say G1, . . . , G ℓ with ℓ = O(dens (G)) such that E(G1) ∪ · · · ∪ E(Gℓ) = E(G). 
+
+• For each collection of stars, say Gk, let GSk and GLk be the subgraphs of Gk consisting of only the small ( se ≤ B/ 2) and large ( se ∈ (B/ 2, B ]) edges, respectively. 
+
+• Pick a collection of stars from {GS 
+
+> 1
+
+, . . . , G Sℓ } ∪ { GL 
+
+> 1
+
+, . . . , G Lℓ } uniformly at random. Let G′ be the chosen subgraph. 
+
+• If G′ has small edges, then run EEStar (G′, B ). Otherwise, G′ has large edges, so run 
+
+NonAdapt (G′, B ). The proof of Theorem 1.5 follows quickly from the guarantees of EEStar and NonAdapt and the decomposition lemma. 
+
+Proof of Theorem 1.5. We say that G′ is small if G′ = GSk for some k and large if G′ = GLk for some k. Then conditioned on the choice of G′,the expected reward of our algorithm is 
+
+E[AdaptGeneral (G, B ) | G′] = 1G′ small ·E[EEStar (G′, B ) | G′]+ 1G′ large ·E[NonAdapt (G′, B ) | G′].
+
+Applying the guarantees of EEStar (Theorem 3.9) and NonAdapt (Lemma 3.13) for any budget 
+
+B′ ≥ B, we obtain 
+
+E[AdaptGeneral (G, B ) | G′] = Ω(( BB′ )2) · (1G′ small · E[Opt (G′, B ) | G′] + 1G′ large · E[Opt (G′, B ) | G′]) = Ω(( BB′ )2) · E[Opt (G′, B ) | G′].
+
+To complete the proof, we apply the decomposition lemma (Lemma 1.7) and average over the 
+
+O(dens (G))-many possible choices of G′. Taking B′ = 2 S · B gives 
+
+E[AdaptGeneral (G, B )] = E[E[AdaptGeneral (G′, B ) | G′]] = Ω( 1
+
+S2 ) · E[E[Opt (G′, 2S · B) | G′]] = Ω( 1
+
+S2 · dens (G) ) · (
+
+> ℓ
+
+X
+
+> k=1
+
+E[Opt (GSk , 2S · B) + E[Opt (GLk , 2S · B)]) = Ω( 1
+
+S2 · dens (G) ) · E[Opt (G, B )] as required. Now we go back and prove Lemma 3.15. Our algorithm first decomposes the input graph into forests, and then further decomposes each forest into collections of stars. Such a decomposition can be found, e.g. by a matroid partitioning algorithm [9]. 23 Proposition 3.16. Given graph G, there is a poly-time algorithm that partitions E(G) into 
+
+O(dens (G)) -many forests. 
+
+Using this subroutine, we state the algorithm guaranteed by Lemma 3.15, StarDecomp and prove that is has the desired properties. 
+
+StarDecomp : Given input graph G:
+
+• Run the algorithm guaranted by Proposition 3.16 on G to partition the E(G) into ℓ =
+
+O(dens (G))-many forests, say F1, . . . , F ℓ, each on vertex set V = V (G). 
+
+• For each such forest, say Fi:
+
+– Root each tree of Fi arbitrarily. 
+
+– For every vertex v ∈ V , we define its depth, di(v), to be its distance to the root of its tree in forest Fi.
+
+– Then, define the three sets of vertices, Vi(a) = {v ∈ V | di(v) = a mod 3 } for a = 0 , 1, 2. 
+
+– Define the three vertex-induced subgraphs Fi(a) = Fi −Vi(a) for a = 0 , 1, 2. See Figure 3 for example. 
+
+• Output the collection of subgraphs {Fi(a) | i = 1 , . . . , ℓ ; a = 0 , 1, 2}.  
+
+> Figure 3: An example of a single tree in subgraph Fi(2) . Solid edges and vertices appear in Fi(2) .
+
+Proof of Lemma 3.15. It is clear that StarDecomp is efficient, and we output O(dens (G))-many subgraphs, so it remains to show that the collection {Fi(a) | i = 1 , . . . , ℓ ; a = 0 , 1, 2} covers all edges of G. Consider any edge e of G. Note that the collection {Fi | i = 1 , . . . , ℓ } covers G, so 
+
+e belongs to some forest, say Fi. Since Fi is a forest, the edge e must connect vertices in two consecutive depth levels. Modulo 3, this leaves one choice of a = 0 , 1, 2 such that e connects two vertex whose depth is not equal to a mod 3. We conclude, e is an edge in Fi(a) for this choice of 
+
+a.24 4 Conclusion and Future Work 
+
+We introduced BayesProbe , one of the first stochastic combinatorial optimization models that incorporates correlated rewards, while still admitting provably efficient approximation algorithms. Our non-adaptive and adaptive algorithms give the first poly-time guarantees for Bayesian active search (and stochastic probing and knapsack with correlations across items). These results show that realistic dependencies among items need not preclude strong worst-case performance. Further, our correlation model is rich enough to capture typical bad examples for Bayesian active search as well as practically-relevant prior distributions, such as those arising in site percolation. Our work gives the foundation for how techniques from stochastic combinatorial optimization can have a large impact in Bayesian machine learning problems, and it opens up many directions for future work: 
+
+• Hypergraphs Extending our model from graphs to hypergraphs would allow us to capture higher-order correlations common in biological and social networks. 
+
+• Different reward functions In BayesProbe , one can view the reward of an edge as the (weighted) AND of its endpoints, but it would be interesting and practically relevant to consider a generalization where the reward of a (hyper-)edge is some Boolean formula applied to its endpoints. For example, threshold functions (at least t endpoints are active) would be an interesting generalization. 
+
+• Different probes Further, in our model, when we probe an edge we learn the outcomes of both of its endpoints. One could consider a more restricted setting where an edge probe only reveals the realized edge reward (in BayesProbe , this means one would only learn the 
+
+AND of the endpoints, rather than both endpoint values). This would introduce much more complicated Bayesian updates. We hope the techniques developed here – particularly the decomposition lemma and our struc-tural properties of EE policies – serve as building blocks for tackling richer correlated stochastic optimization problems. 
+
+# Acknowledgments 
+
+We thank Viswanath Nagarajan for helpful discussions leading to the connection with adaptive submodularity, and an anonymous reviewer for pointing out the alternative adaptivity gap lower bound in Lemma 1.4. AG’s research was supported in part by NSF awards CCF-2422926 and CCF-2608359. Benjamin Moseley was supported in part by ONR grant N000142212702. 
+
+# References 
+
+[1] Georgios Amanatidis, Federico Fusco, Philip Lazos, Stefano Leonardi, and Rebecca Reiff-enh¨ auser. Fast adaptive non-monotone submodular maximization subject to a knapsack con-straint. Advances in neural information processing systems , 33:16903–16915, 2020. [2] Graeme P Boswell, Nicholas F Britton, and Nigel R Franks. Habitat fragmentation, percolation theory and the conservation of a keystone species. Proceedings of the Royal Society of London. Series B: Biological Sciences , 265(1409):1921–1925, 1998. 25 [3] Yang Cai and Argyris Oikonomou. On simple mechanisms for dependent items. In Proceedings of the 22nd ACM Conference on Economics and Computation , pages 242–262, 2021. [4] Shuchi Chawla, Evangelia Gergatsouli, Yifeng Teng, Christos Tzamos, and Ruimin Zhang. Pandora’s box with correlations: Learning and approximation. In 2020 IEEE 61st Annual Symposium on Foundations of Computer Science (FOCS) , pages 1214–1225. IEEE, 2020. [5] Yubing Cui and Viswanath Nagarajan. Minimum cost adaptive submodular cover. In Sympo-sium on Simplicity in Algorithms (SOSA) , pages 12–27. SIAM, 2023. [6] George B Dantzig. Discrete-variable extremum problems. Operations research , 5(2):266–288, 1957. [7] Stephen Davis, P Trapman, Herwig Leirs, Michael Begon, and JAP Heesterbeek. The abun-dance threshold for plague as a critical percolation phenomenon. Nature , 454(7204):634–637, 2008. [8] Brian C. Dean, Michel X. Goemans, and Jan Vondr´ ak. Approximating the stochastic knapsack problem: The benefit of adaptivity. Math. Oper. Res. , 33(4):945–964, 2008. [9] Jack Edmonds. Minimum partition of a matroid into independent subsets. J. Res. Nat. Bur. Standards Sect. B , 69:67–72, 1965. [10] Hossein Esfandiari, Amin Karbasi, and Vahab Mirrokni. Adaptivity in adaptive submodularity. In Conference on Learning Theory , pages 1823–1846. PMLR, 2021. [11] VIZING V. G. On an estimate of the chromatic class of a p-graph. Discret Analiz , 3:25–30, 1964. [12] Roman Garnett. Bayesian Optimization . Cambridge University Press, 2023. [13] Roman Garnett, Thomas G¨ artner, Martin Vogt, and J¨ urgen Bajorath. Introducing the ’active search’ method for iterative virtual screening. J. Comput. Aided Mol. Des. , 29(4):305–314, 2015. [14] Roman Garnett, Yamuna Krishnamurthy, Xuehan Xiong, Jeff G. Schneider, and Richard P. Mann. Bayesian optimal active search and surveying. In Proceedings of the 29th International Conference on Machine Learning, ICML 2012, Edinburgh, Scotland, UK, June 26 - July 1, 2012 . icml.cc / Omnipress, 2012. [15] Daniel Golovin and Andreas Krause. Adaptive submodularity: Theory and applications in active learning and stochastic optimization. J. Artif. Intell. Res. , 42:427–486, 2011. [16] G. R. Grimmett and A. M. Stacey. Critical probabilities for site and bond percolation models. 
+
+The Annals of Probability , 26(4):1788–1812, 1998. [17] Anupam Gupta, Ravishankar Krishnaswamy, Marco Molinaro, and R. Ravi. Approximation algorithms for correlated knapsacks and non-martingale bandits. In Rafail Ostrovsky, edi-tor, IEEE 52nd Annual Symposium on Foundations of Computer Science, FOCS 2011, Palm Springs, CA, USA, October 22-25, 2011 , pages 827–836. IEEE Computer Society, 2011. 26 [18] Anupam Gupta and Viswanath Nagarajan. A stochastic probing problem with applications. In Michel X. Goemans and Jos´ e Correa, editors, Integer Programming and Combinatorial Optimization - 16th International Conference, IPCO 2013, Valpara´ ıso, Chile, March 18-20, 2013. Proceedings , volume 7801 of Lecture Notes in Computer Science , pages 205–216. Springer, 2013. [19] Anupam Gupta, Viswanath Nagarajan, and Sahil Singla. Algorithms and adaptivity gaps for stochastic probing. In Robert Krauthgamer, editor, Proceedings of the Twenty-Seventh Annual ACM-SIAM Symposium on Discrete Algorithms, SODA 2016, Arlington, VA, USA, January 10-12, 2016 , pages 1731–1747. SIAM, 2016. [20] Anupam Gupta, Viswanath Nagarajan, and Sahil Singla. Adaptivity gaps for stochastic prob-ing: Submodular and XOS functions. In Philip N. Klein, editor, Proceedings of the Twenty-Eighth Annual ACM-SIAM Symposium on Discrete Algorithms, SODA 2017, Barcelona, Spain, Hotel Porta Fira, January 16-19 , pages 1688–1702. SIAM, 2017. [21] Lisa Hellerstein, Devorah Kletenik, and Srinivasan Parthasarathy. A tight bound for stochastic submodular cover. Journal of Artificial Intelligence Research , 71:347–370, 2021. [22] Oscar H. Ibarra and Chul E. Kim. Fast approximation algorithms for the knapsack and sum of subset problems. J. ACM , 22(4):463–468, 1975. [23] Shali Jiang, Gustavo Malkomes, Matthew Abbott, Benjamin Moseley, and Roman Garnett. Efficient nonmyopic batch active search. In Samy Bengio, Hanna M. Wallach, Hugo Larochelle, Kristen Grauman, Nicol` o Cesa-Bianchi, and Roman Garnett, editors, Advances in Neural Information Processing Systems 31: Annual Conference on Neural Information Processing Systems 2018, NeurIPS 2018, December 3-8, 2018, Montr´ eal, Canada , pages 1107–1117, 2018. [24] Shali Jiang, Gustavo Malkomes, Geoff Converse, Alyssa Shofner, Benjamin Moseley, and Ro-man Garnett. Efficient nonmyopic active search. In Doina Precup and Yee Whye Teh, editors, 
+
+Proceedings of the 34th International Conference on Machine Learning, ICML 2017, Sydney, NSW, Australia, 6-11 August 2017 , volume 70 of Proceedings of Machine Learning Research ,pages 1714–1723. PMLR, 2017. [25] Michael Krivelevich. The phase transition in site percolation on pseudo-random graphs. the electronic journal of combinatorics , 22:P00, 2015. [26] Eugene L. Lawler. Fast approximation algorithms for knapsack problems. Math. Oper. Res. ,4(4):339–356, 1979. [27] Vasilis Livanos, Kalen Patton, and Sahil Singla. Improved mechanisms and prophet inequalities for graphical dependencies. In Proceedings of the 25th ACM Conference on Economics and Computation , pages 782–805, 2024. [28] Will Ma. Improvements and generalizations of stochastic knapsack and markovian bandits approximation algorithms. Math. Oper. Res. , 43(3):789–812, 2018. [29] C St JA Nash-Williams. Decomposition of finite graphs into forests. Journal of the London Mathematical Society , 1(1):12–12, 1964. [30] Christian M. Reidys. Large components in random induced subgraphs of n-cubes. Discrete Mathematics , 309(10):3113–3124, 2009. 27 [31] Shaojie Tang. Beyond pointwise submodularity: Non-monotone adaptive submodular max-imization subject to knapsack and k-system constraints. Theoretical Computer Science ,936:139–147, 2022. [32] Xuezhi Wang, Roman Garnett, and Jeff G. Schneider. Active search on graphs. In Inderjit S. Dhillon, Yehuda Koren, Rayid Ghani, Ted E. Senator, Paul Bradley, Rajesh Parekh, Jingrui He, Robert L. Grossman, and Ramasamy Uthurusamy, editors, The 19th ACM SIGKDD International Conference on Knowledge Discovery and Data Mining, KDD 2013, Chicago, IL, USA, August 11-14, 2013 , pages 731–738. ACM, 2013. [33] David P Williamson and David B Shmoys. The design of approximation algorithms . Cambridge university press, 2011. 
+
+# A Basic properties of knapsack LP 
+
+Here we prove some basic facts about the knapsack LP (1) and (2), which we need throughout our analysis. 
+
+Lemma 2.3. For any graph G and budgets 0 < B ≤ B′ such that every edge in G has size at most 
+
+B, we have LP (G, B ) ≥ BB′ · LP (G, B ′).Proof. Consider an optimal solution, say x∗, to LP (G, B ′). We claim that BB′ · x∗ is feasible for 
+
+LP (G, B ). For the knapsack constraint, we have 
+
+X
+
+> e∈E(G)
+
+se · BB′ x∗ 
+
+> e
+
+= BB′
+
+X
+
+> e∈E(G)
+
+se · x∗ 
+
+> e
+
+≤ B. 
+
+Using our assumption that all edges have size at most B, the pruning constraint ( xe = 0 if se > B )of LP (G, B ) is trivial, and it is clear that 0 ≤ BB′ · x∗ 
+
+> e
+
+≤ 1 for all edges e. This solution to LP (G, B )achieves objective value BB′ · LP (G, B ′), so we have LP (G, B ) ≥ BB′ · LP (G, B ′), as required. 
+
+Proposition 3.8. For any collection of stars G with center set C and budget B ≥ 0, the set function g(P ) = LP (G | P, B ) for P ⊂ C is submodular. Proof. Consider any sets C1 ⊂ C2 ⊂ C and adding any center c / ∈ C2 to sets C1 and C2. We will show that g(C1 ∪ { c}) − f (C1) ≥ f (C2 ∪ { c}) − f (C2). Here, we use the well-known fact that an optimal solution to the knapsack LP is obtained by the 
+
+fractional greedy algorithm , FracGreedy (P ) [6]. Stated in terms of LP (G | P, B ), we consider edges in E(S 
+
+> c∈P
+
+Gc) in decreasing order of value density E[Re] 
+
+> se
+
+. Initially all xe’s are set to 0. For each considered edge e, we increase xe as much as possible as long as the budget constraint is satisfied subject to the LP constraint xe ≤ 1. In the end, this leads to a solution with at most one fractional xe.We first interpret the quantity f (C2 ∪ { c}) − f (C2) = FracGreedy (C2 ∪ { c}) − FracGreedy (C2)in terms of the fractional greedy algorithm. Consider FracGreedy (C2 ∪ { c}). In this algorithm, suppose we allocate b units of budget to edges in Gc (so b = P 
+
+> e∈E(Gc)
+
+se · xe). By definition of 
+
+FracGreedy , these b units are allocated to the most value-dense edges in Gc (those with largest  
+
+> E[Re]
+> se
+
+). Let u be the reward obtained by choosing these edges. These edges replace the b units of the least value-dense edges allocated by FracGreedy (C2), which give reward, say ℓ2. Thus, we have f (C2 ∪ { c}) − f (C2) = u − ℓ2.28 Next, we lower bound f (C1 ∪ { c}) − f (C1) similarly. Consider the fractional solution generated by FracGreedy (C1). We lower bound f (C1 ∪ { c}) as follows: Replace the b units of the least value-dense edges allocated by FracGreedy (C1), which give reward, say ℓ1 with the b units of the the most value dense edges in Gc, which again gives reward u. This gives a feasible fractional solution to LP (G | C1 ∪{ c}, B ) with objective value f (C1)+ u−ℓ1. Since C1 ⊂ C2, we have ℓ1 ≤ ℓ2,so we can conclude f (C1 ∪ { c}) − f (C1) ≥ u − ℓ1 ≥ u − ℓ2 = f (C2 ∪ { c}) − f (C2), as required. 
+
+Proposition 3.11. Let G be any collection of stars and B > 0 any budget. Then consider any 
+
+AdaptSubmodKnapsack instance with any budget B′ > 0 on function f : 2 C × 2C → R≥0 defined by f (P, A ) = LP (G | P ∩A, B ) with respect to distribution A on 2C such that for A ∼ A , each c ∈ C
+
+is included in A independently with probability pc ∈ [0 , 1] . The adaptivity gap for such instances is at most 3.Proof. The assumed instance for AdaptSubmodKnapsack is exactly an instance of the following stochastic probing problem, StochProbe by taking the function g(P ) = LP (G | P, B ) and the set family of all subsets of C with total size at most B′.
+
+Definition A.1 (StochProbe ). In an instance of StochProbe , we are given a set function 
+
+f : 2 Y → R+ on ground set Y and a downward-closed set family Y ⊂ 2Y . Every item y ∈ y
+
+is independently active with known probability py. However, whether an item is active or not is unknown until that item is probed . The goal is to adaptively probe a set of elements P ∈ Y and then choose a subset of the active probed elements, say Q ⊂ P ∩ A, where A ⊂ Y is the subset of active elements, to maximize E[f (Q)]. 
+
+StochProbe has the following known adaptivity gap result due to [19]. 
+
+Proposition A.2. If the set function f is non-negative, monotone, and submodular, then the adaptivity gap of StochProbe is at most 3.
+
+It is clear that our function g is monotone (since adding more items to the knapsack instance can only improve the LP objective value), and it is submodular by Proposition 3.8. The only difference between the assumed instance of AdaptSubmodKnapsack and StochProbe is that in the latter, one can choose a subset Q ⊂ P ∩ A to receive the reward from. However, since g is monotone, we can assume that one always chooses Q = P ∩ A. Thus, Proposition A.2 gives the desired adaptivity gap. 
+
+# B BayesProbe is not adaptive submodular 
+
+In this section, we show that the prior distribution and objective function of BayesProbe do not satisfy adaptive submodularity. As in Section 3, we do not define adaptive submodularity in full generality. Rather, we consider a specialized definition for our purposes. Given instance of BayesProbe on graph G = ( V, E ), the reward of probing edges P ⊂ E given that the active vertices are A ⊂ V is given by the function f (P, A ) = P 
+
+> uv ∈P
+
+wuv · 1u∈A1v∈A. We consider the prior distribution where each vertex v ∈ V is in A independently with probability pv.In this setting, a partial realizations of edge set E′ ⊂ E is subset of active vertices AV (E′) ⊂ V ,where V (E′) ⊂ V is all vertices incident to some edge in E′. We say two partial realizations AV (E1)
+
+and AV (E2) of E1 ⊂ E2 ⊂ E are consistent if AV (E2) ∩ V (E1) = AV (E1).29 Then we define, the marginal gain of adding edge e ∈ E to a subset E′ ⊂ E of already-probed edges with partial realization AV (E′) by 
+
+Gain (e, E ′ | AV (E′)) = EA[f (E′ ∪{ e}, A ) | A∩V (E′) = AV (E′)]−EA[f (E′, A ) | A∩V (E′) = AV (E′)].
+
+Then the function f is adaptive submodular if for any subsets E1 ⊂ E2 ⊂ E and consistent partial realizations AV (E1) and AV (E2) of E1 and E2, respectively, we have 
+
+Gain (e, E 1 | AV (E1)) ≥ Gain (e, E 2 | AV (E2)).
+
+We will show that BayesProbe is far from satisfying this condition in general. 
+
+Lemma B.1. For any ϵ ∈ (0 , 1) , there exists an instance of BayesProbe along with an subsets 
+
+E1 ⊂ E2 ⊂ E, e /∈ E2, and consistent partial realizations AV (E1) and AV (E2) of E1 and E2,respectively such that 
+
+Gain (e, E 1 | AV (E1)) ≤ ϵ · Gain (e, E 2 | AV (E2)).
+
+Proof. Consider a star with two leaves such that the center c has probability ϵ both leaves, say 
+
+a and b have probability 1, and both edges (one to each leaf) has weight 1. Then take E1 = ∅,
+
+E2 = ca , and e = cb . For the partial realizations, AV (E1) = ∅ is trivial, and we take AV (E2) = {c, a }
+
+(i.e. the center c is active). Then we have 
+
+Gain (e, E 1 | AV (E1)) = EA[1c∈A1b∈A] = Pr( c ∈ A) = ϵ. 
+
+On the other hand, the marginal gain of probing cb when we already know that the center is active is 
+
+Gain (e, E 2 | AV (E2)) = EA[1c∈A1b∈A | A ∩ { c, a } = {c, a }] = 1 ,
+
+as required. 
+
+# C Alternate Adaptivity Gap Lower Bound 
+
+Lemma 1.4. The adaptivity gap of BayesProbe is Ω( |V |2) or Ω( |E|).Proof. We define an instance of BayesProbe with G = ( V, E ), where E = K ∪ M , where K is a complete graph on vertex set V and M is a perfect matching on V (assume |V | is even). We write 
+
+n = |V |. Then for each edge e ∈ K, we set se = n and we = 1. For each edge e ∈ M , we set se = 2
+
+> n
+
+and we = 0. For every vertex v ∈ V , we set pv = 1 
+
+> n
+
+. We take the query budget to be B = n + 1. This completes the description of our instance. Note that |E| = Θ( n2), so it suffices to show an adaptivity gap lower bound of Ω( n2). First, we analyze the optimal non-adaptive policy. We observe that every edge in K gives expected reward  
+
+> 1
+> n2
+
+, and every edge in M gives expected reward 0. Thus, Opt N A queries a single edge from K to obtain expected reward E[Opt N A ] = 1 
+
+> n2
+
+.On the other hand, consider the following adaptive policy: First query all n 
+
+> 2
+
+-many matching edges, which costs n 
+
+> 2
+
+· 2n = 1 unit of the budget. Afterwards, we know exactly which vertices are ac-tive/inactive. If there are at least 2 active vertices, which happens with probability Ω(1), then we spend the remaining n units of budget to query a single such edge from K to obtain reward 1. We conclude, E[Opt A] = Ω(1), which gives the desired gap. 30
