@@ -1,0 +1,898 @@
+Title: Curvature-Informed Potential Energy Surface for Protein-Ligand Binding Affinity Prediction
+
+URL Source: https://arxiv.org/pdf/2606.14217v1
+
+Published Time: Mon, 15 Jun 2026 00:43:09 GMT
+
+Number of Pages: 17
+
+Markdown Content:
+> IEEE TRANSACTIONS AND JOURNALS TEMPLATE 1
+
+# Curvature-Informed Potential Energy Surface for Protein-Ligand Binding Affinity Prediction 
+
+Peng-Fei Sun, Chuan-Xian Ren ∗, Hong Yan 
+
+Abstract — Accurate prediction of protein-ligand bind-ing affinity is essential for structure-based drug dis-covery. Recent geometric deep learning methods have achieved promising performance by representing protein-ligand complexes as three-dimensional graphs. However, most existing approaches mainly rely on static interac-tion geometry from a single bound conformation, while neglecting molecular flexibility and binding-induced con-formational changes. To address this limitation, we pro-pose a curvature-informed potential energy surface (CPES) graph neural network for protein-ligand binding affinity prediction, which incorporates physics-informed curvature representations to model conformational flexibility. CPES first derives curvature spectral descriptors from the Hes-sian of the potential energy surface evaluated at equi-librium configurations, whose eigenvalues define the lo-cal principal curvatures of the potential energy surface. It then uses spectral cross-attention to compare the un-bound ligand and protein with the bound complex, thereby capturing binding-induced changes in conformational dy-namics. In parallel, hierarchical protein-ligand interaction representations are learned from static structural features through geometry-aware message passing, soft clustering, and bidirectional cross-attention. Finally, CPES fuses the curvature-informed dynamic representations with static in-teraction representations for affinity regression. Extensive evaluations on multiple benchmark datasets demonstrate that CPES achieves improved predictive performance and offers physical interpretability. 
+
+Index Terms — protein-ligand binding affinity, graph neu-ral networks, inductive bias, structural dynamics, cross-attention. 
+
+I. I NTRODUCTION 
+
+# ACCURATE estimation of protein-ligand binding affin-ity, which reflects the strength of interaction between a biomolecular target and a small-molecule ligand, consti-tutes a cornerstone of structure-based drug discovery [1]–[4]. This quantity underlies key stages of the discovery pipeline, 
+
+This work is supported in part by National Key R&D Program of China (2024YFA1011900), National Natural Science Foundation of China (62376291), Guangdong Basic and Applied Basic Research Foundation (2023B1515020004), Science and Technology Program of Guangzhou (2024A04J6413), and in part by the Hong Kong Innovation and Technology Commission (ITC) (InnoHK Project CIMDA) and the Institute of Digital Medicine of City University of Hong Kong (Project 9229503). (Corresponding author: Chuan-Xian Ren.) 
+
+P.F. Sun and C.X. Ren are with the School of Mathematics, Sun Yat-Sen University, Guangzhou, Guangdong 510275, China (e-mail: rchuanx@mail.sysu.edu.cn). H. Yan is with the Department of Electrical Engineering, City University of Hong Kong, Hong Kong. The code are available at https://github.com/Peng-Fei-Sun/CPES. 
+
+including compound prioritization [5], lead refinement [6], and rational drug design [7], and is commonly quantified using dissociation or inhibition constants such as Kd and 
+
+Ki. While experimental techniques offer reliable affinity mea-surements, their high cost, limited throughput, and substantial time requirements hinder large-scale exploration of chemical space. Thus, computational modeling has become an essential module of modern drug discovery, enabling efficient screening and ranking of candidate compounds [8]. The increasing availability of experimentally resolved protein-ligand complex structures, together with curated affinity annotations, has fur-ther stimulated the adoption of machine learning approaches for data-driven affinity prediction [9], [10]. Despite these advances, accurately capturing protein-ligand binding affinity remains a challenging task, owing to the intricate and context-dependent nature of molecular interactions, which continues to limit the effectiveness of existing learning-based models [11]. Recent advances in machine learning, particularly geomet-ric deep learning, have substantially improved protein-ligand binding affinity prediction [12]–[14]. Existing methods can be broadly categorized into interaction-free and interaction-based approaches [12]. Interaction-free methods [15]–[17] represent ligands using fingerprints, SMILES, or 2D graphs and model proteins as sequences, intentionally omitting explicit atomic interactions for simplicity. In contrast, interaction-based mod-els [18]–[28] represent protein-ligand complexes as three-dimensional graphs or grids and explicitly model atomic in-teractions and spatial relationships. By introducing geometric inductive biases that are more closely aligned with physical binding mechanisms, these interaction-based approaches have demonstrated superior predictive performance compared with sequence-based and handcrafted descriptor methods, and have become a dominant paradigm for protein-ligand interaction modeling, particularly when implemented using interaction graph neural networks. A more detailed discussion of related works and additional references is provided in Supplement I. Despite their success, most existing graph-based ap-proaches, including state-of-the-art interaction-based methods, still implicitly treat protein-ligand complexes as rigid entities and rely primarily on static geometric features extracted from a single bound conformation. Such assumptions overlook the inherently dynamic nature of molecular binding, which occurs over ensembles of conformations rather than fixed structures. Moreover, most methods do not explicitly account for the discrepancy in conformational dynamics between the apo (unbound) and holo (bound) states of protein-ligand com-  
+
+> arXiv:2606.14217v1 [cs.LG] 12 Jun 2026 2IEEE TRANSACTIONS AND JOURNALS TEMPLATE
+> Fig. 1. Overview of the CPES framework. CPES integrates curvature-informed dynamic modeling with geometry-aware structural learning. Eigenmodes characterize conformational flexibility and collective motions (small red arrows indicate molecular motion trends). Cross-attention is applied in both dynamic and static branches to capture binding-related interactions. By combining dynamic and structural information, the framework provides a physically meaningful representation for protein-ligand binding affinity prediction.
+
+plexes. From a biophysical perspective, protein-ligand binding is governed by the underlying potential energy surface, which governs the relative stability and conformational flexibility of apo and holo states. Although explicitly computing the full potential energy surface is computationally infeasible at scale, its local structure encodes essential information about molecular stiffness and flexibility that can be captured through curvature. Motivated by this observation, we incorporate descrip-tors inspired by such local conformational energy variations as curvature-informed priors within geometric representation learning and propose a curvature-informed potential energy surface (CPES) graph neural network for protein-ligand bind-ing affinity prediction. By integrating these priors into ahierarchical protein-ligand graph framework, CPES captures molecular flexibility and dynamic compatibility alongside in-teraction geometry, capturing both protein-ligand interactions and binding-induced conformational changes. In summary, the main contributions of our work are as follows.  
+
+> •
+
+A physical energy curvature-informed inductive bias is SUN et al. : CURVATURE-INFORMED POTENTIAL ENERGY SURFACE FOR PROTEIN-LIGAND BINDING AFFINITY PREDICTION 3
+
+introduced for protein-ligand binding affinity prediction. We formulate the binding affinity prediction from aphysics-informed perspective and argue that incorporat-ing energy-related geometric information reflecting phys-ical and biological binding mechanisms is critical for generalization and interpretability.  
+
+> •
+
+A curvature-informed potential energy surface (CPES) graph neural network is proposed for geometric rep-resentation learning. CPES integrates curvature-derived descriptors, defined as the eigenvalues of the Hessian of the potential energy surface at equilibrium (i.e., the principal curvatures), enabling the model to capture molecular flexibility and dynamic compatibility beyond static interaction geometry.  
+
+> •
+
+CPES models the discrepancy between apo (unbound) and holo (bound) conformational dynamics via cross-attention over curvature-informed representations, captur-ing binding-induced conformational changes and achiev-ing improved predictive performance and more biologi-cally meaningful modeling across diverse benchmarks. 
+
+II. C URVATURE OF THE POTENTIAL ENERGY SURFACE 
+
+The stability and flexibility of protein-ligand systems in configuration space are fundamentally governed by the local curvature of the potential energy surface near equilibrium. The potential energy function defines how the system’s energy varies with molecular conformation, and under physiological conditions, conformational fluctuations are typically confined to small deviations around an equilibrium or metastable state. Consequently, the local shape of the potential energy surface in this region provides a natural physical description of con-formational behavior. Consider a system composed of N interaction sites, whose configuration is described by the Cartesian coordinate vector 
+
+q ∈ R3N ,
+
+where each triplet corresponds to the three-dimensional posi-tion of a site. Let q0 denote an equilibrium conformation. In the vicinity of q0, the potential energy function V (q) can be expanded as 
+
+V (q) = V (q0) + ∇V (q0)⊤(q − q0)+ 12 (q − q0)⊤H(q − q0) + o ∥q − q0∥2 ,
+
+where ∇V (q0) is the first derivative of the potential energy, and H ∈ R3N ×3N is the Hessian matrix with elements 
+
+Hij = ∂2V∂q i∂q j q=q0
+
+.
+
+At equilibrium, the net force acting on the system vanishes, implying ∇V (q0) = 0. Under this condition, the local shape of the potential energy surface is fully determined by the second-order term, and the Hessian provides a complete description of local curvature. Because the Hessian is a real symmetric matrix constructed from second derivatives of the potential energy, it admits an orthogonal spectral decomposition 
+
+H = Φ Λ Φ ⊤, Λ = diag( λ1, λ 2, . . . , λ 3N ),
+
+where the columns of Φ define orthonormal mode directions. In this eigenbasis, the second-order variation of the potential energy is fully decoupled, such that each eigenvalue λk di-rectly quantifies the local curvature of the energy surface along orthogonal directions, which can be interpreted as principal curvatures in a generalized high-dimensional setting. At a local minimum of the potential energy, all non-zero eigenval-ues are positive, each eigenvalue corresponds to the second-order variation of the potential energy along its associated eigenvector and therefore quantifies the local curvature in that direction. Eigenvalues that are exactly zero correspond to motions that do not change the internal potential energy. For three-dimensional molecular systems, the Hessian therefore typically exhibits at least six zero eigenvalues, associated with rigid-body translations and rotations. In summary, the spectral structure of the Hessian provides a compact and physically interpretable characterization of the local curvature of the potential energy surface. Low-curvature modes dominate conformational changes because displace-ments along these directions are energetically inexpensive, allowing large-scale collective rearrangements, whereas high-curvature modes strongly resist deformation. This curvature-based perspective motivates the use of low-curvature spectral information to describe global flexibility and collective con-formational behavior in subsequent modeling. 
+
+SE(3) Invariance of the Hessian Eigenvalues. To ensure that curvature-based descriptors are independent of the global coordinate frame, we note that the eigenvalue spectrum of the Hessian is invariant under rigid-body transformations in SE(3). Because the potential energy depends only on internal geometric relationships, it is invariant under global rigid-body transformations. In particular, global translations do not alter the Hessian matrix, as second derivatives of the potential energy are unaffected by constant shifts of the coordinates. Global rotations correspond to orthogonal changes of basis in the 3N-dimensional configuration space, under which the Hessian undergoes an orthogonal similarity transformation. Such transformations preserve the eigenvalue spectrum, im-plying that Hessian eigenvalues are invariant under SE(3) transformations, while the corresponding eigenvectors rotate with the coordinate frame. This property can be formally stated as the following proposition. 
+
+Proposition (SE(3) equivariance of the Hessian). A po-tential energy function and its Hessian matrix are given as follows 
+
+V (q) : R3N → R,
+
+H(q) = ∇2V (q) = ∂2V (q)
+
+∂q ∂q⊤ ∈ R3N ×3N . (1) The potential energy function depends only on the internal geometric relations of the system and is invariant under global rigid-body transformations. Specifically, for any rotation and any translation R ∈ SO(3) , t ∈ R3, (R, t) ∈ SE(3) define 
+
+Q = diag( R, . . . , R
+
+| {z }
+
+> N
+
+) ∈ R3N ×3N ,
+
+c = ( t, . . . , t
+
+| {z }
+
+> N
+
+) ∈ R3N .4 IEEE TRANSACTIONS AND JOURNALS TEMPLATE 
+
+The SE(3)-transformed configuration is given by 
+
+q′ = Q q + c.
+
+Then, under an SE(3) transformation, the potential energy function V ′(q′) and its Hessian matrix H′(q′) satisfy 
+
+V ′(q′) ≡ V (q), H′(q′) = Q H (q) Q⊤. (2) The equality V ′(q′) ≡ V (q) follows directly from the physical invariance of the potential energy under global rigid-body transformations. The corresponding relation for the Hessian matrix H′(q′) = Q H (q) Q⊤ is a mathematical consequence of this invariance and can be rigorously derived via the chain rule under coordinate reparameterization (detailed derivation is provided in Supplement II). Since Q is an orthogonal matrix satisfying Q⊤Q = I,the relation between the Hessian matrices before and after the SE(3) transformation constitutes an orthogonal similarity transformation. Consequently, the eigenvalues of the Hessian are invariant, while the eigenvectors transform covariantly with the coordinate system, i.e., 
+
+λ′ 
+
+> k
+
+= λk, φ′ 
+
+> k
+
+= Q φk, k = 1 , . . . , 3N − 6, (3) where k indexes the normal modes of the Hessian matrix excluding the rigid-body zero modes. 
+
+III. M ETHODS 
+
+A. Descriptors of Potential Energy Function Curvature 
+
+To obtain a computable approximation of the second-order geometry of the potential energy surface, we adopt the anisotropic network model (ANM) to represent the potential energy function in the vicinity of a reference configuration. The core assumptions of ANM are encoded in the functional form of the potential energy: near the reference configuration the potential energy depends solely on inter-node distance fluctuations and is approximated by an anisotropic harmonic form 
+
+V (q) = 12
+
+X
+
+> (i,j )∈E
+
+ ∥rij ∥ − ∥ r0 
+
+> ij
+
+∥2 .
+
+Here, ri ∈ R3 denotes the three-dimensional coordinate vector of node i, rij = rj −ri denotes the relative displacement vector between nodes i and j in the current configuration, r0 
+
+> ij
+
+=
+
+r0 
+
+> j
+
+−r0 
+
+> i
+
+denotes the corresponding relative displacement vector in the reference configuration, and E is the set of undirected interacting node pairs. This formulation implicitly assumes small-amplitude fluctuations compatible with the harmonic approximation and, critically, that each interaction constrains motion only along its reference direction while transverse displacements do not contribute to the restoring force. For each interacting pair i and j, a unit direction vector is defined as 
+
+eij = r0
+
+> ij
+
+∥r0 
+
+> ij
+
+∥ ,
+
+which specifies the geometric orientation of the interaction in three-dimensional space. Since the potential energy is sensitive only to distance changes along this direction, the second-order contribution of the interaction naturally takes the form of a projection onto eij , leading to the local stiffness matrix which characterizes the resistance of a local molecular region to small structural perturbations, i.e., 
+
+Kij = eij e⊤ 
+
+> ij
+
+∈ R3×3.
+
+This rank-one matrix penalizes only displacement components aligned with the interaction direction while leaving transverse motions unconstrained, thereby providing a direct mathemat-ical realization of the anisotropic assumption. The global Hessian is assembled from these 3 × 3 stiffness blocks Kij 
+
+in an edge-wise manner. For each undirected interacting node pairs (i, j ) ∈ E , the following block updates are applied 
+
+Hii += Kij , Hjj += Kij ,
+
+Hij −= Kij , Hji −= Kij , (4) where Hij ∈ R3×3 denotes the (i, j )-th 3 × 3 sub-block of the Hessian matrix. This construction corresponds to expanding the quadratic energy contribution of each interaction and, by construction, ensures symmetry, positive semidefiniteness, and invariance of the potential energy under rigid-body transla-tions. From this edge-wise assembly, the characteristic block structure of the Hessian becomes evident: off-diagonal blocks encode pairwise couplings, while diagonal blocks accumulate contributions from all interactions incident to each node. Accordingly, the assembled Hessian admits the following piecewise representation 
+
+Hij =
+
+
+
+−Kij , i̸ = j, (i, j ) ∈ E ,
+
+X
+
+> k:( i,k )∈E
+
+Kik , i = j, 
+
+0, otherwise .
+
+(5) In the construction of Eqs. (4) and (5), the Hessian matrix 
+
+H exhibits a typical graph-Laplacian-like block structure. The diagonal blocks are given by the summation of all neighboring edge contributions, whereas the off-diagonal blocks are given by the negative contribution of the corresponding edge. This form generalizes the classical scalar graph Laplacian L =
+
+D − A (where D denotes the degree matrix and A denotes the adjacency matrix) to a vector-valued graph Laplacian, where each edge (i, j ) is assigned a 3 × 3 anisotropic stiffness matrix Kij rather than a single scalar weight. Therefore, H
+
+can be viewed as a second-order elliptic discrete operator defined on the space of node displacement vectors, and its quadratic form directly corresponds to the elastic potential energy of the system around the reference conformation. This perspective unifies the stiffness matrix in mechanics within the framework of spectral graph theory, providing a natural algebraic foundation for the subsequent eigendecomposition and low-frequency spectral feature extraction. Following Hessian construction, symmetric eigendecompo-sition is performed 
+
+H φk = λkφk,
+
+where the eigenvalues λk quantify the local curvature of the potential energy surface along orthogonal normal modes φk.SUN et al. : CURVATURE-INFORMED POTENTIAL ENERGY SURFACE FOR PROTEIN-LIGAND BINDING AFFINITY PREDICTION 5
+
+To remove rigid-body and near-zero modes, a relative cutoff is applied, retaining only modes satisfying 
+
+λk > ε, ε = εrel max  
+
+> k
+
+|λk|.
+
+Among the remaining modes (we apply εrel = 1 e-6), the smallest Ku eigenvalues are selected as global descriptors of potential energy function curvature. Under the harmonic approximation, the eigendecomposition of the Hessian reveals that low-frequency eigenvalues correspond to the flattest di-rections of the potential energy surface and thus dominate global flexibility and conformational accessibility. A logarith-mic transform with standard numerical stabilization yields the graph-level curvature feature 
+
+u = [ln λ1, ln λ2, . . . , ln λKu ] .
+
+The above procedure is applied consistently across different conformational states. The only difference lies in how the node set and the undirected interaction edge set E are constructed. We build descriptors for the unbound ligand, the unbound protein, and the bound complex, yielding ulig , upro , ucpx 
+
+respectively. 
+
+1) Unbound Ligand: The node set Vlig consists of ligand atoms, and the interaction set Elig contains intra-ligand covalent bonds. The ligand Hessian and its spectral feature are 
+
+Hlig = H(Vlig , Elig ), ulig =
+
+h
+
+ln λlig  
+
+> 1
+
+, . . . , ln λlig 
+
+> Kul
+
+i
+
+. (6) This feature characterizes the intrinsic curvature spectrum and low-frequency flexibility of the ligand in the unbound state. 
+
+2) Unbound Protein: The node set Vpro consists of protein residues represented by Cα atoms. The interaction set Epro is defined on the residue graph by projecting atomic covalent connectivity onto residue-residue interactions. Accordingly, 
+
+Hpro = H(Vpro , Epro ), upro =
+
+h
+
+ln λpro  
+
+> 1
+
+, . . . , ln λpro 
+
+> Kup
+
+i
+
+. (7) This feature captures the intrinsic curvature spectrum of the protein pocket in the unbound state. 
+
+3) Bound Complex: For the bound complex, ligand and protein nodes are unified as Vcpx = Vlig ∪ V pro , and the interaction set includes intra-ligand interactions Elig , intra-protein interactions Epro , and inter-molecular interactions Einter .The inter-molecular set is defined by a distance cutoff hyper-parameter dcutoff , i.e., 
+
+Einter = {(i, j ) | i ∈ V lig , j ∈ V pro , ∥ri − rj ∥ < d cutoff } . (8) Thus Ecpx = Elig ∪ E pro ∪ E inter and the bound complex Hessian is constructed 
+
+Hcpx = H(Vcpx , Ecpx ), ucpx = ln λcpx  
+
+> 1
+
+, . . . , ln λcpx 
+
+> Kuc
+
+ . (9) Since Hcpx explicitly introduces ligand-protein couplings, the graph-level feature ucpx represents the curvature spectrum of the bound-state ligand-protein complex rather than a trivial concatenation of unbound spectra of them. To ensure a consistent dimensionality of the spectral de-scriptors, we apply a padding strategy when the number of non-zero eigenvalues is smaller than the predefined spectral size (i.e., Kul , Kup , or Kuc ). Specifically, if the available non-zero eigenvalues are insufficient, the remaining entries are filled by repeating the last (i.e., largest-index) non-zero eigenvalue. 
+
+B. Cross-Attention on Binding-Induced Conformational Changes 
+
+To characterize binding-induced conformational changes, we introduce a spectral cross-attention mechanism that explic-itly aligns and contrasts conformational responses among the unbound ligand, the unbound protein, and the bound ligand-protein complex. Unlike representations derived purely from static structures, this mechanism focuses on binding-induced changes in conformational response patterns, i.e., how the system redistributes its sensitivity to dynamic perturbations across conformational directions. Physically, such differences can be interpreted as changes in the curvature of the potential energy surface, and the resulting attention weights provide a data-driven indication of which conformational directions are most strongly reshaped upon binding. Let d denote the hidden dimension. We construct spectral representations for the ligand, protein, and complex as de-scribed above 
+
+ulig ∈ RKul , upro ∈ RKup , ucpx ∈ RKuc ,
+
+where Kul , Kup , Kuc denote the numbers of retained spec-tral modes. Intuitively, each spectral component characterizes the stiffness or response magnitude along a particular con-formational direction, facilitating quantitative comparison of binding-induced differences in conformational responses. Each spectral scalar is treated as a token and embedded into a 
+
+d-dimensional feature space using a multi-layer perceptron (MLP), yielding 
+
+Ulig ∈ RKul ×d, Upro ∈ RKup ×d, Ucpx ∈ RKuc ×d.
+
+To contrast conformational response patterns before binding (ligand or protein) and after binding (complex), we apply spectral cross-attention, where ligand or protein spectra serve as query and complex spectra serve as key and value. For 
+
+s ∈ { lig , pro }, the query, key, and value matrices are given by 
+
+Qs = UsW(s) 
+
+> Q
+
+∈ RKus ×d,
+
+K(s) 
+
+> cpx
+
+= Ucpx W(s) 
+
+> K
+
+∈ RKuc ×d,
+
+V(s) 
+
+> cpx
+
+= Ucpx W(s) 
+
+> V
+
+∈ RKuc ×d,
+
+where Kus = Kul for s = lig , Kus = Kup for s = pro. 
+
+W(s) 
+
+> Q
+
+, W(s) 
+
+> K
+
+, W(s) 
+
+> V
+
+∈ Rd×d are learnable weight matrices. The spectral cross-attention is then computed as 
+
+eUs→c = softmax Qs K(s)⊤
+
+> cpx
+
+√d
+
+!
+
+V(s) 
+
+> cpx
+
+∈ RKus ×d.
+
+This formulation uses the bound complex as a reference to match and reweight ligand or protein contributions across spectral modes, thereby emphasizing conformational direc-tions that are most altered upon binding. In this way, the attention distribution implicitly captures structured differences 6 IEEE TRANSACTIONS AND JOURNALS TEMPLATE 
+
+in conformational responses and, consequently, in the cur-vature of the potential energy surface between the unbound components and the bound complex. Finally, we aggregate the sequence-level responses into a graph-level vector and combine them with a query-side resid-ual, resulting in a potential energy surface (PES) curvature-aware representation 
+
+g(s) 
+
+> CurvPES
+
+= MLP 
+
+> Kus
+
+X
+
+> i=1
+
+eUs→c,i 
+
+!
+
++
+
+> Kus
+
+X
+
+> i=1
+
+Us,i ∈ Rd. (10) This representation summarizes binding-induced changes in conformational response patterns and captures interpretable features related to variations in energy curvature. 
+
+C. The Framework of CPES 
+
+An overview of the CPES framework is illustrated in Fig. 1. CPES follows a dual-branch architecture that integrates geometry-aware static interaction modeling with curvature-informed potential energy surface (PES) dynamics. Given a complex graph G = ( V, E) the node set is defined as V =
+
+Vlig ∪ V pro , and the edge set as E = Eintra ∪ E inter (where 
+
+Eintra = Elig ∪ E pro ), representing intra-molecular and inter-molecular interactions, respectively. Each atom is associated with an initial feature vector and a three-dimensional coordi-nate. These atom-level features are first mapped into a hidden representation space through a learnable embedding layer. The static branch employs graph neural networks (GNNs) over both intra-molecular and inter-molecular edges of the complex graph to capture structural interaction information. Based on the atom-level representations, soft clustering is applied separately to the ligand and protein subgraphs to obtain hierarchical cluster-level features, denoted as Zlig and 
+
+Zpro . A bidirectional cross-attention module is then introduced between ligand and protein clusters to capture key structural interaction regions, yielding two graph-level static represen-tations g(lig ) 
+
+> static
+
+and g(pro ) 
+
+> static
+
+(see Supplement III for detailed formulations and architectural descriptions). In parallel, the curvature-informed PES branch uses the Hes-sian eigenspectrum to characterize conformational flexibility and collective dynamics beyond static interaction geometry. As defined in Eq. (10), this branch compares the unbound ligand and protein with the bound complex in the spectral space, producing g(lig ) 
+
+> CurvPES
+
+and g(pro ) 
+
+> CurvPES
+
+to describe curvature-based conformational response differences upon binding. Finally, CPES fuses the static and curvature-informed dy-namic representations at the graph level, i.e., 
+
+g = g(lig ) 
+
+> static
+
++ g(pro ) 
+
+> static
+
++ g(lig ) 
+
+> CurvPES
+
++ g(pro )
+
+> CurvPES
+
+. (11) A final MLP-based regressor maps the fused representation to the predicted binding affinity ˆy = f (g). The model is trained by minimizing the mean squared error loss Lmse =
+
+> 1
+> N
+
+PNn=1 (ˆ yn − yn)2, with yn and ˆyn denoting the experi-mental and predicted binding affinities of the n-th sample, respectively. 
+
+D. Implementation Details 
+
+We implement CPES based on the PyTorch Geometric (PyG) framework, with PyTorch serving as the backend. Ex-periments are conducted on NVIDIA GeForce RTX 4080 GPU with 16 GB of memory. The model parameters are optimized using the Adam optimizer with an initial learning rate of 
+
+1×10 −4 and a weight decay of 1×10 −6 to mitigate overfitting. To further stabilize the training process, we employ a learning rate scheduler, which monitors the validation performance and reduces the learning rate by a factor of 0.5 if no improvement is observed for 50 consecutive epochs. Source codes are available at https://github.com/Peng-Fei-Sun/CPES. 
+
+IV. E XPERIMENTS 
+
+In this section, we first assess cross-dataset generalization performance on widely used PDBbind benchmarks and the external CSAR NRC-HiQ dataset. We then conduct ablation studies to examine the contributions of the curvature-informed PES descriptors and attention modules, followed by inter-pretability analyses that reveal how CPES captures both key binding sites and binding-related dynamic modes. Due to the limited space, additional experimental settings and extended results are provided in Supplement IV. 
+
+A. Cross-Dataset Generalization 
+
+Datasets. For a fair comparison, we strictly follow the experimental protocols used in prior works. We adopt the PDBbind dataset and use the same data splits as in GIGN [27] and CheapNet [28]. All baseline models as well as our proposed CPES are trained and evaluated under this unified data splitting scheme, ensuring a strictly controlled and fair comparison across different methods. This setup enables a re-liable assessment of cross-dataset generalization performance. We train the model on 11,903 samples from the PDBbind 2016 general set, with 1,000 samples used for validation. The evaluation is conducted on three widely used benchmark test sets: (i) the CASF-2013 benchmark (107 samples), (ii) the CASF-2016 benchmark (285 samples), both derived from the PDBbind core set, and (iii) a PDBbind 2019 holdout test set consisting of 4,366 complexes that are non-overlapping with the aforementioned splits. 
+
+Comparison with Baselines. We compare CPES with a diverse set of representative baselines, covering interaction-free methods, interaction-based methods, and interaction-based methods with attention mechanisms. The interaction-free cat-egory includes DeepDTA [15], GraphDTA (with GCN, GAT, GIN, and GAT-GCN) [16], MGraphDTA [17]. The interaction-based category comprises RF-Score [29], Pafnucy [9], Onion-Net [30], PotentialNet [18], SchNet [19], GNN-DTI [20], IGN [21], EGNN [22], GIGN [27], MetalProGNet [31], SS-GNN [32], and EHIGN [33]. The interaction-based methods with attention mechanisms include AttentionSiteDTI [23], CAPLA [24], GAABind [25], DEAttentionDTA [26], and CheapNet [28]. These methods further introduce attention-based designs to enhance the modeling of important interaction patterns or informative regions. Our proposed CPES belongs to this family but further integrates curvature-informed dynamic descriptors, SUN et al. : CURVATURE-INFORMED POTENTIAL ENERGY SURFACE FOR PROTEIN-LIGAND BINDING AFFINITY PREDICTION 7
+
+TABLE I PERFORMANCE COMPARISON OF CPES AND BASELINES ON THE 2013 CORE SET , 2016 CORE SET , AND THE 2019 HOLDOUT SET 
+
+Model 2013 core set 2016 core set 2019 holdout set RMSE ↓ Pearson ↑ RMSE ↓ Pearson ↑ RMSE ↓ Pearson ↑
+
+Interaction-free DeepDTA [15] 1.639 (0.026) 0.718 (0.014) 1.357 (0.015) 0.785 (0.007) 1.485 (0.023) 0.586 (0.012) GraphDTA-GCN [16] 1.749 (0.062) 0.662 (0.032) 1.513 (0.048) 0.719 (0.023) 1.763 (0.039) 0.439 (0.021) GraphDTA-GAT [16] 2.043 (0.029) 0.476 (0.022) 1.748 (0.019) 0.594 (0.010) 1.663 (0.027) 0.432 (0.016) GraphDTA-GIN [16] 1.691 (0.124) 0.694 (0.059) 1.470 (0.065) 0.743 (0.027) 1.676 (0.032) 0.472 (0.021) GraphDTA-GAT-GCN [16] 1.645 (0.085) 0.711 (0.036) 1.434 (0.064) 0.754 (0.025) 1.705 (0.075) 0.474 (0.028) MGraphDTA [17] 1.680 (0.093) 0.696 (0.046) 1.439 (0.047) 0.753 (0.022) 1.553 (0.028) 0.538 (0.013) Interaction-based RF-Score [29] 1.616 (0.010) 0.776 (0.003) 1.488 (0.001) 0.785 (0.001) 1.406 (0.001) 0.618 (0.001) Pafnucy [9] 1.517 (0.014) 0.783 (0.005) 1.450 (0.047) 0.769 (0.019) 1.438 (0.016) 0.612 (0.014) OnionNet [30] 1.583 (0.079) 0.741 (0.037) 1.399 (0.076) 0.770 (0.027) 1.510 (0.034) 0.573 (0.014) PotentialNet [18] 1.607 (0.027) 0.773 (0.010) 1.503 (0.033) 0.772 (0.007) 1.514 (0.028) 0.564 (0.014) SchNet [19] 1.570 (0.029) 0.754 (0.030) 1.390 (0.023) 0.787 (0.016) 1.522 (0.071) 0.560 (0.028) GNN-DTI [20] 1.533 (0.084) 0.767 (0.040) 1.384 (0.013) 0.779 (0.008) 1.446 (0.006) 0.614 (0.007) IGN [21] 1.428 (0.020) 0.807 (0.001) 1.269 (0.030) 0.821 (0.013) 1.410 (0.015) 0.630 (0.008) EGNN [22] 1.498 (0.025) 0.782 (0.015) 1.289 (0.021) 0.816 (0.011) 1.399 (0.013) 0.628 (0.010) GIGN [27] 1.380 (0.009) 0.821 (0.003) 1.190 (0.017) 0.840 (0.007) 1.393 (0.007) 0.641 (0.006) MetalProGNet [31] 1.494 (0.027) 0.773 (0.012) 1.309 (0.043) 0.802 (0.013) 1.448 (0.021) 0.610 (0.009) SS-GNN [32] 1.330 (0.011) 0.830 (0.007) 1.165 (0.011) 0.846 (0.004) 1.450 (0.006) 0.633 (0.004) EHIGN [33] 1.297 (0.026) 0.841 (0.006) 1.150 (0.022) 0.854 (0.004) 1.368 (0.021) 0.667 (0.008) Interaction-based (attention mechanism) AttentionSiteDTI [23] 1.444 (0.037) 0.792 (0.014) 1.352 (0.022) 0.784 (0.008) 1.539 (0.015) 0.563 (0.004) CAPLA [24] 1.409 0.816 1.206 0.841 - -GAABind [25] 1.488 0.772 1.297 0.803 - -DEAttentionDTA [26] 1.470 0.800 1.266 0.827 - -CheapNet [28] 1.262 (0.017) 0.857 (0.004) 1.107 (0.011) 0.870 (0.002) 1.343 (0.007) 0.665 (0.003) CPES (ours) 1.193 (0.010) 0.876 (0.006) 1.101 (0.009) 0.870 (0.003) 1.321 (0.011) 0.678 (0.007) 
+
+Fig. 2. Performance comparison of CPES on the CSAR NRC-HiQ dataset with (a) RMSE and (b) Pearson. TABLE II ABLATION STUDY RESULTS OF CPES WITH VARYING SETTINGS ON THE 2013 CORE SET , 2016 CORE SET , AND THE 2019 HOLDOUT SET 
+
+Model PES Attn-S Attn-D 2013 core 2016 core 2019 holdout RMSE ↓ Pearson ↑ RMSE ↓ Pearson ↑ RMSE ↓ Pearson ↑
+
+Variant 1 ✗ ✗ ✗ 1.322 (0.051) 0.845 (0.011) 1.153 (0.045) 0.855 (0.009) 1.359 (0.026) 0.663 (0.011) Variant 2 ✗ ✓ ✗ 1.261 (0.023) 0.859 (0.008) 1.124 (0.018) 0.861 (0.005) 1.350 (0.013) 0.664 (0.007) Variant 3 ✓ ✗ ✗ 1.256 (0.019) 0.859 (0.006) 1.120 (0.028) 0.863 (0.011) 1.356 (0.025) 0.666 (0.013) Variant 4 ✓ ✓ ✗ 1.233 (0.032) 0.868 (0.013) 1.129 (0.009) 0.859 (0.008) 1.344 (0.011) 0.670 (0.014) Variant 5 ✓ ✗ ✓ 1.241 (0.021) 0.861 (0.020) 1.134 (0.023) 0.868 (0.015) 1.347 (0.009) 0.662 (0.011) CPES ✓ ✓ ✓ 1.193 (0.010) 0.876 (0.006) 1.101 (0.009) 0.870 (0.003) 1.321 (0.011) 0.678 (0.007) 
+
+PES: curvature-informed descriptors derived from the potential energy surface (PES); Attn-S: attention for the static (S) structural interactions; Attn-D: attention for the dynamic (D) conformational modes. 
+
+enabling more effective modeling of both static interaction patterns and binding-related conformational compatibility. The results are summarized in Table I. As shown, CPES consis-tently achieves the best overall performance across the three benchmark test sets. 8 IEEE TRANSACTIONS AND JOURNALS TEMPLATE 
+
+B. External Evaluation on Non-PDBbind Test Set 
+
+We further evaluate CPES on the CSAR NRC-HiQ dataset [34], which serves as an external benchmark for protein-ligand binding affinity prediction outside the PDBbind dataset. Following the evaluation protocol of CheapNet [28], we remove complexes that cannot be processed by RDKit and exclude those overlapping with the training data, resulting in 14 samples for evaluation. Fig. 2 presents the comparison between CPES and other interaction-based methods. CPES achieves the best performance among all compared models, with an RMSE of 1.102 and a Pearson correlation coefficient of 0.938, consistently outperforming existing ap-proaches on both metrics. These results highlight the strong generalization capability of CPES, which can be attributed to its curvature-informed inductive bias on conformational dynamics, enabling effective modeling of complex protein-ligand interactions in external datasets. 
+
+C. Ablation Study 
+
+To evaluate the contribution of each component in CPES, we conduct an ablation study by systematically removing the curvature-informed descriptors derived from the potential energy surface (PES), the static attention module (Attn-S) that captures structure-based interactions at the protein–ligand interface, and the dynamic attention module (Attn-D) that models conformational flexibility through spectral represen-tations of collective modes. The results on the 2013 core set, 2016 core set, and the 2019 holdout set are summarized in Table II. Overall, CPES consistently achieves the best performance across all datasets, demonstrating the effectiveness of jointly modeling static interactions and dynamic information under the conformational curvature-informed inductive bias. First, removing all three components (Variant 1) leads to the worst performance, indicating that the baseline model without these mechanisms is insufficient to capture the complexity of protein-ligand binding. Introducing the static attention mod-ule alone (Variant 2) yields noticeable improvements over Variant 1, suggesting that modeling static interactions at the binding interface is beneficial. Similarly, incorporating only the PES descriptors (Variant 3) also improves performance, highlighting the importance of curvature-informed geometric features. When both PES and Attn-S are included (Vari-ant 4), the performance is further enhanced, indicating that curvature-aware representations and static interaction model-ing are complementary. On the other hand, introducing the dynamic attention module (Variant 5) leads to additional gains, demonstrating the value of capturing conformational flexibility through spectral representations. Notably, the incorporation of PES consistently improves performance across all variants, indicating that curvature-informed descriptors provide mean-ingful inductive bias beyond purely geometric representations. Moreover, the dynamic attention module further enhances performance, particularly on the 2019 holdout set, suggesting its effectiveness in capturing binding-induced flexibility and improving generalization to unseen complexes. 
+
+D. Interpretability of CPES 
+
+To investigate whether the improved performance of CPES is accompanied by meaningful physical interpretability, we analyze the cross-attention patterns in both the static structural space and the dynamic modal space. We explicitly combines structural interaction learning with conformational curvature-informed dynamical descriptors. The attention maps offer a direct way to examine how these two information streams contribute to affinity prediction. Fig. 3(a) and (b) illustrate the bidirectional cross-attention between ligand and protein clusters in the static structural representation. The horizontal and vertical axes correspond to cluster indices, since atoms are grouped into clusters via soft clustering in the preceding representation learning stage. Fig. 3(a) shows the ligand-to-protein attention, where each row of the heatmap is normalized to sum to one, indicating how each ligand cluster distributes its attention over protein clusters. Fig. 3(b), on the other hand, presents the protein-to-ligand attention, where each column is normalized, reflecting how each protein cluster allocates attention to ligand clusters. The cross-attention maps of static structural representation is sparse and nonuniform, with only a limited number of cluster pairs receiving strong responses. This indicates that the static structural component of CPES identifies a subset of structurally important interaction regions at the binding interface. Such selective emphasis is desirable, since protein-ligand recognition is typically dominated by a limited number of critical local interactions. By comparison, Fig. 3(c) and (d) exhibit a notably different pattern in the dynamic modal space. For clearer visualization and compact figure presentation, the padded ligand and pro-tein modes are removed. Instead of the discrete, particle-like distributions observed in Fig. 3(a, b), the attention maps in Fig. 3(c, d) appear smoother and more gradually varying along the complex mode axis, with attention predominantly concen-trated in the low-index modal region and then progressively decaying toward higher modes. In other words, while the static attention mainly identifies localized structural binding sites, the dynamic attention reflects a broader distribution over the modal spectrum and emphasizes a small set of dominant low-frequency collective motions. This difference indicates that the two branches of CPES provide complementary interpretability: the static branch identifies key structural interaction regions, whereas the dynamic branch characterizes binding-relevant dynamical coordination at the level of collective modes. Fig. 3(e) and (f) aggregate the attention contributions from ligand modes or protein modes to each complex mode, resulting in mean attention distributions over the complex mode spectrum. This mean attention can be interpreted as the overall level of attention that the unbound ligand or protein collectively assigns to each mode of the bound complex. This compression reduces the detailed pairwise information in the original attention maps, but offers a clearer view of the overall distribution trend. In addition, the cumulative attention curves further illustrate how the attention mass accumulates across the complex modes. For both ligand-to-complex and protein-to-complex attention, the mean attention distributions exhibit SUN et al. : CURVATURE-INFORMED POTENTIAL ENERGY SURFACE FOR PROTEIN-LIGAND BINDING AFFINITY PREDICTION 9
+
+Fig. 3. Visualization of cross-attention across static structures and dynamic modes for the complex with PDB ID 3myg. (a,b) Bidirectional cross-attention maps between ligand and protein clusters in the static structural representation. (c,d) Cross-attention maps from ligand modes and protein modes to complex modes in the dynamic representation. (e,f) Mean attention distributions across complex modes for ligand-to-complex (L2C) and protein-to-complex (P2C) attention, together with their cumulative attention curves. In both cases, the attention is mainly concentrated on the low-index complex modes, suggesting that the model preferentially focuses on a small number of dominant collective motions. 
+
+Fig. 4. Scatter plots of the attention mode indices for the L2C and P2C dynamic modes cross-attention on the (a) 2013 core set, (b) 2016 core set, and (c) 2019 holdout set. Blue points denote the peak mode indices of the mean attention distributions, while gray points denote the mode indices at which the cumulative attention reaches 80%. Marginal histograms on the top and right show the corresponding distributions along the L2C and P2C axes, respectively. 
+
+peaks in the low-index region of the complex mode spectrum, while the cumulative attention curves increase rapidly at early modes and then flatten progressively. These trends show that most of the dynamical attention scores are captured by only a small number of low-index complex modes. Since low-index modes usually correspond to slow, large-scale, and cooperative motions, this suggests that CPES preferentially exploits the dominant collective motions that are most likely to be relevant to conformational adaptation and molecular recognition. To further summarize this behavior across test samples, we plot the peak attention mode index and the 80% cumu-lative attention index of the ligand-to-complex and protein-to-complex attentions in Fig. 4. The blue points represent the peak modes receiving the maximum mean attention, and the 10 IEEE TRANSACTIONS AND JOURNALS TEMPLATE 
+
+gray points represent the mode indices at which the cumulative attention reaches 80%. It can be observed that the peak indices are consistently concentrated near the lowest-index region, indicating that the strongest dynamic responses are dominated by early complex modes. In addition, the scatter distributions exhibit a bias toward smaller L2C indices, suggesting stronger preference of the ligand-to-complex attention for low-index complex modes. Meanwhile, the 80% cumulative indices remain distributed within a relatively limited spectral range, suggesting that most of the attention mass can already be cap-tured by only a subset of low-frequency complex modes rather than being broadly distributed across the entire spectrum. The marginal distributions further support this observation, showing that both the peak indices and the 80% cumulative indices remain concentrated within the low-frequency region of the complex mode spectrum. These results provide sample-level evidence that CPES systematically emphasizes dominant collective motions of the bound complex during cross-attention for dynamic modes. 
+
+V. C ONCLUSION 
+
+In this work, we proposed CPES, a curvature-informed po-tential energy surface graph neural network for protein-ligand binding affinity prediction. By introducing Hessian eigenspec-trum descriptors derived from the anisotropic network model (ANM), our model incorporates curvature-informed PES rep-resentations into molecular representation learning. Extensive experiments across diverse benchmark datasets demonstrate that CPES achieves competitive predictive performance to-gether with robust generalization capability. Ablation studies further confirm the effectiveness of the PES curvature de-scriptors and both the static and dynamic attention modules. Moreover, interpretability analyses reveal that the static branch identifies sparse binding-relevant interaction regions, whereas the dynamic branch consistently focuses on low-frequency collective modes of the bound complex, highlighting the importance of collective conformational dynamics in protein-ligand binding. The results demonstrate that PES curvature provides an effective physical inductive bias by characterizing molecular conformational flexibility and collective dynamics beyond static interaction geometry. In future work, we will explore more accurate physical energy models and broader applications of curvature-informed potential energy surface representations in structure-based drug discovery tasks, such as flexible docking and virtual screening. 
+
+REFERENCES 
+
+[1] D. S. Spassov, “Binding affinity determination in drug design: Insights from lock and key, induced fit, conformational selection, and inhibitor trapping models,” International Journal of Molecular Sciences , vol. 25, no. 13, p. 7124, 2024. [2] M. K. Gilson and H.-X. Zhou, “Calculation of protein-ligand binding affinities,” Annual Review of Biophysics , vol. 36, pp. 21–42, 2007. [3] L. Wang et al. , “Accurate and reliable prediction of relative ligand binding potency in prospective drug discovery by way of a modern free-energy calculation protocol and force field,” Journal of the American Chemical Society , vol. 137, no. 7, pp. 2695–2703, 2015. [4] I. A. Sedov and Y. F. Zuev, “Protein–ligand interactions: Recent ad-vances in biophysics, biochemistry, and bioinformatics,” International Journal of Molecular Sciences , vol. 26, no. 19, p. 9576, 2025. [5] D. B. Kitchen, H. Decornez, J. R. Furr, and J. Bajorath, “Docking and scoring in virtual screening for drug discovery: methods and applications,” Nature Reviews Drug Discovery , vol. 3, no. 11, pp. 935– 949, 2004. [6] M. J. Waring et al. , “An analysis of the attrition of drug candidates from four major pharmaceutical companies,” Nature Reviews Drug Discovery ,vol. 14, no. 7, pp. 475–486, 2015. [7] W. L. Jorgensen, “The many roles of computation in drug discovery,” 
+
+Science , vol. 303, no. 5665, pp. 1813–1818, 2004. [8] J. W. Scannell, A. Blanckley, H. Boldon, and B. Warrington, “Diag-nosing the decline in pharmaceutical R&D efficiency,” Nature Reviews Drug Discovery , vol. 11, no. 3, pp. 191–200, 2012. [9] M. M. Stepniewska-Dziubinska, P. Zielenkiewicz, and P. Siedlecki, “De-velopment and evaluation of a deep learning model for protein–ligand binding affinity prediction,” Bioinformatics , vol. 34, no. 21, pp. 3666– 3674, 2018. [10] Y. Wang, S. Wu, Y. Duan, and Y. Huang, “A point cloud-based deep learning strategy for protein–ligand binding affinity prediction,” 
+
+Briefings in Bioinformatics , vol. 23, no. 1, p. bbab474, 2022. [11] A. Dhakal, C. McKay, J. J. Tanner, and J. Cheng, “Artificial intelligence in the prediction of protein–ligand interactions: recent advances and future directions,” Briefings in Bioinformatics , vol. 23, no. 1, p. bbab476, 2022. [12] H. Wang, “Prediction of protein–ligand binding affinity via deep learning models,” Briefings in Bioinformatics , vol. 25, no. 2, p. bbae081, 2024. [13] Y. Wang, Q. Jiao, J. Wang, X. Cai, W. Zhao, and X. Cui, “Prediction of protein-ligand binding affinity with deep learning,” Computational and Structural Biotechnology Journal , vol. 21, pp. 5796–5806, 2023. [14] K. Atz, F. Grisoni, and G. Schneider, “Geometric deep learning on molecular representations,” Nature Machine Intelligence , vol. 3, no. 12, pp. 1023–1032, 2021. [15] H. ¨Ozt¨ urk, A. ¨Ozg¨ ur, and E. Ozkirimli, “DeepDTA: deep drug–target binding affinity prediction,” Bioinformatics , vol. 34, no. 17, pp. i821– i829, 2018. [16] T. Nguyen, H. Le, T. P. Quinn, T. Nguyen, T. D. Le, and S. Venkatesh, “GraphDTA: predicting drug–target binding affinity with graph neural networks,” Bioinformatics , vol. 37, no. 8, pp. 1140–1147, 2021. [17] Z. Yang, W. Zhong, L. Zhao, and C. Yu-Chian Chen, “MGraphDTA: deep multiscale graph neural network for explainable drug–target bind-ing affinity prediction,” Chemical Science , vol. 13, no. 3, pp. 816–833, 2022. [18] E. N. Feinberg et al. , “PotentialNet for Molecular Property Prediction,” 
+
+ACS Central Science , vol. 4, no. 11, pp. 1520–1530, 2018. [19] K. Sch U Tt, P.-J. Kindermans, H. E. Sauceda Felix, S. Chmiela, A. Tkatchenko, and K.-R. M U Ller, “SchNet: A continuous-filter convolutional neural network for modeling quantum interactions,” in 
+
+Advances in Neural Information Processing Systems , 2017. [20] J. Lim, S. Ryu, K. Park, Y. J. Choe, J. Ham, and W. Y. Kim, “Predicting Drug–Target Interaction Using a Novel Graph Neural Network with 3D Structure-Embedded Graph Representation,” Journal of Chemical Information and Modeling , vol. 59, no. 9, pp. 3981–3988, 2019. [21] D. Jiang et al. , “InteractionGraphNet: A Novel and Efficient Deep Graph Representation Learning Framework for Accurate Protein–Ligand Interaction Predictions,” Journal of Medicinal Chemistry , vol. 64, no. 24, pp. 18 209–18 232, 2021. [22] V. G. Satorras, E. Hoogeboom, and M. Welling, “E(n) Equivariant Graph Neural Networks,” in Proceedings of the 38th International Conference on Machine Learning , 2021, pp. 9323–9332. [23] M. Yazdani-Jahromi et al. , “AttentionSiteDTI: an interpretable graph-based model for drug-target interaction prediction using NLP sentence-level relation classification,” Briefings in Bioinformatics , vol. 23, no. 4, p. bbac272, 2022. [24] Z. Jin et al. , “CAPLA: improved prediction of protein–ligand binding affinity by a deep learning approach based on a cross-attention mecha-nism,” Bioinformatics , vol. 39, no. 2, p. btad049, 2023. [25] H. Tan, Z. Wang, and G. Hu, “GAABind: a geometry-aware attention-based network for accurate protein–ligand binding pose and binding affinity prediction,” Briefings in Bioinformatics , vol. 25, no. 1, p. bbad462, 2024. [26] X. Chen et al. , “DEAttentionDTA: protein–ligand binding affinity pre-diction based on dynamic embedding and self-attention,” Bioinformatics ,vol. 40, no. 6, p. btae319, 2024. SUN et al. : CURVATURE-INFORMED POTENTIAL ENERGY SURFACE FOR PROTEIN-LIGAND BINDING AFFINITY PREDICTION 11 
+
+[27] Z. Yang, W. Zhong, Q. Lv, T. Dong, and C. Yu-Chian Chen, “Geo-metric Interaction Graph Neural Network for Predicting Protein–Ligand Binding Affinities from 3D Structures (GIGN),” The Journal of Physical Chemistry Letters , vol. 14, no. 8, pp. 2020–2033, 2023. [28] H. Lim, S. Kim, and S. Lee, “CheapNet: Cross-attention on Hierarchical representations for Efficient protein-ligand binding Affinity Prediction,” in The Thirteenth International Conference on Learning Representa-tions , 2025. [29] P. J. Ballester and J. B. O. Mitchell, “A machine learning approach to predicting protein–ligand binding affinity with applications to molecular docking,” Bioinformatics , vol. 26, no. 9, pp. 1169–1175, 2010. [30] L. Zheng, J. Fan, and Y. Mu, “OnionNet: a Multiple-Layer Intermolecular-Contact-Based Convolutional Neural Network for Pro-tein–Ligand Binding Affinity Prediction,” ACS Omega , vol. 4, no. 14, pp. 15 956–15 965, 2019. [31] D. Jiang et al. , “MetalProGNet: a structure-based deep graph model for metalloprotein–ligand interaction predictions,” Chemical Science ,vol. 14, no. 8, pp. 2054–2069, 2023. [32] S. Zhang et al. , “SS-GNN: A Simple-Structured Graph Neural Network for Affinity Prediction,” ACS Omega , vol. 8, no. 25, pp. 22 496–22 507, 2023. [33] Z. Yang, W. Zhong, Q. Lv, T. Dong, G. Chen, and C. Y.-C. Chen, “Interaction-Based Inductive Bias in Graph Neural Networks: Enhancing Protein-Ligand Binding Affinity Predictions From 3D Structures,” IEEE Transactions on Pattern Analysis and Machine Intelligence , vol. 46, no. 12, pp. 8191–8208, 2024. [34] J. B. Jr. Dunbar et al. , “CSAR Data Set Release 2012: Ligands, Affinities, Complexes, and Docking Decoys,” Journal of Chemical Information and Modeling , vol. 53, no. 8, pp. 1842–1852, 2013. 12 IEEE TRANSACTIONS AND JOURNALS TEMPLATE 
+
+# Curvature-Informed Potential Energy Surface for Protein-Ligand Binding Affinity Prediction (Supplementary Information) 
+
+This supplementary information provides additional dis-cussions, theoretical derivations, architectural details, and extended experimental results that complement the main manuscript. A broader discussion of related works is included, covering molecular dynamics and energy-based approaches, geometric deep learning methods for protein-ligand binding affinity prediction, as well as classical conformational dy-namics methods such as normal mode analysis (NMA) and anisotropic network models (ANM), together with additional references. Detailed derivations of the SE(3) equivariance property of the Hessian and the invariance of its eigenvalue spectrum under rigid-body transformations are presented. Ad-ditional descriptions of the CPES framework are also provided, particularly for the geometry-aware static interaction branch. More experimental details and extended results are further included, including dataset processing procedures, evaluation settings, experiments on dissimilar protein scenarios, and analyses of different graph construction strategies. 
+
+I. A DDITIONAL DISCUSSION ON RELATED WORKS 
+
+A. Molecular Dynamics and Energy-Based Approaches 
+
+Molecular dynamics (MD) simulations constitute a fun-damental class of physics-based approaches for modeling protein-ligand binding by explicitly describing atomic mo-tions under physically grounded force fields. By integrating Newtonian equations of motion, MD enables the exploration of conformational ensembles and provides mechanistic in-sights into binding phenomena such as induced fit, confor-mational selection, and binding-unbinding pathways [1], [2]. Beyond classical MD, several complementary energy-based approaches have been developed for protein-ligand docking and binding affinity prediction [3]. Quantum chemical meth-ods, including density functional theory (DFT), model protein-ligand interactions by explicitly describing electronic structure and polarization effects, but their high computational cost limits their applicability to small systems or localized regions [4], [5]. Despite their physical rigor, these energy-based meth-ods typically require substantial computational resources and long simulation timescales, limiting their practicality for large-scale screening or dataset-level affinity prediction [6]–[9]. This limitation motivates the development of deep learning-based approaches that incorporate physically meaningful energy-inspired cues while maintaining scalability and efficiency. 
+
+B. Geometric Deep Learning for Protein-Ligand Binding Affinity Prediction 
+
+Geometric deep learning (GDL) has emerged as a powerful paradigm for learning from structured data by generalizing neural networks to non-Euclidean domains such as graphs, manifolds, and meshes [10]. Within this framework, graph neural networks (GNNs) have become the de facto choice for learning with graph-structured data [11]–[15], owing to their ability to model relational information through message passing while incorporating geometric priors and symmetry properties. By explicitly encoding invariance or equivariance to transformations such as translation, rotation, and permuta-tion [16]–[20], geometric deep learning architectures achieve improved accuracy and data efficiency, particularly in physi-cally grounded domains. Motivated by these properties, geometric deep learning has been widely adopted for protein-ligand binding affinity prediction and other molecular modelling [21]–[24]. Graph-based models represent protein-ligand complexes as three-dimensional graphs, where nodes correspond to atoms and edges encode covalent or non-covalent interactions, enabling explicit modeling of spatial relationships and atomic inter-actions. Compared with sequence-based or descriptor-driven approaches, such interaction-based models introduce inductive biases that are more closely aligned with physical binding mechanisms and have demonstrated superior performance across diverse benchmarks. Representative frameworks include interaction graph neural networks (IGNNs), such as GIGN [25], which integrate physically meaningful interactions into invariant message-passing schemes, as well as hierarchical models like CheapNet [26] that aggregate atom-level rep-resentations into cluster-level interactions via differentiable pooling and cross-attention. Despite these advances, most existing geometric deep learning approaches still rely on static representations derived from a single bound conformation, implicitly treating protein-ligand complexes as rigid enti-ties and overlooking conformational flexibility and binding-induced dynamics. This limitation motivates the development of models that incorporate physically informed inductive bi-ases beyond static interaction geometry. 
+
+C. Inductive Bias from Conformational Energy Distributions 
+
+Inductive bias plays a central role in machine learning by shaping how models generalize beyond observed data [27]– [29]. For protein-ligand binding affinity prediction, inductive biases that reflect underlying physical and biological mecha-nisms are particularly important, as they encourage representa-tions that capture causal structure-function relationships rather than superficial correlations, among which conformational energy distributions play a central role in shaping molecular stability and adaptability [30]–[32]. SUN et al. : CURVATURE-INFORMED POTENTIAL ENERGY SURFACE FOR PROTEIN-LIGAND BINDING AFFINITY PREDICTION 13 
+
+From a biophysical perspective, protein-ligand binding does not occur between rigid structures but rather involves ensem-bles of conformations characterized by an underlying potential energy function. The accessibility of binding-competent states and binding-induced conformational changes is governed by the local curvature of the energy function in the vicinity of stable conformations. While explicitly sampling full con-formational energy distributions using molecular dynamics is computationally prohibitive at scale, the local behavior of the potential energy function already encodes essential information about molecular flexibility. Classical approaches such as normal mode analysis (NMA) [33]–[38] and elastic network models [39]–[42] leverage this observation by approx-imating the local curvature of the potential energy function around equilibrium conformations. By analyzing second-order variations of the energy function, these methods characterize intrinsic stiffness, collective motions, and dominant deforma-tion modes that are closely related to binding-relevant con-formational changes. Importantly, such local energy-derived descriptors provide compact, physically grounded summaries of molecular flexibility without requiring extensive sampling. Motivated by these principles, incorporating representations inspired by conformational energy distributions introduces an inductive bias that aligns learning objectives with physical binding mechanisms [43]–[45]. Rather than relying solely on static interaction geometry, energy-informed inductive biases enable models to capture how molecular systems respond to perturbations and adapt during binding, that is, conforma-tional dynamic differences between bound and unbound states, thereby improving both generalization and interpretability in protein-ligand binding affinity prediction. 
+
+II. P ROOF OF SE(3) E QUIVARIANCE OF HESSIAN 
+
+Let q ∈ R3N be the configuration vector and V : R3N → R
+
+the potential energy function. Consider an arbitrary rotation matrix R ∈ SO(3) and a translation vector t ∈ R3. Define the block-diagonal matrix 
+
+Q = diag( R, . . . , R) ∈ R3N ×3N ,
+
+and the translation vector 
+
+c = ( t, . . . , t) ∈ R3N .
+
+The global rigid-body transformation is given by 
+
+q′ = Qq + c.
+
+Assume that the potential energy depends only on the internal geometric relations of the system and is therefore invariant under such a transformation, i.e., 
+
+V ′(q′) ≡ V (q).
+
+Since R ∈ SO(3) , the induced matrix Q is orthogonal and satisfies Q⊤Q = I. Hence the transformation is invertible, with inverse 
+
+q = Q⊤(q′ − c).
+
+Consequently, V (q) can be regarded as the composite function 
+
+V (q(q′)) .Taking the gradient of both sides of the identity V ′(q′) ≡
+
+V (q(q′)) with respect to q′, the left-hand side yields 
+
+∇q′ V ′(q′), while the right-hand side is a scalar-valued com-posite function. By the chain rule for scalar functions (with the convention that gradients are column vectors), it follows that 
+
+∇q′ V  q(q′) =
+
+ ∂q
+
+∂q′
+
+⊤
+
+∇qV (q).
+
+From q = Q⊤(q′ − c), the Jacobian matrix is constant and given by 
+
+∂q
+
+∂q′ = Q⊤,
+
+where the translation vector c vanishes upon differentiation. Substituting this result yields 
+
+∇q′ V ′(q′) = Q ∇qV (q).
+
+Differentiating once more with respect to q′ gives 
+
+∇2 
+
+> q′
+
+V ′(q′) = ∇q′ (Q ∇qV (q)) .
+
+Since Q is independent of q′, it can be taken outside the derivative 
+
+∇2 
+
+> q′
+
+V ′(q′) = Q ∇q′ (∇qV (q)) .
+
+Note that ∇qV (q) is a vector-valued function from R3N to 
+
+R3N , and its first derivative with respect to q′ is a Jacobian matrix. Applying the chain rule for vector-valued composite functions, the following is derived 
+
+∇q′ (∇qV (q(q′))) =  ∇2
+
+> q
+
+V (q) ∂q
+
+∂q′ .
+
+Substituting ∂q 
+
+> ∂q′
+
+= Q⊤ yields 
+
+∇2 
+
+> q′
+
+V ′(q′) = Q  ∇2
+
+> q
+
+V (q) Q⊤.
+
+Defining H(q) = ∇2
+
+> q
+
+V (q) and H′(q′) = ∇2 
+
+> q′
+
+V ′(q′), we finally obtain 
+
+H′(q′) = Q H (q) Q⊤.
+
+This completes the proof of SE(3) equivariance of the Hessian. 
+
+III. D ETAILS OF THE CPES F RAMEWORK 
+
+Given a complex graph G = ( V, E) the node set is defined as V = Vlig ∪ V pro , and the edge set as E = Eintra ∪ E inter 
+
+(where Eintra = Elig ∪ E pro ), representing intra-molecular and inter-molecular interactions, respectively. Each node i ∈ V 
+
+is associated with an initial feature vector xi and a three-dimensional coordinate ri. Node features are first embedded into a d-dimensional hidden space via a learnable embedding function 
+
+h(0)  
+
+> i
+
+= MLP emb (xi) ∈ Rd.
+
+In the static structural branch, geometry-aware message passing is performed over both edge types Er with r ∈{intra , inter }. At layer t, a channel-wise modulation vector induced by relative geometric relations is defined as 
+
+ρ(r) 
+
+> ij
+
+= ψ(r)(∥ri − rj ∥) ∈ Rd,14 IEEE TRANSACTIONS AND JOURNALS TEMPLATE 
+
+where ψ(r)(·) is a learnable mapping that transforms inter-node distances into channel-wise modulation coefficients. The aggregated message for node i under edge type r is given by 
+
+m(r,t ) 
+
+> i
+
+= X
+
+> j:( j,i )∈E r
+
+h(t) 
+
+> j
+
+⊙ ρ(r) 
+
+> ji
+
+,
+
+where ⊙ denotes the element-wise product, enabling geometry-aware modulation of neighbor features. Node rep-resentations are then updated via a MLP transformation with residual connection, i.e., 
+
+h(intra ,t +1)  
+
+> i
+
+= MLP intra 
+
+
+
+m(intra ,t )
+
+> i
+
+
+
++ h(t) 
+
+> i
+
+,
+
+h(inter ,t +1)  
+
+> i
+
+= MLP inter 
+
+
+
+m(inter ,t )
+
+> i
+
+
+
++ h(t) 
+
+> i
+
+.
+
+The updates from intra-molecular and inter-molecular edges are fused at the node level as 
+
+h(t+1)  
+
+> i
+
+= 12
+
+
+
+h(intra , t +1)  
+
+> i
+
++ h(inter , t +1) 
+
+> i
+
+
+
+.
+
+To extract higher-level, hierarchically organized representa-tions from atom-level features, differentiable clustering pool-ing is applied separately to the ligand and protein subgraphs. For s ∈ { lig , pro }, let 
+
+Fs ∈ RNs×d, As ∈ RNs×Ns ,
+
+denote the node feature matrix and adjacency matrix, respec-tively. Ns denotes the number of nodes in the ligand or protein subgraph. A soft assignment matrix is produced by a graph neural network (GNN) 
+
+Ss = softmax(GNN s(Fs, As)) ∈ RNs×Cs ,
+
+where Cs denotes the number of clusters for subgraph s.Cluster-level representations and adjacencies are then con-structed as Zs = S⊤ 
+
+> s
+
+Fs ∈ RCs×d,
+
+eAs = S⊤ 
+
+> s
+
+AsSs ∈ RCs×Cs .
+
+After further updates on the cluster graphs, cluster-level rep-resentations Zlig and Zpro are obtained. At the cluster level, bidirectional cross-attention is employed to model static structural interactions between the ligand and the protein. The ligand-to-protein interaction is computed as 
+
+eZlig →pro = softmax Zlig W(l2p )  Zpro W(l2p )⊤
+
+√d
+
+!
+
+· Zpro W(l2p ) ∈ RClig ×d,
+
+which is aggregated into a graph-level representation with a residual connection 
+
+g(lig ) 
+
+> static
+
+= MLP (l2p )
+
+> out
+
+
+
+> Clig
+
+X
+
+> i=1
+
+eZlig →pro ,i 
+
+ +
+
+> Clig
+
+X
+
+> i=1
+
+Zlig ,i .
+
+Symmetrically, the protein-to-ligand interaction is given by 
+
+eZpro →lig = softmax Zpro W(p2l )  Zlig W(p2l )⊤
+
+√d
+
+!
+
+· Zlig W(p2l ) ∈ RCpro ×d,
+
+and aggregated as 
+
+g(pro ) 
+
+> static
+
+= MLP (p2l )
+
+> out
+
+
+
+> Cpro
+
+X
+
+> i=1
+
+eZpro →lig ,i 
+
+ +
+
+> Cpro
+
+X
+
+> i=1
+
+Zpro ,i .
+
+In this way, the bidirectional cross-attention module pro-duces the graph-level static representations g(lig ) 
+
+> static
+
+and g(pro )
+
+> static
+
+in Eq. (11). 
+
+IV. M ORE EXPERIMENTAL DETAILS AND RESULTS 
+
+A. Experimental Setup 
+
+1) Datasets Preparation: Our experiments are mainly con-ducted on the PDBbind dataset, which contains experimentally resolved 3D structures of protein-ligand complexes along with their binding affinities commonly defined as − log( Kd) or 
+
+− log( Ki), where Kd and Ki correspond to the dissociation and inhibition constants, respectively. The data preprocessing pipeline consists of the following steps. First, we use PyMOL to select protein residues within a distance cutoff αdis from the ligand. A residue is included if any of its atoms lies within the cutoff, and the entire residue is then retained. Water molecules and hydrogen atoms are removed. Specifically, for constructing the static structural interaction graphs, we set 
+
+αdis = 5 ˚A. For the graphs used to derive curvature-informed descriptors of dynamic conformations, we use a larger cutoff 
+
+αdis = 10 ˚A. This choice avoids insufficient graph connectivity caused by overly small cutoffs, which may otherwise result in the absence of non-zero eigenmodes in the dynamical spec-trum. Then, the ligand molecules are converted from MOL2 to PDB format using Open Babel and subsequently parsed using RDKit. Samples that cannot be processed by RDKit are discarded. Finally, the atomic coordinates, atomic features, and chemical bond information obtained from RDKit are used to construct graph representations. The spectral descriptors of dynamic conformational curvature are then derived from the connectivity structure of the graphs. In our experiments, the numbers of selected modes for the ligand, protein, and complex are set to Kul = 200 , Kup = 200 , and Kuc = 200 ,respectively. These settings retain a sufficient range of low-frequency modes for describing dynamic conformational cur-vature while maintaining manageable computational complex-ity in the subsequent cross-attention modeling. For samples with fewer available non-zero modes, the spectral sequence is padded using the last available non-zero eigenvalue to preserve the predefined input length. 
+
+2) Evaluation Metrics: To comprehensively evaluate the per-formance of the proposed model across different datasets, we adopt three widely used regression metrics, including Root Mean Square Error (RMSE), Pearson correlation coefficient, and Spearman rank correlation coefficient. RMSE measures the absolute discrepancy between predicted and ground-truth binding affinities and is particularly sensitive to large errors, thereby reflecting overall prediction accuracy. Pearson evalu-ates the linear correlation between predictions and true values, capturing the consistency of numerical trends regardless of scale differences. Spearman further assesses the monotonic relationship based on ranked values, providing a more robust SUN et al. : CURVATURE-INFORMED POTENTIAL ENERGY SURFACE FOR PROTEIN-LIGAND BINDING AFFINITY PREDICTION 15       
+
+> TABLE S1 PERFORMANCE COMPARISON OF CPES AND BASELINES ON THE LBA 30% AND LBA 60% SPLITS .
+
+Model LBA 30% LBA 60% RMSE ↓ Pearson ↑ Spearman ↑ RMSE ↓ Pearson ↑ Spearman ↑
+
+Interaction-free DeepDTA [46] 1.866 (0.080) 0.472 (0.022) 0.471 (0.024) 1.762 (0.261) 0.666 (0.012) 0.663 (0.015) SSA [47] 1.985 (0.006) 0.165 (0.006) 0.152 (0.024) 1.891 (0.004) 0.249 (0.006) 0.275 (0.008) TAPE [48] 1.890 (0.035) 0.338 (0.044) 0.286 (0.124) 1.633 (0.016) 0.568 (0.033) 0.571 (0.021) ProtTrans [49] 1.544 0.438 0.434 1.641 0.595 0.588 Pre-training EGNN-PLM [50] 1.403 (0.010) 0.565 (0.020) 0.544 (0.010) 1.559 (0.020) 0.644 (0.020) 0.646 (0.020) Uni-Mol [51] 1.434 0.565 0.540 1.357 0.753 0.750 ProFSA [52] 1.377 (0.010) 0.628 (0.010) 0.620 (0.010) 1.377 (0.010) 0.764 (0.000) 0.762 (0.010) GeoSSL [53] 1.451 0.577 0.572 - - -BindNet [54] 1.340 0.632 0.620 1.230 0.793 0.788 Interaction-based Atom3D-GNN [55] 1.601 (0.048) 0.545 (0.027) 0.533 (0.033) 1.408 (0.069) 0.743 (0.022) 0.743 (0.027) IEConv [56] 1.554 (0.016) 0.414 (0.053) 0.428 (0.032) 1.473 (0.024) 0.667 (0.011) 0.675 (0.019) Holoprot [57] 1.464 0.509 0.500 1.365 0.749 0.742 ProNet [58] 1.463 (0.001) 0.551 (0.005) 0.551 (0.008) 1.343 (0.025) 0.765 (0.009) 0.761 (0.003) LEFTNet [59] 1.366 (0.016) 0.592 (0.014) 0.580 (0.011) - - -GET [60] 1.327 (0.005) 0.620 (0.004) 0.611 (0.003) - - -CheapNet [26] 1.311 (0.003) 0.642 (0.001) 0.639 (0.010) 1.238 (0.005) 0.794 (0.002) 0.789 (0.001) CPES (ours) 1.327 (0.017) 0.651 (0.008) 0.641 (0.011) 1.217 (0.004) 0.803 (0.003) 0.802 (0.002)    
+
+> Fig. S1. Performance comparison under different intermolecular distance cutoffs dcutoff and protein representation configurations (10 ˚ A pocket versus whole protein) on the 2013 core set, 2016 core set, and the 2019 holdout set. (a) RMSE and (b) Pearson correlation coefficient are reported for each configuration. Solid bars denote the 10 ˚ A pocket representation, while hatched bars denote the whole protein representation.
+
+measure under potential non-linear dependencies. Together, these metrics offer a comprehensive evaluation from the perspectives of absolute error, linear correlation, and ranking consistency. 
+
+B. Dissimilar Protein Scenarios with Atom3D 
+
+Datasets. To further evaluate model performance under dissimilar protein scenarios, experiments are additionally con-ducted on the Ligand Binding Affinity (LBA) benchmark from the ATOM3D project [55]. The ATOM3D LBA benchmark adopts sequence-identity-based partitioning to reduce similar-ity between training and test proteins. Following the official benchmark protocol, two evaluation settings are considered: LBA30% and LBA60%, corresponding to protein sequence identity thresholds of 30% and 60% respectively. Under these settings, proteins in the test set share at most the specified sequence identity with proteins in the training set, providing a more rigorous evaluation of model robustness. 
+
+Comparison with Baselines. Table S1 compares the pro-posed model with representative interaction-free methods (e.g., TAPE [48] and ProtTrans [49]), pre-training-based approaches (e.g., Uni-Mol [51], GeoSSL [53], and BindNet [54]), and interaction-based models (e.g., ProNet [58], GET [60], and CheapNet [26]) on the ATOM3D LBA benchmarks. Overall, the proposed method achieves the best or highly competitive performance across both the LBA30% and LBA60% splits. On the LBA30% split, the proposed model achieves the highest Pearson correlation of 0.651 and Spearman correlation of 0.641. Although the RMSE on LBA30% is marginally higher than that of CheapNet and GET, the improved correlation metrics indicate better consistency in affinity ranking across 16 IEEE TRANSACTIONS AND JOURNALS TEMPLATE 
+
+structurally diverse proteins. On the LBA60% split, the pro-posed model further achieves the best overall performance. These results demonstrate strong robustness and cross-protein generalization ability under dissimilar protein scenarios. 
+
+C. Effect of Graph Construction Strategies 
+
+As defined in Eq. (8), the intermolecular distance cut-off dcutoff is used in the construction of the bound com-plex graph for dynamic mode analysis, where it determines whether ligand and protein atoms are connected through inter-molecular interaction edges according to their spatial distance. Physically, this cutoff controls the range of protein-ligand coupling considered when deriving curvature-informed dynamic descriptors. An overly small cutoff may miss relevant local inter-molecular couplings, whereas an overly large cutoff may introduce redundant or noisy long-range connections. To investigate its influence, we evaluate the model under different 
+
+dcutoff values and protein representation configurations, as shown in Fig. S1. The whole protein representation uses the complete protein structure provided in the dataset, while the pocket representation retains entire protein residues selected within αdis = 10 ˚A of the ligand. Overall, dcutoff = 3 ˚Aachieves the best performance across the benchmark test sets, suggesting that an appropriate cutoff effectively captures key local protein-ligand coupling patterns while avoiding excessive noisy connections. In addition, using the 10 ˚A binding pocket consistently outperforms or matches the whole protein rep-resentation. This observation indicates that incorporating the entire protein does not necessarily improve affinity prediction. These results demonstrate that focusing on the local binding environment provides more informative dynamic and structural patterns for the model. 
+
+REFERENCES 
+
+[1] M. Karplus and J. A. McCammon, “Molecular dynamics simulations of biomolecules,” Nature Structural Biology , vol. 9, no. 9, pp. 646–652, 2002. [2] R. O. Dror, R. M. Dirks, J. P. Grossman, H. Xu, and D. E. Shaw, “Biomolecular Simulation: A Computational Microscope for Molecular Biology,” Annual Review of Biophysics , vol. 41, pp. 429–452, 2012. [3] D. L. Mobley and M. K. Gilson, “Predicting Binding Free Energies: Frontiers and Benchmarks,” Annual Review of Biophysics , vol. 46, pp. 531–558, 2017. [4] R. G. Parr, Density functional theory of atoms and molecules . Springer, 1989. [5] H. M. Senn and W. Thiel, “QM/MM Methods for Biomolecular Sys-tems,” Angewandte Chemie International Edition , vol. 48, no. 7, pp. 1198–1229, 2009. [6] R. Abel, L. Wang, E. D. Harder, B. J. Berne, and R. A. Friesner, “Ad-vancing Drug Discovery through Enhanced Free Energy Calculations,” 
+
+Accounts of Chemical Research , vol. 50, no. 7, pp. 1625–1632, 2017. [7] W. Jespers, J. ˚Aqvist, and H. Guti´ errez-de Ter´ an, “Free Energy Cal-culations for Protein–Ligand Binding Prediction,” in Protein-Ligand Interactions and Drug Design , ser. Protein-Ligand Interactions and Drug Design, F. Ballante, Ed. Springer US, 2021. [8] D. M. York, “Modern Alchemical Free Energy Methods for Drug Discovery Explained,” ACS Phys Chem Au , vol. 3, no. 6, pp. 478–491, 2023. [9] E. King, E. Aitchison, H. Li, and R. Luo, “Recent Developments in Free Energy Calculations for Drug Discovery,” Front Mol Biosci , vol. 8, p. 712085, 2021. [10] M. B. M., B. J., L. Y., S. A., and V. P., “Geometric Deep Learning: Going beyond Euclidean data,” IEEE Signal Processing Magazine , vol. 34, no. 4, pp. 18–42, 2017. [11] J. Bruna, “Spectral networks and locally connected networks on graphs,” 
+
+arXiv preprint arXiv:1312.6203 , 2013. [12] M. Defferrard, X. Bresson, and P. Vandergheynst, “Convolutional neural networks on graphs with fast localized spectral filtering,” in Advances in Neural Information Processing Systems , 2016. [13] T. N. Kipf, “Semi-supervised classification with graph convolutional networks,” arXiv preprint arXiv:1609.02907 , 2016. [14] K. Xu, W. Hu, J. Leskovec, and S. Jegelka, “How powerful are graph neural networks?” in International Conference on Learning Represen-tations , 2019. [15] Y. Li, C. Gu, T. Dullien, O. Vinyals, and P. Kohli, “Graph Matching Networks for Learning the Similarity of Graph Structured Objects,” in 
+
+Proceedings of the 36th International Conference on Machine Learning ,2019, pp. 3835–3845. [16] C. Taco and W. Max, “Group Equivariant Convolutional Networks,” in 
+
+Proceedings of The 33rd International Conference on Machine Learning ,2016, pp. 2990–2999. [17] N. Thomas et al. , “Tensor field networks: Rotation-and translation-equivariant neural networks for 3d point clouds,” arXiv preprint arXiv:1802.08219 , 2018. [18] F. Fuchs, D. Worrall, V. Fischer, and M. Welling, “SE(3)-transformers: 3d roto-translation equivariant attention networks,” in Advances in neural information processing systems , 2020, pp. 1970–1981. [19] M. Finzi, S. Stanton, P. Izmailov, and A. G. Wilson, “Generalizing Con-volutional Neural Networks for Equivariance to Lie Groups on Arbitrary Continuous Data,” in Proceedings of Machine Learning Research , 2020, pp. 3165–3176. [20] S. Eismann, R. J. L. Townshend, N. Thomas, M. Jagota, B. Jing, and R. O. Dror, “Hierarchical, rotation-equivariant neural networks to select structural models of protein complexes,” Proteins: Structure, Function, and Bioinformatics , vol. 89, no. 5, pp. 493–501, 2021. [21] J. Gilmer, S. S. Schoenholz, P. F. Riley, O. Vinyals, and G. E. Dahl, “Neural Message Passing for Quantum Chemistry,” in Proceedings of the 34th International Conference on Machine Learning , 2017, pp. 1263– 1272. [22] R. J. L. Townshend et al. , “Geometric deep learning of RNA structure,” 
+
+Science , vol. 373, no. 6558, pp. 1047–1051, 2021. [23] P. Gainza et al. , “Deciphering interaction fingerprints from protein molecular surfaces using geometric deep learning,” Nature Methods ,vol. 17, no. 2, pp. 184–192, 2020. [24] M. H. S. Segler, T. Kogej, C. Tyrchan, and M. P. Waller, “Generating Focused Molecule Libraries for Drug Discovery with Recurrent Neural Networks,” ACS Central Science , vol. 4, no. 1, pp. 120–131, 2018. [25] Z. Yang, W. Zhong, Q. Lv, T. Dong, and C. Yu-Chian Chen, “Geo-metric Interaction Graph Neural Network for Predicting Protein–Ligand Binding Affinities from 3D Structures (GIGN),” The Journal of Physical Chemistry Letters , vol. 14, no. 8, pp. 2020–2033, 2023. [26] H. Lim, S. Kim, and S. Lee, “CheapNet: Cross-attention on Hierarchical representations for Efficient protein-ligand binding Affinity Prediction,” in The Thirteenth International Conference on Learning Representa-tions , 2025. [27] A. Goyal and Y. Bengio, “Inductive biases for deep learning of higher-level cognition,” Proceedings of the Royal Society A: Mathematical, Physical and Engineering Sciences , vol. 478, no. 2266, p. 20210068, 2022. [28] Y. LeCun, Y. Bengio, and G. Hinton, “Deep learning,” Nature , vol. 521, no. 7553, pp. 436–444, 2015. [29] N. Rahaman et al. , “On the Spectral Bias of Neural Networks,” in 
+
+Proceedings of the 36th International Conference on Machine Learning ,2019, pp. 5301–5310. [30] L. Dong, X. Qu, Y. Zhao, and B. Wang, “Prediction of Binding Free Energy of Protein–Ligand Complexes with a Hybrid Molecular Mechan-ics/Generalized Born Surface Area and Machine Learning Method,” ACS Omega , vol. 6, no. 48, pp. 32 938–32 947, 2021. [31] H.-J. Lee, P. S. Emani, and M. B. Gerstein, “Improved Prediction of Ligand–Protein Binding Affinities by Meta-modeling,” Journal of Chemical Information and Modeling , vol. 64, no. 23, pp. 8684–8704, 2024. [32] T. Harren, T. Gutermuth, C. Grebner, G. Hessler, and M. Rarey, “Modern machine-learning for binding affinity estimation of protein–ligand com-SUN et al. : CURVATURE-INFORMED POTENTIAL ENERGY SURFACE FOR PROTEIN-LIGAND BINDING AFFINITY PREDICTION 17 
+
+plexes: Progress, opportunities, and challenges,” WIREs Computational Molecular Science , vol. 14, no. 3, p. e1716, 2024. [33] F. Tama and Y. H. Sanejouand, “Conformational change of proteins arising from normal mode calculations,” Protein Engineering , vol. 14, no. 1, pp. 1–6, 2001. [34] I. Bahar and A. J. Rader, “Coarse-grained normal mode analysis in structural biology,” Current Opinion in Structural Biology , vol. 15, no. 5, pp. 586–592, 2005. [35] J. Ma, “Usefulness and Limitations of Normal Mode Analysis in Modeling Dynamics of Biomolecular Complexes,” Structure , vol. 13, no. 3, pp. 373–380, 2005. [36] I. Bahar, T. R. Lezon, A. Bakan, and I. H. Shrivastava, “Normal Mode Analysis of Biomolecular Structures: Functional Mechanisms of Membrane Proteins,” Chemical Reviews , vol. 110, no. 3, pp. 1463–1497, 2010. [37] H. Wako and S. Endo, “Normal mode analysis as a method to derive protein dynamics information from the Protein Data Bank,” Biophys Rev ,vol. 9, no. 6, pp. 877–893, 2017. [38] J. R. L´ opez-Blanco, J. I. Aliaga, E. S. Quintana-Ort´ ı, and P. Chac´ on, “iMODS: internal coordinates normal mode analysis server,” Nucleic Acids Research , vol. 42, no. W1, pp. W271–W276, 2014. [39] A. R. Atilgan, S. R. Durell, R. L. Jernigan, M. C. Demirel, O. Keskin, and I. Bahar, “Anisotropy of Fluctuation Dynamics of Proteins with an Elastic Network Model,” Biophysical Journal , vol. 80, no. 1, pp. 505– 515, 2001. [40] E. Eyal, L.-W. Yang, and I. Bahar, “Anisotropic network model: sys-tematic evaluation and a new web interface,” Bioinformatics , vol. 22, no. 21, pp. 2619–2627, 2006. [41] B. Isin, K. C. Tirupula, Z. N. Oltvai, J. Klein-Seetharaman, and I. Bahar, “Identification of motions in membrane proteins by elastic network models and their experimental validation,” Methods Mol Biol , vol. 914, pp. 285–317, 2012. [42] M. H. Kim, B. H. Lee, and M. K. Kim, “Robust elastic network model: A general modeling for precise understanding of protein dynamics,” 
+
+Journal of Structural Biology , vol. 190, no. 3, pp. 338–347, 2015. [43] Y. Chiang, W.-H. Hui, and S.-W. Chang, “Encoding protein dynamic information in graph representation for functional residue identification,” 
+
+Cell Reports Physical Science , vol. 3, no. 7, p. 100975, 2022. [44] Y. Min et al. , “From Static to Dynamic Structures: Improving Binding Affinity Prediction with Graph-Based Deep Learning,” Advanced Sci-ence , vol. 11, no. 40, p. 2405404, 2024. [45] S. Cain, A. Risheh, and N. Forouzesh, “A Physics-Guided Neural Network for Predicting Protein–Ligand Binding Free Energy: From Host–Guest Systems to the PDBbind Database,” Biomolecules , vol. 12, no. 7, p. 919, 2022. [46] H. ¨Ozt¨ urk, A. ¨Ozg¨ ur, and E. Ozkirimli, “DeepDTA: deep drug–target binding affinity prediction,” Bioinformatics , vol. 34, no. 17, pp. i821– i829, 2018. [47] T. Bepler and B. Berger, “Learning protein sequence embeddings using information from structure,” in International Conference on Learning Representations , 2019. [48] R. Rao et al. , “Evaluating Protein Transfer Learning with TAPE,” in 
+
+Advances in Neural Information Processing Systems , 2019. [49] E. A. et al. , “ProtTrans: Toward Understanding the Language of Life Through Self-Supervised Learning,” IEEE Transactions on Pattern Anal-ysis and Machine Intelligence , vol. 44, no. 10, pp. 7112–7127, 2022. [50] F. Wu, L. Wu, D. Radev, J. Xu, and S. Z. Li, “Integration of pre-trained protein language models into geometric deep learning networks,” 
+
+Communications Biology , vol. 6, no. 1, p. 876, 2023. [51] G. Zhou et al. , “Uni-Mol: A Universal 3D Molecular Representation Learning Framework,” in The Eleventh International Conference on Learning Representations , 2023. [52] B. Gao et al. , “Self-supervised Pocket Pretraining via Protein Fragment-Surroundings Alignment,” in The Twelfth International Conference on Learning Representations , 2024. [53] S. Liu, H. Guo, and J. Tang, “Molecular Geometry Pretraining with SE(3)-Invariant Denoising Distance Matching,” in The Eleventh Inter-national Conference on Learning Representations , 2023. [54] S. Feng, M. Li, Y. Jia, W.-Y. Ma, and Y. Lan, “Protein-ligand binding representation learning from fine-grained interactions,” in The Twelfth International Conference on Learning Representations , 2024. [55] R. J. L. Townshend et al. , “ATOM3D: Tasks on Molecules in Three Di-mensions,” in Thirty-fifth Conference on Neural Information Processing Systems Datasets and Benchmarks Track (Round 1) , 2021. [56] P. Hermosilla et al. , “Intrinsic-Extrinsic Convolution and Pooling for Learning on 3D Protein Structures,” in International Conference on Learning Representations , 2021. [57] V. R. Somnath, C. Bunne, and A. Krause, “Multi-Scale Representation Learning on Proteins,” in Advances in Neural Information Processing Systems , 2021, pp. 25 244–25 255. [58] L. Wang, H. Liu, Y. Liu, J. Kurtin, and S. Ji, “Learning Hierarchical Protein Representations via Complete 3D Graph Networks,” in The Eleventh International Conference on Learning Representations , 2023. [59] W. Du et al. , “A new perspective on building efficient and expressive 3D equivariant graph neural networks,” in Advances in Neural Information Processing Systems , 2023, pp. 66 647–66 674. [60] X. Kong, W. Huang, and Y. Liu, “Generalist Equivariant Transformer Towards 3D Molecular Interaction Learning,” in Forty-first International Conference on Machine Learning , 2024.

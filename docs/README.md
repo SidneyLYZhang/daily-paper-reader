@@ -6,59 +6,56 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-06-14
-- 运行时间：2026-06-14 21:38:37 UTC
+- 最新运行日期：2026-06-15
+- 运行时间：2026-06-15 22:16:10 UTC
 - 运行状态：成功
-- 本次总论文数：13
-- 精读区：2
-- 速读区：11
+- 本次总论文数：12
+- 精读区：5
+- 速读区：7
 
 ### 今日简报（AI）
-今日精读2篇高分强化学习论文（9.0及8.0分），速读11篇，涵盖多任务技能迁移与隐状态递归推理。最值得关注的是《Learning to Adapt》中表示学习驱动的多任务强化学习和《Demystifying Hidden-State Recurrence》中策略性隐状态推理机制。建议普通读者优先精读这两篇，理解如何通过表征适配与可控递归提升RL泛化能力。
-- 详情：[/202606/14/README](/202606/14/README)
+今日精读2篇高分论文（均9.0/10）及速读7篇，覆盖深度学习理论与几何建模前沿。最值得关注的方向：深度学习的不确定性估计与泛化界，以及分布数据的可扩展黎曼度量匹配。建议普通读者优先精读这两篇高分论文，打好现代机器学习理论基础。
+- 详情：[/202606/15/README](/202606/15/README)
 
 ### 精读区论文标签
-1. [Learning to Adapt: Representation-Based Reinforcement Learning for Multi-Task Skill Transfer](/202606/14/2606.12890v1-learning-to-adapt-representation-based-reinforcement-learning-for-multi-task-skill-transfer)  
+1. [Uncertainty Estimation and Generalization Bounds for Modern Deep Learning](/202606/15/2606.13818v1-uncertainty-estimation-and-generalization-bounds-for-modern-deep-learning)  
+   标签：评分：9.0/10、query:npl-bdl-saig
+   evidence：贝叶斯深度学习、变分推理、泛化界
+2. [Riemannian Metric Matching for Scalable Geometric Modeling of Distributions](/202606/15/2606.14334v1-riemannian-metric-matching-for-scalable-geometric-modeling-of-distributions)  
+   标签：评分：9.0/10、query:ml-theory
+   evidence：黎曼度量匹配学习数据几何
+3. [Causal Object-Centric Models for Planning with Monte Carlo Tree Search](/202606/15/2606.14418v1-causal-object-centric-models-for-planning-with-monte-carlo-tree-search)  
    标签：评分：9.0/10、query:rl-semantic
-   evidence：使用谱MDP分解进行多任务强化学习中的状态表示学习
-2. [Demystifying Hidden-State Recurrence: Switchable Latent Reasoning with On-Policy Reinforcement Learning](/202606/14/2606.13106v1-demystifying-hidden-state-recurrence-switchable-latent-reasoning-with-on-policy-reinforcement-learning)  
+   evidence：基于槽结构潜在空间的模型强化学习规划
+4. [Latent Diffusion Policy: Shaping Latent Spaces for Diffusion-Based Robotic Manipulation](/202606/15/2606.08657v1-latent-diffusion-policy-shaping-latent-spaces-for-diffusion-based-robotic-manipulation)  
    标签：评分：8.0/10、query:rl-semantic
-   evidence：基于在线强化学习的潜在推理；隐藏状态递归
+   evidence：为基于扩散的机器人操作策略塑造隐空间
+5. [Structure-Conditioned Actor-Critic Branches for Quality-Diversity Reinforcement Learning](/202606/15/2606.08735v1-structure-conditioned-actor-critic-branches-for-quality-diversity-reinforcement-learning)  
+   标签：评分：8.0/10、query:rl-semantic
+   evidence：提出结构条件化的演员-评论家分支，用于强化学习中的状态表示学习
 
 ### 速读区论文标签
-1. [Conditional Random Ordered Transport Spaces](/202606/14/2606.08113v1-conditional-random-ordered-transport-spaces)  
+1. [Cruise Ship-Associated Andes Virus Cluster aboard MV Hondius, 2026: A Stochastic Scenario Analysis](/202606/15/2606.08391v1-cruise-ship-associated-andes-virus-cluster-aboard-mv-hondius-2026-a-stochastic-scenario-analysis)  
    标签：评分：7.0/10、query:npl-bdl-saig
-   evidence：条件随机有序传输空间，具有信息几何特点
-2. [Bayesian Probing on Graphs](/202606/14/2606.09729v1-bayesian-probing-on-graphs)  
+   evidence：应用随机建模和近似贝叶斯计算进行流行病情景分析
+2. [Generalizing Geometry-Guided Mamba as a Plug-and-Play Context Module for CNN-based Semantic Segmentation](/202606/15/2606.08866v1-generalizing-geometry-guided-mamba-as-a-plug-and-play-context-module-for-cnn-based-semantic-segmentation)  
+   标签：评分：7.0/10、query:ml-theory
+   evidence：几何引导的Mamba用于语义分割；几何深度学习应用
+3. [Improving Robotic Generalist Policies via Flow Reversal Steering](/202606/15/2606.13675v2-improving-robotic-generalist-policies-via-flow-reversal-steering)  
+   标签：评分：7.0/10、query:rl-semantic
+   evidence：利用流反转将潜在噪声映射到动作模式，结合语义引导
+4. [Deep Spectral Learning of Embedded Latent Transfer Operators for Stochastic Dynamical Systems](/202606/15/2606.14079v1-deep-spectral-learning-of-embedded-latent-transfer-operators-for-stochastic-dynamical-systems)  
    标签：评分：7.0/10、query:npl-bdl-saig
-   evidence：引入图上带随机相关性的贝叶斯探测
-3. [PRISM: PRior-guided Imagination Sampling in world Models](/202606/14/2606.07974v1-prism-prior-guided-imagination-sampling-in-world-models)  
+   evidence：随机动力系统的隐转移算子
+5. [SHAPO: Sharpness-Aware Policy Optimization for Safe Exploration](/202606/15/2606.10228v1-shapo-sharpness-aware-policy-optimization-for-safe-exploration)  
    标签：评分：6.0/10、query:rl-semantic
-   evidence：世界模型、潜在状态表示、规划中的动作先验
-4. [IntentNav: Learning Spatial-Visual Object Navigation from Human Demonstrations](/202606/14/2606.08029v1-intentnav-learning-spatial-visual-object-navigation-from-human-demonstrations)  
+   evidence：基于锐度感知策略更新的强化学习安全探索
+6. [LaME: Learning to Think in Latent Space for Multimodal Embedding via Information Bottleneck](/202606/15/2606.13061v1-lame-learning-to-think-in-latent-space-for-multimodal-embedding-via-information-bottleneck)  
    标签：评分：6.0/10、query:rl-semantic
-   evidence：从演示中学习空间视觉表示用于导航
-5. [Towards End to End Motion Planning and Execution for Autonomous Underwater Vehicles Using Reinforcement Learning](/202606/14/2606.08513v1-towards-end-to-end-motion-planning-and-execution-for-autonomous-underwater-vehicles-using-reinforcement-learning)  
-   标签：评分：6.0/10、query:rl-semantic
-   evidence：分层强化学习直接从原始传感器数据生成状态表示
-6. [Flow-based generative models for amortized Bayesian inference in regression and inverse PDE problems](/202606/14/2606.10370v1-flow-based-generative-models-for-amortized-bayesian-inference-in-regression-and-inverse-pde-problems)  
-   标签：评分：6.0/10、query:npl-bdl-saig
-   evidence：基于流的摊销贝叶斯推断方法
-7. [AllDayNav: Lifelong Navigation via Real-World Reinforcement Learning](/202606/14/2606.10927v1-alldaynav-lifelong-navigation-via-real-world-reinforcement-learning)  
-   标签：评分：6.0/10、query:rl-semantic
-   evidence：通过多模态记忆为RL导航进行场景隐式编码
-8. [The Art of Interrogation: Consistency Amplifies Factuality in Spatial Reasoning](/202606/14/2606.11918v1-the-art-of-interrogation-consistency-amplifies-factuality-in-spatial-reasoning)  
-   标签：评分：6.0/10、query:rl-semantic
-   evidence：基于一致性验证器的自监督强化学习用于空间推理
-9. [Deep Unfolded Latent Optimally Partitioned-l2/l1 Networks for Data-driven Block-Sparse Recovery](/202606/14/2606.12740v1-deep-unfolded-latent-optimally-partitioned-l2l1-networks-for-data-driven-block-sparse-recovery)  
+   evidence：提出在潜在空间进行推理以生成多模态嵌入
+7. [Curvature-Informed Potential Energy Surface for Protein-Ligand Binding Affinity Prediction](/202606/15/2606.14217v1-curvature-informed-potential-energy-surface-for-protein-ligand-binding-affinity-prediction)  
    标签：评分：6.0/10、query:ml-theory
-   evidence：深度展开网络结合非凸优化用于稀疏恢复
-10. [Abstract Dynamic Programming on Partially Ordered Spaces](/202606/14/2606.12777v1-abstract-dynamic-programming-on-partially-ordered-spaces)  
-   标签：评分：6.0/10、query:npl-bdl-saig
-   evidence：策略迭代与随机过程中的收敛性分析
-11. [Characterizing metric-space-valued processes: separating classes and weak invariance principles for measure-theoretic inference](/202606/14/2606.13084v1-characterizing-metric-space-valued-processes-separating-classes-and-weak-invariance-principles-for-measure-theoretic-inference)  
-   标签：评分：6.0/10、query:npl-bdl-saig
-   evidence：度量空间值过程、等距Hilbert嵌入、球性质、几何结构
+   evidence：利用曲率的几何深度学习用于蛋白质-配体结合预测
 
 
 <div class="dpr-home-promo-card">

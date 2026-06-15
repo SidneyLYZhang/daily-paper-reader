@@ -1,0 +1,1251 @@
+Title: Riemannian Metric Matching for Scalable Geometric Modeling of Distributions
+
+URL Source: https://arxiv.org/pdf/2606.14334v1
+
+Published Time: Mon, 15 Jun 2026 00:54:47 GMT
+
+Number of Pages: 20
+
+Markdown Content:
+# Riemannian Metric Matching for Scalable Geometric Modeling of Distributions 
+
+Jacob Bamberger 1 Adam Gosztolai 2 Pierre Vandergheynst 3 Michael Bronstein 1 4 Iolo Jones 1
+
+## Abstract 
+
+High-dimensional datasets often concentrate near low-dimensional structures, but estimating their geometry from samples typically relies on graphs and kernels that scale poorly with dataset size and dimension. We propose Riemannian metric matching: a denoising probabilistic framework for learning the Riemannian geometry of data us-ing neural networks. Specifically, we learn the 
+
+carr ´e du champ operator, which, using diffusion geometry, gives us access to the Riemannian ge-ometry toolkit for downstream machine learning and statistical tasks. Our key observation is that the carr ´e du champ operator can be formulated as a conditional expectation over random pertur-bations of the data, which can be exploited for sample-wise training and constant cost, amortized inference without explicit kernel construction. Empirically, metric matching rivals or improves the accuracy of k-NN-based diffusion geometry estimators, while enabling amortized inference that is up to 400 × faster, and supports graph-free geometric analysis on high-dimensional images where nearest neighbors break down. 
+
+## 1. Introduction 
+
+Although high-dimensional datasets are typical in machine learning, empirical evidence across domains suggests that the local intrinsic structure of many real-world datasets is effectively low-dimensional, commonly referred to as the manifold hypothesis. The existence of this lower dimen-sional structure has led to the use of geometric or spatial 
+
+> 1
+
+Department of Computer Science, University of Ox-ford, Oxford, UK 2Institute of Artificial Intelligence, Med-ical University of Vienna, Vienna, Austria 3EPFL, Lau-sanne, Switzerland 4AITHYRA. Correspondence to: Ja-cob Bamberger <jacob.bamberger@cs.ox.ac.uk >, Iolo Jones 
+
+<iolo.jones@cs.ox.ac.uk >.
+
+Proceedings of the 43 rd International Conference on Machine Learning , Seoul, South Korea. PMLR 306, 2026. Copyright 2026 by the author(s). 
+
+tools on diverse data types. These tools can probe intrinsic properties of data, including dimensionality, tangent spaces, and curvature, to name a few. Such methods have been successfully applied in areas ranging from computer vision (Murase & Nayar, 1993) and generative modeling (Song & Ermon, 2019; Bamberger et al., 2026) to single-cell data (Moon et al., 2019) and molecular dynamics (Facco et al., 2017; Diepeveen et al., 2024). Beyond applications, the manifold hypothesis plays an important theoretical role, of-fering insight into how deep neural networks generalize in high dimensions and mitigate the curse of dimensionality (Bengio et al., 2013; Pope et al., 2021; Kiani et al., 2024). The first step in a standard geometric data analysis pipeline is to build a graph whose nodes correspond to data points and whose edges encode local connectivity. The graph is ei-ther dense and weighted by a kernel function of the distance between the nodes, or sparse, such as k-nearest neighbor (k-NN) graphs, possibly unweighted, with downstream anal-ysis often sensitive to the hyper-parameter k. While strong convergence guarantees hold in the infinite-data limit (Coif-man & Lafon, 2006), these approaches become computation-ally prohibitive at scale. In particular, both computational and memory costs grow super-linearly, if not quadratically, with dataset size. Crucially, these costs persist at inference time, as processing new points require recomputing nearest neighbors for each query, preventing efficient out-of-sample extension. These graph and kernel methods are also limited in their practical scope by their reliance on the pairwise distances between points, which cease to be discriminatory in high dimensions, and miss out on the many advantages of representation learning with neural networks that have made deep learning so successful (LeCun et al., 2015). A more recent line of work leverages trained neural net-works – such as VAEs, GANs, or diffusion models – to recover geometric information (Stanczuk et al., 2024), often through the Jacobian of the trained network (Arvanitidis et al., 2018). Since these networks are typically trained for representation learning or generative modeling rather than geometric estimation, existing approaches historically provide few theoretical guarantees that the recovered geo-metric quantities converge to the true underlying geometry in the infinite-data limit. In the diffusion setting, however, 1      
+
+> arXiv:2606.14334v1 [cs.LG] 12 Jun 2026 Riemannian Metric Matching
+> function flocal dimensions intrinsic gradient ∇finterpolating paths metric matching loss for θinput point p
+
+# ↓ neural network Γθ       
+
+> Riemannian metric gp
+> Figure 1. Intrinsic diffusion geometry with Riemannian metric matching. The neural network learns a Riemannian metric (ellipses, top left) by implicitly averaging multiple rank-1 contributions through the metric matching loss (inset, bottom left). This gives us access to the toolkit of Riemannian geometry methods via diffusion geometry. Given a scalar field f(top middle), we can compute its intrinsic gradient ∇fwith respect to the data geometry (bottom middle). We estimate local data dimensions from the ratio of the metric eigenvalues (top right: red corresponds to higher dimension), and on-manifold interpolating paths between pairs of points (bottom right).
+
+Kharitenko et al. (2025) recently showed that the Jacobian of a Gaussian denoiser converges to the tangent-space pro-jector, and used this for Riemannian optimization on data manifolds. These approaches avoid pairwise distances and 
+
+k-NN graphs, but shift the cost to computing Jacobians of large networks at inference time, which can be expensive and numerically unstable in high dimensions. Additionally, the geometry is extracted indirectly from a pretrained repre-sentation or generative model, rather than learned directly. In this work, we train a neural surrogate to regress the metric directly, rather than extracting geometry from neighborhood graphs or from derivatives of a pretrained models. Our main contribution is a training objective inspired by the denois-ing objectives from diffusion models (Sohl-Dickstein et al., 2015; Ho et al., 2020; Song et al., 2021). This loss allows a neural network to learn a Riemannian metric at every point by rewriting an intractable quantity as the marginalization of tractable ones. Specifically, we learn an estimate for the 
+
+carr ´e du champ operator (Bakry et al., 2013), which can be used to recover the Riemannian geometry of the data via diffusion geometry (Jones, 2024a). Given finite data, the minimizer of the loss corresponds to classical kernel-based geometric estimates, and in the infinite-data regime, the minimizer recovers the desired geometric quantities when the data distribution is locally supported on a manifold. We demonstrate our method by applying intrinsic dimen-sionality estimation and tangent space recovery in high-dimensional settings where graph-based diffusion geometry becomes unreliable. We also apply it to Riemannian opti-mization, where we compute intrinsic gradients to recover interpolating paths between data points that remain near data manifold. By replacing neighborhood graphs with a learned, denoising-based surrogate, our approach makes diffusion-geometric analysis feasible in high-dimensional and large-scale settings where classical methods break down. This allows the design of novel deep learning methods by directly inheriting tools from Riemannian geometry (Jones & Lanners, 2026). 
+
+Contributions: 
+
+• We propose a neural surrogate for the carr ´e du champ operator that enables amortized, dataset-size–independent inference of local geometric quanti-ties without neighborhood graphs. • We introduce a denoising-based, sample-wise condi-tional Riemannian metric matching objective that en-ables scalable training of the surrogate without explicit kernel construction or pairwise distance computations. • We establish a theoretical connection between the de-noising objective and classical diffusion maps, guar-anteeing recovery of geometric quantities in the limit when the data is locally sampled from a manifold. • We demonstrate empirically that metric matching re-covers the correct geometry on known data manifolds, and leads to meaningful tangent vectors and high-quality on-manifold interpolating paths along high-dimensional image data. 
+
+## 2. Background 
+
+Manifolds and Riemannian metrics. A d-dimensional manifold M is a topological space that is locally homeomor-phic to Rd. A Riemannian metric g on M assigns to each point p ∈ M an inner product gp(·, ·) on the tangent space 2Riemannian Metric Matching 
+
+TpM, varying smoothly with p. The metric induces geo-metric notions such as lengths of curves, angles, volumes, and the Laplace–Beltrami operator ∆g .In the case that M is a smooth d-dimensional submanifold of RD , the tangent space TpM is a d-dimensional linear subspace of RD , and M inherits a Riemannian metric from the ambient space by restricting the Euclidean inner product 
+
+⟨u, v⟩ = u⊤v to vectors in TpM. This choice of metric makes M an isometrically embedded submanifold of RD .If f : RD → R is smooth, its intrinsic gradient ∇f is a vector field on M. At each p ∈ M , ∇pf ∈ TpM is a tangent vector pointing in the direction of steepest increase of f along the manifold M, and ∇pf coincides with the projection of the ambient Euclidean gradient (Jacobian) 
+
+∂f (p) := 
+
+ ∂f ∂x 1 (p), ..., ∂f ∂x D (p)
+
+
+
+∈ RD (1) at p onto the tangent space TpM.
+
+Diffusion geometry and the carr ´e du champ. Classical Riemannian geometry applies on manifolds, but real-world data rarely satisfy the stringent conditions of being a mani-fold (like having no branching points, and a uniformly con-stant local dimension). Diffusion geometry (Jones, 2024a) describes the geometry of more general spaces through the behavior of diffusion processes on them. This applies to the low-dimensional but non-manifold data geometries that occur in practice, allowing the transfer of Riemannian ge-ometry methods to generic data geometries. On a Riemannian manifold (M, g ), the canonical diffusion is Brownian motion dx = dB t, whose evolution is charac-terized by its infinitesimal generator , the Laplace-Beltrami operator ∆g . The diffusion is related to the Riemannian metric g by the carr´ e du champ (CDC) identity 
+
+g(∇f, ∇h) = 12 (f ∆g h + h∆g f − ∆g (f h )) (2) where f, h : M → R are two smooth scalar fields. In the theory of Markov diffusion operators (Bakry et al., 2013), the infinitesimal generator L of any Markov process defines a bilinear form called the carr´ e du champ operator 
+
+ΓL(f, h ) := 12 (f Lh + hLf − L (f h )) (3) so that Γ∆g (f, h ) = g (∇f, ∇h) on a manifold. In diffusion geometry, this relationship is abstracted and used to define a generalized Riemannian geometry relative to an arbitrary Markov diffusion process (Jones, 2024a). Specifically, the carr ´e du champ operator of a general Markov process is used to define the Riemannian metric via Eq.2, from which we can construct the rest of Riemannian geometry. This means that, by learning the carr ´e du champ, we can access the toolkit of classical Riemannian geometry methods, such as intrinsic calculus, curvature, and topology (Jones, 2024a;b). 
+
+## 3. Conditional metric matching 
+
+In practice, we aim to learn the geometry of an underlying dataset by observing samples X ∼ p, and estimating the carr ´e du champ operator. When the data lie on a manifold, a standard approach to approximate ∆g , uses the heat kernel 
+
+wε (x, y) = exp 
+
+
+
+− ∥x − y∥2
+
+2ε
+
+
+
+with bandwidth ε. This approach was originally introduced to justify kernel methods, but will also apply to metric matching. We define the normalized diffusion operator 
+
+(Pεf )( y) := (Kεf )( y)
+
+dε(y) ,
+
+where 
+
+(Kεf )( y) := EX∼p(x)[wε(y, X )f (X)] ,dε(y) := EX∼p(x)[wε(y, X )] 
+
+are the kernel operator and a corresponding degree function, respectively. Intuitively, (Pεf )( y) is a local average of f
+
+near y under a Gaussian window of scale ε. When p is supported on a manifold M, and 
+
+Lf := ∆ g f − 2g(∇ log p, ∇f ), (4) the operator Lϵ := ( I + Pε)/ε converges pointwise to L as 
+
+ε → 0 (Coifman & Lafon, 2006; Belkin & Niyogi, 2003). A key property of the CDC operator is that it does not depend on the first-order drift terms, which cancel out when Eq.4 is substituted into Eq.3 by the Leibniz rule, so ΓL =Γ∆g (see Appendix A). This means that the approximation 
+
+Γϵ := Γ Lϵ converges pointwise to the Riemannian metric tensor ΓL = Γ ∆g . We can substitute Lϵ = ( I − Pε)/ε into Eq.3 to rewrite Γε(f, h )( y) as the expectation 
+
+EX
+
+wε(y, X ) f (X) − f (y)  h(X) − h(y) 
+
+2ε EX [wε(y, X )] , (5) which can be interpreted as the uncentered local covariance between f and h under the scale-ε diffusion generated by Pε.We also consider the centered local covariance replacing 
+
+f (y) and h(y) by (Pεf )( y) and (Pεh)( y)
+
+EX
+
+wε(y, X ) f (X) − (Pεf ) ( y)  h(X) − (Pεh) ( y) 
+
+2ε EX [wε(y, X )] .
+
+(6) These expectations can be estimated from samples using kernel-weighted neighborhood graphs, but this becomes computationally and memory intensive for many samples, and suffers from the curse of dimensionality in high di-mensions. In the next section, we show how to construct a scalable loss function and training procedure that allows a neural network to estimate Γε(f, h ) from samples. 3Riemannian Metric Matching 
+
+3.1. Conditional carr´ e du champ matching 
+
+Our goal is to train a neural network to compute or approxi-mate Γε in Eq.5. A natural objective is to regress Γε under the smoothed density pY = p ∗ N (0 , ε I):
+
+LCDC marg (θ) := E
+
+> Y
+
+h Γθε (Y ) − Γε(f, h )( Y )2i
+
+. (7) However, as we have seen, Γε(f, h )( y) from Eq.5, which we will refer to as the marginal CDC, is intractable. We therefore introduce a tractable conditional CDC, defined as 
+
+Γε(f, h )( x, y) := 12ε (f (x) − f (y)) ( h(x) − h(y)) .
+
+Since we chose pY = p ∗ N (0 , ε I), we have 
+
+pY (y|x) = (2 πε )−D/ 2wε(y, x)
+
+dε(y) = (2 πε )D/ 2EX [pY (y|X)] = (2 πε )D/ 2pY (y),
+
+so we can use Bayes’ rule to rewrite the marginal CDC as the following conditional expectation 
+
+Γε(f, h )( y) = EX [pY (y|X)Γ ε(f, h )( X, y)] 
+
+pY (y) (8) 
+
+= E 
+
+> X
+
+[Γ ε(f, h )( X, y) | Y = y] . (9) We now introduce the tractable conditional loss: 
+
+LCDC cond (θ) := E 
+
+> X,Y |X
+
+h Γθε (Y ) − Γε(f, h )( X, Y )2i
+
+(10) where X ∼ p and Y |X ∼ N (X, ε I). This loss can be sampled from, evaluated, and backpropagated through easily since X is sampled from the data distribution p, Y is a noisy version of X, and the conditional CDC is computed in O(1) 
+
+since it does not involve an expectation or a normalizing constant. The expectation decomposes over independent samples X and Y |X, so it trivially parallelizable and well suited for modern GPU-based mini-batch and distributed training. Perhaps surprisingly, the conditional loss is equal to the marginal loss up to a constant independent of the parameters θ, so the gradients of both losses are equal. As such, optimizing LCDC cond is equivalent to optimizing LCDC marg .
+
+Theorem 3.1. LCDC cond (θ) = LCDC marg (θ) + C, where C does not depend on θ. Hence ∇θ LCDC cond (θ) = ∇θ LCDC marg (θ).
+
+3.2. Mean-centered carr´ e du champ matching 
+
+A similar argument applies in the the mean-centered case Eq.6. Here, we additionally need to learn the terms Pεf and 
+
+Pεh using other neural networks, which can be trained with the denoising loss EX,Y |X
+
+h (Pεf )θ (Y ) − f (X)2i
+
+. We then freeze the parameters and regress the mean-centered CDC using 12ε
+
+ f (x) − (Pεf )θ (y)   f (x) − (Pεf )θ (y)
+
+as the conditional CDC in Eq.10. 
+
+3.3. Conditional Riemannian metric matching 
+
+The loss in Eq.10 can be applied to any pair of scalar fields 
+
+f and h. However, in practice we will train a network to regress the CDC Γε(xi, x j ) of each pair of coordinate func-tions xk : M → R for k = 1 , . . . , D , and we show in Sec. 4.1 that the CDC Γε(f, h ) of any pair f, h : M → R
+
+can be recovered from Γε(xi, x j ) by the chain rule. Apply-ing the conditional CDC loss jointly to all the coordinate functions f = xi and h = xj yields matrix-valued targets and predictions, and results in the aggregated Frobenius loss                 
+
+> LRiem
+> cond := E
+> X,Y |X
+> h
+> Γθε(Y)−12ε(X−Y)( X−Y)T2
+> F
+> i
+> ,(11)
+
+where Γθε outputs a positive semi-definite D × D matrix approximating the CDC matrix. When using the mean-centered loss, we note that the term (PεY )θ becomes a standard denoising network (Li & He, 2025). We condition the network on ε, allowing it to capture the geometry of the data across different scales simultaneously. The full training algorithm can be found in Algorithm.2. This loss is most related to Meng et al. (2021), who propose a loss to estimate the second order score ∇2 log p of the data. We discuss the exact relationship in Appendix B. 
+
+3.4. Positive semi-definite and low rank training 
+
+Since Γε(Y ) is symmetric and positive semidefinite (PSD) by definition, we first parameterize a neural network to produce a D × D matrix M θε (Y ) and make it symmetric PSD by setting Γθε (Y ) = M θε (Y )T M θε (Y ). Since D can be much larger than the intrinsic dimension, we also consider a low rank version where M θε (Y ) ∈ Rr×D making Γε(Y )
+
+symmetric PSD with a rank upper bounded by the hyperpa-rameter r. In this case we observe that the Frobenius norm in Eq.11 can be simplified by expanding 
+
+M θε (Y )T M θε (Y ) − 12ε (X − Y )( X − Y )T 2
+
+> F
+
+= M θε (Y )T M θε (Y ) 2 
+
+> F
+
++ 14ε2 ∥X − Y ∥4
+
+− 1 
+
+> ε
+
+M θε (Y )( X − Y ) 2 .
+
+Since M θε (Y )T M θε (Y ) 2 
+
+> F
+
+= M θε (Y )M θε (Y )T 2 
+
+> F
+
+, we can compute this loss without ever materializing any D × D
+
+matrices, considerably improving the memory and time complexity. The second term also does not depend on θ, so we form the simplified low-rank loss 
+
+LLR = E 
+
+> X,Y |X
+
+h
+
+M θε (Y )M θε (Y )T 2
+
+> F
+
+i
+
+− 1
+
+ε E 
+
+> X,Y |X
+
+h
+
+M θε (Y )( X − Y ) 2i (12) If the manifold M has dimension d, we need to take r to be at least d, but cannot generally assume that r = d is enough 4Riemannian Metric Matching 
+
+to fully factorize the metric (this would require, at least, the condition that M is parallelizable 1). However, we prove in Sec. 4.2 that picking r = 2 d − 1 is always enough for the low-rank factorization to be valid. If a strict upper bound of r to the intrinsic dimensional-ity is not desired, we consider the efficient parameteriza-tion Γθε (Y ) = M θε (Y )T M θε (Y ) + λI where λ is a small Tikhonov regularization term ensuring strict positive defi-niteness. In this case, we get LλLR = LLR + 2 λ∥M θε (Y )∥2 
+
+> F
+
+,see Appendix C for a derivation. 
+
+## 4. Convergence and the Riemannian toolkit 
+
+For all ε, the CDC Γε defines a data-driven Riemannian metric which can be used to compute geometric objects via diffusion geometry. In this section, we provide a theoretical guarantee for our construction. Namely, when the data is locally sampled from a manifold and the loss is minimized, then Γε converges to the true metric as ε → 0.
+
+4.1. Recovering the metric from an embedded manifold 
+
+Our main theoretical guarantee is provided by the following theorem. We note that the manifold assumption only needs to hold locally around a point x ∈ M , so the result extends to non-manifold data such as disjoint unions of manifolds or settings where the intrinsic dimension may vary across regions of the space. All proofs can be found in Appendix A. 
+
+Theorem 4.1 (Convergence of the carr ´e du champ) . Let μ
+
+be a probability measure on RD and x ∈ supp (μ). Suppose that B(x, δ ) ∩ supp (μ) is a manifold (of any dimension, possibly depending on x), for some δ > 0, with induced Riemannian metric g, and that μ has a smooth density on this manifold. Then Γε(f, h )( x) → gx(∇f, ∇h) as ε → 0,for all smooth functions f, h .
+
+Carr ´e du champ of the ambient coordinates converges to tangent space projection. As a special case, we consider the ambient coordinate functions xk : M → R, xk(x) = (x)k, for k = 1 , . . . , D . Applying the carr ´e du champ to these functions yields, at each point p ∈ M , the matrix 
+
+(Γε(p)) kℓ ≈ gp(∇xk, ∇xℓ),
+
+where the approximation becomes exact when ϵ → 0. Let 
+
+G(p) = (Γ( xk, x l)( p)) kℓ 
+
+be the D × D carr ´e du champ matrix of the ambient co-ordinates at p, which corresponds to the pullback of the ambient Euclidean metric to the tangent space. Because      
+
+> 1For example, the 2-dimensional sphere embedded in 3dimen-sions is not parallelizable due to the hairy ball theorem, so r= 2
+> is not sufficient in that case.
+
+M is embedded in RD isometrically , the eigenvalues of 
+
+G(p) are either 1 or 0, with eigenvectors pointing in the tangent and normal directions, respectively, and so G(p) the projection matrix RD → TpM. We immediately obtain the following corollary by applying Theorem 4.1 to the entries of the matrix Γε(p)kℓ .
+
+Corollary 4.2. Under the same assumptions as Theorem 4.1, the matrix (Γε(p)) kℓ converges (in every matrix norm) to the projection matrix onto the tangent space RD → TpM.
+
+Carr ´e du champ of the ambient coordinates is all you need. The matrix Γε(p) of the CDC of the ambient coor-dinates is important because it suffices to evaluate the CDC of arbitrary functions. If f, h : RD → R are smooth, then 
+
+gp(∇f, ∇h) = 
+
+> D
+
+X
+
+> k,l =1
+
+∂f ∂x j
+
+(p) ∂h ∂x l
+
+(p)gp(∇xk, ∇xℓ)
+
+by the chain rule, so 
+
+Γ( f, h )( p) = 
+
+> D
+
+X
+
+> k,l =1
+
+∂f ∂x k
+
+(p) ∂h ∂x l
+
+(p)Γ( xk, x ℓ)( p).
+
+If we denote the Jacobians of f, h by ∂f (p) and ∂h(p), as in Eq.1, then this is just the matrix conjugation 
+
+Γ( f, h )( p) = ∂f (p)T Γε(p)∂h(p). (13) We can formalize this in the following corollary. 
+
+Corollary 4.3. Under the same assumptions as Theorem 4.1, we have ∂f (p)T Γε(p)∂h(p) → gp(∇f, ∇h) as ε → 0,for all smooth f, h .
+
+4.2. Low-rank training is valid for r ≥ 2d − 1
+
+As discussed in Sec. 3.4, the low-rank factorization of the CDC can have topological obstructions if r is too small. We now prove that, for at least r ≥ 2d − 1, the minimizer of the low-rank loss will still converge to the correct metric G(p).
+
+Theorem 4.4 (Low-rank training is valid for r ≥ 2d − 1).
+
+If r ≥ 2d − 1 and M θε minimises the low-rank loss (Eq.12) then M θε (p)T M θε (p) → G(p) as ε → 0.
+
+4.3. Intrinsic gradients 
+
+The carr ´e du champ gives us direct access to the intrinsic 
+
+gradients ∇f of functions f defined on the data, with respect to the underlying geometry. If M ⊆ RD is an (isometrically embedded) submanifold , we can represent ∇f in ambient coordinates by its pushforward from M to RD . At a each point p ∈ M , this is given by the vector 
+
+(gp(∇f, ∇x1), ..., g p(∇f, ∇xD )) ∈ RD (14) 5Riemannian Metric Matching 
+
+where gp(∇f, ∇xi) is the directional derivative of the func-tion xi along ∇f at the point p ∈ M . By Eq. 2, these terms are just the CDC gp(∇f, ∇xi) = Γ( f, x i). When 
+
+f : RD → R is defined on the ambient space (such as a neural network or an ambient potential), we can apply Eq.13 and the fact that ∂xi(p) = ei, to write 
+
+Γ( f, x i)( p) = ∂xi(p)T Γε(p)∂f (p)= ( Γε(p)∂f (p)) i
+
+(15) for each i = 1 , ..., D . Substituting Eq. 15 into Eq. 14, we can compute the intrinsic gradient ∇f by the simple matrix-vector product Γε(p)∂f (p) ∈ RD . We apply this method in the middle column of Fig.1. 
+
+4.4. Riemannian optimization and interpolating paths 
+
+One application of the Riemannian metric is to perform 
+
+Riemannian optimization , in which we aim to optimize a function M → R by gradient descent while remaining on the manifold M. We can formulate this problem using the carr ´e du champ (thereby also generalising it to non-manifold geometries), as follows. In general, when X is a vector field on an (isometrically embedded) submanifold M ⊆ RD , and γ : [0 , 1] → M 
+
+is a flow line (integral curve) of X, then γ has gradient 
+
+˙γ(t) = X(γ(t)) . When X = ∇f is the gradient of some function f : M → R, then X(γ(t)) is given by Eq.14, so we can compute the flow along ∇f by solving the ODE 
+
+˙γ(t) = Γε(p)∂f (p). (16) We notice that, in the case that M = RD and Eq. 16 is discretized via an Euler method, then get 
+
+γ(t + 1) = γ(t) − ηtG(γ(t)) −1∂f (γ(t)) ,
+
+where ηt is a learning rate that may depend on t, and 
+
+G(p) = Γε(p)−1 is the inverse of the carr´ e du champ. We apply this method to find interpolating paths between a source point x0 and a target point p that stay close to the data manifold. We aim to minimize the function f (x) =  
+
+> 12
+
+∥x − p∥2 with initial condition x0, so the interpolating path is the trajectory of xt. When the Riemannian metric is the standard Euclidean metric, the resulting trajectory will just be the linear interpolation path in RD . When the Riemannian metric is different, then these paths are not always guaranteed to converge to p or be the shortest paths possible. 
+
+## 5. Experiments 
+
+We apply metric matching on synthetic and real-world datasets to evaluate i) its scalability to large datasets, ii) its accuracy in controlled settings with ground truth, and iii) 10 4 10 5 10 6 10 7   
+
+> dataset size
+> 10 3
+> 10 4
+> 10 5
+> throughput (points/sec)
+> knn cdc
+> knn tangent
+> mm cdc
+> mm tangent
+> 10 410 510 610 7
+> dataset size
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+> 1.2
+> test mean Frobenius distance  knn
+> mm
+
+Figure 2. Comparison of trained metric matching (mm) network against k-NN-based baseline, on throughput (left) and performance (right). All experiments were run on a NVIDIA A10 (24GB) GPU. 
+
+its scalability to high dimensions. First, we use synthetic datasets with known ground-truth geometry to assess the accuracy of intrinsic dimension and tangent space estima-tion, as well as the scalability of the method with increasing sample size. Second, we apply our approach to a high di-mensional image dataset to demonstrate that it can be trained and evaluated at scales where classical geometric methods based on k-nearest neighbor graphs become impractical. In each dataset, we estimate the intrinsic dimensionality and local tangent spaces. Following Jones (2024b), both quantities are derived from the predicted CDC matrix (usu-ally computed via a k-NN graph). Intrinsic dimension is estimated from the eigenvalues of Γε(p), while the tangent space (when d is known) is given by the eigenvectors as-sociated with its top d eigenvalues. We provide additional experimental details in Appendix E. 
+
+5.1. Synthetic setting: scalability and accuracy 
+
+We begin with a controlled synthetic experiment on N points sampled uniformly from the d-dimensional sphere embed-ded in RD . We vary the number of samples N to evaluate the scalability of metric matching relative to baselines. We also use the ground-truth tangent spaces to quantitatively evaluate tangent space prediction. Unless otherwise speci-fied, we use d = 8 , D = 64 , and a fixed architecture across all dataset sizes: an MLP with 15 M parameters predicting a rank r = 16 matrix via low-rank training. 
+
+Scalability. We first use this setup to evaluate the scal-ability of the neural surrogate for CDC-based geometric estimators against k-NN-based CDC estimators, and report throughput (number of inferences per second) as a func-tion of the number of samples. We compare both the raw CDC computation, and eigen-decomposition to identify the leading d eigenvectors, as is typical in tangent space predic-tion. The raw neural CDC surrogate becomes advantageous over the raw CDC estimator at approximately 16 k points, and is over 82 × faster for 2M points and 400 × faster for 
+
+8M points. In the small-data regime, the dominant computa-tional bottleneck for tangent space prediction is eigendecom-6Riemannian Metric Matching Image v1 v2 v3 v4 v5 v50 v100          
+
+> (a) Visualization of the first 5,50 th, and 100 th eigenvectors of the CDC matrix learned by metric matching. 020 40 60 80 100
+> Eigenvalue index
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+> Explained local variance
+
+Class-wise mean cumulative CDC curves     
+
+> 0
+> 1
+> 2
+> 3
+> 4
+> 5
+> 6
+> 7
+> 8
+> 9
+> 468
+> 0.85
+> 0.90
+> (b) Class-wise mean cumulative eigenvalues.
+> Figure 3. MNIST CDC eigen-analysis.
+
+position: low-rank training substantially reduces this cost by replacing a D × D eigendecomposition with an r × r one, where r ≪ D, leading to speedups of 67 ×, 132 ×, 194 ×,and 359 × for 8k, 2M, 4M, and 8M points, respectively. 
+
+Accuracy. Next, we evaluate the accuracy of tangent space prediction by measuring the Frobenius distance 
+
+∥U U T − ˆU ˆU T ∥F on a test set, where U ∈ Rd×D denotes a basis for the ground-truth tangent space and ˆU is the estima-tor obtained by eigendecomposition. The neural surrogate clearly outperforms k-NN for datasets smaller than 4M, with 
+
+46% improved performance relative to the k-NN baseline, while closely matching it for larger datasets. We note that the performance gains saturate for very large datasets, which we attribute to current architectural choices, which could be improved with further tuning. We visualize the eigenvalues in Fig.7, where the neural surrogate accurately captures 8
+
+leading dimensions, while the k-NN CDC captures 9. These results indicate that the neural surrogate demonstrates better generalization than the k-NN–based CDC. 
+
+5.2. High-dimensional image datasets 
+
+Classical kernel methods tend to be cursed by dimension, restricting their scalability to high-dimensional datasets. We test metric matching in this setting by attempting to recover the intrinsic geometry of image datasets. 
+
+Geometric analysis of MNIST. We apply metric match-ing to study the 784 dimensional image dataset MNIST, consisting of 60 k training and 10 k validation images, which are black and white images representing digits 0 to 9. We train a standard UNet architecture with the low-rank metric matching objective Eq.12 with rank 100 . We visualize the quality of the learned geometry by plotting the eigenvectors of the CDC at validation images in Fig.3a. We see that the first eigenvectors are highly interpretable, compared to the 
+
+50 th and 100 th which appear much noisier. In particular, the second eigenvector is close to a damped version of the original image, while the third and fourth are concentrated at edges and so generate translations. We evaluate the im-portance of each tangent direction by its eigenvalue, and we plot the cumulative eigenvalue distribution (i.e. local explained variance) for each class in Fig.3b. We observe a sharp dropoff in eigenvalues, reflecting the low-dimensional structure. The digit 1 has a faster drop, suggesting a lower intrinsic dimension, which is perhaps due to its relative visual simplicity. 
+
+Evaluating metric quality in high dimensions. We next apply metric matching to learn the carr ´e du champ on three additional datasets: CIFAR-10 ( 60 k colored 32 × 32 images, 
+
+D = 3072 ), celebA ( 200 k colored 64 × 64 , D = 12288 ), and FFHQ ( 70 k colored 256 × 256 , D = 196608 ). These examples lack a ground truth for evaluating and compar-ing models, so we introduce the following metric based on inception feature stability, inspired by the Frechet In-ception Distance (FID) (Heusel et al., 2017) for evaluating generative models. We compute features from a standard pretrained inception network Φ used for FID, and consider how those features vary when the input image is perturbed. If we interpret Γx as a Gaussian covariance matrix for the tangent space at x, and pick a target perturbation magnitude 
+
+α, we can sample v ∼ N (x, Γx), renormalize ∥v∥ = α,and compute the perturbation ∥Φ( x + v) − Φ( x)∥. When the perturbation is tangent to the manifold, the difference in features should be small (Srinivas et al., 2023), so we aver-age the perturbation over v and x to get a quality measure for Γ at each magnitude α, where no ground truth exists. Normalization of the perturbation magnitude is important to avoid a bias towards low-rank metrics: if all the tangent vectors have the same magnitude, we measure the quality of direction only . This evaluation is like the local version of the perceptual path length (Karras et al., 2019). We plot the mean and standard deviation bars over the dataset, for each α, as curves in Fig. 4. As a baseline, we add perturbation in random directions, which corresponds 7Riemannian Metric Matching 0.0 0.2 0.4 0.6 0.8 1.0                    
+
+> 0
+> 5
+> 10
+> 15
+> 20
+> Inception feature distance
+> MNIST ( D= 784)
+> metric matching
+> stein score
+> score jacobian
+> random
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> 0
+> 5
+> 10
+> 15
+> 20
+> CIFAR-10 ( D= 3072)
+> metric matching
+> stein score
+> score jacobian
+> random
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> 0
+> 5
+> 10
+> 15
+> 20
+> CelebA ( D= 12288)
+> metric matching
+> stein score
+> random
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> 0
+> 5
+> 10
+> 15
+> 20
+> FFHQ ( D= 196608)
+> metric matching
+> stein score
+> random
+> Perturbation magnitude (per dimension)
+
+Figure 4. Inception feature stability under tangent perturbation.                             
+
+> Method Metric MNIST CIFAR-10 CelebA FFHQ Stein Score Time 0.9±0.017 .0±0.46.5±1.8 21 .5±0.3
+> Memory 2.5 MB 8.8 MB 31.6 MB 444.3 MB Score Jacobian Time 75 .5±7.1 992 .3±1.2––Memory 2.7 GB 27.4 GB OOM OOM Metric Matching Time 1.5±2.616 .6±3.76.2±1.9 21 .9±4.4
+> Memory 2.7 MB 8.8 MB 17.0 MB 513.9 MB
+
+Table 1. Runtime and memory comparison on a single NVIDIA H100 GPU. Times are reported in milliseconds. 
+
+to the Euclidean (isotropic) metric. We also ablate met-ric matching against the score Jacobian metric (Kharitenko et al., 2025) and Stein score metric (Azeglio & Di Bernardo, 2025). The Stein score metric is a rough approximation given by a rank-1 correction to the ambient identity ma-trix, whose effect is pronounced in lower dimensions but vanishes as dimension increases (we see a slight improve-ment on randomness for MNIST and CIFAR but virtually no gain on CelebA and FFHQ). The score Jacobian is also a principled estimator for the true geometry, and performs much better, but underperforms metric matching. We expect that this is because its metric is full-rank, without the reg-ularization effect of low-rank training of metric matching. The results do not depend sensitively on bandwidth, and we report the best result for each method over a grid search. We also report the time and memory requirements of each method in Tab.1. An additional practical constraint is the high computational cost of computing the Jacobian, which requires ∼ 3000 × more memory and is ∼ 62 × slower per evaluation on CIFAR-10, and results in OOM on CelebA and FFHQ (despite 80GB GPU memory). Conversely, the Stein score metric and metric matching have low-rank parametrizations so scale easily to high dimensions. 
+
+5.3. Interpolation along the data manifold 
+
+The tangent vectors visualized in Fig.3a demonstrate that metric matching can learn a meaningful data geometry at individual points. To test whether this geometry is glob-ally consistent, we apply the learned CDC matrix to find interpolating paths along the data manifold via Riemannian optimization, following the method described in Sec. 4.4. We apply this method to synthetic data in the bottom right of Fig. 1. We then apply it to find paths between pairs of MNIST digits in the same class, which we visualize in Fig.5, and compare them to linearly interpolated paths (LERP) in the ambient space RD . In each case, the intrinsic paths obtained from the metric matching CDC show smooth de-formations from one digit to the other, with none of the ‘ghost’ features of the LERP paths, showing that geometry learned by metric matching is consistent across the whole data geometry. Metric matching can also be applied in la-tent space, which allows comparison to methods learning a Riemannian metric in the latent space of a VAE (Arvanitidis et al., 2020), we show the results in Fig.9. 
+
+## 6. Related work 
+
+Geometry in diffusion and generative models. Recent work has highlighted deep connections between diffusion models and differential geometry. Stanczuk et al. (2024) show that, at small noise levels σ, the score ∇ log pσ aligns with directions normal to the data manifold, and exploit this for intrinsic dimension estimation. Kadkhodaie et al. (2024) study the generalization properties of denoisers through the eigendecomposition of the Jacobian of the score model (the Hessian ∇2 log pσ of the log-density), revealing a rapid spectral decay and semantically meaningful leading eigen-vectors. More recently, Kharitenko et al. (2025) formalize this connection by showing that I + σ2∇2 log pσ converges to the tangent space projector, which can be accessed via automatic differentiation of the score, and apply this to Rie-mannian optimization on data manifolds. Our work comple-ments and extends this line of research by explicitly linking modern denoising objectives to classical diffusion maps (Coifman & Lafon, 2006). Our denoising-style loss directly regresses the carr ´e du champ, providing the data-dependent Riemannian metric through a single forward pass while also guaranteeing convergence to the tangent-space projector. 
+
+(Riemannian) metric learning. Metric learning origi-nally aimed to learn task-adapted distances for k-NN clas-sification and clustering, extending beyond the standard Euclidean metric (Friedman, 1994; Xing et al., 2002; Bel-8Riemannian Metric Matching     
+
+> (a) Linear interpolation (LERP). (b) Manifold interpolation.
+> Figure 5. Comparison of linear and manifold interpolation trajectories, sampled uniformly along the interpolation path.
+
+let et al., 2015). More recently, there has been a surge of interest in a Riemannian formulation, which would addition-ally permit intrinsic geometric notions such as geodesics and curvature. Most such methods either attempt to learn the metric of the embedded data manifold or to design a metric that is meaningful for a downstream task. Metric learning methods can be broadly grouped into unsupervised, supervised, and implicit approaches. Unsupervised methods infer geometry from samples via graphs or kernels methods, e.g. (Jones & Lanners, 2026; Arvanitidis et al., 2016). Su-pervised methods use a parametric model trained using a loss function based on labels, such as contrastive (Huang et al., 2014) or triplet losses (Weinberger & Saul, 2009). Im-plicit methods define geometry as a by-product of a learned model, e.g. via pullback metrics induced by the Jacobian of a VAE or embedding model (Arvanitidis et al., 2018; Diepeveen et al., 2025). This Riemannian approach has re-cently been applied to generative modeling (Kapusniak et al., 2024; Bamberger et al., 2026) and data analysis (Diepeveen et al., 2024), extending beyond its original use in cluster-ing (Xing et al., 2002) and classification (Friedman, 1994). We refer to Gruffaz & Sassen (2025) for a comprehensive survey. Our work builds on this literature by introducing a self-supervised objective for learning the intrinsic geometry of data manifolds, with theoretical guarantees at optimality. 
+
+Riemannian optimization on the data manifold. Rie-mannian optimization was originally introduced for mini-mizing objectives subject to constraints that form a smooth manifold, allowing the optimization problem to be expressed intrinsically using Riemannian geometry (Absil et al., 2008; Boumal, 2023). Most existing algorithms assume that the manifold is given explicitly, along with its associated geo-metric operations, like the exponential or vector transport maps. In contrast, the geometry of data manifolds is only im-plicit in finite samples, and there is typically no parametriza-tion or scalable statistical estimate for the required opera-tions. While this problem has received renewed attention in recent work (Diepeveen & Weber, 2025; Kharitenko et al., 2025), scalable and principled optimization methods in this sample-based regime remain relatively underdeveloped. 
+
+## 7. Conclusion 
+
+We presented metric matching: a tractable denoising-style objective for estimating the carr ´e du champ with neural net-works. This provides a scalable alternative to graph CDC estimators, enabling out-of-sample geometry prediction in a single forward pass. On synthetic manifolds, metric match-ing improves the accuracy and throughput compared to clas-sical k-NN baselines. On high-dimensional image data, met-ric matching remains effective where k-NN methods fail due to the curse of dimensionality, thereby expanding the practi-cal reach of diffusion geometry tools to high-dimensional data. We hypothesize that this robustness stems from the in-ductive biases of the neural estimator: characterizing when and why such generalization occurs is an important direc-tion for future work. We hope that this work can provide a platform for developing novel deep learning methods that directly inherit tools from Riemannian geometry. 9Riemannian Metric Matching 
+
+## Acknowledgements 
+
+We thank Romeo Passaro for useful discussions on con-nections between metric matching and higher order score matching. This work is partially supported by the EP-SRC Turing AI World-Leading Research Fellowship No. EP/X040062/1 and EPSRC AI Hub No. EP/Y028872/1. AG was supported by an ERC grant (NEURO-FUSE, Project DOI: 10.3030/101163046). 
+
+## Impact statement 
+
+This paper presents work whose goal is to advance the field of machine learning. There are many potential societal consequences of our work, none of which we feel must be specifically highlighted here. 
+
+## References 
+
+Absil, P.-A., Mahony, R., and Sepulchre, R. Optimization Algorithms on Matrix Manifolds . Princeton University Press, Princeton, 2008. Arvanitidis, G., Hansen, L. K., and Hauberg, S. A locally adaptive normal distribution. Advances in Neural Infor-mation Processing Systems , 29, 2016. Arvanitidis, G., Hansen, L. K., and Hauberg, S. Latent space oddity: on the curvature of deep generative models. In 
+
+International Conference on Learning Representations ,2018. Arvanitidis, G., Hauberg, S., and Sch ¨olkopf, B. Ge-ometrically enriched latent spaces. arXiv preprint arXiv:2008.00565 , 2020. Azeglio, S. and Di Bernardo, A. What’s inside your dif-fusion model? a score-based riemannian metric to ex-plore the data manifold. arXiv preprint arXiv:2505.11128 ,2025. Bakry, D., Gentil, I., and Ledoux, M. Analysis and geometry of Markov diffusion operators , volume 348. Springer Science & Business Media, 2013. Bamberger, J., Jones, I., Duncan, D., Bronstein, M. M., Vandergheynst, P., and Gosztolai, A. Carr ´e du champ flow matching: better quality-generalisation tradeoff in generative models. 2026. Belkin, M. and Niyogi, P. Laplacian eigenmaps for di-mensionality reduction and data representation. Neural computation , 15(6):1373–1396, 2003. Bellet, A., Habrard, A., and Sebban, M. Metric learning. In 
+
+Synthesis Lectures on Artificial Intelligence and Machine Learning , 2015. Bengio, Y., Courville, A., and Vincent, P. Representation learning: A review and new perspectives. IEEE Transac-tions on Pattern Analysis and Machine Intelligence , 35 (8):1798–1828, 2013. Boumal, N. An introduction to optimization on smooth manifolds . Cambridge University Press, 2023. Coifman, R. R. and Lafon, S. Diffusion maps. Applied and computational harmonic analysis , 21(1):5–30, 2006. Dhariwal, P. and Nichol, A. Q. Diffusion models beat GANs on image synthesis. In Advances in Neural Information Processing Systems , 2021. Diepeveen, W. and Weber, M. Iso-riemannian opti-mization on learned data manifolds. arXiv preprint arXiv:2510.21033 , 2025. Diepeveen, W., Esteve-Yag ¨ue, C., Lellmann, J., ¨Oktem, O., and Sch ¨onlieb, C.-B. Riemannian geometry for efficient analysis of protein dynamics data. Proceedings of the National Academy of Sciences , 121(33), 2024. Diepeveen, W., Batzolis, G., Shumaylov, Z., and Sch ¨onlieb, C.-B. Score-based pullback riemannian geometry: Ex-tracting the data manifold geometry using anisotropic flows, 2025. Facco, E., d’Errico, M., Rodriguez, A., and Laio, A. Esti-mating the intrinsic dimension of datasets by a minimal neighborhood information. Scientific Reports , 7, 2017. Friedman, J. H. Flexible metric nearest neighbor classifica-tion. 1994. Gruffaz, S. and Sassen, J. Riemannian Metric Learning: Closer to You than You Imagine. working paper or preprint, June 2025. Heusel, M., Ramsauer, H., Unterthiner, T., Nessler, B., and Hochreiter, S. Gans trained by a two time-scale update rule converge to a local nash equilibrium. In Guyon, I., Luxburg, U. V., Bengio, S., Wallach, H., Fergus, R., Vish-wanathan, S., and Garnett, R. (eds.), Advances in Neural Information Processing Systems , volume 30. Curran As-sociates, Inc., 2017. Ho, J., Jain, A., and Abbeel, P. Denoising diffusion proba-bilistic models. Advances in neural information process-ing systems , 33:6840–6851, 2020. Huang, Z., Wang, R., Shan, S., and Chen, X. Learning euclidean-to-riemannian metric for point-to-set classifica-tion. In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (CVPR) , June 2014. Jones, I. Diffusion geometry. arXiv preprint arXiv:2405.10858 , 2024a. 10 Riemannian Metric Matching 
+
+Jones, I. Manifold diffusion geometry: Curvature, tangent spaces, and dimension. arXiv preprint arXiv:2411.04100 ,2024b. Jones, I. and Lanners, D. Computing diffusion geometry. 
+
+arXiv preprint arXiv:2602.06006 , 2026. Kadkhodaie, Z., Guth, F., Simoncelli, E. P., and Mallat, S. Generalization in diffusion models arises from geometry-adaptive harmonic representation. In The Twelfth Inter-national Conference on Learning Representations , 2024. Kapusniak, K., Potaptchik, P., Reu, T., Zhang, L., Tong, A., Bronstein, M., Bose, J., and Di Giovanni, F. Metric flow matching for smooth interpolations on the data manifold. 
+
+Advances in Neural Information Processing Systems , 37: 135011–135042, 2024. Karras, T., Laine, S., and Aila, T. A style-based generator architecture for generative adversarial networks. In Pro-ceedings of the IEEE/CVF conference on computer vision and pattern recognition , pp. 4401–4410, 2019. Karras, T., Aittala, M., Aila, T., and Laine, S. Elucidating the design space of diffusion-based generative models. 
+
+Advances in neural information processing systems , 35: 26565–26577, 2022. Kharitenko, A., Shen, Z., de Santi, R., He, N., and Doerfler, F. Landing with the score: Riemannian optimization through denoising. arXiv preprint arXiv:2509.23357 ,2025. Kiani, B. T., Wang, J., and Weber, M. Hardness of learn-ing neural networks under the manifold hypothesis. In Globerson, A., Mackey, L., Belgrave, D., Fan, A., Pa-quet, U., Tomczak, J., and Zhang, C. (eds.), Advances in Neural Information Processing Systems , volume 37, pp. 5661–5696. Curran Associates, Inc., 2024. LeCun, Y., Bengio, Y., and Hinton, G. Deep learning. Na-ture , 521(7553):436–444, 2015. Li, T. and He, K. Back to basics: Let denoising generative models denoise. arXiv preprint arXiv:2511.13720 , 2025. Meng, C., Song, Y., Li, W., and Ermon, S. Estimating high order gradients of the data distribution by denoising. 
+
+Advances in Neural Information Processing Systems , 34: 25359–25369, 2021. Moon, K. R., van Dijk, D., Wang, Z., Gigante, S., Burkhardt, D. B., Chen, W. S., Yim, K., van den Elzen, A., Hirn, M. J., Coifman, R. R., Ivanova, N. B., Wolf, G., and Krishnaswamy, S. Visualizing structure and transitions for biological data exploration. bioRxiv , 2019. Murase, H. and Nayar, S. Learning and recognition of 3d objects from appearance. In [1993] Proceedings IEEE Workshop on Qualitative Vision , pp. 39–50, 1993. Perez, E., Strub, F., de Vries, H., Dumoulin, V., and Courville, A. C. Film: Visual reasoning with a general conditioning layer. In AAAI , 2018. Pope, P., Zhu, C., Abdelkader, A., Goldblum, M., and Gold-stein, T. The intrinsic dimension of images and its impact on learning. In International Conference on Learning Representations , 2021. Sohl-Dickstein, J., Weiss, E., Maheswaranathan, N., and Ganguli, S. Deep unsupervised learning using nonequi-librium thermodynamics. In International conference on machine learning , pp. 2256–2265. pmlr, 2015. Song, Y. and Ermon, S. Generative modeling by estimat-ing gradients of the data distribution. In Wallach, H., Larochelle, H., Beygelzimer, A., d'Alch ´e-Buc, F., Fox, E., and Garnett, R. (eds.), Advances in Neural Information Processing Systems , volume 32. Curran Associates, Inc., 2019. Song, Y., Sohl-Dickstein, J., Kingma, D. P., Kumar, A., Er-mon, S., and Poole, B. Score-based generative modeling through stochastic differential equations. In International Conference on Learning Representations , 2021. Srinivas, S., Bordt, S., and Lakkaraju, H. Which models have perceptually-aligned gradients? an explanation via off-manifold robustness. Advances in neural information processing systems , 36:21172–21195, 2023. Stanczuk, J. P., Batzolis, G., Deveney, T., and Sch ¨onlieb, C.-B. Diffusion models encode the intrinsic dimension of data manifolds. In Forty-first International Conference on Machine Learning , 2024. Weinberger, K. Q. and Saul, L. K. Distance metric learning for large margin nearest neighbor classification. Journal of Machine Learning Research , 10(9):207–244, 2009. Xing, E. P., Ng, A., Jordan, M. I., and Russell, S. J. Distance metric learning with application to clustering with side-information. In Neural Information Processing Systems ,2002. 11 Riemannian Metric Matching 
+
+## A. Proofs 
+
+Theorem 3.1. LCDC cond (θ) = LCDC marg (θ) + C, where C does not depend on θ. Hence ∇θ LCDC cond (θ) = ∇θ LCDC marg (θ).Proof. Let Z := Γ ε(f, h )( X, Y ) be the random variable defined by X ∼ p and Y | X ∼ N (X, εI ), so Eq. 9 says that 
+
+E[Z | Y ] = Γ ε(f, h )( Y ). We can apply the law of total expectation and bias-variance decomposition to derive 
+
+LCDC cond (θ) = E (Γ θε (Y ) − Z)2
+
+= E E (Γ θε (Y ) − Z)2 | Y  
+
+= E
+
+h Γθε (Y ) − E[Z | Y ]2 + Var( Z | Y )
+
+i
+
+= E
+
+h Γθε (Y ) − Γε(f, h )( Y )2i
+
++ E [Var( Z | Y )] = LCDC marg (θ) + E [Var( Z | Y )] ,
+
+so the result holds with C = E [Var( Z | Y )] .
+
+Theorem 4.1 (Convergence of the carr ´e du champ) . Let μ be a probability measure on RD and x ∈ supp (μ). Suppose that 
+
+B(x, δ ) ∩ supp (μ) is a manifold (of any dimension, possibly depending on x), for some δ > 0, with induced Riemannian metric g, and that μ has a smooth density on this manifold. Then Γε(f, h )( x) → gx(∇f, ∇h) as ε → 0, for all smooth functions f, h .Proof. We would first like to show that, by possibly reducing δ to any 0 < δ ′ < δ , we can assume that M = B(x, δ ) ∩
+
+supp (μ) is a compact manifold with boundary. By assumption, M is a smooth manifold of RD , so the ambient distance function y 7 → ∥ y − x∥ restricts to a smooth function dx : M → R. In particular, M = d−1 
+
+> x
+
+[0 , δ ), and M′ = d−1 
+
+> x
+
+[0 , δ ′]
+
+is a compact submanifold of RD with boundary (that is also a submanifold of M), and satisfies all the other conditions on M. We can now apply the diffusion maps theorem (Coifman & Lafon, 2006; Belkin & Niyogi, 2003) to the operator 
+
+Lϵ := ( I − Pε)/ε on M. Let us write g for the induced Riemannian metric on M, ∆g for its Laplace-Beltrami operator, and p for the smooth density of μ with respect to the Riemannian volume form of (M, g ). Then, for smooth f , Theorem 2 in (Coifman & Lafon, 2006) (applied here with α = 0 ) states that |L ϵf − L f | → 0 as ε → 0, where 
+
+Lf = ∆g (f p ) − ∆g (p)fp .
+
+We can apply the carr´ e du champ identity Eq.2 to write 
+
+∆g (f p ) − ∆g (p)f = ∆ g (f )p − 2g(∇p, ∇f ),
+
+so 
+
+Lf = ∆ g f − 2 g(∇p, ∇f )
+
+p = ∆ g f − 2g(∇ log p, ∇f ).
+
+We can now again use the carr´ e du champ identity to expand 
+
+|Γε(f, g ) − gx(∇f, ∇h)| = 12 f (Lεh − ∆g h) + h(Lεf − ∆g f ) − (Lε(f h ) − ∆g (f h )) (17) and notice that each term satisfies 
+
+Lεh − ∆g h = Lεh − L h + Lh − ∆g h = ( Lεh − L h) − 2g(∇ log p, ∇h),
+
+so Eq.17 becomes 
+
+12 f [Lεh − L h] + h[Lεf − L f ] − [Lε(f h ) − L (f h )] − 2f g (∇ log p, ∇h) − 2hg (∇ log p, ∇f ) + 2 g(∇ log p, ∇(f h )) .
+
+We can apply the Leibniz rule to 
+
+−2f g (∇ log p, ∇h) − 2hg (∇ log p, ∇f ) + 2 g(∇ log p, ∇(f h )) = 2 g(∇ log p, ∇(f h ) − f ∇h − h∇f ) = 0 ,
+
+12 Riemannian Metric Matching 
+
+and so find that 
+
+|Γε(f, g ) − gx(∇f, ∇h)| ≤ 12
+
+ |f ||L εh − L h| + |h||L εf − L f | + |L ε(f h ) − L (f h )| → 0
+
+as ε → 0, since |L ϵf − L f | → 0 and f, h are bounded (which is implied by the fact that M is compact). 
+
+Lemma A.1 (Existence of a low-rank factorization if K = 2 d − 1). Let G(p) = (Γ( xi, x j )( p)) i,j =1 ,...,D be the D × D
+
+carr ´e du champ matrix of the ambient coordinates at p. Then, for K = 2 d − 1, there exists a K × D matrix M (p), whose entries are all smooth functions, such that G(p) = M (p)T M (p) for all p ∈ M .Proof. Let M be a smooth d-dimensional manifold. If d = 1 , the tangent bundle is trivial, so the result follows directly with K = 1 . If d ≥ 2, Whitney’s immersion theorem gives a smooth immersion ϕ : M → R2d−1. By definition, this means that the differential dϕ : T M → T RK ∼= RK × RK defines an injective map dϕ p : TpM → RK for all p ∈ M . In other words, dϕ is a smooth embedding of vector bundles T M → εK , where εK is the trivial bundle of rank K. We would like this derivative to be an isometry on each tangent space, i.e. that 
+
+gp(u, v ) = ⟨dϕ p(u), dϕ p(v)⟩RK
+
+for all u, v ∈ TpM, and we will now construct a smooth bundle map Φ : T M → εK that satisfies this. Let us define a new Riemannian metric hp by 
+
+hp(u, v ) = ⟨dϕ p(u), dϕ p(v)⟩RK
+
+for u, v ∈ TpM, which is strictly positive definite because dϕ is injective. Since ϕ is smooth and dϕ is injective for all p,there exists a unique smooth section of the bundle of symmetric endomorphisms, A ∈ Γ( End (T M)) , such that 
+
+gp(Apu, v ) = hp(u, v )
+
+for all u, v ∈ TpM, which we can think of as the matrix representation of the quadratic form hp with respect to the inner product gp. Both g and h are positive-definite inner products, so the operator Ap must be symmetric and positive-definite with respect to g for all p ∈ M .We would now like to compute the inverse square root A−1/2 as another smooth section in Γ( End (T M)) . Since Ap is positive-definite, its eigenvalues are strictly positive real numbers. The function f (x) = x−1/2 is smooth on the interval 
+
+(0 , ∞) and so, by the spectral theorem and standard functional calculus, the operator field A−1/2 is a well-defined, smooth section of End (T M).We now define a new bundle map Ψ : T M → RK by pre-composing the immersion differential with the correction operator 
+
+Ψp := dϕ p ◦ A−1/2 
+
+> p
+
+,
+
+which is an isometry since 
+
+⟨Ψpu, Ψpv⟩RK = ⟨dϕ p(A−1/2 
+
+> p
+
+u), dϕ p(A−1/2 
+
+> p
+
+v)⟩RK
+
+= hp(A−1/2 
+
+> p
+
+u, A −1/2 
+
+> p
+
+v)= gp(Ap(A−1/2 
+
+> p
+
+u), A −1/2 
+
+> p
+
+v)= gp(A−1/2 
+
+> p
+
+ApA−1/2 
+
+> p
+
+u, v )= gp(u, v )
+
+for all u, v ∈ TpM. We can now construct the matrix K × D factor M (p) using the K components of this bundle map. If 
+
+e1, . . . , e K are the standard basis of RK , and x1, . . . , x D : M → R are the ambient coordinate functions of M in RD , then we can set 
+
+Mij = ⟨ei, Ψ( ∇xj )⟩RK ,
+
+13 Riemannian Metric Matching 
+
+which are all smooth functions, and find that 
+
+(M T M )ij =
+
+> K
+
+X
+
+> r=1
+
+Mri Mrj 
+
+=
+
+> K
+
+X
+
+> r=1
+
+⟨er , Ψ( ∇xi)⟩⟨ er , Ψ( ∇xj )⟩
+
+= ⟨Ψ( ∇xi), Ψ( ∇xj )⟩RK
+
+= g(∇xi, ∇xj )
+
+for each i, j = 1 , ..., D .The Lemma demonstrates that the low-rank loss and the metric matching loss have the same minimzer for K ≥ 2d − 1, and so we immediately attain the following theorem as a consequence. 
+
+Theorem 4.4 (Low-rank training is valid for r ≥ 2d − 1). If r ≥ 2d − 1 and M θε minimises the low-rank loss (Eq.12) then 
+
+M θε (p)T M θε (p) → G(p) as ε → 0.
+
+## B. Extended comparison to higher order score matching. 
+
+We relate our conditional CDC objective to higher-order score matching (Meng et al., 2021), that propose a method to learn the higher order scores sk(x) = ∇k log pε(x) for order k, where pε = pdata ⋆ N (0 , εI ). In the second order case they parameterize a first-order score network sθ 
+
+> 1
+
+and a second-order network sθ
+
+> 2
+
+, trained jointly via score matching and a second-order regression loss of the form 
+
+EX,Y |X sθ
+
+> 2
+
+(Y ) + sθ
+
+> 1
+
+(Y )sθ
+
+> 1
+
+(Y )⊤ + I − 1 
+
+> ε
+
+(X − Y )( X − Y )⊤
+
+ε
+
+> 2
+> F
+
+.
+
+Let A∗(y) := s2(y) + s1(y)s1(y)⊤. Optimizing the above yields the conditional identity 
+
+A∗(y) = E
+
+" I − 1 
+
+> ε
+
+(X − Y )( X − Y )⊤
+
+ε Y = y
+
+#
+
+.
+
+With our definition Γ∗(y) := E
+
+h (X−Y )( X−Y )⊤ 
+
+> 2ε
+
+Y = y
+
+i
+
+, we obtain the exact relationship εA ∗(y) = I − 2Γ ∗(y). While Meng et al. (2021) do not discuss convergence as ε → 0 under manifold-supported data, we observe that Γ∗(y) remains bounded and converges to the tangent-space projector, while A∗(y) (and hence s2) typically contains O(1 /ε ) components in directions normal to the manifold and can therefore diverge as ε → 0. Additionally, (Meng et al., 2021) do not use the low-rank loss decomposition discussed in Sec.3.4 which reduces the loss’ complexity from O(D2) to O(D), which is crucial to applying the loss to high dimensional images. Recently, Kharitenko et al. (2025) showed that I − εs 2 converges to the projection on the tangent space of the manifold as ε → 0. Note that this is consistent with our results: εA ∗ = εs 2 + εs 1sT 
+
+> 1
+
+,the εs 1 term dies because s1 remains bounded on the manifold, leaving only the εs 2 term, and both converge to the same object. 14 Riemannian Metric Matching 
+
+## C. Low rank loss derivation 
+
+When the metric is parameterized as low rank with small identity perturbation Γθε = M θεT M θε + λI, and let ∆ = Y − X ∼N (0 , ε I) be the noise, then: 
+
+M θεT M θε + λI − 12ε ∆∆ T
+
+> 2
+> F
+
+= Tr 
+
+
+
+M θεT M θε + λI − 12ε ∆∆ T
+
+2!
+
+(18) 
+
+= Tr 
+
+
+
+M θεT M θε + λI
+
+2
+
++
+
+ 12ε ∆∆ T
+
+2
+
+− 1
+
+ε
+
+
+
+M θεT M θε + λI
+
+
+
+∆∆ T
+
+!
+
+(19) 
+
+= Tr 
+
+
+
+M θεT M θε
+
+2
+
++ 2 λ Tr 
+
+
+
+M θεT M θε
+
+
+
++ λ2D + Tr 
+
+ 12ε ∆∆ T
+
+2!
+
+(20) 
+
+− 1
+
+ε
+
+
+
+Tr 
+
+
+
+M θεT M θε ∆∆ T 
+
++ λ Tr  ∆∆ T 
+
+. (21) Where we expanded the squares. Now we notice that Tr  (∆∆ T )2 = Tr  ∆∆ T ∆∆ T  = ∥∆∥22 Tr  ∆∆ T  =
+
+∥∆∥42, and due to the cyclic property of the trace (i.e. Tr( ABC ) = Tr( CAB )), we have Tr 
+
+
+
+M θεT M θε ∆∆ T
+
+
+
+=Tr 
+
+
+
+∆T M θεT M θε ∆
+
+
+
+= Tr 
+
+ M θε ∆T M θε ∆
+
+
+
+= ∥M θε ∆∥22. Reorganizing the terms we get: 
+
+M θεT M θε + λI − 12ε ∆∆ T
+
+> 2
+> F
+
+= Tr 
+
+
+
+M θεT M θε
+
+2
+
++ 2 λ Tr 
+
+
+
+M θεT M θε
+
+
+
+− 1
+
+ε ∥M θε ∆∥22 (22) 
+
++ λ2D + 14ε2 ∥∆∥42 − λε ∥∆∥22
+
+| {z } 
+
+> independent of θ
+
+(23) 
+
+= ∥M θεT M θε ∥2 
+
+> F
+
++ 2 λ∥M θε ∥2 
+
+> F
+
+− 1
+
+ε ∥M θε ∆∥22 + C. (24) Hence we get the low rank with Tikhonov regularization loss LλLR = ∥M θεT M θε ∥2 
+
+> F
+
++2 λ∥M θε ∥2 
+
+> F
+
+− 1 
+
+> ε
+
+∥M θε ∆∥22 and setting λ =0 yields the low rank loss LLR = ∥M θεT M θε ∥2 
+
+> F
+
+− 1 
+
+> ε
+
+∥M θε ∆∥22. Note that since ∥M θεT M θε ∥2 
+
+> F
+
+= Tr 
+
+
+
+M θεT M θε M θεT M θε
+
+
+
+=Tr 
+
+ 
+
+M θε M θεT   
+
+M θε M θεT  
+
+, and ∥M θε ∥2 
+
+> F
+
+= Tr 
+
+
+
+M θε M θεT 
+
+, both terms can be computed without ever materializing any 
+
+D × D matrices. 
+
+## D. Training Algorithms 
+
+Algorithm 1 Minibatch training with per-sample noise for Conditional CDC Matching (scalar) 
+
+Require: Dataset D = {xi}Ni=1 ⊂ RD ; batch size B; noise-scale sampler p(ε); fixed f, h : RD → R; network Γθ :
+
+RD × R+ → R; optimizer Opt. 
+
+1: for each training step do 
+
+2: Sample minibatch X = {Xb}Bb=1 ∼ D .
+
+3: For each b: sample εb ∼ p(ε).
+
+4: For each b: sample Yb ∼ N (Xb, ε bI).
+
+5: Compute Tb ←  f (Xb) − f (Yb)  h(Xb) − h(Yb)/2εb // conditional CDC target 
+
+6: Predict Pb ← Γθ (Yb, ε b)
+
+7: Loss L ← 1
+
+B
+
+> B
+
+X
+
+> b=1
+
+(Pb − Tb)2
+
+8: Update θ ← Opt( θ, ∇θ L)
+
+9: end for 
+
+15 Riemannian Metric Matching 
+
+Algorithm 2 Minibatch training with per-sample noise for Conditional Riemannian Metric Matching (matrix) 
+
+Require: Dataset D = {xi}Ni=1 ⊂ RD ; batch size B; noise-scale sampler p(ε); network Γθ : RD × R+ → SD (predicts symmetric D×D); optimizer Opt.  
+
+> 1:
+
+for each training step do  
+
+> 2:
+
+Sample minibatch X = {Xb}Bb=1 ∼ D . 
+
+> 3:
+
+For each b: sample εb ∼ p(ε) . 
+
+> 4:
+
+For each b: sample Yb ∼ N (Xb, ε bI). 
+
+> 5:
+
+Set ∆b ← Xb − Yb. 
+
+> 6:
+
+Target Tb ← (∆ b∆⊤ 
+
+> b
+
+)/2εb ∈ RD×D // conditional metric target  
+
+> 7:
+
+Predict Pb ← Γθ (Yb, ε b) ∈ RD×D 
+
+> 8:
+
+Loss L ← 1
+
+B
+
+> B
+
+X
+
+> b=1
+
+∥Pb − Tb∥2 
+
+> F
+> 9:
+
+Update θ ← Opt( θ, ∇θ L) 
+
+> 10:
+
+end for 
+
+## E. Experimental details 
+
+E.1. Bandwidth sampling 
+
+In practice we exprimented with two different noise/bandwidth ε sampling strategies, namely the uniform noise sampling, and log-normal distribution, following the noise scheduling strategy of Karras et al. (2022). Specifically, for the log-normal strategy we draw log ε ∼ N (Pmean , P 2std ) with Pmean = −1.2 and Pstd = 1 .2, and clamp the resulting values to the interval [εmin , ε max ]. This choice biases sampling toward smaller bandwidths, which are critical for resolving fine-scale geometric structure. 
+
+E.2. Noise level encoding 
+
+To condition the network on the bandwidth/noise scale ε, we use Fourier feature embeddings of t of the form eω (ε) = (cos( εω ), sin( εω )) . We use d/ 2 frequencies given by ωk = T − kd/ 2 
+
+> max
+
+for k = 0 , . . . , d 
+
+> 2
+
+− 1, following standard practice in diffusion and flow-matching models. 
+
+E.3. Synthetic spheres experiment FiLM-conditioned residual MLP encoder. For the synthetic sphere experiments, we parameterize the low-rank factor 
+
+M θε (y) ∈ Rr×D with a FiLM-conditioned residual MLP (Perez et al., 2018), denoted MLPEncoder . The network takes as input a point x ∈ RD and a per-sample noise/bandwidth scalar ε, and outputs 
+
+MLPEncoder (h, x ) ∈ Rr×D.
+
+This output is used in the low-rank CDC parameterization Γθε (y) = M θε (y)⊤M θε (y) (or equivalently in the low-rank loss that avoids materializing Γθε ). 
+
+Output bias. Optionally, we add an output bias bout ∈ Rr×D to M θε (y) before making Γθε , which we find help during early training. 
+
+Noise-scale conditioning. We condition the network on ε using a sinusoidal noise-level embedding as describe in Sec.E.2 followed by a small MLP. Concretely, we compute feed the noise-level encoding in a 2-layer MLP with SiLU nonlinearity. This embedding is injected into every residual block via FiLM (feature-wise linear modulation) (Perez et al., 2018), rather than concatenated only once at the input. 
+
+Initialization. We initialize each residual block near the identity map, meaning a zero initialization of the projection heads of each blocks. Importantly, we do not zero-initialize the final projection head: Wout is initialized from a zero-mean Gaussian with small standard deviation, and bout = 0 . This avoids an initial output M θε (y) ≈ 0, which can lead to weak gradients when optimizing losses involving M ⊤M .16 Riemannian Metric Matching 
+
+Synthetic sphere configuration. Unless otherwise specified, we use ambient dimension D = 64 and sphere dimension 
+
+d = 8 . The architecture used hidden width H = 1024 , L = 4 residual blocks, rank r = 16 , and time/noise embedding enabled. We train with AdamW (learning rate 10 −4, no weight decay) for 3000 epochs with batch size 1024 and gradient clipping with norm 1. In this configuration the MLP has roughly 15 M parameters. The noise level sampling strategy used during training was log-normal with hmin = 10 −4 and hmax = 16 .
+
+Evaluation and hyper-parameter tuning for Fig.2. We select evaluation hyper-parameters via grid search on a held-out validation set, independently for each training-set size. For metric matching, the only tuned hyper-parameter is the conditioning bandwidth ε; we evaluate ε = 2 −k for k = −9, −8, . . . , 4 and report test performance using the value that minimizes the validation error. For the k-NN graph baseline, we tune both the number of neighbors and the bandwidth, searching over k = 2 p p = 3 , 4 . . . , 11 and ε = 2 −k for k = −9, −8, . . . , 4, and again report test performance for the configuration achieving the lowest validation error. 
+
+E.4. MNIST experiments UNet backbone. We use a standard timestep-conditioned UNet backbone with residual blocks and attention from (Dhariwal & Nichol, 2021). After the final UNet layer, the network outputs a tensor of shape [B, K, W, H ], where B is the batch size, W and H are spatial dimensions, and K is the number of output channels. We then reshape this output to [B, K, W H ] (or equivalently flatten the spatial dimensions) and interpret the channel dimension as a collection of K
+
+per-pixel feature maps. In our metric-matching parameterization, these K channels represent the entries of a low-rank factor: we set K = Cr where C is the input channels (so ambient dimension D = CW H ) and reshape the flattened output into a matrix Uθ (x) ∈ RD×r (per input), where D is the ambient dimension of the data and r is the chosen rank. We then form the predicted (co)metric as the low-rank PSD matrix 
+
+ˆΓθ (x) = Uθ (x) Uθ (x)⊤ ∈ RD×D.
+
+Finally, we optionally add a learned output bias at the UNet head: after the last convolution and before reshaping into Uθ (x),we add a trainable vector b ∈ RK to the K output channels and broadcast it across spatial dimensions, followed by the reshaping described above. 
+
+MNIST configuration. For MNIST we use 28 × 28 inputs with model channels = 64 , num res blocks = 2 ,
+
+channel mult (1 , 2, 2) , and enable attention at downsampling factor 4 (i.e., 7 × 7 feature maps). We additionally include a learnable output bias term which we initialize a centered normal distribution with 1e − 3 variance, as it empirically improves optimization for early stages of training. We use an output rank of r = 100 for the low rank parameterization, and use low rank training. We use Adam optimizer with learning rate 2 × 10 −4, β1 = 0 .9, β2 = 0 .999 , and ϵ = 10 −8, and no weight decay. Training is run for up to 1500 epochs with batch size 128 . We apply gradient clipping with global ℓ2-norm threshold 1.0. Each training step samples a noise/scale parameter h ∈ [hmin , h max ] with hmin = 10 −4 and hmax = 25 
+
+using a uniform sampling scheme. We trained using gaussian augmentation with 0.1 standard deviation. 
+
+Inference parameters. We use a bandwidth of ε = 7 as conditioning bandwidth in order to generate Fig.3a, Fig.3b and Fig.5. For the Riemannian optimization experiment we Riemannian gradient descent with constant learning rate 0.01 and 
+
+213 steps. Additionally, we add a slight isotropic component to the metric replacing Γθ by (1 − δ)Γ θ + δI with δ = 10 −4 in order to allow for small movement in all direction, as it improved convergence of the algorithm. 
+
+CelebA configuration. For CelebA we use 64 × 64 RGB inputs with model channels = 64 , num res blocks = 3 ,
+
+channel mult (1 , 2, 2, 2) , and enable attention at downsampling factors 4 and 8. We include a learnable output bias term and use an output rank of r = 128 for the low-rank parameterization and use low rank training together with the mean-centered loss. Each training step samples a noise/scale parameter h ∈ [hmin , h max ] with hmin = 1 .0 and hmax = 5 .0
+
+using a uniform sampling scheme. We use the AdamW optimizer with learning rate 5 × 10 −5, β1 = 0 .9, β2 = 0 .999 , and 
+
+ϵ = 10 −8, with no weight decay. Training is run for up to 200 epochs with batch size 256 . We apply gradient clipping with threshold 1.0.For the CelebA posterior mean model used for mean-centered Riemannian metric matching, we use 64 × 64 RGB inputs with 
+
+model channels = 128 , num res blocks = 3 , channel mult (1 , 2, 2, 2) , and enable attention at downsampling factors 4 and 8. Each training step samples a noise/scale parameter h ∈ [hmin , h max ], with hmin = 0 .002 and hmax = 20 .0,using a uniform sampling scheme. We use the Adam optimizer with learning rate 2 × 10 −4, β1 = 0 .9, β2 = 0 .999 , and 
+
+ϵ = 10 −8, with no weight decay. Training is run for 100 epochs. We apply gradient clipping with threshold 1.0.17 Riemannian Metric Matching 
+
+CelebA configuration. For FFHQ, we use 256 × 256 RGB inputs with model channels = 128 , num res blocks = 2 ,
+
+channel mult (1 , 2, 2, 4) , and enable attention at downsampling factors 8 and 16 . We include a learnable output bias term and use an output rank of r = 256 for the low-rank parameterization, together with low-rank training and the mean-centered loss. Each training step samples a noise/scale parameter h ∈ [hmin , h max ], with hmin = 1 .0 and hmax = 5 .0, using a uniform sampling scheme. We use the AdamW optimizer with learning rate 5 × 10 −5, β1 = 0 .9, β2 = 0 .999 , and ϵ = 10 −8,with no weight decay. Training is run for up to 80 epochs with batch size 32 using bf16-mixed precision. We apply gradient clipping with threshold 1.0.For the FFHQ posterior mean model, we use 256 ×256 RGB inputs with model channels = 128 , num res blocks = 2 ,
+
+channel mult (1 , 2, 2, 4) , and enable attention at downsampling factors 8 and 16 . Each training step samples a noise/scale parameter h ∈ [hmin , h max ], with hmin = 0 .002 and hmax = 20 .0, using a uniform sampling scheme. We use the Adam optimizer with learning rate 2 × 10 −4, β1 = 0 .9, β2 = 0 .999 , and ϵ = 10 −8, with no weight decay. Training is run for 200 
+
+epochs with bf16-mixed precision. We apply gradient clipping with threshold 1.0.
+
+## F. Additional results Original v0 v1 v2 v3 v7 v15 v127 v255 
+
+Figure 6. Visualization of the first 4, 8th, 16 th, 128 th, and 256 th eigenvectors of the CDC matrix learned by metric matching on FFHQ. The tangent vectors are shown in grayscale for greater clarity. 
+
+18 Riemannian Metric Matching 2 4 6 8 10 12 14 16 
+
+Eigenvalue index 
+
+10 3
+
+10 2
+
+10 1
+
+> Eigenvalue
+
+mean 
+
+±std 
+
+(a) Metric matching MLP (best bandwidth 2−5). 2 4 6 8 10 12 14 16 
+
+Eigenvalue index 
+
+10 3
+
+10 2
+
+10 1
+
+> Eigenvalue
+
+mean 
+
+± std (b) k-NN CDC estimator (best bandwidth 2−2 and k = 1024 ). 
+
+Figure 7. Mean ordered top 16 eigenvalues on the 8-dimensional sphere (512k samples), for the best-performing tangent space predictor hyperparameters of (left) metric matching and (right) a kNN-based CDC estimator. src tgt src tgt src tgt   
+
+> Linear interpolation Metric matching Stein score
+
+Figure 8. Interpolation on MNIST. We compare linear interpolation (LERP), metric matching, and the Stein score metric on the interpolation problem. 
+
+19 Riemannian Metric Matching Source Recon Recon Target Linear 
+
+(a) Latent linear (d=8) Source Recon Recon Target MM Riemannian (b) Latent metric matching (d=8) Source Recon Recon Target Pullback Riemannian (c) Latent pullback metric (d=8) Source Recon Recon Target Linear 
+
+(d) Latent linear (d=32) Source Recon Recon Target MM Riemannian (e) Latent metric matching (d=32) Source Recon Recon Target Pullback Riemannian (f) Latent pullback metric (d=32) 
+
+Figure 9. Interpolation on MNIST in latent space of a VAE. Top row shows the smaller VAE with 2M parameters and latent dimension 
+
+d = 8 ; bottom row shows the larger VAE with 12 M parameters and d = 32 . We compare linear interpolation, metric matching, and the pullback metric on the interpolation optimization problem. 
+
+20
