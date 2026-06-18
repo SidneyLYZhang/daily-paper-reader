@@ -1,0 +1,3324 @@
+Title: The Data Manifold under the Microscope
+
+URL Source: https://arxiv.org/pdf/2606.15760v1
+
+Published Time: Tue, 16 Jun 2026 01:30:35 GMT
+
+Number of Pages: 35
+
+Markdown Content:
+## The Data Manifold under the Microscope 
+
+Marios Koulakis 1 Constantin Seibold 2
+
+Abstract 
+
+A significant gap exists between theory and prac-tice in deep learning. Generalization and approx-imation error bounds are often derived for sim-plified models or are too loose to be informative. Many rely on the manifold hypothesis and on geometric regularity such as intrinsic dimension, curvature, and reach. Progress requires insight into data-manifold geometry and suitable bench-marks, yet existing options are polarized: analytic manifolds with known geometry but limited ap-plicability, or real-world datasets where geometry is only coarsely estimable. We introduce a bench-marking framework for studying data geometry. We repurpose and extend dSprites and COIL-20 with additional transformation dimensions and dense, axis-aligned sampling, and pair them with finite-difference estimators that recover curvature, reach, and volume at near-ground-truth accuracy in a regime where general-purpose estimators are unreliable or difficult to deploy. The framework is intended as a controlled testbed, useful as a cali-bration environment for geometric estimators and a sandbox for probing theoretical assumptions. To illustrate its use, we present two application stud-ies, namely assessing the scaling behavior of the bounds of Genovese et al. and Fefferman et al., and tracking the layer-wise geometry of a β-VAE, highlighting the behavior of current bounds and the value of controlled benchmarks for guiding and validating future theory. A reference implementation is available at github.com/koulakis/manifold-microscope. 
+
+> 1
+
+Independent Researcher, Germany 2Diagnostic and In-terventional Radiology, University Clinic Heidelberg, Heidel-berg, Germany. Correspondence to: Marios Koulakis <mar-iosco100@gmail.com >.
+
+Proceedings of the 43 rd International Conference on Machine Learning , Seoul, South Korea. PMLR 306, 2026. Copyright 2026 by the author(s). 
+
+1. Introduction 
+
+Deep learning has become the dominant paradigm for a broad range of tasks, and in recent years generative mod-els in particular, such as variational autoencoders (VAEs) (Kingma & Welling, 2013), diffusion models (Ho et al., 2020), and modern masked or autoencoding architectures (He et al., 2022), have seen striking empirical success. A common way to interpret this success is through the man-ifold hypothesis (Cayton et al., 2005): high-dimensional data often concentrate near low-dimensional manifolds, and learning amounts to finding useful parameterizations of them. Many modern models can thus be viewed as proce-dures for fitting or approximating data manifolds, whether explicitly, as in latent-variable models (Arvanitidis et al., 2017), or implicitly, as in denoising and score-based flows (Horvat & Pfister, 2021). While appealing, it remains unclear how networks fit mani-folds in practice. Classical results such as (Genovese et al., 2012) and (Fefferman et al., 2018) on minimax rates for manifold estimation, (Aamari & Levrard, 2019) on the tight-ness of those bounds under varying manifold smoothness, and more recent work on approximation of Sobolev classes on manifolds (Tan et al., 2024) highlight the role of geo-metric quantities like curvature, reach, or sampling density in learning. Yet in realistic data these quantities are rarely observable: the data-generating process is unknown, the intrinsic dimension is uncertain (Campadelli et al., 2015), and sampling can be irregular (Shroff et al., 2011; Sedghi et al., 2020). As a result, theoretical guarantees often rely on constants that cannot be directly checked or measured. This creates two complementary needs. On the theoretical side, sharper and more data-adaptive bounds are desirable, or at least a clearer picture of when existing bounds are informative. On the empirical side, there is a lack of bench-marks that balance realism with geometric control: synthetic manifolds are too simple, while real-world datasets obscure the geometry entirely. To narrow this gap, we introduce a framework that con-structs low-dimensional image families densely sampled along controlled transformation axes (e.g., rotation, transla-tion, scale) and provides efficient finite-difference estima-tors of geometric measures such as curvature, reach, and volume. Combined with an experimental pipeline for man-1
+
+> arXiv:2606.15760v1 [cs.LG] 14 Jun 2026 The Data Manifold under the Microscope
+
+ifold fitting, it enables systematic tests of how theory and practice align. While we illustrate it here using genera-tive models and manifold-fitting bounds, the framework is general and also supports settings such as discriminative learning or benchmarking geometric-measure estimators. Our contributions are the following: • A reproducible framework of adapted low-dimensional datasets with dense, axis-aligned sampling, plus an experimental pipeline for probing modern generative and representation models. • A suite of efficient finite-difference estimators for pointwise and global geometric quantities such as cur-vature, reach, or volume of manifolds. • Two illustrative case studies that show possible uses of the framework, empirically probing how the scaling of existing manifold-fitting bounds matches observed errors, and tracking how a β-VAE reshapes manifold geometry across layers. 
+
+2. Related Work 
+
+Manifold Analysis: Following the manifold hypothesis (Cayton et al., 2005), many works analyze the geometry of data and learned representations. Early results on inferring topological structure from samples include guarantees for homology recovery (Niyogi et al., 2008). Studies on VAEs and β-VAEs (Kingma et al., 2019; Higgins et al., 2017) show that learned latent spaces often exhibit limited curva-ture (Arvanitidis et al., 2017; Shao et al., 2018). Geometric invariants such as curvature, tangent spaces, and reach have been used to study robustness and disentanglement (Aa-mari et al., 2019; Berenfeld et al., 2022; Birdal et al., 2021), though outcomes depend strongly on dataset, architecture, and estimator (Brahma et al., 2015; Kaufman & Azencot, 2023). Recent representation-learning approaches explic-itly impose manifold structure via learned charts (Schon-sheck et al., 2019). Connections to expressive power have also been explored through manifold topology (Yao et al., 2024a). 
+
+Manifold Fitting Bounds: (Genovese et al., 2012) estab-lished the minimax rate O((1 /n )2/(2+ d)), later shown op-timal by (Kim & Zhou, 2015), though the corresponding estimator is computationally infeasible. (Aamari & Lev-rard, 2019) provides nonasymptotic rates for manifold es-timation that depend on manifold smoothness, alongside rates for tangent space and curvature estimation. (Yao & Xia, 2025) handled unbounded noise via projection, yielding O(σ2 log(1 /σ )) Hausdorff error for sample size 
+
+O((1 /σ )d+3 ). Neural estimators (Yao et al., 2023; 2024b) offer scalable alternatives at the cost of weaker guarantees. Earlier complexity results for testing the manifold hypothe-sis (Narayanan & Mitter, 2010) relate geometry, dimension, and sample efficiency more explicitly. A complementary line of work uses reach as a structural primitive. (Fefferman et al., 2016) introduced a geomet-ric approach based on preserving reach, with noisy-data extensions reducing complexity from double- to single-exponential (Fefferman et al., 2018; 2020). However, these guarantees depend on unknown geometric parameters such as reach and volume. For example, the constants in (Yao & Xia, 2025) scale as τ −2, illustrating a recurring issue: theo-retical bounds often require prior knowledge of quantities that can only be estimated from the manifold itself. 
+
+Geometric Property Estimation: Recent work develops estimators and sample complexity bounds for reach and re-lated quantities (Aamari et al., 2019; Berenfeld et al., 2022; Aamari et al., 2023), though empirical validation remains challenging due to the lack of ground truth geometric data. Similar progress exists for curvature estimation: scalar cur-vature estimators with nonasymptotic guarantees (Aamari & Levrard, 2019; Gawlik & Neunteufel, 2025), methods for the second fundamental form and Ricci curvature (Acosta et al., 2023; Samal et al., 2018), and tangent space estima-tors with provable accuracy (Cheng & Chiu, 2016; Cazals & Pouget, 2005). These results extend the classical geometric recovery literature (Niyogi et al., 2008). Overall, theory provides strong asymptotic guarantees, but empirical understanding is hindered by the absence of datasets with exact geometric ground truth. Our frame-work addresses this gap by combining dense, axis-aligned sampling with finite-difference estimators, providing a con-trolled calibration testbed in which geometric estimators can be validated and theoretical predictions can be probed at low intrinsic dimension. 
+
+3. Background and Definitions 
+
+Datasets as Manifolds: The manifold hypothesis suggests that high-dimensional datasets often concentrate near low-dimensional manifolds. We focus on datasets where the number of intrinsic factors of variation d is small and fixed, and where these factors are explicitly known. Each dataset is modeled as a union of connected smooth d-dimensional manifolds embedded in RD , possibly with boundary. Typ-ically, each of the k semantic classes in the dataset corre-sponds to a separate connected component of this union. For this work, we restrict attention to simple topologies in which each manifold factors into cyclic and non-cyclic directions. Concretely, every manifold is assumed to be homeomorphic to [0 , 1] r × (S1)s, r + s = d, so that some coordinates vary over a compact interval while others wrap around a circle. This setting captures many common syn-thetic datasets. A canonical example is dSprites , a collection 2The Data Manifold under the Microscope Original Dataset 
+
+Compute 
+
+Manifold Measures via finite differences 
+
+Granular Datasets Versions 
+
+Reach 
+
+> ...
+
+Volume 
+
+## Dataset Expansion 
+
+Figure 1. From a low-dimensional seed we produce dense, regular grids via analytic parametrizations or systematic transforms; central finite differences recover geometric estimators such as reach and curvature enabling validation of manifold-fitting bounds. 
+
+of 64 ×64 grayscale images of objects (square, ellipse, heart) undergoing controlled transformations such as scaling, rota-tion, and translation. The manifold of a class in this dataset is homeomorphic to [0 , 1] 3 ×S1 and is embedded into R4096 .Note that manifolds of any topology can also be handled by covering them with charts and applying the framework chart-wise. To obtain discrete datasets from this continuous geometric picture, we impose a grid structure. Let nl be the number of sampled values along the l-th dimension, so that the total number of grid points is n = Q 
+
+> l≤d
+
+nl. We define 
+
+G =
+
+n
+
+( j1 
+
+> n1−1
+
+, . . . , jr  
+
+> nr−1
+
+, 2π jr+1  
+
+> nr+1
+
+, . . . , 2π jd 
+
+> nd
+
+) jℓ ∈ [0 , n ℓ)
+
+o
+
+(1) where the first r coordinates and the last s coordinates sam-ple [0 , 1] and S1 respectively on constant intervals. For each class i ≤ k, we define a mapping ui : G → Mi that associates each grid point with a dataset element obtained by applying the corresponding transformations. The image 
+
+ui[G] provides a discrete parametrization of the manifold 
+
+Mi, and by cutting along cyclic directions one obtains dis-crete patches of Mi. The complete discretized dataset is then 
+
+XG = [
+
+> i≤k
+
+ui[G]. (2) 
+
+Geometric Measures: We focus on three geometric quanti-ties describing the local and global structure of a manifold: 
+
+volume , scalar curvature , and reach . For completeness, we recall the definitions of the Riemannian metric and the objects needed to introduce these quantities. 
+
+Definition 3.1 (Riemannian metric) . A Riemannian metric 
+
+g on a d-dimensional differentiable manifold M assigns to each point p ∈ M an inner product gp on the tangent space 
+
+TpM . If M is embedded in RD , the ambient Euclidean metric induces a Riemannian metric by restriction. In local coordinates u : U → M , the metric matrix is 
+
+gij (x) = ⟨∂iu(x), ∂ j u(x)⟩RD . (3) 
+
+Definition 3.2 (Volume element and volume) . On a Rieman-nian manifold (M, g ) with local coordinates (u1, . . . , u d),the natural volume element is 
+
+d V = pdet( g) du 1 ∧ · · · ∧ du d. (4) The volume of a region R ⊂ M is then 
+
+Vol( R) = 
+
+Z
+
+> u−1(R)
+
+pdet( g) du 1 · · · du d. (5) Throughout, we use Einstein summation notation: free upper and lower indices in the same term are implicitly summed, e.g. gij Ric ij = P 
+
+> i,j
+
+gij Ric ij .
+
+Definition 3.3 (Notions of curvature) . The curvature of 
+
+(M, g ) is encoded in the Riemann tensor 
+
+Rijkl = ∂kΓijl − ∂lΓijk + Γ ikr Γrjl − Γilr Γrjk , (6) where the Christoffel symbols are 
+
+Γijk = 12 gir (∂j grk + ∂kgrj − ∂r gjk ). (7) Contracting yields the Ricci tensor Ric ij = Rrirj and the scalar curvature R = gij Ric ij .For more details on the above definitions one can refer to a classical differential geometry reference, for example (Do Carmo, 1992). 
+
+Definition 3.4 (Reach (Federer, 1959)) . For a closed set 
+
+A ⊂ RD , the medial axis is the set of points with more than one nearest neighbor in A. The reach of A is the distance to its medial axis: 
+
+τA = inf  
+
+> p∈A
+
+dℓ2 (p, M ed (A)) . (8) Here dℓ2 is the Euclidean distance: dℓ2 (p, q ) = ∥p − q∥2,and for a set A, dℓ2 (p, A ) = inf q∈A dℓ2 (p, q ). Intuitively, 
+
+τA is the largest radius such that every point within distance 
+
+< τ A of A has a unique nearest neighbor in A. For a 3The Data Manifold under the Microscope 
+
+compact d-dimensional submanifold M ⊂ RD , the reach can be expressed as 
+
+τM = inf 
+
+> p̸=q∈M
+
+∥p − q∥2
+
+2 dℓ2 (q − p, T pM ) , (9) where dℓ2 (v, T pM ) is the distance of a vector v to the tan-gent space at p.In our applications, we consider both global quantities (total volume, the scalar curvature integral 1, global reach) and their local counterparts (volume element, pointwise scalar curvature, and local reach estimators as in (Aamari et al., 2019)). 
+
+Definition 3.5 (Hausdorff distance) . Let A, B ⊂ RD be non-empty subsets. The Hausdorff distance between A and 
+
+B is 
+
+H(A, B ) = max 
+
+n
+
+sup 
+
+> a∈A
+
+dℓ2 (a, B ), sup 
+
+> b∈B
+
+dℓ2 (b, A )
+
+o
+
+. (10) If M is the ground-truth data manifold and ˆM a learned approximation (e.g., via an autoencoder), then H(M, ˆM )
+
+expresses the largest geometric error, i.e. how far the mani-folds can be from each other at any single point. 
+
+Manifold Fitting and Bounds: 
+
+Manifold learning and generative modeling are closely re-lated: both assume high-dimensional data lie near a low-dimensional manifold. Generative models learn a mapping between the data manifold in RD and a lower-dimensional latent space where factors of variation are (ideally) disen-tangled and sampling is easier. If the encoder–decoder is sufficiently regular, composing the encoder with the mani-fold charts ui gives a parametrization of the latent manifold. Data points map to latent representations, and decoding maps them back to the estimated data manifold. We focus on two theoretical results that provide bounds on the error of manifold fitting in terms of sample size, intrinsic dimension, and geometric properties of the man-ifold. Before stating these results, we define the nor-mal fiber of radius r at a point p ∈ M as Lr (p) =(p + T ⊥ 
+
+> p
+
+M ) ∩ BD (p, r ), where T ⊥ 
+
+> p
+
+M is the orthogonal complement of TpM (viewed as a linear subspace of RD )and BD (p, r ) is the D-dimensional ball of radius r centered at p. Intuitively, this fiber is a (D − d)-dimensional ball extending away from the manifold at p.
+
+Minimax manifold estimation bound: (Genovese et al., 2012) establish minimax rates for estimating a manifold from samples corrupted by small normal noise. Their re-sult shows that the intrinsic dimension d alone governs the difficulty of estimation.         
+
+> 1The integral of the scalar field defined by the scalar curvature
+> Ron Mover the volume of M, i.e. R
+> MR dV .
+
+Theorem 3.6 ((Genovese et al., 2012)) . Let M(τ ) be the class of compact, smooth, boundaryless d-dimensional manifolds embedded in RD with reach at least τ . Fix 
+
+0 < σ < τ . For each M ∈ M (τ ), let QM be the dis-tribution of Y = ξ + Z, where ξ is uniformly distributed on M and, conditional on ξ, Z is uniformly distributed on 
+
+{z ∈ T ⊥ 
+
+> ξ
+
+M : ∥z∥2 ≤ σ}. Let Q = {QM | M ∈ M (τ )}.For an n-sample estimator cM : ( RD )n → M , define the minimax risk 
+
+Rn(Q) = inf 
+
+> cM
+
+sup 
+
+> Q∈Q
+
+EQ[H( cM , M )] , (11) 
+
+where H(·, ·) denotes the Hausdorff distance. Then there exist constants C1, C 2 > 0 such that 
+
+C1
+
+ 1
+
+n
+
+ 22+ d
+
+≤ Rn(Q) ≤ C2
+
+ log nn
+
+ 22+ d
+
+. (12) This result shows that the sample complexity depends expo-nentially on the intrinsic dimension d, but not on the ambient dimension D. Intuitively, the distributions QM correspond to sampling a point on M and perturbing it orthogonally within its reach. In our setting, an estimator cM may be interpreted as a neural network (e.g., an autoencoder) that outputs a fitted manifold. 
+
+Bounds from Fitting a putative manifold to noisy data: 
+
+(Fefferman et al., 2018) give an upper bound for the Haus-dorff distance between the true manifold M and an esti-mated manifold Mo produced by their algorithm. Special-izing their bound to the low-noise regime (or the noiseless case) yields the scaling 
+
+H(Mo, M ) < C 1
+
+ log nn
+
+ 1
+
+> d
+
+, (13) where C1 depends on geometric parameters of the class (e.g. volume and sampling density; see Appendix A for details). 
+
+The exponents of the bounds: In the noise-free (or small-noise) regime, (Aamari & Levrard, 2019) provide rates for manifold estimation under Hausdorff loss that depend on the smoothness order k. In particular, for manifolds in Ck
+
+(with k ≥ 3), their results yield the scaling 
+
+Rn(Q) < C 1
+
+ log nn
+
+ kd
+
+. (14) Beyond improving rates, their results suggest that the expo-nent is tied to the order of the local fit: roughly speaking, a linear, e.g. PCA-based, method corresponds to an exponent 
+
+1/d , while a quadratic local fit corresponds to an exponent 
+
+2/d .In our experiments, we compare the dimension-dependent minimax scaling of (Genovese et al., 2012) with the linear-fit scaling suggested by (Fefferman et al., 2018). 4The Data Manifold under the Microscope  
+
+> Table 1. Dataset characteristics and parametrizations used in our experiments:
+
+Dataset d D Factors Range Components 
+
+S1 1 2 ϕ1 [0 , 2π) 1Two moons 1 2 ϕ1 [0 , π ) 2
+
+S2 2 3 ϕ1, ϕ 2 [0 , π ) × [0 , 2π) 1
+
+T 2 2 3 ϕ1, ϕ 2 [0 , 2π) × [0 , 2π) 1dSprites 4 4096 scale, orientation, pos. x, pos. y see Appendix E 3COIL-20 3 4096 horiz. orient., scale, img. orient. see Appendix E 20 
+
+4. Methods and Framework 
+
+We construct controlled synthetic manifolds of low intrinsic dimension ( d = 1 –4) sampled on regularly spaced grids. Dense sampling enables stable finite-difference approxima-tions of partial derivatives, allowing accurate computation of the induced metric, volume element, curvature tensors, and reach. This framework provides a setting to empirically as-sess theoretical manifold-fitting bounds and a reproducible dataset suite for validating geometric estimators. 
+
+Datasets with a dense grid structure: We consider two complementary approaches for constructing low-dimensional datasets with a grid structure. For analytically defined manifolds, we generate a regular grid using known parametrizations. For image-based or domain-specific datasets, we create an analogous structured grid by systematically applying transformations (transla-tions, rotations, scalings) and sampling all combinations. Grid sampling is dense but not necessarily uniform in intrin-sic geometry. To obtain more uniform subsets, we use: • Iterative farthest-point sampling on the grid to select well-separated points. • Sampling according to the volume form, either by reweighting grid points or, when analytic expressions are available, via inverse transform sampling using nu-merical integration, which becomes costly as d grows. For experiments, we fix a uniformly distributed test subset of grid points and use the remainder for training with varying sizes. This yields clear train/test separation while keeping the test set representative for approximating Hausdorff and average distances. Geometric measures are computed on the full dataset. 
+
+Computation of geometric measures: To estimate geomet-ric quantities such as the volume element, scalar curvature, and reach, we use finite-difference approximations of partial derivatives on the dense grid. We assume C3 smoothness for estimating the reach and volume and C5 smoothness for estimating scalar curvature, enabling second-order finite-difference approximations of the required first- and third-order derivatives. Given a parametrization u : Rd → RD , the central differ-ence approximation 
+
+f ′(x) = f (x + h) − f (x − h)2h + O(h2) (15) extends coordinate-wise. For example, 
+
+u(x1, . . . , x i + h, . . . , x d) − u(x1, . . . , x i − h, . . . , x d)2h ,
+
+(16) gives a second-order accurate estimate of the i-th partial derivative Dch,i u(x). Products of such approximations yield 
+
+gij = ⟨u,i , u ,j ⟩ + O(h2) and the entries of g−1 inherit the same order provided the metric is uniformly non-degenerate, e.g. λmin (g) ≥ c > 0 on the chart. Furthermore, by the C5 smoothness, all partial derivatives of order up to 
+
+3 also have O(h2) error, therefore all the volume form, Christoffel symbols, curvature tensors and scalar curvature have O(h2) error. These intermediate tensors are available within the framework for downstream analysis. Concretely, the pointwise volume element and scalar curvature satisfy 
+
+|ˆv − v| = O(h2) and | ˆR − R| = O(h2) and the corre-sponding global volume estimate inherits this rate under the quadrature scheme used here. For reach, we use the plug-in estimator of (Aamari et al., 2019) with tangent spaces Tx
+
+estimated from the grid by finite differences. Unlike volume and curvature, reach is a minimum over point pairs, so its convergence is not controlled only by the finite-difference accuracy of the local derivatives. In the setting with known tangent spaces, Aamari et al. distinguish a global-bottleneck regime with rate O(n−1/d ) from a slower local-curvature regime with upper rate O(n−2/(3 d−1) ) for inverse reach, where n is the total number of sample points. Since the reach is bounded away from zero in our setting, inverse-reach and reach errors are equivalent up to constants. For more details on the derivation of the approximations of the curvature-related measures, please look at App. B. 
+
+Comparison to general estimation methods: 
+
+General estimators of curvature and reach from point clouds, such as those of (Aamari et al., 2023) for reach and (Aa-mari & Levrard, 2019) for curvature, operate in far broader 5The Data Manifold under the Microscope 
+
+settings than ours. They must infer derivatives from unstruc-tured samples via sophisticated interpolations, leading to more complex rates, nontrivial constants, and substantial computational overhead. Unfortunately, few implementa-tions are currently available. On a quasi-uniform d-dimensional grid with n total points, the per-axis grid spacing satisfies h ≍ n−1/d . Thus the global-bottleneck and local-curvature rates correspond re-spectively to 
+
+O(n−1/d ) = O(h) and O(n−2/(3 d−1) ) = O(h2d/ (3 d−1) ).
+
+Our finite-difference tangent estimates have error O(h2).Using the tangent-perturbation stability bound of (Aamari et al., 2019), this contributes a term of order O(h) on a grid with minimum separation δ ≍ h. Hence, in the conservative local-curvature regime, the dominant term remains 
+
+|ˆτ − τ | = O(n−2/(3 d−1) ) = O(h2d/ (3 d−1) ),
+
+up to constants and logarithmic factors. 0.001             
+
+> 0.002
+> 0.003 S2
+> 0.0
+> 0.2
+> 0.4
+> 0.6 S3
+> 0
+> 2
+> 4
+> 6S4
+> 0.00
+> 0.01
+> 0.02
+> 0.03
+> 0.04
+> H22
+> 2500 5000 7500 10000 12500 15000 17500 20000
+> Number of samples on grid
+> 0.000
+> 0.025
+> 0.050
+> 0.075
+> 0.100 T2
+> RMSE
+> Finite Differences Sritharan et al.
+
+Figure 2. Scalar-curvature RMSE (lower is better) versus number of grid samples, comparing our finite-difference estimator (blue) with (Sritharan et al., 2021) (orange) on hyperspheres of multiple dimensions S2, S 3, S 4, the hyperboloid H22 , and the torus T 2.
+
+For scalar curvature, our intrinsic finite-difference estimator gives | ˆR − R| = O(h2) = O((1 /n )2/d ). The theoretical rate of (Aamari & Levrard, 2019) is O((log n/n )3/d ) for 
+
+C5 manifolds, which is slightly tighter. This gap is due to our intrinsic computation of the Riemann curvature tensor, which requires third-order derivatives. An extrinsic formu-lation via the second fundamental form would reduce our smoothness requirement to C4 and thus improve the cor-responding O((log n/n )2/d ) theoretical rate of (Aamari & Levrard, 2019). For details on the derivation of the sample complexities, see appendix B. As a sanity check, we compare the finite-difference approach with the scalar-curvature estimation method introduced in (Sritharan et al., 2021) on the manifolds of known curvature benchmarked in their paper. For each manifold and for different numbers of samples, we run both approaches and compare their RMSE against the known curvature; see Fig. 2. For the method of (Sritharan et al., 2021), we additionally performed a grid search over the sensitive radius hyper-parameter and (optimistically) report the per-point oracle choice, i.e. the radius minimizing the error at each point. Nevertheless, the finite-difference method, aware of the grid structure, yields substantially more accurate estimates. Since such ground-truth values are not available for the image-based datasets, we separately study their sensitivity to grid resolution in Appendix D using convergence across consecutive grid refinements. Please note again, our aim is not to compete with general estimators. Instead, the controlled grid setting provides a straightforward and reproducible way to compute geometric quantities at near-optimal accuracy. The resulting measures serve as reliable benchmarks and unit tests for developing and analyzing more general methods on unstructured data. 
+
+5. Applications 
+
+Datasets: Our experimental setup employs two types of datasets: (i) toy manifolds with explicit mathematical parametrizations for analytical validation, and (ii) adapted versions of established image datasets (dSprites (Matthey et al., 2017) and COIL-20 (Nene et al., 1996)) that pro-vide controlled settings for empirical evaluation. Table 1 summarizes the key characteristics of each dataset. The toy manifolds provide analytically tractable bench-marks with closed-form geometric properties. For the image datasets, we adapted the sampling to better support geomet-ric computations: we regenerated dSprites at the same reso-lution with improved anti-aliasing, and extended COIL-20 with additional transformations such as scale and orienta-tion. Both datasets use dense grid sampling with margin oversampling on non-cyclic dimensions to support finite-difference estimates of geometric measures. Details are in Appendix E. 
+
+Manifold fitting methods: We consider two complemen-tary approaches to fit manifolds to the datasets: a geometric method, Manifold Moving Least Squares (MMLS) (Sober & Levin, 2020), and a deep learning method, the β-VAE autoencoder (Higgins et al., 2017). 6The Data Manifold under the Microscope 20     
+
+> 40
+> 60
+> 80
+> 100
+> Relative Sample Size (%)
+> 3
+> 4
+> 5
+> 6
+> 7
+> 8
+> 9
+> Hausdorff Distance
+> Dimension 1
+> 0
+> 20
+> 40
+> 60
+> 80
+> 100
+> Relative Sample Size (%)
+> 2
+> 4
+> 6
+> 8
+> 10
+> Dimension 2
+> 0
+> 20
+> 40
+> 60
+> 80
+> 100
+> Relative Sample Size (%)
+> 2
+> 4
+> 6
+> 8
+> 10
+> 12
+> Dimension 3
+> 0
+> 20
+> 40
+> 60
+> 80
+> 100
+> Relative Sample Size (%)
+> 2
+> 4
+> 6
+> 8
+> 10
+> Dimension 4
+> Lower Bound - Genovese Upper Bound - Genovese Upper Bound - Fefferman Empirical (Mean ± )
+
+Figure 3. Empirical Hausdorff error against theoretical bounds on dSprites for d = 1 to 4, using MMLS (linear local fit). Empirical mean ± 
+
+σ over 3 repetitions in blue, x-axis is training-set fraction (%). Genovese lower bound in dotted green, Genovese upper in solid green, Fefferman upper in orange. Constants fitted to envelope the empirical curve. At d = 2 the Genovese upper and Fefferman bounds overlap. 0    
+
+> 20
+> 40
+> 60
+> 80
+> 100
+> Relative Sample Size (%)
+> 2
+> 4
+> 6
+> 8
+> 10
+> Hausdorff Distance
+> MMLS
+> 0
+> 20
+> 40
+> 60
+> 80
+> 100
+> Relative Sample Size (%)
+> 2.5
+> 5
+> 7.5
+> 10
+> 12
+> 15
+> 18
+> 20
+> -VAE
+> Lower Bound - Genovese Upper Bound - Genovese Upper Bound - Fefferman Empirical (Mean ± )
+
+Figure 4. Hausdorff error and bounds on 4D dSprites for MMLS (left) and β-VAE (right; model B, latent dim 10, β = 4). Empirical mean ± σ over 3 repetitions. Bounds as in Figure 3. 
+
+MMLS: MMLS (Sober & Levin, 2020) is a local manifold approximation method in which, for each query point, a neighborhood is weighted by a kernel function and a d-dimensional affine space together with a local polynomial are fitted by weighted least squares. The projection onto the approximated manifold is then obtained by projecting onto the fitted d-plane and evaluating the polynomial correction, yielding a flexible higher-order local model of the manifold. In our setting, the ambient dimension is too high to reli-ably estimate local polynomials. We therefore customize the procedure by restricting the fit to the weighted d-plane alone. More details on the method and our usage are in Appendix G.1. 
+
+β-VAE: The β-VAE (Higgins et al., 2017) provides a learning-based approach. It maps input data into a low-dimensional latent space and reconstructs them, with the reconstruction lying on a learned manifold. The reconstruc-tion distance can thus be interpreted as the distance to this manifold. As the input dimensionality is too small for mean-ingful bottlenecks in toy datasets, we employ β-VAE only for image datasets (dSprites, COIL-20). We use the off-the-shelf hyperparameter configuration of (Higgins et al., 2017). For more details, refer to Appendix G.1. 
+
+Sampling protocol: For both methods, a fixed test set of 500 uniformly spread points is used. On the toy datasets, training sets range from 5–500 points, and each experiment is repeated 20 times. On dSprites and COIL-20, data ratios range from 0.01 up to 1.0, with three repetitions per setup. The motivation for considering both methods is that MMLS directly fits a manifold in the original data space, whereas β-VAE learns a latent manifold with richer semantic structure. Together, they provide complementary views of manifold fitting performance. 
+
+Error bounds evaluation: We now turn to the first ap-plication of manifold fitting: the empirical evaluation of theoretical bounds on approximation error. Recall from Sec-tion 3 that we consider the upper and lower bounds from (Genovese et al., 2012) and the upper bound from (Feffer-0    
+
+> 20
+> 40
+> 60
+> 80
+> 100
+> Relative Sample Size (%)
+> 0
+> 0.05
+> 0.1
+> 0.15
+> 0.2
+> 0.25
+> 0.3
+> 0.35
+> 0.4
+> Hausdorff Distance
+> Sphere
+> 0
+> 20
+> 40
+> 60
+> 80
+> 100
+> Relative Sample Size (%)
+> 0
+> 0.1
+> 0.2
+> 0.3
+> 0.4
+> Torus
+> 0
+> 20
+> 40
+> 60
+> 80
+> 100
+> Relative Sample Size (%)
+> 5
+> 10
+> 15
+> 20
+> 25
+> 30
+> Extended Coil20
+> 0
+> 20
+> 40
+> 60
+> 80
+> 100
+> Relative Sample Size (%)
+> 2
+> 4
+> 6
+> 8
+> 10
+> Custom dSprites Balanced
+> Lower Bound - Genovese Upper Bound - Genovese Upper Bound - Fefferman Empirical (Mean ± )
+
+Figure 5. Hausdorff error and bounds for MMLS on, from left to right, Sphere S2, Torus T 2, extended COIL-20, and balanced dSprites. Empirical mean ± σ over 3 repetitions, x-axis is training-set fraction (%). Please note that for S2 and T 2, the Genovese upper and Fefferman bounds are the same for d = 2 since we use the same fitting process for their respective multiplicative constants. 
+
+7The Data Manifold under the Microscope input                                   
+
+> enc 5
+> enc 7
+> enc 10
+> enc 12
+> mu
+> dec 1
+> dec 3
+> dec 5
+> output
+> 10.41
+> 1.37e+04
+> 1.81e+07
+> 2.38e+10
+> 3.13e+13
+> Measure Value
+> Encoder Decoder
+> Volume
+> input
+> enc 5
+> enc 7
+> enc 10
+> enc 12
+> mu
+> dec 1
+> dec 3
+> dec 5
+> output
+> -43.77
+> -0.7
+> 7.38
+> 856.52
+> 9.94e+04 Encoder Decoder
+> Curvature
+> input
+> enc 5
+> enc 7
+> enc 10
+> enc 12
+> mu
+> dec 1
+> dec 3
+> dec 5
+> output
+> -3.62e+04
+> -2.64e+04
+> -1.66e+04
+> -6788.03
+> 3022.92 Encoder Decoder
+> Curvature negative
+> input
+> enc 5
+> enc 7
+> enc 10
+> enc 12
+> mu
+> dec 1
+> dec 3
+> dec 5
+> output
+> 113.04
+> 697.06
+> 4298.3
+> 2.65e+04
+> 1.63e+05 Encoder Decoder
+> Curvature positive
+> input
+> enc 5
+> enc 7
+> enc 10
+> enc 12
+> mu
+> dec 1
+> dec 3
+> dec 5
+> output
+> 4.930e-05
+> 0.008
+> 0.015
+> 0.022
+> 0.03 Encoder Decoder
+> Reach
+> input
+> enc 5
+> enc 7
+> enc 10
+> enc 12
+> mu
+> dec 1
+> dec 3
+> dec 5
+> output
+> -8.84e-04
+> 0
+> 0.01
+> 0.02
+> 0.02 Encoder Decoder
+> Average distances
+> Object class
+> square ellipse heart Encoder (input latent) Decoder (latent output) input
+> enc 5
+> enc 7
+> enc 9
+> mu
+> dec 2
+> dec 4
+> dec 6
+> output
+> 30.85
+> 1923.18
+> 1.20e+05
+> 7.47e+06
+> 4.66e+08
+> Measure Value
+> Encoder Decoder
+> Volume
+> input
+> enc 5
+> enc 7
+> enc 9
+> mu
+> dec 2
+> dec 4
+> dec 6
+> output
+> -40.05
+> -1.56
+> 1.22
+> 26.12
+> 919.51 Encoder Decoder
+> Curvature
+> input
+> enc 5
+> enc 7
+> enc 9
+> mu
+> dec 2
+> dec 4
+> dec 6
+> output
+> -637.69
+> -468.61
+> -299.53
+> -130.44
+> 38.64 Encoder Decoder
+> Curvature negative
+> input
+> enc 5
+> enc 7
+> enc 9
+> mu
+> dec 2
+> dec 4
+> dec 6
+> output
+> -0.75
+> 1.26
+> 10.17
+> 133.38
+> 1749.69 Encoder Decoder
+> Curvature positive
+> input
+> enc 5
+> enc 7
+> enc 9
+> mu
+> dec 2
+> dec 4
+> dec 6
+> output
+> 0
+> 0.003
+> 0.006
+> 0.009
+> 0.011 Encoder Decoder
+> Reach
+> input
+> enc 5
+> enc 7
+> enc 9
+> mu
+> dec 2
+> dec 4
+> dec 6
+> output
+> 9.70e-06
+> 1.18e-04
+> 2.27e-04
+> 3.35e-04
+> 4.43e-04 Encoder Decoder
+> Average distances
+> Mean over 20 classes ± 1 std. dev. ( )Encoder (input latent) Decoder (latent output)
+
+Figure 6. Evolution of manifold geometry across the layers of a β-VAE. For each layer (input → encoder → latent μ → decoder →
+
+output; encoder and decoder halves shaded blue and orange) we report six geometric measures: volume, scalar curvature, its negative and positive parts, reach, and average pairwise distance (all normalized except volume). Top: dSprites, one curve per object class (square, ellipse, heart). Bottom: COIL-20, summarized as the mean over the 20 object classes (solid line) with a ±1σ band (shaded: one standard deviation across classes). The full per-class COIL-20 version is given in Fig. 31. 
+
+man et al., 2018). For the fitting methods (MMLS, β-VAE), each dataset (toy, dSprites, COIL-20), and a range of intrin-sic dimensions, we fit manifolds for multiple training set sizes. As an evaluation metric we use the directed Haus-dorff distance from the ground-truth manifold to the fitted manifold, sup x∈M dℓ2 (x, cM ), which provides a computable proxy for H(M, cM ); the reverse direction is discussed in Appendix G.1. 
+
+Comparing to bounds: To estimate the constants appearing in the theoretical upper and lower error bounds, we avoid attempting to compute these constants directly. Instead, we determine them empirically by aligning the theoretical shapes of the bounds with the observed error curve. For a full justification, see Appendix G.2. The theoretical bounds scale like C1(1 /n )2/(2+ d) and 
+
+C2(log n/n )2/(2+ d), which suggests that the true error curve should be well approximated by a power law of the form Rn ∼ Cn −g(d). Taking logarithms yields a linear model log Rn ∼ − A log n + log C. We therefore regress 
+
+(log nj , log ˆRnj ) for a sequence of sample sizes nj cov-ering the fractions {0.01 , 0.02 , 0.05 , 0.1, . . . , 1.0} of the available fitting pool. Each experiment is repeated three times, and the empirical values ˆRnj used for the fit are the pointwise averages. The regression provides estimates ˆA
+
+and ˆC, giving a fitted curve ˆRfit 
+
+n = ˆCn − ˆA.We then use this fitted curve to select constants for the upper and lower theoretical bounds. For each nj , we compute the 
+
+0.99 quantile of the empirical errors ˆRnj across repetitions. The upper bound constant is chosen as the smallest value for which the bound stays above these quantiles; the lower bound constant is chosen as the largest value for which the bound stays below them. This procedure yields stable and reproducible constants while preserving the theoretical scaling behavior. For more details and plots related to the logarithmic regression fitting, please look at Appendix G.2. 
+
+Results: We present three representative comparisons: • Cross-dimension (Figure 3): curves for dSprites with intrinsic dimensions d = 1 , 2, 3, 4, again using MMLS. • Cross-model (Figure 4): comparison of MMLS and 
+
+β-VAE on 4D dSprites. • Cross-dataset (Figure 5): curves for sphere, torus, COIL-20 and dSprites using MMLS. 
+
+Observations: Across datasets and models, we find that the scaling implied by (Fefferman et al., 2018) is closer to the empirical error curves than the dimension-only rates of (Genovese et al., 2012). Here “closer” refers to the fitted log-log decay exponent, not to predictive constants or absolute curve height, since all theoretical constants are selected post hoc to envelope the empirical curves. This is consistent with our use of MMLS in a linear regime: we restrict MMLS to a local d-plane fit (PCA), and the nonasymptotic results of (Aamari & Levrard, 2019) suggest that such linear local fitting should exhibit an exponent close to 1/d in the low-noise setting. The β-VAE curve is comparatively flat, with a decay exponent close to 1/d or smaller. In this configuration, the β-VAE is not behaving like a high-order local fitter 8The Data Manifold under the Microscope 
+
+on our controlled manifolds, which in turn motivates the kinds of controlled sweeps over architectures, β values, and training budgets that the framework is designed to enable. 
+
+Manifold analysis: In the second application, we analyze how geometric properties of data manifolds evolve through the layers of a β-VAE using the dSprites (4D) and COIL-20 (3D) datasets. The purpose is to show that the benchmark can produce per-layer ground-truth geometric measurements that are otherwise difficult to obtain. For each layer we com-pute the manifold volume, integrated scalar curvature (with positive and negative parts separated), reach, and the aver-age distance between class manifolds (Figure 6). To better illustrate the behavior of the image-based finite-difference estimates, and in particular the sensitivity of curvature to ras-terization at fixed image resolution, we also analyze volume and curvature on a controlled ellipse example in Appendix F. We observe that curvature systematically increases while reach decreases in deeper layers, indicating that the in-termediate manifolds become progressively more intricate and approach self-intersections. At the same time, average distances between class manifolds increase toward the la-tent representation, suggesting that as semantic information strengthens, the network prioritizes class separation over preserving low-level visual transformations. 
+
+6. Discussion 
+
+We presented a framework for constructing dense manifolds and accurately estimating their geometric properties, en-abling controlled studies of manifold fitting. We illustrated two use cases: assessing existing manifold fitting bounds via log-log scaling fits, and analyzing how data geometry evolves across layers of a β-VAE. Both revealed how geo-metric structure influences learning. The main strength of this framework is its ability to provide ground-truth geometric quantities that are otherwise inacces-sible or unreliable. Unlike real datasets, where assumptions cannot be verified, or simple analytic manifolds, which often lack representational richness, our synthetic constructions balance realism and control. This makes them well suited for probing theoretical assumptions, validating estimators, or stress-testing bounds under controlled perturbations. Several limitations should nonetheless be emphasized: • The framework can analyze only manifolds of low di-mension (up to 4-5). It is therefore intended for bench-marking and understanding rather than for analyzing arbitrary datasets. • It currently supports manifolds with simple topology, 
+
+[0 , 1] r × (S1)s. More general manifolds can still be handled by covering them with charts and applying the framework chart-wise. • For rasterized image datasets, very fine transformation grids can introduce aliasing artifacts if image resolution is fixed. Grid refinement should therefore be paired with sufficient image resolution or regularization such as metric-tensor smoothing. Future work could expand the framework or use it for further controlled experiments. Expanding the dataset suite with richer transformations, occlusions, and additional modal-ities (e.g., text, audio) would broaden applicability. An-other possibility is to evaluate existing geometric estimators, e.g. curvature or reach, by comparing them against the more accurate finite-difference values on the test manifolds. The framework could also be used to study discriminative bounds, where classifiers fit functions on manifolds, and to quantify how geometric fidelity relates to generalization. 
+
+Impact Statement 
+
+This paper presents work whose goal is to advance the un-derstanding of machine learning methods and manifold anal-ysis. While there are many potential societal consequences of our work, we do not expect immediate societal impact outside of the community on manifold learning. 
+
+References 
+
+Aamari, E. and Levrard, C. Stability and minimax opti-mality of tangential delaunay complexes for manifold reconstruction. Discrete & Computational Geometry , 59: 923–971, 2018. Aamari, E. and Levrard, C. Non-asymptotic rates for manifold, tangent space, and curvature estimation. An-nals of Statistics , 47:177–204, 02 2019. doi: 10.1214/ 18-AOS1685. Aamari, E., Kim, J., Chazal, F., Michel, B., Rinaldo, A., and Wasserman, L. Estimating the reach of a manifold. 
+
+Electronic Journal of Statistics , 13(1):1359 – 1399, 2019. doi: 10.1214/19-EJS1551. URL https://doi.org/ 10.1214/19-EJS1551 .Aamari, E., Berenfeld, C., and Levrard, C. Optimal reach estimation and metric learning. The Annals of Statistics ,51(3):1086–1108, 2023. Ache, A. G. and Warren, M. W. Ricci curvature and the manifold learning problem. Advances in Mathematics ,342:14–66, 2019. Acosta, F., Sanborn, S., Duc, K. D., Madhav, M., and Mi-olane, N. Quantifying extrinsic curvature in neural man-ifolds. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition , pp. 610–619, 2023. 9The Data Manifold under the Microscope 
+
+Ansuini, A., Laio, A., Macke, J. H., and Zoccolan, D. In-trinsic dimension of data representations in deep neural networks. Advances in Neural Information Processing Systems , 32, 2019. Arvanitidis, G., Hansen, L. K., and Hauberg, S. Latent space oddity: on the curvature of deep generative models. 
+
+arXiv preprint arXiv:1710.11379 , 2017. Balestriero, R., Paris, S., and Baraniuk, R. Max-affine spline insights into deep generative networks. arXiv preprint arXiv:2002.11912 , 2020. Basri, R. and Jacobs, D. Efficient representation of low-dimensional manifolds using deep networks. arXiv preprint arXiv:1602.04723 , 2016. Berenfeld, C., Harvey, J., Hoffmann, M., and Shankar, K. Estimating the reach of a manifold via its convexity defect function. Discrete & Computational Geometry , 67(2): 403–438, 2022. Birdal, T., Lou, A., Guibas, L. J., and Simsekli, U. Intrin-sic dimension, persistent homology and generalization in neural networks. Advances in neural information pro-cessing systems , 34:6776–6789, 2021. Brahma, P. P., Wu, D., and She, Y. Why deep learning works: A manifold disentanglement perspective. IEEE transactions on neural networks and learning systems , 27 (10):1997–2008, 2015. Burgess, C. P., Higgins, I., Pal, A., Matthey, L., Watters, N., Desjardins, G., and Lerchner, A. Understanding dis-entangling in β-vae. arXiv preprint arXiv:1804.03599 ,2018. Campadelli, P., Casiraghi, E., Ceruti, C., and Rozza, A. In-trinsic dimension estimation: Relevant techniques and a benchmark framework. Mathematical Problems in Engi-neering , 2015(1):759567, 2015. Carlsson, G. Topology and data. Bulletin of the American Mathematical Society , 46(2):255–308, 2009. Cayton, L. et al. Algorithms for manifold learning. Univ. of California at San Diego Tech. Rep , 12(1-17):1, 2005. Cazals, F. and Pouget, M. Estimating differential quantities using polynomial fitting of osculating jets. Computer aided geometric design , 22(2):121–146, 2005. Cheng, S.-W. and Chiu, M.-K. Tangent estimation from point samples. Discrete & Computational Geometry , 56 (3):505–557, 2016. Choi, J., Lee, J., Yoon, C., Park, J. H., Hwang, G., and Kang, M. Do not escape from the manifold: Discovering the local coordinates on the latent space of gans. arXiv preprint arXiv:2106.06959 , 2021. Do Carmo, M. P. Riemannian geometry , volume 2. Birkh ¨auser, 1992. ISBN 9780817634902. Translated by Flaherty, Francis, J. Doll ´ar, P., Rabaud, V., and Belongie, S. Learning to tra-verse image manifolds. Advances in neural information processing systems , 19, 2006. Dosovitskiy, A., Beyer, L., Kolesnikov, A., Weissenborn, D., Zhai, X., Unterthiner, T., Dehghani, M., Minderer, M., Heigold, G., Gelly, S., et al. An image is worth 16x16 words: Transformers for image recognition at scale. arXiv preprint arXiv:2010.11929 , 2020. Federer, H. Curvature measures. Transactions of the Ameri-can Mathematical Society , 93(3):418–491, 1959. Fefferman, C., Mitter, S., and Narayanan, H. Testing the manifold hypothesis. Journal of the American Mathemat-ical Society , 29(4):983–1049, 2016. Fefferman, C., Ivanov, S., Kurylev, Y., Lassas, M., and Narayanan, H. Fitting a putative manifold to noisy data. In Conference On Learning Theory , pp. 688–720. PMLR, 2018. Fefferman, C., Ivanov, S., Kurylev, Y., Lassas, M., and Narayanan, H. Reconstruction and interpolation of mani-folds. i: The geometric whitney problem. Foundations of Computational Mathematics , 20(5):1035–1133, 2020. Gawlik, E. and Neunteufel, M. Finite element approxima-tion of scalar curvature in arbitrary dimension. Mathe-matics of Computation , 94(356):2685–2722, 2025. Genovese, C. R., Perone-Pacifico, M., Verdinelli, I., and Wasserman, L. Minimax manifold estimation. The Jour-nal of Machine Learning Research , 13(1):1263–1291, 2012. Grementieri, L. and Fioresi, R. Model-centric data manifold: The data through the eyes of the model. SIAM Journal on Imaging Sciences , 15(3):1140–1156, 2022. Gu, Q., Li, Z., and Han, J. Linear discriminant dimension-ality reduction. In Machine Learning and Knowledge Discovery in Databases: European Conference, ECML PKDD 2011, Athens, Greece, September 5-9, 2011. Pro-ceedings, Part I 11 , pp. 549–564. Springer, 2011. He, K., Chen, X., Xie, S., Li, Y., Doll ´ar, P., and Girshick, R. Masked autoencoders are scalable vision learners. In 
+
+Proceedings of the IEEE/CVF conference on computer vision and pattern recognition , pp. 16000–16009, 2022. Higgins, I., Matthey, L., Pal, A., Burgess, C., Glorot, X., Botvinick, M., Mohamed, S., and Lerchner, A. beta-vae: Learning basic visual concepts with a constrained 10 The Data Manifold under the Microscope 
+
+variational framework. In International conference on learning representations , 2017. Ho, J., Jain, A., and Abbeel, P. Denoising diffusion proba-bilistic models. Advances in neural information process-ing systems , 33:6840–6851, 2020. Horvat, C. and Pfister, J.-P. Denoising normalizing flow. 
+
+Advances in neural information processing systems , 34: 9099–9111, 2021. Jord ´an, K. Calculus of finite differences , volume 33. Ameri-can Mathematical Soc., 1965. Kaslovsky, D. N. and Meyer, F. G. Non-asymptotic analysis of tangent space perturbation. Information and Inference: a Journal of the IMA , 3(2):134–187, 2014. Kaufman, I. and Azencot, O. Data representations’ study of latent image manifolds. In International Conference on Machine Learning , pp. 15928–15945. PMLR, 2023. Kiani, B., Wang, J., and Weber, M. Hardness of learning neu-ral networks under the manifold hypothesis. Advances in Neural Information Processing Systems , 37:5661–5696, 2024. Kim, A. K. H. and Zhou, H. Tight minimax rates for man-ifold estimation under hausdorff loss. Electronic Jour-nal of Statistics , 9:1562–1582, 07 2015. doi: 10.1214/ 15-EJS1039. Kingma, D. P. and Welling, M. Auto-encoding variational bayes. arXiv preprint arXiv:1312.6114 , 2013. Kingma, D. P., Welling, M., et al. An introduction to vari-ational autoencoders. Foundations and Trends® in Ma-chine Learning , 12(4):307–392, 2019. Levin, D. The approximation power of moving least-squares. 
+
+Mathematics of computation , 67(224):1517–1531, 1998. Levin, D. Mesh-independent surface interpolation. In Ge-ometric modeling for scientific visualization , pp. 37–49. Springer, 2003. Li, C., Farkhoor, H., Liu, R., and Yosinski, J. Measuring the intrinsic dimension of objective landscapes. arXiv preprint arXiv:1804.08838 , 2018. Li, D., Mukhopadhyay, M., and Dunson, D. B. Efficient manifold approximation with spherelets. Journal of the Royal Statistical Society Series B: Statistical Methodol-ogy , 84(4):1129–1149, 2022. Lin, T. and Zha, H. Riemannian manifold learning. IEEE transactions on pattern analysis and machine intelligence ,30(5):796–809, 2008. Lipman, Y., Cohen-Or, D., and Levin, D. Error bounds and optimal neighborhoods for mls approximation. In 
+
+Proceedings of the fourth Eurographics symposium on Geometry processing , pp. 71–80, 2006. Loaiza-Ganem, G., Ross, B. L., Hosseinzadeh, R., Caterini, A. L., and Cresswell, J. C. Deep generative models through the lens of the manifold hypothesis: A survey and new connections. arXiv preprint arXiv:2404.02954 ,2024. Ma, X., Li, B., Wang, Y., Erfani, S. M., Wijewickrema, S., Schoenebeck, G., Song, D., Houle, M. E., and Bailey, J. Characterizing adversarial subspaces using local intrinsic dimensionality. arXiv preprint arXiv:1801.02613 , 2018. Matthey, L., Higgins, I., Hassabis, D., and Lerchner, A. dsprites: Disentanglement testing sprites dataset. https://github.com/deepmind/dsprites-dataset/, 2017. McInnes, L., Healy, J., and Melville, J. Umap: Uniform manifold approximation and projection for dimension reduction. arXiv preprint arXiv:1802.03426 , 2018. Mohammed, K. and Narayanan, H. Manifold learning using kernel density estimation and local principal components analysis. arXiv preprint arXiv:1709.03615 , 2017. Narayanan, H. and Mitter, S. Sample complexity of testing the manifold hypothesis. Advances in neural information processing systems , 23, 2010. Nene, S. A., Nayar, S. K., and Murase, H. Columbia object image library (coil-20). Technical Report CUCS-005-96, Columbia University in the City of New York, 1996. Niyogi, P., Smale, S., and Weinberger, S. Finding the homol-ogy of submanifolds with high confidence from random samples. Discrete & Computational Geometry , 39(1): 419–441, 2008. Ozertem, U. and Erdogmus, D. Locally defined principal curves and surfaces. The Journal of Machine Learning Research , 12:1249–1286, 2011. Pope, P., Zhu, C., Abdelkader, A., Goldblum, M., and Gold-stein, T. The intrinsic dimension of images and its impact on learning. arXiv preprint arXiv:2104.08894 , 2021. Samal, A., Sreejith, R., Gu, J., Liu, S., Saucan, E., and Jost, J. Comparative analysis of two discretizations of ricci curvature for complex networks. Scientific reports , 8(1): 8650, 2018. Schonsheck, S., Chen, J., and Lai, R. Chart auto-encoders for manifold structured data. arXiv preprint arXiv:1912.10094 , 2019. 11 The Data Manifold under the Microscope 
+
+Sedghi, M., Atia, G., and Georgiopoulos, M. Amulti-criteria approach for fast and outlier-aware rep-resentative selection from manifolds. arXiv preprint arXiv:2003.05989 , 2020. Sekmen, A. and Bilgin, B. Manifold-based approach for neural network robustness analysis. Communications Engineering , 3(1):118, 2024. Shao, H., Kumar, A., and Thomas Fletcher, P. The rieman-nian geometry of deep generative models. In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition Workshops , pp. 315–323, 2018. Shroff, N., Turaga, P., and Chellappa, R. Manifold precis: An annealing technique for diverse sampling of manifolds. 
+
+Advances in Neural Information Processing Systems , 24, 2011. Sober, B. and Levin, D. Manifold approximation by moving least-squares projection (mmls). Constructive Approxi-mation , 52(3):433–478, 2020. Sritharan, D., Wang, S., and Hormoz, S. Computing the riemannian curvature of image patch and single-cell rna sequencing data manifolds using extrinsic differential ge-ometry. Proceedings of the national academy of sciences ,118(29):e2100473118, 2021. Tan, H. Y., Mukherjee, S., Tang, J., and Sch ¨onlieb, C.-B. Blessing of dimensionality for approximating sobolev classes on manifolds. arXiv preprint arXiv:2408.06996 ,2024. WonKwang Lee, T. M. Beta-vae. https://github.com/1Konny/Beta-VAE, 2018. Yao, J., Goswami, M., and Chen, C. A theoretical study of neural network expressive power via manifold topology. 
+
+arXiv preprint arXiv:2410.16542 , 2024a. Yao, Z. and Xia, Y. Manifold fitting under unbounded noise. Journal of Machine Learning Research , 26(45): 1–55, 2025. Yao, Z., Su, J., Li, B., and Yau, S.-T. Manifold fitting. arXiv preprint arXiv:2304.07680 , 2023. Yao, Z., Su, J., and Yau, S.-T. Manifold fitting with cyclegan. 
+
+Proceedings of the National Academy of Sciences , 121 (5):e2311436121, 2024b. Zhang, Z. and Zha, H. Principal manifolds and nonlinear dimensionality reduction via tangent space alignment. 
+
+SIAM journal on scientific computing , 26(1):313–338, 2004. 12 The Data Manifold under the Microscope 
+
+A. Bounds from Fitting a putative manifold to noisy data (Fefferman et al., 2018) 
+
+Here we briefly derive the sample complexity of the bound described in (Fefferman et al., 2018). There, they assume M is a 
+
+C2 d-dimensional manifold in RD with reach at least τ and without boundary. The points are sampled i.i.d. from a measure 
+
+μ on M such that 
+
+0 < ρ min < dμ dλ M
+
+< ρ max < ∞,
+
+where λM is the d-dimensional Hausdorff measure on M . Additionally, i.i.d. variables following a D-dimensional isotropic Gaussian of standard deviation σ are added as noise to the points. Let V = λM (M ) denote the volume of M .Based on Theorem 10 of (Fefferman et al., 2018), their algorithm constructs an output manifold Mo with the same properties as M such that, with high probability, 
+
+H(Mo, M ) < Cd 7 r2
+
+τ .
+
+Here r can be set to any value in [√στ D 1/4, τCd C ] which satisfies 
+
+n
+
+log n > CV ρmin ωd(r2/τ )d .
+
+Solving for the term r2 
+
+> τ
+
+appearing in the Hausdorff bound, we get 
+
+r2
+
+τ >
+
+ CV ρmin ωd
+
+ 1 
+
+> d
+
+ log nn
+
+ 1
+
+> d
+
+.
+
+Moreover, from the lower end of the admissible range, 
+
+r2
+
+τ > σ √D. 
+
+Combining these constraints yields 
+
+H(Mo, M ) < Cd 7 max 
+
+(
+
+σ√D, 
+
+ CV ρmin ωd
+
+ 1 
+
+> d
+
+ log nn
+
+ 1
+
+> d
+
+)
+
+.
+
+Assuming small, or no, added noise, this simplifies to: for some constant C1,
+
+H(Mo, M ) < C 1
+
+ log nn
+
+ 1
+
+> d
+
+.
+
+B. Derivation of sample complexity for scalar curvature 
+
+Here we provide detailed derivations of the asymptotic sample complexity of the finite-difference methods we use. 
+
+B.1. Useful lemmas for higher-order central differences 
+
+We define the central-difference operator in the form used throughout the paper. Note that the more common definition 
+
+f (x + h 
+
+> 2
+
+) − f (x − h 
+
+> 2
+
+) is equivalent to ours after replacing h by h/ 2.
+
+Definition B.1 (Central difference operator) . For h > 0, define δh[f ] by 
+
+δh[f ]( x) = f (x + h) − f (x − h),
+
+and define higher-order central differences recursively by 
+
+δ1
+
+> h
+
+[f ] = δh[f ], δk+1  
+
+> h
+
+[f ] = δh
+
+δkh[f ].
+
+The following lemmas are standard, see, e.g., (Jord´ an, 1965), and we include short proofs for completeness. 13 The Data Manifold under the Microscope 
+
+Lemma B.2 (Explicit expansion) . For any k ≥ 1,
+
+δkh[f ]( x) = 
+
+> k
+
+X
+
+> i=0
+
+(−1) i
+
+ki
+
+
+
+f x + ( k − 2i)h.
+
+Proof. Let Ea denote the shift operator (Eaf )( x) = f (x + a). Then δh = Eh − E−h, hence 
+
+δkh = ( Eh − E−h)k =
+
+> k
+
+X
+
+> i=0
+
+(−1) i
+
+ki
+
+
+
+E(k−2i)h,
+
+which yields the stated identity after applying both sides to f and evaluating at x.
+
+Lemma B.3 (Moment cancellations) . For integers m ≥ 0 and k ≥ 1, define 
+
+Sm(k) := 
+
+> k
+
+X
+
+> i=0
+
+(−1) i
+
+ki
+
+
+
+(k − 2i)m.
+
+Then: 
+
+• Sm(k) = 0 for all m < k ,
+
+• Sk(k) = 2 k k!,
+
+• Sk+1 (k) = 0 .Proof. Consider the polynomial pm(t) = tm. Using Lemma B.2 at x = 0 with h = 1 gives 
+
+δk 
+
+> 1
+
+=
+
+> k
+
+X
+
+> i=0
+
+(−1) i
+
+ki
+
+
+
+(k − 2i)m = Sm(k).
+
+If m < k , then δk 
+
+> 1
+
+[pm] = 0 because each application of δ1 lowers polynomial degree by at least one, hence Sm(k) = 0 .For m = k, the polynomial δk 
+
+> 1
+
+[pk] is constant (degree 0), and its leading-term computation gives δk 
+
+> 1
+
+[pk]( t) = 2 kk!, hence 
+
+Sk(k) = 2 kk!. Finally, for m = k + 1 , the polynomial δk 
+
+> 1
+
+[pk+1 ] is linear and odd (since δ1 maps even polynomials to odd and vice versa), hence it vanishes at 0, giving Sk+1 (k) = 0 .
+
+Lemma B.4 (Central differences approximate derivatives with O(h2)). Let f : R → R be Ck+2 in a neighborhood of x.Then 1(2 h)k δkh[f ]( x) = f (k)(x) + O(h2), h → 0.
+
+Proof. By Lemma B.2, 
+
+δkh[f ]( x) = 
+
+> k
+
+X
+
+> i=0
+
+(−1) i
+
+ki
+
+
+
+f x + ( k − 2i)h.
+
+Expand each term by Taylor’s theorem with remainder: 
+
+f (x + ( k − 2i)h) = 
+
+> k+1
+
+X
+
+> m=0
+
+f (m)(x)
+
+m! (k − 2i)mhm + Ri, |Ri| ≤ C |h|k+2 
+
+for some constant C depending on sup |t−x|≤ kh |f (k+2) (t)|. Substituting into the sum yields 
+
+δkh[f ]( x) = 
+
+> k+1
+
+X
+
+> m=0
+
+f (m)(x)
+
+m! hm Sm(k) + 
+
+> k
+
+X
+
+> i=0
+
+(−1) i
+
+ki
+
+
+
+Ri.
+
+14 The Data Manifold under the Microscope 
+
+By Lemma B.3, all terms with m < k vanish, the m = k term equals 
+
+f (k)(x)
+
+k! hkSk(k) = f (k)(x)
+
+k! hk(2 kk!) = (2 h)kf (k)(x),
+
+and the m = k + 1 term vanishes as well. The remainder satisfies 
+
+> k
+
+X
+
+> i=0
+
+(−1) i
+
+ki
+
+
+
+Ri ≤
+
+> k
+
+X
+
+> i=0
+
+ki
+
+!
+
+C|h|k+2 = 2 k C|h|k+2 .
+
+Dividing by (2 h)k proves the claim. 
+
+B.2. Extension to partial and mixed derivatives 
+
+Let f : Rd → R and let ej denote the j-th standard basis vector. Define 
+
+(δh,j f )( x) := f (x + he j ) − f (x − he j ), δkh,j := δh,j ◦ · · · ◦ δh,j 
+
+| {z } 
+
+> ktimes
+
+.
+
+Applying Lemma B.4 with all other coordinates held fixed yields: 
+
+Lemma B.5. If f is Ck+2 , then for each j,
+
+1(2 h)k δkh,j [f ]( x) = ∂kj f (x) + O(h2).
+
+More generally, for a multi-index α = ( α1, . . . , α d) with |α| = P 
+
+> j
+
+αj ,
+
+ dY
+
+> j=1
+
+(2 h)−αj
+
+ 
+
+> d
+
+Y
+
+> j=1
+
+δαj
+
+> h,j
+
+ [f ]( x) = ∂αf (x) + O(h2),
+
+provided f ∈ C |α|+2 and the stencil points remain in the domain. 
+
+In practice, for non-cyclic coordinate directions we apply these central stencils only on interior grid points and crop a margin of width proportional to the stencil radius. 
+
+B.3. Implication for scalar curvature 
+
+For an embedded chart u : U ⊂ Rd → RD , the scalar curvature computed via the Riemann tensor depends on derivatives of 
+
+u up to third order (through gij = ⟨∂iu, ∂ j u⟩, Γijk , and ∂ℓΓijk ). If u ∈ C 5 on U and the metric is uniformly non-degenerate, then: • each partial derivative of u up to order 3 is approximated with error O(h2) by Lemma B.5; • the induced metric g, its inverse g−1, Christoffel symbols, Riemann tensor, Ricci tensor, and scalar curvature are obtained from these derivatives via sums, products, and multiplication by g−1, hence they inherit O(h2) error under the stated non-degeneracy condition. Consequently, the pointwise scalar curvature estimator based on these finite differences converges at rate O(h2). For a grid with typical spacing h ≍ n−1/d (e.g. n points in d dimensions with comparable resolution), this translates to the sample-complexity scaling curvature error = O(h2) = O
+
+
+
+n−2/d 
+
+,
+
+up to constants depending on derivatives of u and conditioning of the metric. 
+
+C. Empirical comparison on scalar curvature estimation 
+
+As mentioned in the paper, we empirically compare our method with (Sritharan et al., 2021), which is one of the few scalar-curvature estimators with publicly available experiments and code. We evaluate on the following manifolds from their paper. 15 The Data Manifold under the Microscope 
+
+HYPERSPHERES S2, S 3, S 4
+
+We consider the unit hyperspheres Sd ⊂ Rd+1 with parameters ϕ1, . . . , ϕ d−1 ∈ [0 .2π, 0.8π] and ϕd ∈ [0 , 2π), using the standard hyperspherical parametrization 
+
+x1 = cos ϕ1,xi =
+
+ i−1Y
+
+> j=1
+
+sin ϕj
+
+
+
+cos ϕi, i = 2 , . . . , d, xd+1 =
+
+ d−1Y
+
+> j=1
+
+sin ϕj
+
+
+
+sin ϕd.
+
+The scalar curvature of Sd is constant: R(ϕ1, . . . , ϕ d) = d(d − 1) .HYPERBOLOID H22
+
+We consider a two-dimensional hyperboloid with parameters ϕ1 ∈ [sinh −1(−1) , sinh −1(1)] and ϕ2 ∈ [0 , 2π) and parametrization 
+
+x1 = a1 sinh ϕ1,x2 = a2 cosh ϕ1 sin ϕ2,x3 = a3 cosh ϕ1 cos ϕ2.
+
+The semi-axes are (a1, a 2, a 3) = (1 , 2, 2) . The range of ϕ1 is chosen so that the sampled patch has height 2 along the 
+
+x1-axis. The scalar curvature is 
+
+R(ϕ1, ϕ 2) = − 2
+
+ 5 sinh 2 ϕ1 + 1 2 .
+
+TORUS T 2
+
+We consider a two-dimensional torus with parameters ϕ1, ϕ 2 ∈ [0 , 2π) and parametrization 
+
+x1 = ( R + r cos ϕ1) cos ϕ2,x2 = ( R + r cos ϕ1) sin ϕ2,x3 = r sin ϕ1.
+
+The radii are (r, R ) = (0 .5, 2.5) and the scalar curvature is 
+
+R(ϕ1, ϕ 2) = 2 cos ϕ1
+
+r(R + r cos ϕ1) = 8 cos ϕ1
+
+5 + cos ϕ1
+
+.
+
+SAMPLING 
+
+For each target sample size n ∈ { 2000 , 4000 , . . . , 20000 } and intrinsic dimension d, we set m = ⌊n1/d ⌋ and sample m
+
+equidistant values for each parameter over its range to form a Cartesian grid. This yields md = ⌊n1/d ⌋d points per manifold, hence the realized sample sizes do not generally match across different dimensions. For the hyperspheres we restrict 
+
+ϕ1, . . . , ϕ d−1 to a subset of [0 , π ) to simplify the topology for the finite difference computations. Since both Sd and the computations of both methods are SO (d + 1) -invariant, applying them to two patches which are rotations of the current patch and cover Sd would yield the same results. METHODS CONFIGURATION 
+
+Our finite-difference estimator is run directly on the sampled grid, given the parameter ranges. To run the method of (Sritharan et al., 2021), we ported their MATLAB code from https://gitlab.com/hormozlab/ManifoldCurvature to Python and verified correctness by reproducing their reported results on uniformly sampled S2, S 3, S 5, S 7, H 22 , and T 2
+
+16 The Data Manifold under the Microscope 
+
+using the hyperparameters from their Appendix D.3. We then applied both methods to the grid-sampled datasets above. Because the method of (Sritharan et al., 2021) is sensitive to its hyperparameters, we evaluated 50 candidate values (per manifold) over ranges where the method converged and report the best mean squared error. These baseline scores are therefore mildly optimistic. 
+
+D. Grid-Resolution Ablation for Image-Based Measures 
+
+The analytic manifolds provide ground truth for volume and curvature, but the image-based dSprites and COIL-20 manifolds do not. We therefore additionally test whether the estimated measures are stable when the grid resolution of the transformation parameters is increased. This ablation is not a substitute for ground truth, but it checks whether the quantities used in the paper are in a regime where further grid refinement changes them only moderately. 
+
+Protocol. For each class we treat the corresponding image grid as a separate parametrized manifold. For dSprites, the parameters are horizontal translation, vertical translation, scale, and rotation. For COIL-20, the parameters are scale, in-plane rotation, and turntable view. We vary a target grid density n around the value used in the main experiments; the final datasets in the paper use n = 16 values per transformation dimension, with additional buffer samples on non-cyclic dimensions where needed for finite differences. For each density and each class, we compute the pointwise volume element, scalar curvature, and local reach. The volume element is computed from the finite-difference metric gij = ⟨∂iF, ∂ j F ⟩ as √det g.Scalar curvature is computed from the same metric using central finite differences through the Christoffel symbols and Riemann tensor. Reach is estimated pointwise from the tangent-space formula 
+
+ρ(x) ≈ inf  
+
+> y̸=x
+
+∥F (y) − F (x)∥2
+
+2 d(F (y) − F (x), T xM ) ,
+
+where tangent spaces are also estimated by finite differences. The grids at two consecutive densities do not generally share the same parameter locations. Moreover, these are image manifolds at fixed spatial resolution, so increasing the parameter density can expose rasterization and interpolation artifacts rather than only reducing finite-difference error. For this reason we first interpolate the pointwise fields to a common quadrature grid and compare consecutive densities with a negative Sobolev norm instead of a pointwise L2 norm. For a field difference u = fn − fn+1 on the common grid, we use 
+
+∥u∥2 
+
+> H−1
+
+= X
+
+> ξ
+
+(1 + ∥ξ∥22)−1|bu(ξ)|2,
+
+with exponent p = 2 . This weak norm downweights high-frequency differences and is therefore less sensitive to small spatial shifts and rasterization noise. We report both the H−1 norms of the fields and the relative consecutive errors 
+
+∥fn+1 − fn∥H−1
+
+∥fn∥H−1
+
+.
+
+Observations. Figures 7-10 show that the volume element is the most stable of the three measures. Curvature has larger class-dependent variation and stronger high-frequency changes across grid densities, which is expected for rasterized image manifolds: at fixed image resolution, finer parameter grids increasingly probe interpolation and subpixel rasterization artifacts, and curvature amplifies such effects because it depends on further finite differences of the metric. Reach is also less stable, especially for a few dSprites classes where isolated spikes appear in the relative errors. This is consistent both with rasterization-induced local metric fluctuations and with the fact that the reach estimate is based on a minimum over pairs of points, making it sensitive to a small number of unstable witnesses. We study this rasterization effect more directly in Appendix F. Overall, the ablation supports using the balanced image datasets at density n = 16 as a practical compromise between computational cost and estimator stability. The estimates are not fully converged in a strict asymptotic sense, and the plots should not be interpreted as ground-truth validation. They show, however, that the main trends are not caused by a single very coarse discretization choice. Finally, increasing the parameter-grid density while keeping the image resolution fixed is not always beneficial. At high parameter density, neighboring images may differ mainly through subpixel rasterization and interpolation effects. Finite 17 The Data Manifold under the Microscope 8   
+
+> 10
+> 12
+> 14
+> 16
+> Grid Granularity
+> 0.1
+> 4 × 10 2
+> 6 × 10 2
+> 2 × 10 1
+
+Volume Element 
+
+> 8
+> 10
+> 12
+> 14
+> 16
+> Grid Granularity
+> 10
+> 100
+
+Scalar Curvature 
+
+> 8
+> 10
+> 12
+> 14
+> 16
+> Grid Granularity
+> 0.01
+> 0.1
+
+Reach 
+
+> H s Norm
+
+dSprites: Negative-Sobolev Norms   
+
+> shape
+> square ellipse heart
+
+Figure 7. Negative-Sobolev norms of the pointwise volume element, scalar curvature, and reach for the dSprites grid-resolution ablation. Each curve corresponds to one class manifold. 8
+
+> 10
+> 12
+> 14
+> 16
+> 18
+> Grid Granularity
+> 0.01
+> 0.1
+> 1
+
+Volume Element 
+
+> 8
+> 10
+> 12
+> 14
+> 16
+> 18
+> Grid Granularity
+> 1
+
+Scalar Curvature 
+
+> 8
+> 10
+> 12
+> 14
+> 16
+> 18
+> Grid Granularity
+> 0.1
+> 1
+> 10
+
+Reach 
+
+> Relative Consecutive Distance
+
+dSprites: Pairwise Relative Errors   
+
+> shape
+> square ellipse heart
+
+Figure 8. Relative consecutive negative-Sobolev errors for dSprites. The value at each plotted density compares the fields estimated at that density with the previous plotted density. 
+
+differences can amplify these small image-level changes, especially for metric derivatives and scalar curvature. We study this finite-image-resolution effect directly in Appendix F. Users generating new versions of these datasets should therefore compare resolutions with a weak metric such as the negative Sobolev norm, ideally increase the image resolution together with the parameter density, and consider smoothing the metric tensor. Metric-tensor smoothing is implemented in the released codebase and can reduce rasterization-induced high-frequency noise. 
+
+E. Datasets 
+
+E.1. dSprites 
+
+For the original dataset see (Matthey et al., 2017). Example images are shown in Fig. 11 and a 3D PCA projection in Fig. 12. In the PCA projection, class manifolds are strongly intertwined and partially envelop each other. The original dSprites rasterization exhibits visible aliasing artifacts, especially after rotation and rescaling on a 64 × 64 grid. To mitigate this, we generate each sprite at higher resolution and only downsample to 64 × 64 after applying the deformation transforms. 
+
+Sprite construction (high-resolution). We start from a binary mask on an empty background (zeros) on a canvas that is 
+
+s × s with s = 4 · 64 = 256 pixels. The sprite itself is centered and has initial size 4 · 20 = 80 pixels. We generate three shapes: a filled square, a filled ellipse (axes ratio 2:1 ), and a filled heart (from a parametric contour that is rasterized and filled). Intensities are stored as float32 .18 The Data Manifold under the Microscope 8
+
+> 10
+> 12
+> 14
+> 16
+> Grid Granularity
+> 0.01
+
+Volume Element 
+
+> 8
+> 10
+> 12
+> 14
+> 16
+> Grid Granularity
+> 100
+> 1000
+
+Scalar Curvature 
+
+> 8
+> 10
+> 12
+> 14
+> 16
+> Grid Granularity
+> 0.1
+
+Reach 
+
+> H s Norm
+
+COIL-20: Negative-Sobolev Norms 
+
+> object
+> duck
+> wood_triangle
+> car0
+> cat
+> anacin
+> car1
+> wood_square
+> jnj
+> tylenol
+> vaseline
+> wood_semicircle
+> mug
+> pig
+> bolt_thread
+> pot
+> bottle
+> pot2
+> cup
+> car2
+> yoghurt
+
+Figure 9. Negative-Sobolev norms of the pointwise volume element, scalar curvature, and reach for the COIL-20 grid-resolution ablation. Each curve corresponds to one object manifold. 8
+
+> 10
+> 12
+> 14
+> 16
+> 18
+> Grid Granularity
+> 0.01
+> 0.1
+
+Volume Element 
+
+> 8
+> 10
+> 12
+> 14
+> 16
+> 18
+> Grid Granularity
+> 0.1
+> 1
+
+Scalar Curvature 
+
+> 8
+> 10
+> 12
+> 14
+> 16
+> 18
+> Grid Granularity
+> 0.01
+> 0.1
+
+Reach 
+
+> Relative Consecutive Distance
+
+COIL-20: Pairwise Relative Errors 
+
+> object
+> duck
+> wood_triangle
+> car0
+> cat
+> anacin
+> car1
+> wood_square
+> jnj
+> tylenol
+> vaseline
+> wood_semicircle
+> mug
+> pig
+> bolt_thread
+> pot
+> bottle
+> pot2
+> cup
+> car2
+> yoghurt
+
+Figure 10. Relative consecutive negative-Sobolev errors for COIL-20. The value at each plotted density compares the fields estimated at that density with the previous plotted density. 
+
+Transform pipeline. For each shape we apply the following transforms in this order: 1. Rotation (high-resolution): rotate the 256 × 256 sprite by angles θj = 2 πj/n angles , j = 0 , . . . , n angles − 1 (i.e. uniformly spaced in [0 , 2π)). 2. Rescaling + downsampling: for each scale factor r (uniformly spaced in [0 .5, 1] ), we resample the rotated sprite to the target canvas size 64 × 64 using area interpolation . Conceptually, this step (i) sets the effective sprite size to ⌊64 r⌋
+
+pixels and (ii) undoes the initial 4× upscaling by downsampling to the final resolution. 3. Translation (final resolution): translate the 64 × 64 image by integer offsets (∆ x, ∆y) on the pixel grid, with 
+
+∆x, ∆y ∈ {− m, −m + ∆ , . . . , m − ∆}, where m is the maximum translation and ∆ is the translation stride. The background remains empty. 
+
+Intensity normalization and smoothing. After all transforms, we normalize intensities globally to [−1, 1] (via min–max normalization over the generated grid). Optionally, we apply a Gaussian blur to the spatial axes (default σ = 0 .8) to further 19 The Data Manifold under the Microscope 0 100 200 300 400 500  
+
+> 0
+> 50
+> 100
+> 150
+> 200
+> 250
+> Figure 11. Example images of the heart class of dSprites.
+
+suppress staircasing from discretization. Optionally, we also provide a standardized version where the dataset is centered and divided by its standard deviation. 
+
+Output tensor. The dataset is stored as a dense grid with shape 
+
+(nshapes , n scales , n angles , n ∆y , n ∆x, 64 , 64) ,
+
+containing all combinations of factors. 
+
+Parameters (balanced variant). In our balanced version we use 3 shapes and 16 values per continuous factor (scale, ori-entation, and 2D position), yielding 3 × 16 4 = 196 ,608 images. For geometric estimation that requires local neighborhoods, we optionally add a bidirectional buffer of b grid steps on the non-cyclic dimensions (scale and translations), i.e. we generate 
+
+16 + 2 b values along those axes and treat only the central 16 as the evaluation domain. • Image shape: 64 × 64 
+
+• Shape: 3 values (square, ellipse, heart) • Scale: 16 values linearly spaced in [0 .5, 1] (optionally 16 + 2 b with buffer) • Orientation: 16 values in [0 , 2π)
+
+• Position X: 16 values on a uniform translation grid (optionally 16 + 2 b with buffer) • Position Y: 16 values on a uniform translation grid (optionally 16 + 2 b with buffer) 
+
+E.2. COIL-20 
+
+For the original dataset see (Nene et al., 1996). Example images are shown in Fig. 13 and a 3D PCA projection in Fig. 14. As in dSprites, the class manifolds are highly intertwined and partially envelop each other in low-dimensional projections. 
+
+Base data (object turntable views). We start from the preprocessed COIL-20 grayscale images (20 objects, 72 views per object, original resolution 128 × 128 ). Each view corresponds to a rotation of the object around the vertical axis on a turntable. To reduce redundancy, we optionally subsample the view index by a stride of 4, resulting in 72 /4 = 18 horizontal orientations per object. Pixel values are converted from [0 , 256) to [0 , 1] and stored as float32 .20 The Data Manifold under the Microscope  
+
+> Figure 12. PCA projection of the dSprites dataset.
+
+Padding for deformation transforms. To avoid cropping during in-plane rotations, each 128 × 128 image is embedded into a larger square canvas of size s × s with s = 182 ≈ 128 √2, by placing it centered on a zero background. This ensures that a subsequent 45 ◦ rotation fits within the padded frame up to discretization. 
+
+Transform pipeline. For each object and each subsampled turntable view, we apply the following transforms: 1. In-plane rotation: rotate the padded image by angles θj = 2 πj/n angles , j = 0 , . . . , n angles − 1 (uniformly spaced in 
+
+[0 , 2π)). This adds a second (independent) rotational factor beyond the original turntable viewpoint. 2. Rescaling + cropping to target size: for each scale factor r (uniformly spaced in [0 .5, 1] ), we resample to the final resolution 64 × 64 using the same resizing routine as for dSprites. Operationally, we first set the effective crop size to 
+
+⌊64 r⌋ and then map the result to the fixed 64 × 64 canvas, yielding a controlled scale factor while keeping the output size constant. To support finite-difference estimators that require neighboring grid points along non-cyclic axes, we optionally generate nsizes + 2 b scales and use only the central nsizes for evaluation (buffer b). 
+
+Intensity normalization. After all transforms, intensities are mapped from [0 , 1] to [−1, 1] by an affine rescaling. Optionally, we also provide a standardized version (global mean subtraction and division by standard deviation). 
+
+Output tensor. The resulting dense grid has shape 
+
+(20 , n views , n angles , n sizes , 64 , 64) ,
+
+where nviews = 18 after view subsampling, nangles is the number of added in-plane rotations, and nsizes is the number of scale values (optionally augmented with a buffer during generation). 21 The Data Manifold under the Microscope 0 100 200 300 400 500  
+
+> 0
+> 25
+> 50
+> 75
+> 100
+> 125
+> 150
+> 175
+> Figure 13. Example images of the duck class of COIL-20. Note the resizing and the additional in-plane rotation and scale transforms.
+
+Parameters. 
+
+• Image shape: 64 × 64 
+
+• Objects: 20 objects from COIL-20 • Turntable view (horizontal orientation): 18 values (subsampled from 72 by stride 4) • Added in-plane rotation: 16 values in [0 , 2π)
+
+• Scale: 16 values linearly spaced in [0 .5, 1] (optionally 16 + 2 b with buffer) • Total: 92 ,160 images ( 20 × 18 × 16 2), excluding any buffer-only samples 
+
+E.3. Geometric Measures on Projections 
+
+Below we provide two 3D plots where the geometric measures are plotted on the heart class of dSprites (Fig. 15) and on the duck class of COIL-20 (Fig. 16). The absolute scalar curvature is the absolute value of the pointwise scalar curvature. In both datasets, the absolute scalar curvature exhibits smoother large-scale structure and aligns more clearly with the reach than the signed scalar curvature. The signed scalar curvature contains stronger local fluctuations, which should not be overinterpreted as purely geometric sign changes. For rasterized image manifolds, small interpolation and subpixel rasterization artifacts can be amplified by the finite-difference operations used to compute curvature. We isolate this effect in Appendix F. 
+
+F. Rasterization Effects and Metric Smoothing on a Two-Dimensional Ellipse Manifold 
+
+The grid-resolution ablation in Appendix D compares the full image-based datasets across several densities. Here we isolate a simpler two-dimensional example in order to inspect the behavior of the finite-difference estimates more directly. We use only the ellipse class and restrict the transformation parameters to horizontal translation x and in-plane rotation θ. This gives a parametrized image manifold 
+
+F (x, θ ) ∈ R64 ×64 ,
+
+where x is non-cyclic and θ ∈ [0 , 2π) is cyclic. Example images from this grid are shown in Fig. 17. For each grid density we compute the Riemannian metric 
+
+gij (x, θ ) = ⟨∂iF (x, θ ), ∂ j F (x, θ )⟩
+
+using central finite differences. We then derive the pointwise volume element √det g and scalar curvature from this metric. In the plots below we show the diagonal metric components g00 and g11 , the volume element, and the scalar curvature. The top row in each figure corresponds to the direct finite-difference estimate, while the bottom row uses the metric-smoothing procedure described below. 22 The Data Manifold under the Microscope   
+
+> Figure 14. PCA projection of three classes of the COIL-20 dataset.
+> Figure 15. PCA projection of the dSprites heart class.
+
+Rasterization effects. In a smooth continuous image model, increasing the grid density would reduce the finite-difference step size and should improve derivative estimates. For rasterized images at fixed spatial resolution, however, this is not guaranteed. When the parameter grid becomes very fine while the images remain 64 × 64 , neighboring samples may differ mainly through interpolation and rasterization artifacts. The finite-difference quotient can then amplify small subpixel changes, especially for curvature, which uses several derivative operations. This effect is visible in the unsmoothed rows of Figs. 18–21: high-frequency oscillations appear as the transformation grid becomes finer, even though the underlying geometric transformation is simple. 
+
+Metric-tensor smoothing. A simple mitigation is to smooth the estimated metric tensor before computing the derived quantities. In our implementation, the finite-difference metric is first computed componentwise and then filtered over the parameter grid, 
+
+egij = Gσ ∗ gij ,
+
+23 The Data Manifold under the Microscope 
+
+Figure 16. PCA projection of the COIL-20 duck class. Ellipse grid: ( x, )
+
+Figure 17. Example images from the two-dimensional ellipse grid generated by varying horizontal translation x and rotation θ.
+
+where Gσ is a separable Gaussian kernel. We use reflection padding along the non-cyclic x axis and wrapped padding along the cyclic θ axis. The implementation is done in PyTorch and is available in the released codebase. The volume element and scalar curvature are then computed from eg instead of g.This smoothing is meaningful when the parameter grid is already fine enough that neighboring metric values should not change abruptly under the underlying continuous transformation. Under this assumption, high-frequency oscillations are more likely to come from rasterization and interpolation than from the manifold geometry itself. The smoothed rows in Figs. 18–21 show that this procedure reduces much of the high-frequency variation, especially for scalar curvature. At the same time, smoothing can also remove genuine sharp variation if used too aggressively, so we treat it as a numerical stabilization tool rather than as part of the definition of the measures. The main experiments in the paper use the unsmoothed estimates. This is acceptable for the reported datasets because the grid density used there is moderate, and the convergence ablation in Appendix D suggests that the estimates are already in a 24 The Data Manifold under the Microscope 1 2 3 4
+
+> -0.1
+> 0
+> 0.1
+> x
+> unsmoothed
+
+n=8  
+
+> 24
+> -0.1
+> 0
+> 0.1
+> x
+
+n=16  
+
+> 24
+> -0.1
+> 0
+> 0.1
+> x
+
+n=32   
+
+> 246
+> -0.1
+> 0
+> 0.1
+> x
+
+n=64   
+
+> 246
+> -0.1
+> 0
+> 0.1
+> x
+
+n=128    
+
+> 1234
+> -0.1
+> 0
+> 0.1
+> x
+> smoothed
+
+n=8  
+
+> 24
+> -0.1
+> 0
+> 0.1
+> x
+
+n=16  
+
+> 24
+> -0.1
+> 0
+> 0.1
+> x
+
+n=32   
+
+> 246
+> -0.1
+> 0
+> 0.1
+> x
+
+n=64   
+
+> 246
+> -0.1
+> 0
+> 0.1
+> x
+
+n=128 
+
+> 10
+> 20
+> 30
+> 40
+> 50
+> 60
+
+g00 
+
+Figure 18. Estimated metric component g00 for the ellipse grid. The top row uses the direct finite-difference metric; the bottom row smooths the metric tensor before computing derived quantities. 1 2 3 4
+
+> -0.1
+> 0
+> 0.1
+> x
+> unsmoothed
+
+n=8  
+
+> 24
+> -0.1
+> 0
+> 0.1
+> x
+
+n=16  
+
+> 24
+> -0.1
+> 0
+> 0.1
+> x
+
+n=32   
+
+> 246
+> -0.1
+> 0
+> 0.1
+> x
+
+n=64   
+
+> 246
+> -0.1
+> 0
+> 0.1
+> x
+
+n=128    
+
+> 1234
+> -0.1
+> 0
+> 0.1
+> x
+> smoothed
+
+n=8  
+
+> 24
+> -0.1
+> 0
+> 0.1
+> x
+
+n=16  
+
+> 24
+> -0.1
+> 0
+> 0.1
+> x
+
+n=32   
+
+> 246
+> -0.1
+> 0
+> 0.1
+> x
+
+n=64   
+
+> 246
+> -0.1
+> 0
+> 0.1
+> x
+
+n=128 
+
+> 0.1
+> 0.15
+> 0.2
+> 0.25
+> 0.3
+> 0.35
+> 0.4
+> 0.45
+
+g11 
+
+Figure 19. Estimated metric component g11 for the ellipse grid, with the same layout as Fig. 18. 1 2 3 4
+
+> -0.1
+> 0
+> 0.1
+> x
+> unsmoothed
+
+n=8  
+
+> 24
+> -0.1
+> 0
+> 0.1
+> x
+
+n=16  
+
+> 24
+> -0.1
+> 0
+> 0.1
+> x
+
+n=32   
+
+> 246
+> -0.1
+> 0
+> 0.1
+> x
+
+n=64   
+
+> 246
+> -0.1
+> 0
+> 0.1
+> x
+
+n=128    
+
+> 1234
+> -0.1
+> 0
+> 0.1
+> x
+> smoothed
+
+n=8  
+
+> 24
+> -0.1
+> 0
+> 0.1
+> x
+
+n=16  
+
+> 24
+> -0.1
+> 0
+> 0.1
+> x
+
+n=32   
+
+> 246
+> -0.1
+> 0
+> 0.1
+> x
+
+n=64   
+
+> 246
+> -0.1
+> 0
+> 0.1
+> x
+
+n=128 
+
+> 1
+> 1.5
+> 2
+> 2.5
+> 3
+> 3.5
+> 4
+> 4.5
+> 5
+
+Volume Element 
+
+Figure 20. Estimated volume element on the ellipse grid. Rasterization effects are milder than for curvature but are still visible at high grid densities. 2.4 2.6 2.8 3
+
+> -0.02
+> 0
+> 0.02
+> x
+> unsmoothed
+
+n=8   
+
+> 234
+> -0.05
+> 0
+> 0.05
+> x
+
+n=16     
+
+> 12345
+> -0.1
+> 0
+> 0.1
+> x
+
+n=32  
+
+> 24
+> -0.1
+> 0
+> 0.1
+> x
+
+n=64   
+
+> 246
+> -0.1
+> 0
+> 0.1
+> x
+
+n=128    
+
+> 2.4 2.6 2.8 3
+> -0.02
+> 0
+> 0.02
+> x
+> smoothed
+
+n=8   
+
+> 234
+> -0.05
+> 0
+> 0.05
+> x
+
+n=16     
+
+> 12345
+> -0.1
+> 0
+> 0.1
+> x
+
+n=32  
+
+> 24
+> -0.1
+> 0
+> 0.1
+> x
+
+n=64   
+
+> 246
+> -0.1
+> 0
+> 0.1
+> x
+
+n=128 
+
+> -100
+> -50
+> 0
+> 50
+> 100
+
+Scalar Curvature 
+
+Figure 21. Estimated scalar curvature on the ellipse grid. Curvature is the most sensitive of the displayed quantities because it depends on further finite differences of the metric. 
+
+25 The Data Manifold under the Microscope 
+
+useful range at the chosen density. For users generating denser versions of the datasets, however, we recommend checking the sensitivity to rasterization and considering metric smoothing, especially for curvature. 
+
+Projection view. Figure 22 shows the same example through a two-dimensional UMAP (McInnes et al., 2018) projection of the image samples. The projection is used only for visualization; the measures themselves are computed on the original transformation grid. The same UMAP coordinates are used for the unsmoothed and smoothed rows, so differences between rows reflect only the change in the estimated measures. The projection confirms the same qualitative picture: smoothing reduces local high-frequency fluctuations while preserving the broader variation of the metric and volume-related quantities. -10 0 10               
+
+> -10
+> -5
+> 0
+> 5
+> 10
+> 15
+> 20
+> unsmoothed
+> g00
+> -10 010
+> -10
+> -5
+> 0
+> 5
+> 10
+> 15
+> 20
+> g11
+> -10 010
+> -10
+> -5
+> 0
+> 5
+> 10
+> 15
+> 20
+> Volume Element
+> -10 010
+> -10
+> -5
+> 0
+> 5
+> 10
+> 15
+> 20
+> Scalar Curvature
+> -10 010
+> -10
+> -5
+> 0
+> 5
+> 10
+> 15
+> 20
+> smoothed
+> -10 010
+> -10
+> -5
+> 0
+> 5
+> 10
+> 15
+> 20
+> -10 010
+> -10
+> -5
+> 0
+> 5
+> 10
+> 15
+> 20
+> -10 010
+> -10
+> -5
+> 0
+> 5
+> 10
+> 15
+> 20
+> 10
+> 20
+> 30
+> 40
+> 50
+> 60
+> 0.38
+> 0.4
+> 0.42
+> 0.44
+> 0.46
+> 2
+> 2.5
+> 3
+> 3.5
+> 4
+> 4.5
+> 5
+> -150
+> -100
+> -50
+> 0
+> 50
+> 100
+> 150
+> 10
+> 15
+> 20
+> 25
+> 30
+> 35
+> 40
+> 45
+> 0.419
+> 0.4195
+> 0.42
+> 0.4205
+> 0.421
+> 0.4215
+> 2
+> 2.5
+> 3
+> 3.5
+> 4
+> 4.5
+> -20
+> -10
+> 0
+> 10
+> 20
+> Ellipse images UMAP projection
+
+Figure 22. UMAP projection of the ellipse images colored by the estimated measures. The top row uses the direct finite-difference estimates and the bottom row uses metric smoothing. The UMAP coordinates are identical across rows. 
+
+Practical warning. The data manifolds considered here are manifolds of rasterized images, not continuous shapes. At fixed image resolution, increasing the parameter-grid density eventually probes the discretization of the image formation process rather than only the underlying continuous transformation. This is a substantial issue in its own right and we leave a systematic study of rasterization effects to future work. In practice, one should be careful when generating new versions of these datasets with very high parameter density but unchanged image resolution. A safer procedure is to increase the image resolution together with the parameter density, compare estimates across densities using a weak metric such as the negative Sobolev norm, and optionally smooth the metric tensor to suppress high-frequency rasterization noise. 
+
+G. Manifold Fitting 
+
+Here we provide details on the way we setup and run the experiments for the manifold fitting use case of our framework. This included details on the datasets used, the fitting models and the way we estimate the bound curves. 
+
+G.1. Fitting methods 
+
+THE FITTING PROCESS AND DATA SELECTION 
+
+Most manifold-fitting methods estimate local structures on M , such as tangent d-planes, tubular neighborhoods, or charts, from a finite fitting set. These local structures define a reconstructed manifold cM together with a projection or reconstruction map onto cM . Evaluating the fit ideally requires computing the Hausdorff distance H(M, cM ). A direct numerical approximation would require dense, uniformly distributed point sets on both M and cM , together with exhaustive nearest-neighbor searches, which is computationally expensive. 26 The Data Manifold under the Microscope 
+
+We therefore separate the data used for fitting from the data used for evaluation. Throughout this section, X denotes the fitting or training set, while Y denotes a dense evaluation/reference set sampled from the ground-truth manifold. After fitting on X, we evaluate the approximation on Y . For each y ∈ Y , let by be its projection or reconstruction on cM . The projection error ∥y − by∥2 serves as a surrogate for dℓ2 (y, cM ), and the directed Hausdorff term sup y∈M dℓ2 (y, cM ) is approximated by the maximum error over the dense reference set Y . The reverse direction and the relation to the full symmetric Hausdorff distance are discussed below. 
+
+Toy manifolds. Our procedure is: • Construct a dense, approximately uniform evaluation set Y = {yi}i≤ntest ⊂ M .• Uniformly sample n fitting points X = {xi}i≤n ⊂ M .• Fit the chosen manifold-fitting method on X.• Project the evaluation points Y to bY = {byi}i≤ntest and compute the pointwise errors ∥yi − byi∥2 and their maximum. The dense evaluation set Y is generated either directly via a grid in a closed-form parametrization or by drawing a large uniform sample S = {si}i≤N ⊂ M and selecting ntest centroids C = {ci} ⊂ M that minimize the Sinkhorn loss between 
+
+C and S. All uniform sampling steps rely on closed-form sampling formulas tailored to each manifold. 
+
+Image manifolds. The procedure mirrors the analytic case: • Select a dense evaluation subset Y = {yi}i≤ntest ⊂ XG from the grid XG.• Sample a fitting set X = {xi}i≤n ⊂ XG \ Y .• Fit the manifold-fitting method on X.• Project or reconstruct the evaluation points Y to bY = {byi}i≤ntest and compute ∥yi − byi∥2 and their maximum. The dense evaluation subset Y is selected by a maximal-distance subsampling algorithm. Sampling of the fitting set X uses a discrete distribution obtained by normalizing the per-point volume element on the grid. Projection is geometric for MMLS and is given by reconstruction for the β-VAE. MANIFOLD MOVING LEAST SQUARES (MMLS) MMLS (Sober & Levin, 2020) is a projection-based manifold fitting method. Given sample points Y = {yi}i≤N ⊂ RD
+
+drawn from an unknown manifold M , the algorithm estimates a fitted manifold cM and provides a projection operator that maps any nearby point p to cM . A key ingredient is a kernel θ that assigns similarity weights based on point–point distances, enabling smooth local approximations. The procedure consists of two stages: • Local affine fitting. For a query point p ∈ RD close to M , find an affine subspace H and a point q ∈ BD (p, τ 
+
+> 2
+
+) that minimize X
+
+> i≤N
+
+dℓ2 (yi, H )2 θ(∥yi − q∥2),
+
+subject to p − q ⊥ H, where τ denotes the reach of M . This step provides a locally estimated tangent space. • Local polynomial reconstruction. With q and H fixed, fit a multivariate polynomial g : Rd → RD by solving 
+
+X
+
+> i≤N
+
+∥g(proj H (yi)) − yi∥22 θ(∥yi − q∥2),
+
+where proj H (yi) is the orthogonal projection onto H. This serves as a local analogue of the exponential map, taking coordinates in the tangent space Tq cM and mapping them to cM . The final projection of p is then g(p).27 The Data Manifold under the Microscope 
+
+The method originates from the Moving Least Squares framework for hypersurfaces (Levin, 2003) and was later extended to arbitrary embedded manifolds (Sober & Levin, 2020). Other techniques exist (e.g., (Zhang & Zha, 2004) and the constructions used in (Fefferman et al., 2016; 2018; Genovese et al., 2012)), but these are typically more intricate or tailored to dimensionality reduction rather than direct manifold fitting. 
+
+Implementation for our experiments. We apply MMLS using the uniformly sampled fitting set X as the reference set and the dense evaluation set Y as queries. Each y ∈ Y is projected onto cM as follows: • Identify the k nearest neighbors Ny = {xi1 , . . . , x ik } ⊆ X.• Compute distances ∥y − xim ∥2 for all neighbors and assign weights via an isotropic Gaussian kernel with bandwidth σ:
+
+wm = exp −
+
+ ∥y − xim ∥2
+
+2σ
+
+2!
+
+.
+
+• Estimate q as the weighted average of Ny . Estimate the affine space H by performing weighted PCA on Ny with weights wm.• Project y orthogonally onto H. In place of the full polynomial stage in (Sober & Levin, 2020), we use a degree-1 local linear approximation. 
+
+Hyperparameters. 
+
+• k = 5 for toy manifolds and k = 2 d+1 for image manifolds. • Gaussian kernel bandwidth: σ = 1 .0.
+
+β-VAE We use the reference implementation from (WonKwang Lee, 2018), which provides two standard architectures: model B
+
+from (Higgins et al., 2017) and model H from (Burgess et al., 2018). Both operate on 64 × 64 images and differ mainly in channel width and bottleneck design. 
+
+Model B. 
+
+Encoder: Conv 32 ×4×4 ( stride 2) , 32 ×4×4 ( stride 2) , 32 ×4×4 ( stride 2) , 32 ×4×4 ( stride 2) , FC 256 → 256 → 2zd.
+
+Decoder: FC zd → 256 → 256 → 512 , followed by Deconv layers mirroring the encoder (stride 2) .
+
+All layers use ReLU activations. 
+
+Model H. Encoder: Conv 32 × 4 × 4 ( stride 2) , 32 × 4 × 4 ( stride 2) , 64 × 4 × 4 ( stride 2) , 64 × 4 × 4 ( stride 2) , 256 ×
+
+4 × 4 ( stride 1) , FC 2zd.
+
+Decoder: FC zd → 256 , followed by Deconv layers reversing the encoder (strides 1 and 2) .
+
+All layers use ReLU activations. 
+
+Objective. Model H uses the standard ELBO with a strengthened KL term: 
+
+L = recon + β D KL , β > 1.
+
+Model B follows the capacity-controlled formulation: 
+
+L = recon + γ |DKL − C|,
+
+where C is annealed linearly from 0 to Cmax .28 The Data Manifold under the Microscope 
+
+Hyperparameters. 
+
+• β = 4 , γ = 100 , Cmax = 20 .• Learning rate: 5 × 10 −4 (dSprites), 10 −4 (COIL-20). • Batch size: 64. • Latent dimension: zd = 10 .• Optimizer: Adam with β1 = 0 .9, β2 = 0 .999 .• Architecture choice: model B for dSprites, model H for COIL-20. • Training budget: up to 10 6 iterations or 10 5 epochs. • Early stopping when training loss does not improve for 0.5% of max epochs. These settings closely follow (WonKwang Lee, 2018), with minimal tuning for stable convergence. After training on the fitting set X, the decoder is used to reconstruct the evaluation points Y .
+
+G.2. Bound Curves 
+
+TAKEAWAYS ON CONSTANTS IN THE GENOVESE ET AL . BOUNDS 
+
+The lower and upper bounds of (Genovese et al., 2012) are primarily useful for their rates in n and their dependence on intrinsic dimension d. While their proofs in principle yield explicit constants, those constants become unwieldy and are not practically interpretable for high-dimensional ambient data. 
+
+Lower bound. The lower bound is obtained via a two-point testing construction (Le Cam’s method): two manifolds 
+
+M0, M 1 are constructed at Hausdorff separation γ while keeping the induced distributions close, yielding the rate n−2/(d+2) .The associated constant depends on geometric parameters (e.g. reach and noise radius) and on the specifics of the construction (choices of bump geometry and localization). As a result, explicitly tracking the constant provides little insight beyond confirming the scaling. 
+
+Upper bound and why constants become intractable. The upper bound is proved by constructing a (theoretical) estimator based on maximum likelihood and controlling its error via entropy bounds. A key step is bounding the Hausdorff covering number of the manifold class: Theorem 9 bounds 
+
+N (γ, M, H ) ≤ κ2(κ, d, D ) exp  κ3(κ, d, D ) γ−d/ 2,
+
+where already the prefactor satisfies 
+
+κ2(κ, d, D ) = 
+
+Dd
+
+ c2
+
+κ
+
+D
+
+.
+
+Thus, combinatorial terms (the factor  Dd
+
+) and exponential dependence on ambient dimension enter before subsequent steps (bracketing, MLE concentration, and conversion from Hellinger to Hausdorff distance), making the resulting explicit constants extremely large for realistic D.
+
+Practical use in this paper. Accordingly, we treat these results as guidance on scaling and on which geometric parameters matter, and we estimate envelope constants empirically by aligning the theoretical rates to observed error curves. ESTIMATING THE BOUNDS ’ CONSTANTS 
+
+Because directly computing the constants in the bounds is impractical, we select them based on the empirical error curves. The idea is to simply place the upper bounds so that they just touch the empirical curve from above and the lower bounds so that they just touch the empirical curve from below. To get more reliable results, we first fit a curve on the empirical curve and use this to place the bounding curve. The selection of the curves family for the empirical curve is based on the 29 The Data Manifold under the Microscope 
+
+observation that the formulas related to bounds depend exponentially on the dimension and multiplicatively on the constant for example looking at the Genovese et al. upper and lower bounds: 
+
+C1
+
+ 1
+
+n
+
+ 22+ d
+
+≤ Rn(Q) ≤ C2
+
+ log nn
+
+ 22+ d
+
+. (17) It is reasonable thus to assume that the real error curve can be well approximated by a formula of the form: 
+
+Rn ∼ C( 1
+
+n )g(d),
+
+which can be written in terms of logarithms as: 
+
+log Rn ∼ − g(d) log n + log C = −A log n + log C. 
+
+With this assumption, we use the logarithms of the empirical curve values {(log nj , log ˆRnj )}j∈J , where {nj | j ∈ J} ⊆ 
+
+[0 , N ] is an increasing sequence of number of samples of the total N dataset points, to fit the above regression. This way we get estimates ˆA, ˆC of A and C. Then we get the resulting fitted empirical curve: 
+
+ˆRf it n = ˆC
+
+ 1
+
+n
+
+ ˆA
+
+.
+
+Finally, for each sample size nj , we compute the 0.99 quantile of the empirical errors across repetitions. The upper-bound constant is chosen as the smallest value for which the theoretical curve lies above these quantiles, and the lower-bound constant is chosen as the largest value for which the theoretical curve lies below them. In our experiments, the sample sizes correspond to the fractions 
+
+[0 .01 , 0.02 , 0.05 , 0.1, . . . , 1.0] 
+
+of the dataset of N points. Each percentage is repeated three times, and the empirical curve used here is their pointwise average. 20     
+
+> 40
+> 60
+> 80
+> 100
+> Relative Sample Size (%)
+> 3
+> 4
+> 5
+> 6
+> 7
+> 8
+> 9
+> Hausdorff Distance
+> Dimension 1
+> 0
+> 20
+> 40
+> 60
+> 80
+> 100
+> Relative Sample Size (%)
+> 2
+> 4
+> 6
+> 8
+> 10
+> Dimension 2
+> 0
+> 20
+> 40
+> 60
+> 80
+> 100
+> Relative Sample Size (%)
+> 2
+> 4
+> 6
+> 8
+> 10
+> 12
+> Dimension 3
+> 0
+> 20
+> 40
+> 60
+> 80
+> 100
+> Relative Sample Size (%)
+> 2
+> 4
+> 6
+> 8
+> 10
+> Dimension 4
+> Lower Bound - Genovese Upper Bound - Genovese Upper Bound - Fefferman Empirical (Mean ± )
+
+Figure 23. Fitting bounds on dSprites for different dimensions utilizing MMLS. 0    
+
+> 20
+> 40
+> 60
+> 80
+> 100
+> Relative Sample Size (%)
+> 2
+> 4
+> 6
+> 8
+> 10
+> Hausdorff Distance
+> MMLS
+> 0
+> 20
+> 40
+> 60
+> 80
+> 100
+> Relative Sample Size (%)
+> 2.5
+> 5
+> 7.5
+> 10
+> 12
+> 15
+> 18
+> 20
+> -VAE
+> Lower Bound - Genovese Upper Bound - Genovese Upper Bound - Fefferman Empirical (Mean ± )
+
+Figure 24. Fitting bounds for MMLS & β-VAE on dSprites (4D) 
+
+30 The Data Manifold under the Microscope 0    
+
+> 20
+> 40
+> 60
+> 80
+> 100
+> Relative Sample Size (%)
+> 0
+> 0.05
+> 0.1
+> 0.15
+> 0.2
+> 0.25
+> 0.3
+> 0.35
+> 0.4
+> Hausdorff Distance
+> Sphere
+> 0
+> 20
+> 40
+> 60
+> 80
+> 100
+> Relative Sample Size (%)
+> 0
+> 0.1
+> 0.2
+> 0.3
+> 0.4
+> Torus
+> 0
+> 20
+> 40
+> 60
+> 80
+> 100
+> Relative Sample Size (%)
+> 5
+> 10
+> 15
+> 20
+> 25
+> 30
+> Extended Coil20
+> 0
+> 20
+> 40
+> 60
+> 80
+> 100
+> Relative Sample Size (%)
+> 2
+> 4
+> 6
+> 8
+> 10
+> Custom dSprites Balanced
+> Lower Bound - Genovese Upper Bound - Genovese Upper Bound - Fefferman Empirical (Mean ± )
+
+Figure 25. Fitting bounds for MMLS on from left to right Sphere, Torus, COIL-20 and dSprites. 
+
+ANALYSIS OF THE FITTED EMPIRICAL CURVES 
+
+To provide a better understanding on the way we select the upper and lower bounds, we display a version of figures 5, 4 and 3 including the fitted empirical curve as a blue dotted line in figures 25, 24 and 23. Furthermore, we include figures 28, 27 and 26 with the regression line on the logarithmic values of the empirical curves, residual plots on the fitted values, QQ plots and also the values of R2. Those are again available for all three ablations present in the main paper. Most fits look reasonably good, with the exception of the β-VAE plot, whose lower R2 indicates that a single power law describes the empirical curve less well. To assess whether the empirical curves are well described by the fitted power laws, Table 2 reports the R2 values of the logarithmic regressions, the theoretical decay exponents used for the curves from (Genovese et al., 2012) and (Fefferman et al., 2018), and the fitted empirical exponent ˆA in ˆRfit 
+
+n = ˆCn − ˆA. Most settings are well approximated by a single power law. The main exception is the β-VAE cross-model experiment, where the substantially lower value R2 = 0 .62 matches the fitting issues observed in Appendix G.2. 
+
+Table 2. Summary of the logarithmic power-law fits used for the bound comparisons. For each representative sweep, we report the regression quality R2, the theoretical decay exponents used for the Genovese and Fefferman curves, and the empirically fitted exponent ˆA.The low R2 value for the β-VAE setting is highlighted in bold. 
+
+Setting R2 Gen. Feff. Fit ˆA
+
+Cross-dimension: dSprites, MMLS 
+
+d = 1 0.99 0.67 1.00 0.48 
+
+d = 2 0.85 0.50 0.50 0.27 
+
+d = 3 0.97 0.40 0.33 0.25 
+
+d = 4 0.96 0.33 0.25 0.22 
+
+Cross-model: 4D dSprites 
+
+MMLS 0.96 0.33 0.25 0.22 
+
+β-VAE 0.62 0.33 0.25 0.11 
+
+Cross-dataset: MMLS 
+
+Sphere 0.99 0.50 0.50 0.91 Torus 0.98 0.50 0.50 0.82 COIL-20 0.79 0.40 0.33 0.17 dSprites 0.96 0.33 0.25 0.22 31 The Data Manifold under the Microscope 1.75 2.00 2.25 2.50 2.75 3.00 3.25 3.50 
+
+log n
+
+1.2 
+
+1.4 
+
+1.6 
+
+1.8 
+
+2.0 
+
+> log  Rn
+
+Log log regression 
+
+1.2 1.4 1.6 1.8 2.0 
+
+log Rfit n
+
+0.02 
+
+0.00 
+
+0.02 
+
+0.04 
+
+0.06 
+
+0.08 
+
+> Residuals
+
+Residuals vs fitted 
+
+1.5 1.0 0.5 0.0 0.5 1.0 1.5 
+
+Theoretical quantiles 
+
+0.04 
+
+0.02 
+
+0.00 
+
+0.02 
+
+0.04 
+
+0.06 
+
+0.08 
+
+> Ordered Values
+
+QQ plot 
+
+Dimension 1, R2: 0.99 
+
+2.5 3.0 3.5 4.0 4.5 5.0 5.5 6.0 
+
+log n
+
+0.8 
+
+1.0 
+
+1.2 
+
+1.4 
+
+1.6 
+
+1.8 
+
+2.0 
+
+> log  Rn
+
+Log log regression 
+
+1.0 1.2 1.4 1.6 1.8 2.0 
+
+log Rfit n
+
+0.2 
+
+0.1 
+
+0.0 
+
+0.1 
+
+> Residuals
+
+Residuals vs fitted 
+
+1.5 1.0 0.5 0.0 0.5 1.0 1.5 
+
+Theoretical quantiles 
+
+0.2 
+
+0.1 
+
+0.0 
+
+0.1 
+
+0.2 
+
+> Ordered Values
+
+QQ plot 
+
+Dimension 2, R2: 0.85 
+
+5 6 7 8 9
+
+log n
+
+0.8 
+
+1.0 
+
+1.2 
+
+1.4 
+
+1.6 
+
+1.8 
+
+2.0 
+
+> log  Rn
+
+Log log regression 
+
+1.0 1.2 1.4 1.6 1.8 2.0 
+
+log Rfit n
+
+0.15 
+
+0.10 
+
+0.05 
+
+0.00 
+
+0.05 
+
+> Residuals
+
+Residuals vs fitted 
+
+1.5 1.0 0.5 0.0 0.5 1.0 1.5 
+
+Theoretical quantiles 
+
+0.15 
+
+0.10 
+
+0.05 
+
+0.00 
+
+0.05 
+
+0.10 
+
+> Ordered Values
+
+QQ plot 
+
+Dimension 3, R2: 0.97 
+
+8 9 10 11 12 
+
+log n
+
+0.8 
+
+1.0 
+
+1.2 
+
+1.4 
+
+1.6 
+
+1.8 
+
+2.0 
+
+> log  Rn
+
+Log log regression 
+
+1.0 1.2 1.4 1.6 1.8 2.0 
+
+log Rfit n
+
+0.10 
+
+0.05 
+
+0.00 
+
+0.05 
+
+0.10 
+
+> Residuals
+
+Residuals vs fitted 
+
+1.5 1.0 0.5 0.0 0.5 1.0 1.5 
+
+Theoretical quantiles 
+
+0.10 
+
+0.05 
+
+0.00 
+
+0.05 
+
+0.10 
+
+> Ordered Values
+
+QQ plot 
+
+Dimension 4, R2: 0.96 
+
+Figure 26. Regression evaluation on dSprites for different dimensions utilizing MMLS. 
+
+POINTWISE PROXY FOR THE HAUSDORFF DISTANCE 
+
+In the manifold-fitting experiments, computing the full symmetric Hausdorff distance at every sample size and repetition would require repeated nearest-neighbor searches between the original samples and their projections onto the fitted manifold. To reduce this cost, we use the pointwise proxy 
+
+dpw (X, bX) = max 
+
+i ∥xi − bxi∥,
+
+where xi is an original sample and bxi is its projected point. For the corresponding finite point clouds X = {xi} and 
+
+bX = {bxi}, this quantity upper-bounds the symmetric Hausdorff distance, since each point can always be matched to its paired counterpart. It can therefore overestimate the true Hausdorff distance, but should be a reasonable proxy when the 32 The Data Manifold under the Microscope 8 9 10 11 12  
+
+> log n
+> 0.8
+> 1.0
+> 1.2
+> 1.4
+> 1.6
+> 1.8
+> 2.0
+> log  Rn
+
+Log log regression       
+
+> 1.0 1.2 1.4 1.6 1.8 2.0
+> log Rfit n
+> 0.10
+> 0.05
+> 0.00
+> 0.05
+> 0.10
+> Residuals
+
+Residuals vs fitted       
+
+> 1.5 1.0 0.5 0.0 0.5 1.0 1.5
+> Theoretical quantiles
+> 0.10
+> 0.05
+> 0.00
+> 0.05
+> 0.10
+> Ordered Values
+
+QQ plot 
+
+MMLS, R2: 0.96      
+
+> 8910 11 12
+> log n
+> 1.6
+> 1.7
+> 1.8
+> 1.9
+> 2.0
+> 2.1
+> 2.2
+> log  Rn
+
+Log log regression       
+
+> 1.7 1.8 1.9 2.0 2.1 2.2
+> log Rfit n
+> 0.2
+> 0.1
+> 0.0
+> 0.1
+> 0.2
+> 0.3
+> Residuals
+
+Residuals vs fitted       
+
+> 1.5 1.0 0.5 0.0 0.5 1.0 1.5
+> Theoretical quantiles
+> 0.2
+> 0.1
+> 0.0
+> 0.1
+> 0.2
+> 0.3
+> Ordered Values
+
+QQ plot 
+
+-VAE, R2: 0.62 
+
+Figure 27. Regression evaluation for MMLS & β-VAE on dSprites (4D) 
+
+fitted manifold is not strongly distorted and the nearest projected point to xi is close to bxi.We checked this approximation on the toy manifolds used in the fitting experiments by comparing dpw with the full symmetric Hausdorff distance across sample sizes and repetitions. Figure 29 shows that the pointwise proxy follows the same trend as the full Hausdorff distance, with a mild overestimation in most regimes. Figure 30 shows the corresponding repetition-level comparison. The largest discrepancies occur in lower-sample regimes, where the fitted manifold is less stable. 33 The Data Manifold under the Microscope 2 3 4 5 6 7 8 
+
+> log n
+> 7
+> 6
+> 5
+> 4
+> 3
+> 2
+> 1
+> 0
+> log  Rn
+
+Log log regression        
+
+> 6543210
+> log Rfit n
+> 0.8
+> 0.6
+> 0.4
+> 0.2
+> 0.0
+> 0.2
+> 0.4
+> Residuals
+
+Residuals vs fitted       
+
+> 3210123
+> Theoretical quantiles
+> 0.8
+> 0.6
+> 0.4
+> 0.2
+> 0.0
+> 0.2
+> 0.4
+> Ordered Values
+
+QQ plot 
+
+Sphere, R2: 0.99        
+
+> 2345678
+> log n
+> 6
+> 5
+> 4
+> 3
+> 2
+> 1
+> 0
+> log  Rn
+
+Log log regression        
+
+> 6543210
+> log Rfit n
+> 1.2
+> 1.0
+> 0.8
+> 0.6
+> 0.4
+> 0.2
+> 0.0
+> 0.2
+> 0.4
+> Residuals
+
+Residuals vs fitted       
+
+> 3210123
+> Theoretical quantiles
+> 1.25
+> 1.00
+> 0.75
+> 0.50
+> 0.25
+> 0.00
+> 0.25
+> 0.50
+> Ordered Values
+
+QQ plot 
+
+Torus, R2: 0.98      
+
+> 78910 11
+> log n
+> 1.6
+> 1.8
+> 2.0
+> 2.2
+> 2.4
+> 2.6
+> log  Rn
+
+Log log regression         
+
+> 1.8 1.9 2.0 2.1 2.2 2.3 2.4 2.5
+> log Rfit n
+> 0.3
+> 0.2
+> 0.1
+> 0.0
+> 0.1
+> Residuals
+
+Residuals vs fitted       
+
+> 1.5 1.0 0.5 0.0 0.5 1.0 1.5
+> Theoretical quantiles
+> 0.3
+> 0.2
+> 0.1
+> 0.0
+> 0.1
+> 0.2
+> Ordered Values
+
+QQ plot 
+
+Extended Coil20, R2: 0.79      
+
+> 8910 11 12
+> log n
+> 0.8
+> 1.0
+> 1.2
+> 1.4
+> 1.6
+> 1.8
+> 2.0
+> log  Rn
+
+Log log regression       
+
+> 1.0 1.2 1.4 1.6 1.8 2.0
+> log Rfit n
+> 0.10
+> 0.05
+> 0.00
+> 0.05
+> 0.10
+> Residuals
+
+Residuals vs fitted       
+
+> 1.5 1.0 0.5 0.0 0.5 1.0 1.5
+> Theoretical quantiles
+> 0.10
+> 0.05
+> 0.00
+> 0.05
+> 0.10
+> Ordered Values
+
+QQ plot 
+
+Custom Dsprites Balanced, R2: 0.96 
+
+Figure 28. Regression evaluation for MMLS on from left to right Sphere, Torus, COIL-20 and dSprites. 
+
+H. Per-Class Manifold Geometry on COIL-20 
+
+The bottom row of Figure 6 summarizes the COIL-20 results as the mean over the 20 object classes together with a ±1σ
+
+band, in order to keep the main-paper figure legible. For completeness, Figure 31 reports the same six geometric measures for each object class individually .The layout matches the main-paper figure: the x-axis traces the layers of the β-VAE from the input through the encoder to the latent μ and back through the decoder to the output, with the encoder and decoder halves shaded blue and orange respectively, and all measures normalized except volume. The per-class curves follow the same qualitative trends discussed in the main text, while exposing the inter-class spread that the ±1σ band of Figure 6 aggregates into a single summary. 34 The Data Manifold under the Microscope 0
+
+> 1000
+> 2000
+> 3000
+> 4000
+> 5000
+
+Number of fitting samples 
+
+0
+
+0.005 
+
+0.01 
+
+0.015 
+
+0.02 
+
+0.025 
+
+0.03 
+
+0.035 
+
+> Hausdorff distance
+
+Circle 
+
+> 0
+> 1000
+> 2000
+> 3000
+> 4000
+> 5000
+
+Number of fitting samples 
+
+0
+
+0.02 
+
+0.04 
+
+0.06 
+
+0.08 
+
+Moons 
+
+> 0
+> 1000
+> 2000
+> 3000
+> 4000
+> 5000
+
+Number of fitting samples 
+
+0
+
+0.02 
+
+0.04 
+
+0.06 
+
+0.08 
+
+0.1 
+
+0.12 
+
+Sphere 
+
+> 0
+> 1000
+> 2000
+> 3000
+> 4000
+> 5000
+
+Number of fitting samples 
+
+0
+
+0.025 
+
+0.05 
+
+0.075 
+
+0.1 
+
+0.125 
+
+0.15 
+
+0.175 
+
+Torus 
+
+Pointwise max proxy Full Hausdorff 
+
+Figure 29. Comparison between the pointwise maximum proxy and the full symmetric Hausdorff distance on the toy manifold-fitting experiments. Curves show means over repetitions, with shaded regions corresponding to ±2σ.0
+
+> 0.01
+> 0.02
+> 0.03
+> 0.04
+> 0.05
+> 0.06
+
+Pointwise max proxy 
+
+0
+
+0.01 
+
+0.02 
+
+0.03 
+
+0.04 
+
+0.05 
+
+0.06 
+
+> Full Hausdorff
+
+Circle 
+
+> 0
+> 0.025
+> 0.05
+> 0.075
+> 0.1
+> 0.125
+> 0.15
+
+Pointwise max proxy 
+
+0
+
+0.02 
+
+0.04 
+
+0.06 
+
+0.08 
+
+0.1 
+
+0.12 
+
+0.14 
+
+0.16 
+
+Moons 
+
+> 0
+> 0.05
+> 0.1
+> 0.15
+> 0.2
+
+Pointwise max proxy 
+
+0
+
+0.025 
+
+0.05 
+
+0.075 
+
+0.1 
+
+0.125 
+
+0.15 
+
+0.175 
+
+0.2 
+
+Sphere 
+
+> 0.05
+> 0.1
+> 0.15
+> 0.2
+> 0.25
+
+Pointwise max proxy 
+
+0.05 
+
+0.1 
+
+0.15 
+
+0.2 
+
+0.25 
+
+Torus 
+
+y = x
+
+Figure 30. Repetition-level comparison between the pointwise maximum proxy and the full symmetric Hausdorff distance. The diagonal line indicates equality between the two quantities. input  
+
+> enc 5
+> enc 7
+> enc 9
+> mu
+> dec 2
+> dec 4
+> dec 6
+> output
+> 10.93
+> 987.09
+> 8.91e+04
+> 8.05e+06
+> 7.26e+08
+> Measure Value
+> Encoder Decoder
+
+Volume   
+
+> input
+> enc 5
+> enc 7
+> enc 9
+> mu
+> dec 2
+> dec 4
+> dec 6
+> output
+> -27.9
+> -1.19
+> 1.68
+> 51.99
+> 2040.97 Encoder Decoder
+
+Curvature   
+
+> input
+> enc 5
+> enc 7
+> enc 9
+> mu
+> dec 2
+> dec 4
+> dec 6
+> output
+> -863.33
+> -632.85
+> -402.37
+> -171.89
+> 58.59 Encoder Decoder
+
+Curvature negative   
+
+> input
+> enc 5
+> enc 7
+> enc 9
+> mu
+> dec 2
+> dec 4
+> dec 6
+> output
+> 8.79
+> 38.11
+> 165.3
+> 717.03
+> 3110.31 Encoder Decoder
+
+Curvature positive   
+
+> input
+> enc 5
+> enc 7
+> enc 9
+> mu
+> dec 2
+> dec 4
+> dec 6
+> output
+> 0
+> 0.005
+> 0.01
+> 0.015
+> 0.02 Encoder Decoder
+
+Reach   
+
+> input
+> enc 5
+> enc 7
+> enc 9
+> mu
+> dec 2
+> dec 4
+> dec 6
+> output
+> 1.45e-06
+> 2.39e-04
+> 4.76e-04
+> 7.13e-04
+> 9.50e-04 Encoder Decoder
+
+Average distances 
+
+COIL-20: geometric measures per object class across -VAE layers    
+
+> Object class each line is one of 20 objects (not repeated runs)
+> duck
+> wood_triangle
+> car0
+> cat
+> anacin
+> car1
+> wood_square
+> jnj
+> tylenol
+> vaseline
+> wood_semicircle
+> mug
+> pig
+> bolt_thread
+> pot
+> bottle
+> pot2
+> cup
+> car2
+> yoghurt
+> Encoder (input latent)
+> Decoder (latent output)
+
+Figure 31. Per-class COIL-20 manifold geometry across β-VAE layers. Same six measures and layer layout as the bottom row of Figure 6, but each of the 20 curves is one COIL-20 object class (not repeated training runs). The x-axis runs input → encoder → latent 
+
+μ → decoder → output, with encoder and decoder halves shaded blue and orange. All measures are normalized except volume. 
+
+35
