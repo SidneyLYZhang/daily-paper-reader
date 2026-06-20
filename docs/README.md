@@ -6,85 +6,85 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-06-18
-- 运行时间：2026-06-18 22:56:21 UTC
+- 最新运行日期：2026-06-20
+- 运行时间：2026-06-20 21:53:36 UTC
 - 运行状态：成功
 - 本次总论文数：21
 - 精读区：8
 - 速读区：13
 
 ### 今日简报（AI）
-今日精读两篇9分论文，速读三篇8分工作，聚焦强化推理与视觉嵌入新突破。  
-最值得关注《Think Less, Act Early》提出的VLA早期退出强化推理，以及《Beyond Scalar Distances》利用冻结大模型提取语义属性梯度。  
-普通读者可优先精读这两篇高分论文，学习如何将大模型能力更高效地融入视觉-语言-动作系统和表示学习。
-- 详情：[/202606/18/README](/202606/18/README)
+1) 今日21篇论文聚焦强化学习与图论前沿，精读重点为VLA模型自感知执行与图对齐相变。  
+2) 最值得关注：弹性查询强化学习的自感知策略执行（9.0分）与图对齐凸松弛的相变理论（9.0分）。  
+3) 建议优先精读这两篇高分论文，并留意速读中随机抛物方程与量子信息几何的交叉应用。
+- 详情：[/202606/20/README](/202606/20/README)
 
 ### 精读区论文标签
-1. [Think Less, Act Early: Reinforced Latent Reasoning with Early Exit in Vision-Language-Action Models](/202606/18/2606.15099v1-think-less-act-early-reinforced-latent-reasoning-with-early-exit-in-vision-language-action-models)  
+1. [Elastic Queries Reinforcement Learning: Self-Aware Policy Execution for VLA Models](/202606/20/2606.14375v1-elastic-queries-reinforcement-learning-self-aware-policy-execution-for-vla-models)  
    标签：评分：9.0/10、query:rl-semantic
-   evidence：强化学习用于潜在推理去噪的视觉语言动作模型
-2. [Beyond Scalar Distances: Semantic Attribute Gradients from Frozen MLLMs for Visual Embeddings](/202606/18/2606.15134v1-beyond-scalar-distances-semantic-attribute-gradients-from-frozen-mllms-for-visual-embeddings)  
-   标签：评分：9.0/10、query:rl-semantic
-   evidence：使用GRPO（强化学习算法）训练视觉编码器生成语义属性嵌入，直接构建语义空间
-3. [Direction-Conditioned Policies via Compositional Subgoal Scoring for Online Goal-Conditioned Reinforcement Learning](/202606/18/2606.16515v1-direction-conditioned-policies-via-compositional-subgoal-scoring-for-online-goal-conditioned-reinforcement-learning)  
-   标签：评分：9.0/10、query:rl-semantic
-   evidence：在线目标条件强化学习中使用InfoNCE表示进行子目标评分和方向条件
-4. [Learning to Refine Hidden States for Reliable LLM Reasoning](/202606/18/2606.17524v1-learning-to-refine-hidden-states-for-reliable-llm-reasoning)  
-   标签：评分：9.0/10、query:rl-semantic
-   evidence：使用策略梯度优化隐层状态，与强化学习中的隐空间表示直接相关
-5. [Knowledge Reutilization in Meta-Reinforcement Learning](/202606/18/2606.18132v1-knowledge-reutilization-in-meta-reinforcement-learning)  
-   标签：评分：9.0/10、query:rl-semantic
-   evidence：元强化学习中使用贝叶斯非参数先验组织潜在任务模式，并通过语义接口迁移
-6. [Algebraic Networks and Architectural Degenerations](/202606/18/2606.18440v1-algebraic-networks-and-architectural-degenerations)  
+   evidence：RL用于选择潜在输入的弹性调度
+2. [Phase Transition in Convex Relaxations for Graph Alignment](/202606/20/2606.15581v1-phase-transition-in-convex-relaxations-for-graph-alignment)  
    标签：评分：9.0/10、query:ml-theory
-   evidence：多项式神经网络的代数几何和神经变体
-7. [Structured Representation Learning with Locally Linear Embeddings and Adaptive Feature Fusion](/202606/18/2606.18469v1-structured-representation-learning-with-locally-linear-embeddings-and-adaptive-feature-fusion)  
+   evidence：图对齐相变中的随机矩阵理论
+3. [Score-Based Martingale Posteriors for Deep Neural Networks](/202606/20/2606.15725v1-score-based-martingale-posteriors-for-deep-neural-networks)  
+   标签：评分：9.0/10、query:npl-bdl-saig
+   evidence：基于得分的鞅后验的贝叶斯深度学习
+4. [Knowledge Reutilization in Meta-Reinforcement Learning](/202606/20/2606.18132v1-knowledge-reutilization-in-meta-reinforcement-learning)  
    标签：评分：9.0/10、query:rl-semantic
-   evidence：使用局部线性嵌入的强化学习状态表示学习
-8. [A Bifurcation Theory Framework for Gradient Descent on the Edge of Stability](/202606/18/2606.15551v1-a-bifurcation-theory-framework-for-gradient-descent-on-the-edge-of-stability)  
+   evidence：元强化学习中利用潜在语义模式重用任务知识
+5. [Multi-Granular Attention-Driven Reinforcement Learning Framework for Web Intelligent Enhancement Systems](/202606/20/2606.19690v1-multi-granular-attention-driven-reinforcement-learning-framework-for-web-intelligent-enhancement-systems)  
+   标签：评分：9.0/10、query:rl-semantic
+   evidence：结合语义图建模的强化学习框架用于语义空间构建
+6. [Manifold Bandits: Bayesian Curriculum Learning over the Latent Geometry of Large Language Models](/202606/20/2606.19750v1-manifold-bandits-bayesian-curriculum-learning-over-the-latent-geometry-of-large-language-models)  
+   标签：评分：9.0/10、query:rl-semantic
+   evidence：将问题采样建模为流形上的Bandit问题，利用潜在几何进行强化学习课程学习
+7. [Ricci-Filtration: Boosting Retrieval-Augmented Generation Reranker to Query-Answer Tasks by Discrete Ricci Flow](/202606/20/2606.15482v1-ricci-filtration-boosting-retrieval-augmented-generation-reranker-to-query-answer-tasks-by-discrete-ricci-flow)  
    标签：评分：8.0/10、query:ml-theory
-   evidence：分岔理论；梯度下降动力学；流形分解
+   evidence：将离散里奇流用于RAG中几何感知的图优化
+8. [SILAGE: Memory-Efficient, Full-Gradient-Free Nonconvex Optimization for Nested Finite Sums](/202606/20/2606.15832v1-silage-memory-efficient-full-gradient-free-nonconvex-optimization-for-nested-finite-sums)  
+   标签：评分：8.0/10、query:ml-theory
+   evidence：深度学习嵌套有限和的非凸优化
 
 ### 速读区论文标签
-1. [Policy Regret for Embedding Model Routing: Contextual Bandits with Low-Rank Experts](/202606/18/2606.14929v1-policy-regret-for-embedding-model-routing-contextual-bandits-with-low-rank-experts)  
+1. [Well-posedness of stochastic parabolic equations with gradient nonlinearities and applications to phase-field models](/202606/20/2606.15425v1-well-posedness-of-stochastic-parabolic-equations-with-gradient-nonlinearities-and-applications-to-phase-field-models)  
+   标签：评分：8.0/10、query:npl-bdl-saig
+   evidence：随机分析：随机抛物型方程适定性
+2. [Quantum Information Geometry of Multicomponent Superconducting Fluctuation Transport](/202606/20/2606.15928v1-quantum-information-geometry-of-multicomponent-superconducting-fluctuation-transport)  
+   标签：评分：8.0/10、query:npl-bdl-saig
+   evidence：超导涨落的信息几何
+3. [Steering Generative Reinforcement Learning into Stable Robotic Controller](/202606/20/2606.16572v1-steering-generative-reinforcement-learning-into-stable-robotic-controller)  
    标签：评分：8.0/10、query:rl-semantic
-   evidence：具有bandit反馈和低秩潜在表示空间的嵌入模型路由
-2. [AI for Social Good: An Investigation of the Causal Relationship Between Environmental Regulations and Their Effects on Air Pollution in London, UK](/202606/18/2606.15257v1-ai-for-social-good-an-investigation-of-the-causal-relationship-between-environmental-regulations-and-their-effects-on-air-pollution-in-london-uk)  
+   evidence：潜空间强化学习框架，用学习到的潜动作模型替换随机潜采样
+4. [Performance-Driven Environment Abstraction with Multi-Timescale Learning](/202606/20/2606.17377v1-performance-driven-environment-abstraction-with-multi-timescale-learning)  
+   标签：评分：8.0/10、query:rl-semantic
+   evidence：基于多时间尺度的环境抽象构建，直接优化决策质量的强化学习状态空间抽象
+5. [Beyond IGO-Flow: Toward Convergence Analysis of IGO in Continuous Spaces](/202606/20/2606.17523v1-beyond-igo-flow-toward-convergence-analysis-of-igo-in-continuous-spaces)  
    标签：评分：8.0/10、query:npl-bdl-saig
-   evidence：不确定性感知的贝叶斯深度学习因果估计框架
-3. [Structured Nonparametric Variational Inference for Dependent Latent Modeling](/202606/18/2606.15458v1-structured-nonparametric-variational-inference-for-dependent-latent-modeling)  
-   标签：评分：8.0/10、query:npl-bdl-saig
-   evidence：通过结构化非参数变分推断的贝叶斯深度学习
-4. [Z-Plane Neural Networks: Bounded Geometric Activation Replaces ReLU and LayerNorm](/202606/18/2606.15669v1-z-plane-neural-networks-bounded-geometric-activation-replaces-relu-and-layernorm)  
-   标签：评分：8.0/10、query:ml-theory
-   evidence：提出几何激活函数和Z平面神经网络以保持方向信息
-5. [Schattor: Schatten-family methods for deep learning optimization](/202606/18/2606.15702v1-schattor-schatten-family-methods-for-deep-learning-optimization)  
-   标签：评分：8.0/10、query:ml-theory
-   evidence：利用Schatten范数进行深度学习非凸优化
-6. [ShipNet: A Geometric Deep Learning Surrogate for Real-Time Ship Hydrodynamics](/202606/18/2606.15356v1-shipnet-a-geometric-deep-learning-surrogate-for-real-time-ship-hydrodynamics)  
+   evidence：信息几何优化的收敛性分析
+6. [Generative Modeling on Metric Graphs via Neural Optimal Transport](/202606/20/2606.16273v1-generative-modeling-on-metric-graphs-via-neural-optimal-transport)  
    标签：评分：7.0/10、query:ml-theory
-   evidence：用于船舶水动力学的几何深度学习代理模型
-7. [Bayesian 3D Steerable CNNs: Enabling Equivariance and Uncertainty Quantification Simultaneously](/202606/18/2606.15479v1-bayesian-3d-steerable-cnns-enabling-equivariance-and-uncertainty-quantification-simultaneously)  
+   evidence：在度量图上使用神经最优传输和几何嵌入进行生成建模
+7. [Direction-Conditioned Policies via Compositional Subgoal Scoring for Online Goal-Conditioned Reinforcement Learning](/202606/20/2606.16515v1-direction-conditioned-policies-via-compositional-subgoal-scoring-for-online-goal-conditioned-reinforcement-learning)  
+   标签：评分：7.0/10、query:rl-semantic
+   evidence：在目标条件强化学习中学习InfoNCE表示进行子目标评分
+8. [Stochastic Thermodynamics of Score Matching in Diffusion Models](/202606/20/2606.17252v1-stochastic-thermodynamics-of-score-matching-in-diffusion-models)  
    标签：评分：7.0/10、query:npl-bdl-saig
-   evidence：贝叶斯深度学习用于可转向CNN
-8. [The Data Manifold under the Microscope](/202606/18/2606.15760v1-the-data-manifold-under-the-microscope)  
+   evidence：扩散模型得分匹配的随机热力学框架
+9. [Geometry-Aware Post-Hoc Uncertainty Quantification in Operator Learning](/202606/20/2606.17513v1-geometry-aware-post-hoc-uncertainty-quantification-in-operator-learning)  
    标签：评分：7.0/10、query:ml-theory
-   evidence：数据流形几何用于几何深度学习
-9. [Higher-order spectral perturbation expansions II: Kernel matrices and manifold learning](/202606/18/2606.16373v1-higher-order-spectral-perturbation-expansions-ii-kernel-matrices-and-manifold-learning)  
-   标签：评分：7.0/10、query:ml-theory
-   evidence：核矩阵谱集中度界，应用于流形学习
-10. [Collective Optimization on Riemannian Manifolds with Bounded Curvature](/202606/18/2606.14884v1-collective-optimization-on-riemannian-manifolds-with-bounded-curvature)  
-   标签：评分：6.0/10、query:ml-theory
-   evidence：黎曼流形上的非凸优化方法
-11. [Stop the Sampler! Classifier-Based Adaptive Stopping for Sampling Kernels](/202606/18/2606.16073v1-stop-the-sampler-classifier-based-adaptive-stopping-for-sampling-kernels)  
-   标签：评分：6.0/10、query:npl-bdl-saig
-   evidence：基于分类器的MCMC自适应停止，与贝叶斯深度学习相关
-12. [Information-Theoretic Meta Dynamic Programming for Signalling and Control of POMDPs](/202606/18/2606.17743v2-information-theoretic-meta-dynamic-programming-for-signalling-and-control-of-pomdps)  
-   标签：评分：6.0/10、query:npl-bdl-saig
-   evidence：针对部分可观测马尔可夫决策过程的信息论动态规划，涉及随机分析
-13. [When Does Trajectory-Level Supervision Permit Efficient Offline Reinforcement Learning?](/202606/18/2606.18531v1-when-does-trajectory-level-supervision-permit-efficient-offline-reinforcement-learning)  
+   evidence：用于不确定性量化的几何感知表示
+10. [Lyapunov-Based Sample Complexity Analysis for Weakly-Coupled MDPs](/202606/20/2606.14095v2-lyapunov-based-sample-complexity-analysis-for-weakly-coupled-mdps)  
    标签：评分：6.0/10、query:rl-semantic
-   evidence：学习潜在奖励模型用于状态表示
+   evidence：强化学习中的状态表示学习；MDP样本复杂度分析
+11. [Representation Costs in Data Science: Foundations and the Quasi-Banach Spaces of Deep Neural Networks](/202606/20/2606.14954v2-representation-costs-in-data-science-foundations-and-the-quasi-banach-spaces-of-deep-neural-networks)  
+   标签：评分：6.0/10、query:ml-theory
+   evidence：深度网络表示成本与准Banach空间的理论框架
+12. [AI Engram: In Search of Memory Traces in Artificial Intelligence](/202606/20/2606.14997v1-ai-engram-in-search-of-memory-traces-in-artificial-intelligence)  
+   标签：评分：6.0/10、query:npl-bdl-saig
+   evidence：记忆痕迹的几何框架与自然梯度
+13. [Self-Questioning Vision-Language Models: Reinforcement Learning for Compositional Visual Reasoning](/202606/20/2606.15651v1-self-questioning-vision-language-models-reinforcement-learning-for-compositional-visual-reasoning)  
+   标签：评分：6.0/10、query:rl-semantic
+   evidence：自问答组合视觉推理的强化学习
 
 
 <div class="dpr-home-promo-card">
