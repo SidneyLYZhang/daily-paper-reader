@@ -1,0 +1,594 @@
+Title: Adaptive inference and function vectors in deep transformers
+
+URL Source: https://arxiv.org/pdf/2606.16694v1
+
+Published Time: Tue, 16 Jun 2026 02:16:23 GMT
+
+Number of Pages: 10
+
+Markdown Content:
+# Adaptive inference and function vectors in deep transformers 
+
+Ravin Raj 1 and Gautam Reddy 1, ∗
+
+> 1
+
+Joseph Henry Laboratories of Physics, Princeton University, Princeton, New Jersey 08544, USA 
+
+Transformers are widely used as a general-purpose substrate for learning complex correlations between a large collection of coupled variables, but their internal mechanisms have remained mys-terious. We introduce a theory of a deep transformer as a mean-field interacting system that implements distributed inference, subject to constraints on communication, locality and depth. We show that such a system can exploit internal state representations (‘function vectors’) to infer a latent context variable at increasingly finer scales over its layers. In an in-context regression task, the theory predicts a non-trivial relationship between non-Gaussian, hierarchical structure in the latent context variable, and transformer depth. Predictions are tested using constrained linear at-tention transformers and demonstrate adaptive inference in deep architectures. Feedforward blocks and depth enable transformers to implement a much richer class of in-context learning algorithms than previously described. 
+
+INTRODUCTION 
+
+In statistical physics, one is interested in describing the joint distribution of a large collection of coupled ran-dom variables, P (z1, z2, . . . , zN ). Many techniques have been developed to estimate this distribution from data, often requiring simplifying ans¨ atze that allow for efficient inference. In recent years, a complementary empirical paradigm has proved remarkably successful. Rather than specifying the form of the effective interactions by hand, one trains a flexible architecture on large and diverse datasets using relatively simple optimization rules [1–3]. The transformer architecture has emerged as one such general-purpose substrate [4–9], and now forms the ba-sis of foundation models in many domains, including vi-sion [10–12], speech [13–15], materials design [16] and molecule generation [17–20]. The flexibility of a transformer arises from two op-erations that are repeated across layers. The first is a global interaction, mediated by self-attention, in which each vector (or ‘token’) in the input sequence extracts information from other tokens through learned interac-tion maps. The second is a local nonlinear computation, usually implemented as a multi-layer perceptron (MLP), which acts independently and identically on each vec-tor. Once its parameters are optimized, a transformer can adapt its predictions to a novel sequence or dataset in a single forward pass, without further updates to its parameters. This phenomenon, called in-context learn-ing, suggests that the transformer has learned a generic procedure for inferring structure from context [21, 22]. In-context learning has served as a paradigm for probing the internal mechanisms of transformers [23–26]. Based on empirical work, we know that transformers implement in-context learning using at least two motifs: (1) attention circuits that implement specific algorith-mic operations, such as copying [22, 27, 28] or gradient descent [29–32], and (2) by forming function vectors [33– 36], which are internal representations of the function or task the model deems is being solved. While recent theoretical efforts have shed light on the former class of mechanisms [27, 29, 30, 32, 37–40], the transformer cir-cuits that enable the latter have remained unclear. First identified in large language models [33, 34], function (or task) vectors are consistently found in the middle layers of billion-parameter models of different families, suggest-ing a common underlying principle that favors this or-ganization. In recent empirical work [41], we find that, in contrast to pure attention-based circuits, leveraging function vectors necessarily entails a multi-layer inter-action between the attention and MLP blocks. These observations offer a path towards a more general theory of in-context learning in transformers, which we now ex-plore. In this Letter, we propose a theory of collective compu-tation mediated by function vectors in multi-layer (deep) transformers. The theory is built on the hypothesis that a transformer, once optimized on a large dataset, im-plements distributed inference over a set of vectorized tokens, subject to architectural constraints on commu-nication, locality, and depth. The theory makes specific predictions about the role of non-Gaussianity in latent context variables, and the value offered by depth and MLP blocks. These predictions are confirmed in numer-ical experiments with constrained linear attention trans-formers. 
+
+RESULTS 
+
+We begin by considering a standard in-context learn-ing paradigm [24, 30, 32, 37]. We wish to learn the joint distribution of a collection of N random variables (‘tokens’), ZN = {z1, z2, . . . , zN }. The tokens are cou-pled by a latent context variable θ, drawn from ρ0(θ). That is, P ({zi}) = R dθρ0(θ) Q 
+
+> i
+
+p(zi|θ). The model is trained to predict a masked out component in a sep-arate query token using the context ZN . Specifically, each token is split into two components, z = ( x, y), where p(z|θ) = q(x|θ)π(y|x, θ). Given ZN and an in-
+
+> arXiv:2606.16694v1 [cs.LG] 15 Jun 2026
+
+2                               
+
+> FIG. 1. Model schematic. Information about alatent contextual variable θimplicit in the context ZNis com-pressed through Lrounds of interaction into a function vec-tor ΦL, which is subsequently used by a query for prediction (through a decoder; blue square). At every layer ℓ, the lo-cal nonlinearity (red square) uses ( xi,yi) and the interme-diate function vector Φℓto construct an embedding func-tion λℓ+1 (xi,yi,Φℓ). The embedding of the Ncontextual tokens is pooled (grey rectangle) to form a d-dimensional statistic φℓ+1 . This pooled statistic is concatenated: Φℓ+1 =
+> Φℓ⊕φℓ+1 .
+
+dependently drawn query token x from the same θ, the model is trained to construct a predictive distribution ˆπ(y|x, ZN ) ≈ π(y|x, θ) by optimizing a prediction loss 
+
+⟨L (ˆ π)⟩. L is typically a cross-entropy loss or a mean-squared-error loss, and the expectation is over samples of θ ∼ ρ0, a new set of contextual tokens ZN given θ,and a new query x ∼ q(.|θ). We introduce a model for distributed Bayesian infer-ence mediated by mean-field interactions between a col-lection of tokens (Figure 1). The model consists of L
+
+layers, where each layer is a round of interactions be-tween tokens and a local nonlinear operation that pro-cesses each token separately. Importantly, interactions are constrained to a channel dimension d. We assume a common masking scheme where the context tokens can-not interact with the query, whereas the query can access the shared communication channel among the context to-kens. We first show how this model can implement adap-tive inference and later map this model to a transformer architecture with a simplified attention operation. First, suppose L = 1. Since θ is a shared variable, the tokens should exchange information to perform inference. We assume interactions are mediated through a shared pool: 
+
+φ1 = 1
+
+N
+
+> N
+
+X
+
+> i=1
+
+λ1(zi), (1) where λ1 is a d-dimensional nonlinear embedding of each token and φ1 is a globally accessible statistic that carries information about θ. The query x can access φ1 to form a posterior ρ(θ|x, φ1) and thereby generate a predic-tive distribution ˆ π(y|x, ZN ) = R dθρ(θ|x, φ1)π(y|x, θ). Since information about the context is shared to the query entirely through φ1, we call φ1 the function vec-tor corresponding to the context ZN . This definition of a function vector aligns with empirically motivated defi-nitions of function/task vectors [33, 34, 41]: an internal representation of a model is deemed a function vector if patching in the function vector from context ZN into a different context Z′ 
+
+> N
+
+produces a response to a novel query x in context Z′ 
+
+> N
+
+that aligns with context ZN . In other words, a function vector is a compact summary of the information in the context for predicting the target 
+
+y for any novel query x.Now, suppose L ≥ 1. After the first ℓ layers, define 
+
+Φℓ = φ1 ⊕ φ2 ⊕ · · · ⊕ φℓ, Φ0 = ∅, (2) where ⊕ denotes a direct sum of vectors and φℓ+1 =
+
+> 1
+> N
+
+PNi=1 λℓ+1 (zi, Φℓ). Importantly, Φℓ acts as a state variable for implementing adaptive inference for the fol-lowing reasons. Let us say we want to adaptively se-lect the embedding at the next layer λℓ+1 to optimize the final prediction loss after L rounds of interaction. One may imagine, however, that making this choice re-quires keeping track of the embeddings at all preceding layers, λ1, λ2, . . . , λℓ (which, recall, are functions rather than statistics). Fortunately, this is not necessary; Φℓ
+
+preserves all statistics acquired so far, and because the embedding at each layer is chosen as a function of the previous state, it also implicitly records the choices of embeddings {λ1: ℓ} that produced those statistics. To see how Φℓ can be used to choose λℓ+1 , let ˆπL(y|x, ΦL) = R dθ ρ(θ|x, ΦL)π(y|x, θ) be the predic-tive distribution after the final layer. We define the terminal value VL(ΦL) = R dθρ(θ|ΦL) R dzp(z|θ)L(ˆ πL), which is the expected loss averaged over the posterior of possible latent context variables θ and queries x.For ℓ < L , write φ for the random statistic generated by a candidate next-layer embedding λ, and let Pλ(φ|Φℓ)denote its conditional distribution. Pλ(φ|Φℓ) implicitly includes an average over all possible contexts ZN com-patible with Φℓ. The optimal value formally satisfies a dynamic programming equation solved using backward induction: 
+
+Vℓ(Φℓ) = min  
+
+> λ
+
+⟨Vℓ+1 (Φℓ ⊕ φ)⟩φ∼Pλ(·| Φℓ) . (3) This equation is generally difficult to solve, but shows that the optimal embedding λℓ+1 , which is the minimizer in Eq. (3), should be interpreted as an experimental de-sign strategy for adaptive inference [42, 43]. At layer 
+
+ℓ + 1, the model then appends the corresponding statis-tic φℓ+1 to the state, so that Φℓ+1 = Φℓ ⊕ φℓ+1 . After 3
+
+L layers, the query x uses ΦL to form ˆ πL(y|x, ΦL). We call ΦL the function vector for a multi-layer model. Mapping this model to the transformer architecture, this theory assigns two distinct computational roles to the MLP blocks at optimality (given the above con-straints on interactions): (i) as implementing the com-munication strategy (or a ‘router’) that chooses which information in its token should be conveyed to the other tokens, i.e., ( z, Φℓ) → λℓ+1 and (ii) as a decoder that processes information gathered from other tokens to gen-erate a prediction, ( x, ΦL) → ˆπ. The attention operation mediates interactions and builds the function vector by pooling information across tokens, {λℓ(zi, Φℓ−1)} → φℓ.The model further requires that the residual stream re-tains information about the original token zi whereas the function vector is written into an independent subspace with at least dL dimensions. We discuss a constrained linear attention transformer that implements this proce-dure further below. We now show that the model predicts a non-trivial re-lationship between the structure of the prior ρ0 and the advantage offered by depth and MLP blocks in trans-formers. We examine this relationship in more detail in an in-context linear regression task [24]. In each con-text, we sample θ ∼ ρ0, and generate tokens such that 
+
+x ∼ N (0, I K ), y = θ⊤x + η, where y is a scalar and η
+
+is noise with variance σ2. For a context ZN drawn from 
+
+θ, the loss is L = ( θ⊤x − ˆy(x, ZN )) 2, where ˆ y(x, ZN ) is the predicted output for query x. We take N → ∞ and the noise variance is scaled by fixing σ2/N = τ 2 to retain noise in this limit. Consider embeddings of the form λℓ = yWℓx. The rows of Wℓ form the subspace along which θ is mea-sured, and the function vectors are noisy projections: 
+
+φℓ = Wℓ(θ + ξ) with ξ ∼ N (0, τ 2IK ) fixed across all layers. The function vector at layer ℓ is Φℓ = Aℓ(θ + ξ), where Aℓ = W1 ⊕ W2 ⊕ · · · ⊕ Wℓ. For an adaptive strategy, Aℓ depends on Φℓ−1. The Bayesian minimum mean squared error (MMSE) loss averaged over query tokens for a given ΦL is Tr( Cθ|ΦL ), where Cθ|ΦL is the covariance of the Bayesian posterior ρ(θ|ΦL). The total MMSE loss is ⟨Tr( Cθ|ΦL )⟩, averaged over contexts ZN .The total communication budget M = dL is fixed. 
+
+Gaussian prior. Let us first consider a Gaus-sian prior θ ∼ N (0, C0), for which Cθ|Φℓ = C0 −
+
+C0A⊤
+
+> ℓ
+
+Aℓ(C0 + τ 2IK )A⊤
+
+> ℓ
+
+† AℓC0 (End Matter). This implies Tr( Cθ|ΦL ) does not depend on the function vec-tor ΦL. The expected posterior covariance is fully deter-mined by the choices of which measurements the strat-egy chooses in subsequent layers rather than the observed outcomes of measurements. The optimal adaptive strat-egy at layer ℓ is thus to pick a Wℓ+1 with d rows in the span of the top d(L − ℓ) eigenvectors of Cθ|Φℓ . However, the total MMSE loss from this adaptive strategy is iden-tical to the non-adaptive strategy of choosing AL from (a) 
+
+# (b)                         
+
+> FIG. 2. MMSE loss of adaptive and non-adaptive measure-ments for a tree prior. (a) Each internal node of the depth h
+> tree is a coordinate. The context vectors θ(σ) are weighted sums of coordinates along the path to a leaf σ=s1s2. . . s h.(b) The MMSE loss from three strategies. Adaptive: A multi-layer strategy that adaptively infers the path towards the leaf by making a single measurement at every layer. Non-Adaptive: An optimized single-layer strategy with a measure-ment Wwhose rows are in the span of the depth-symmetric axes and the top 2 4−1 eigenvectors of the prior covariance. Gauss-PC: The expected MMSE loss from a one-layer rank-constrained linear attention transformer without MLP blocks. Here, h= 8 , α = 0 .5, τ = 0 .1. For these values, m⋆
+> sym ≈2.8and m⋆
+> ada ≈5.6.
+
+the top dL eigenvectors of C0 from the outset. Thus, given a communication budget M , L layers of channel dimension d cannot outperform a single layer with chan-nel dimension dL .
+
+Tree prior. Next, we construct a hierarchically struc-tured prior where depth does indeed offer a significant advantage. Let Th be a balanced binary tree of depth h
+
+(Figure 2a), where the K = 2 h − 1 internal nodes form orthogonal coordinates. Each leaf σ corresponds to a re-gression vector θ, which is constructed based on the path from the root of the tree to this leaf. Specifically, a leaf σ,represented as a sequence of spins s1s2 . . . s h (sm = ±1), corresponds to an element in the prior: 
+
+θ(σ) = κ
+
+> h−1
+
+X
+
+> m=0
+
+αm/ 2sm+1 es1s2...s m , (4) 4      
+
+> FIG. 3. Three transformer configurations. A: M-layer model with channel dimension 1 per layer with an MLP embedding function (orange) and an MLP decoder (blue). B: 1-layer model with channel dimension Mwith an MLP embedding function and MLP decoder. C: 1-layer with channel dimension
+> Mand no MLPs.
+
+where 0 < α < 1, κ is a constant that normalizes θ, and 
+
+es1s2...s m is the coordinate of internal node s1s2 . . . s m.The prior is uniform over the 2 h leaves of the tree. Consider the non-adaptive strategy of choosing AL as the top M eigenvectors of the prior covariance, as in the Gaussian case. The prior covariance is diagonal, and all coordinates at depth m have variance proportional to (α/ 2) m. The top eigenvectors are the shallowest tree co-ordinates. Because the multiplicity at level m is 2 m, this strategy resolves spins up to tree depth m⋆ 
+
+> PC
+
+∼ log 2 M ,and the total posterior variance (and thus MMSE loss) is ∼ αm⋆ 
+
+> PC
+
+, which is a power of M . However, there are more effective non-adaptive strategies; for example, one may measure along axes that are symmetric with re-spect to the tree coordinates at a particular depth m
+
+(0 ≤ m ≤ h − 1), 
+
+μm = 2 −m/ 2 X
+
+> v∈V m
+
+ev , (5) where Vm are the 2 m nodes at depth m and the prefac-tor is chosen so that {μm}h−1 
+
+> m=0
+
+are orthonormal. We have 
+
+μ⊤
+
+> m
+
+θ(σ) = κ(pα/ 2) msm+1 . If AL = μ0⊕μ1⊕· · ·⊕ μM −1
+
+(M ≤ h), then the function vector can be viewed as a noisy representation of σ in base pα/ 2. Noise prevents resolving the spin sm+1 if κ(α/ 2) m/ 2 ≲ τ , which means σ
+
+is resolved up to tree depth m⋆ 
+
+> sym
+
+≈ 2 log( τ /κ )/ log( α/ 2). The posterior ρ(θ|ΦL) is concentrated on leaves that share the prefix until level m⋆
+
+> sym
+
+, which implies that the MMSE loss is ∼ αmin( M,m ⋆
+
+> sym )
+
+, i.e., an exponential scaling with M and a cutoff at m⋆
+
+> sym
+
+.Now, consider an adaptive strategy. The optimal adap-tive strategy is difficult to compute, but a simpler heuris-tic is sufficient to explain why depth is useful. Assume 
+
+d = 1 (so L = M ). The heuristic strategy first mea-sures the root coordinate e∅. If φ1 is positive, the next measurement routes to the +1 child, and otherwise to the −1 child. Repeating this procedure, at layer ℓ, the strategy measures the coordinate of the node selected by the previous signs and routes to the next child accord-ing to the sign of that noisy measurement. Thus, the 
+
+M measurements trace a data-dependent path through the tree until depth M , which suggests an MMSE loss that scales as αM . Noise will eventually limit the level to which spins can be resolved, but crucially, noise now acts only along a single axis. In this case, a spin can-not be resolved when κα m/ 2 ≲ τ , which leads to a cutoff m⋆ 
+
+> ada
+
+≈ 2 log( τ /κ )/ log α. Thus, the MMSE loss 
+
+∼ αmin( M,m ⋆ 
+
+> ada )
+
+still decays exponentially but has a higher cutoff. The MMSE losses for three strategies (labeled Adap-tive, Non-Adaptive and Gauss-PC) are plotted in Fig-ure 2b. An Adaptive strategy should by construction have MMSE loss at most that of a Non-Adaptive strat-egy. For the Adaptive and Non-Adaptive strategies, we first sample contexts θ + ξ, obtain AL, ΦL, estimate the posterior ρ(θ|ΦL) and average Tr( Cθ|ΦL ) over contexts to obtain the MMSE loss (End Matter). For the Non-Adaptive strategy, we take AL = U D , U U ⊤ = IM and optimize U . An exhaustive search requires D to contain all 2 h −1 coordinates, which is computationally challeng-ing; we restrict the rows of AL to the span of {μm} and the top 2 g − 1 eigenvectors of the prior covariance ( g = 4 in numerics). Gauss-PC is the predicted loss from a one-layer linear attention transformer without MLPs (End Matter), which depends on the spectrum of C0. The theory thus predicts that given a communication budget 
+
+M , the heuristic Adaptive strategy splits from the Non-Adaptive strategy for M > m ⋆ 
+
+> sym
+
+(Figure 2b). Probing this regime should let us examine whether a deep trans-former trained on this task develops an adaptive strategy. To test predictions from this model, we consider a constrained L-layer linear attention transformer [44, 45]. Suppose the model dimension is D ≥ (K +1)+ dL and let 
+
+S = D − (K + 1). Denote the residual stream activation at layer ℓ and token index i as uℓ,i , where 1 ≤ ℓ ≤ L + 1. We fix uℓ,i = zi ⊕ pℓ with initial condition p1 = ϵ1S ,where ϵ is a small constant. Denote ϕℓ as the local feed-forward block (MLP) at layer ℓ, which takes in pℓ as input and outputs a d × (K + 1) matrix Kℓ. Qℓ, Vℓ, Oℓ
+
+are d × S, d × (K + 1) and S × d matrices. For each layer 
+
+ℓ, we iterate 
+
+φℓ = 1
+
+N
+
+> N
+
+X
+
+> j=1
+
+(Vℓzj ) ⊙ (Kℓzj ) , Kℓ = ¯ϕℓ( ¯ pℓ),
+
+pℓ+1 = pℓ + 1
+
+√d Oℓ (φℓ ⊙ Qℓpℓ) , (6) where the bar denotes row/layer normalization and ⊙
+
+represents elementwise multiplication. Finally, we pass 5(a) (b) (c) (d) 
+
+target donor                   
+
+> FIG. 4. (a) The MMSE loss of the three model configurations in Figure 3 when θis drawn from a Gaussian prior. The dashed line shows the theory prediction. Finite Neffects play a role at larger M. (b) The MMSE loss of the three models when θis drawn from the tree prior. The green, cream and brown dashed lines show the predicted loss corresponding to the Adaptive, Non-Adaptive and Gauss-PC strategies. Model A achieves a loss significantly lower than the optimized non-adaptive strategy (achieved by Model B), thereby showing that the model adaptively infers the context across layers. Errorbars in (a), (b) represent one standard deviation over 8 seeds. (c) A causal perturbation experiment where keys Kℓfrom a donor leaf ( σ′) are patched into a target leaf ( σ) at every layer ℓ≥ℓ0. (d) The MMSE loss on query tokens for different tree distances between
+> σ, σ ′, and for different ℓ0. The rightmost column ( ℓ0=∅) is a no patch control and the bottommost row is a control where donor contexts are re-sampled from the target leaf σ.
+
+the activation uL+1 ,q at the query token through another feedforward block ϕout to generate the output prediction: 
+
+uout ,q = uL+1 ,q +ϕout ( ¯ uL+1 ,q ). Eq. 6 is a linear attention transformer with three constraints: (1) the elementwise multiplication implements d heads that convey a single scalar, thereby constraining the channel dimension to d,(2) the token representation z is never updated and is the only information conveyed by the attention heads, and (3) the MLP ϕℓ reads from the internal state variable pℓ
+
+and directly affects the key matrix, Kℓ.Predictions from the theory are tested using the archi-tecture in Eq. (6) in three different configurations A, B and C (Figure 3). Model A has a standard arrangement of interleaved attention and MLP blocks with L = M
+
+layers and channel dimension d = 1. Each ϕℓ is an MLP and ϕout is three stacked MLPs. Model B is a one-layer model with channel dimension M with identical MLPs as Model A. All MLPs have a single hidden layer with GeLU activation. Model C is a standard one-layer lin-ear attention model with channel dimension M and no feedforward blocks. It can be shown that Model C imple-ments ˆ y(x, ZN ) = ( W (θ + ξ)) ⊤x, where W is a rank-M
+
+matrix [30, 32]. Once optimized, W projects onto the span of the top M eigenvectors of C0 (End Matter). Figure 4a shows the results of training these models on a Gaussian prior ρ with covariance C0 = U ΛU ⊤ where 
+
+Λ is diagonal with Λkk ∝ αk (up to a normalization con-stant) for k = 1 , 2, . . . , K and U is a random orthogonal matrix. Consistent with the theory, all models achieve approximately the same loss: neither MLPs nor depth offer any advantage in this scenario. Figure 4b shows the results for the tree prior. Con-sistent with theory, the MMSE loss of Models B and C aligns with the MMSE loss of the Non-Adaptive and Gauss-PC strategies, respectively. Importantly, Model A outcompetes the optimized Non-Adaptive strategy, show-ing that the model executes an adaptive inference strat-egy over its layers. The difference between the MMSE loss for Model A and the Adaptive strategy suggests that there is further room for improvement; we verified that this gap is not due to finite N effects or an insufficiently expressive MLP, ϕℓ.As a direct causal test of the routing mechanism, we performed a key-patching experiment on Model A (M = 8 , h = 8). If the model performs adaptive infer-ence, the embeddings the models chooses for a context sampled from a leaf σ′ should fare worse when used to infer the context variable of another leaf σ, and this dif-ference should depend on the tree distance between σ and 
+
+σ′. To test this hypothesis, for contexts sampled from the target leaf σ and the donor leaf σ′ at distance d (from 0 to h), we first ran a forward pass of the donor context and recorded the dynamic key matrices {Kσ′ 
+
+> ℓ
+
+}Mℓ=1 . We then reran the target context from σ, but from patch start layer ℓ0 onward replaced Kσℓ by Kσ′ 
+
+> ℓ
+
+for all ℓ ≥ ℓ0,and measured the MMSE loss (Figure 4c). A model that does not implement an adaptive strategy should show no or little change in the MMSE loss across perturbations. Figure 4d shows that donor keys whose path diverges early from the target produce a large loss when inserted early. The effect is absent for donor leaves that are prox-imal to the target and for late or no interventions. The rightmost column ℓ0 = ∅ is a no-perturbation control. 
+
+> DISCUSSION
+
+A prominent view is that in-context learning em-ulates Bayesian inference over a latent context vari-able [2, 23], whereas mechanistic studies of in-context 6linear regression have shown how attention circuits can implement algorithms such as preconditioned gradient descent [29, 30, 32]. We make progress towards recon-ciling the gap between these two perspectives by show-ing that deep transformers can implement Bayesian in-ference as a distributed, adaptive, layerwise procedure: function vectors act as compressed state variables, MLP blocks choose which statistic should be measured next, and attention pools that statistic across the context. This mechanism places function vectors [33–36, 41] in a circuit-level framework and shows that depth and MLP blocks enable a much richer class of in-context learning algorithms than preconditioned gradient descent. The theory ignores a key element of typical trans-former architectures, softmax attention, which allows to-kens to retrieve information from specific tokens in the context at the expense of a quadratic scaling of com-putation with context size [46]. Softmax attention is analogous to an implementation of a key-value memory over the context [47, 48], and plays an important role in implementing attention-based circuit computations for in-context learning [22, 27, 28, 41]. The pooling-based operation in our theory is linear in context size while respecting exchangeability [49–51], namely, permutation invariance of the data conditional on the latent con-text variable, and thus may be sufficient to implement in-context learning in such scenarios. Recent analyses that treat self-attention as an interacting-particle sys-tem similarly emphasize a collective description of token dynamics, but focus on the evolution of the empirical distribution of token representations and the emergence of clustering or metastable macroscopic states [52–54]. In a complementary direction, in-context denoising iden-tifies regimes in which attention implements a context-dependent associative-memory or score-like denoising up-date [48, 55]. Integrating these perspectives with the con-strained Bayesian framework developed here may clarify how transformers combine local memory retrieval with adaptive inference using feedforward blocks. 
+
+> CODE AVAILABILITY
+
+The code is available at [56]. 
+
+> ACKNOWLEDGMENTS
+
+We thank Emmy Blumenthal, Nikolas Claussen, Cole Gibson, Albert Qin for helpful comments on the manuscript, and Adel Ardalan, Tim Buschman, Declan Campbell, Jonathan Cohen and Tim Lin for insight-ful discussions. GR was partially supported by a joint research agreement between NTT Research Inc. and Princeton University, a grant from Coefficient Giving and a seed grant from the Princeton AI Lab. The simula-tions presented in this article were performed on com-putational resources managed and supported by Prince-ton Research Computing, a consortium of groups includ-ing the Princeton Institute for Computational Science and Engineering (PICSciE) and Research Computing at Princeton University.                                                            
+
+> ∗greddy@princeton.edu [1] P. A. Ortega, J. X. Wang, M. Rowland, T. Genewein, Z. Kurth-Nelson, R. Pascanu, N. Heess, J. Veness, A. Pritzel, P. Sprechmann, et al. ,Meta-learning of sequential strategies, arXiv preprint arXiv:1905.03030 (2019). [2] S. M¨ uller, N. Hollmann, S. P. Arango, J. Grabocka, and F. Hutter, Transformers can do bayesian inference, arXiv preprint arXiv:2112.10510 (2021). [3] T. Genewein, J. Grau-Moya, L. K. Wenliang, L. Orseau, and M. Hutter, Algorithmic compression via pretrained neural networks, Entropy 28 , 596 (2026). [4] A. Vaswani, N. Shazeer, N. Parmar, J. Uszkoreit, L. Jones, A. N. Gomez, L. Kaiser, and I. Polosukhin, Attention is All you Need, in Advances in Neural Infor-mation Processing Systems , Vol. 30 (Curran Associates, Inc., 2017). [5] N. Parmar, A. Vaswani, J. Uszkoreit, L. Kaiser, N. Shazeer, A. Ku, and D. Tran, Image Transformer, in Proceedings of the 35th International Conference on Machine Learning (PMLR, 2018) pp. 4055–4064. [6] A. Jaegle, F. Gimeno, A. Brock, O. Vinyals, A. Zisser-man, and J. Carreira, Perceiver: General Perception with Iterative Attention, in Proceedings of the 38th Interna-tional Conference on Machine Learning (PMLR, 2021) pp. 4651–4664. [7] C. Sun, A. Myers, C. Vondrick, K. Murphy, and C. Schmid, VideoBERT: A Joint Model for Video and Language Representation Learning, in 2019 IEEE/CVF International Conference on Computer Vision (ICCV)
+> (2019) pp. 7463–7472, iSSN: 2380-7504. [8] J. Chen, X. Tan, Y. Leng, J. Xu, G. Wen, T. Qin, and T.-Y. Liu, Speech-T: Transducer for Text to Speech and Be-yond, in Advances in Neural Information Processing Sys-tems , Vol. 34 (Curran Associates, Inc., 2021) pp. 6621– 6633. [9] M. Li, R. Xu, S. Wang, L. Zhou, X. Lin, C. Zhu, M. Zeng, H. Ji, and S.-F. Chang, CLIP-Event: Connecting Text and Images with Event Structures, in 2022 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) (2022) pp. 16399–16408, iSSN: 2575-7075. [10] A. Dosovitskiy, L. Beyer, A. Kolesnikov, D. Weissenborn, X. Zhai, T. Unterthiner, M. Dehghani, M. Minderer, G. Heigold, S. Gelly, J. Uszkoreit, and N. Houlsby, An Image is Worth 16x16 Words: Transformers for Image Recognition at Scale (2020). [11] A. Radford, J. W. Kim, C. Hallacy, A. Ramesh, G. Goh, S. Agarwal, G. Sastry, A. Askell, P. Mishkin, J. Clark, G. Krueger, and I. Sutskever, Learning Transferable Vi-sual Models From Natural Language Supervision, in Pro-ceedings of the 38th International Conference on Machine Learning (PMLR, 2021) pp. 8748–8763.
+
+7
+
+[12] A. Kirillov, E. Mintun, N. Ravi, H. Mao, C. Rolland, L. Gustafson, T. Xiao, S. Whitehead, A. C. Berg, W.-Y. Lo, P. Doll´ ar, and R. Girshick, Segment Anything, in 
+
+2023 IEEE/CVF International Conference on Computer Vision (ICCV) (IEEE, Paris, France, 2023) pp. 3992– 4003. [13] A. Baevski, Y. Zhou, A. Mohamed, and M. Auli, wav2vec 2.0: A Framework for Self-Supervised Learning of Speech Representations, in Advances in Neural Information Pro-cessing Systems , Vol. 33 (Curran Associates, Inc., 2020) pp. 12449–12460. [14] W.-N. Hsu, B. Bolte, Y.-H. H. Tsai, K. Lakhotia, R. Salakhutdinov, and A. Mohamed, HuBERT: Self-Supervised Speech Representation Learning by Masked Prediction of Hidden Units, IEEE/ACM Transactions on Audio, Speech, and Language Processing 29 , 3451 (2021). [15] A. Radford, J. W. Kim, T. Xu, G. Brockman, C. Mcleavey, and I. Sutskever, Robust Speech Recogni-tion via Large-Scale Weak Supervision, in Proceedings of the 40th International Conference on Machine Learning 
+
+(PMLR, 2023) pp. 28492–28518. [16] J. Qu, Y. R. Xie, K. M. Ciesielski, C. E. Porter, E. S. Toberer, and E. Ertekin, Leveraging language represen-tation for materials exploration and discovery, npj Com-putational Materials 10 , 58 (2024). [17] R. Irwin, S. Dimitriadis, J. He, and E. J. Bjerrum, Chemformer: a pre-trained transformer for computa-tional chemistry, Machine Learning: Science and Tech-nology 3, 015022 (2022). [18] V. Bagal, R. Aggarwal, P. K. Vinod, and U. D. Priyakumar, MolGPT: Molecular Generation Using a Transformer-Decoder Model, Journal of Chemical Infor-mation and Modeling 62 , 2064 (2022). [19] A. Chandra, L. T¨ unnermann, T. L¨ ofstedt, and R. Gratz, Transformer-based deep learning for predicting protein properties in the life sciences, eLife 12 , e82819 (2023). [20] L. Wei, N. Fu, Y. Song, Q. Wang, and J. Hu, Probabilis-tic generative transformer language models for generative design of molecules, Journal of Cheminformatics 15 , 88 (2023). [21] T. Brown, B. Mann, N. Ryder, M. Subbiah, J. D. Ka-plan, P. Dhariwal, A. Neelakantan, P. Shyam, G. Sas-try, A. Askell, S. Agarwal, A. Herbert-Voss, G. Krueger, T. Henighan, R. Child, A. Ramesh, D. Ziegler, J. Wu, C. Winter, C. Hesse, M. Chen, E. Sigler, M. Litwin, S. Gray, B. Chess, J. Clark, C. Berner, S. McCandlish, A. Radford, I. Sutskever, and D. Amodei, Language Mod-els are Few-Shot Learners, in Advances in Neural Infor-mation Processing Systems , Vol. 33 (Curran Associates, Inc., 2020) pp. 1877–1901. [22] C. Olsson, N. Elhage, N. Nanda, N. Joseph, N. Das-Sarma, T. Henighan, B. Mann, A. Askell, Y. Bai, A. Chen, T. Conerly, D. Drain, D. Ganguli, Z. Hatfield-Dodds, D. Hernandez, S. Johnston, A. Jones, J. Kernion, L. Lovitt, K. Ndousse, D. Amodei, T. Brown, J. Clark, J. Kaplan, S. McCandlish, and C. Olah, In-context Learning and Induction Heads (2022), arXiv:2209.11895 [cs.LG]. [23] S. M. Xie, A. Raghunathan, P. Liang, and T. Ma, An Explanation of In-context Learning as Implicit Bayesian Inference (2022), arXiv:2111.02080 [cs]. [24] S. Garg, D. Tsipras, P. Liang, and G. Valiant, What can transformers learn in-context? a case study of simple function classes, in Proceedings of the 36th International Conference on Neural Information Processing Systems ,NIPS ’22 (Curran Associates Inc., Red Hook, NY, USA, 2022) pp. 30583–30598. [25] E. Aky¨ urek, D. Schuurmans, J. Andreas, T. Ma, and D. Zhou, What learning algorithm is in-context learning? Investigations with linear models (2022). [26] Y. Bai, F. Chen, H. Wang, C. Xiong, and S. Mei, Trans-formers as statisticians: Provable in-context learning with in-context algorithm selection, Advances in neural information processing systems 36 , 57125 (2023). [27] G. Reddy, The mechanistic basis of data dependence and abrupt learning in an in-context classification task, arXiv preprint arXiv:2312.03002 (2023). [28] A. Bietti, V. Cabannes, D. Bouchacourt, H. Jegou, and L. Bottou, Birth of a transformer: A memory viewpoint, Advances in Neural Information Processing Systems 36 ,1560 (2023). [29] J. V. Oswald, E. Niklasson, E. Randazzo, J. Sacramento, A. Mordvintsev, A. Zhmoginov, and M. Vladymyrov, Transformers Learn In-Context by Gradient Descent, in 
+
+Proceedings of the 40th International Conference on Ma-chine Learning (PMLR, 2023) pp. 35151–35174. [30] K. Ahn, X. Cheng, H. Daneshmand, and S. Sra, Trans-formers learn to implement preconditioned gradient de-scent for in-context learning, Advances in Neural Infor-mation Processing Systems 36 , 45614 (2023). [31] C. F. Park, E. S. Lubana, and H. Tanaka, Algorithmic Phases of In-Context Learning (2024). [32] R. Zhang, S. Frei, and P. L. Bartlett, Trained transform-ers learn linear models in-context, Journal of Machine Learning Research 25 , 1 (2024). [33] E. Todd, M. Li, A. S. Sharma, A. Mueller, B. C. Wallace, and D. Bau, Function Vectors in Large Language Models (2023). [34] R. Hendel, M. Geva, and A. Globerson, In-Context Learning Creates Task Vectors (2023), arXiv:2310.15916 [cs]. [35] A. Hojel, Y. Bai, T. Darrell, A. Globerson, and A. Bar, Finding Visual Task Vectors (2024), arXiv:2404.05729 [cs]. [36] K. Yin and J. Steinhardt, Which attention heads matter for in-context learning?, arXiv preprint arXiv:2502.14010 (2025). [37] Y. M. Lu, M. Letey, J. A. Zavatone-Veth, A. Maiti, and C. Pehlevan, Asymptotic theory of in-context learning by linear attention, Proceedings of the National Academy of Sciences 122 , e2502599122 (2025). [38] Y. Zhang, A. K. Singh, P. E. Latham, and A. Saxe, Train-ing dynamics of in-context learning in linear attention, arXiv preprint arXiv:2501.16265 (2025). [39] J. He, X. Pan, S. Chen, and Z. Yang, In-context linear regression demystified: Training dynamics and mecha-nistic interpretability of multi-head softmax attention, arXiv preprint arXiv:2503.12734 (2025). [40] A. Giannou, L. Yang, T. Wang, D. Papailiopoulos, and J. D. Lee, How well can transformers emulate in-context newton’s method?, arXiv preprint arXiv:2403.03183 (2024). [41] C. Gibson, W. Cui, and G. Reddy, Distinct mechanisms underlying in-context learning in transformers (2026), arXiv:2604.12151 [cs.LG]. [42] K. Chaloner and I. Verdinelli, Bayesian experimental de-sign: A review, Statistical science , 273 (1995). 8
+
+[43] H. Chernoff, Sequential design of experiments, in Break-throughs in Statistics: Methodology and Distribution 
+
+(Springer, 1992) pp. 345–360. [44] S. Wang, B. Z. Li, M. Khabsa, H. Fang, and H. Ma, Linformer: Self-attention with linear complexity, arXiv preprint arXiv:2006.04768 (2020). [45] I. Schlag, K. Irie, and J. Schmidhuber, Linear transform-ers are secretly fast weight programmers, in International conference on machine learning (PMLR, 2021) pp. 9355– 9366. [46] A. Miller, A. Fisch, J. Dodge, A.-H. Karimi, A. Bordes, and J. Weston, Key-value memory networks for directly reading documents, in Proceedings of the 2016 confer-ence on empirical methods in natural language processing 
+
+(2016) pp. 1400–1409. [47] T. Bricken and C. Pehlevan, Attention approximates sparse distributed memory, Advances in Neural Informa-tion Processing Systems 34 , 15301 (2021). [48] M. Smart, A. Bietti, and A. M. Sengupta, In-context denoising with one-layer transformers: Connections be-tween attention and associative memory retrieval, Pro-ceedings of Machine Learning Research 267 , 55950 (2025). [49] P. Diaconis and D. Freedman, Finite exchangeable se-quences, The Annals of Probability , 745 (1980). [50] M. Zaheer, S. Kottur, S. Ravanbakhsh, B. Poczos, R. R. Salakhutdinov, and A. J. Smola, Deep sets, Advances in neural information processing systems 30 (2017). [51] H. Edwards and A. Storkey, Towards a neural statisti-cian, arXiv preprint arXiv:1606.02185 (2016). [52] B. Geshkovski, C. Letrouit, Y. Polyanskiy, and P. Rigol-let, The emergence of clusters in self-attention dynamics, Advances in Neural Information Processing Systems 36 ,57026 (2023). [53] G. Bruno, F. Pasqualotto, and A. Agazzi, Emergence of meta-stable clustering in mean-field transformer mod-els, in International Conference on Learning Representa-tions , Vol. 2025 (2025) pp. 7496–7526. [54] M. E. Sander, P. Ablin, M. Blondel, and G. Peyr´ e, Sink-formers: Transformers with doubly stochastic attention, in International Conference on Artificial Intelligence and Statistics (PMLR, 2022) pp. 3515–3530. [55] P. Rosu, L. Carin, and X. Cheng, From softmax to score: Transformers can effectively implement in-context de-noising steps, Advances in Neural Information Processing Systems 38 , 142994 (2026). [56] Code Repository: https://github.com/ reddylab-princeton/icl-function-vectors .
+
+END MATTER Additional implementation details 
+
+The architecture in Eq. (6) is optimized using the AdamW optimizer with batch size 128, learning rate 3 × 10 −4 and weight decay 10 −4. We used model di-mension D = 2( K + 1), where K is the dimensionality of x (and θ). All MLPs use a single hidden layer with Gaussian Error Linear Unit (GeLU). The hidden layer has dimension D. The output block ϕout contains three stacked MLPs and a linear projection to a scalar output from the query tokens, which is used as the prediction ˆy(x, ZN ). A query token q is embedded as a context to-ken, i.e., uℓ,q = z ⊕ pℓ except we set y = 0, namely, 
+
+z = ( x, 0). 
+
+Gaussian prior. The Gaussian prior has zero mean vector and covariance C0 = U ΛU T , where Λ is diagonal with elements Λkk = αk for k from 1 to K. U is a random orthogonal matrix. We choose α = 0 .75 and 
+
+τ = 0 .01 for the results shown in Figure 4a. We use 
+
+N = 4096 context tokens and the MMSE loss for each context is measured using 256 query tokens. The large N
+
+for the Gaussian prior experiments is to account for finite-
+
+N effects in that case, which introduce a lower bound to the MMSE loss (visible in Figure 4b). We trained 8 seeds per configuration for 20 , 000 iterations. 
+
+Tree prior. The tree prior was generated with h =8, α = 0 .5, τ = 0 .1. For the Tree prior experiments, we use N = 512 context tokens and 64 query tokens. In-creasing N to 1024 and adding additional layers to ϕℓ
+
+did not affect the MMSE loss. We trained 8 seeds per configuration for 40 , 000 iterations. 
+
+Bayesian MMSE of the posterior 
+
+For the linear regression task y = θ⊤x, the posterior mean estimator given the function vector Φ is ˆθ(Φ) = 
+
+Z
+
+dθ θ ρ(θ | Φ). (7) The query-averaged squared prediction error conditioned on Φ is 
+
+(y − ˆy)2 
+
+> x, θ|Φ
+
+=
+
+D
+
+[( θ − ˆθ(Φ)) ⊤x]2E
+
+> x, θ|Φ
+
+(8) =
+
+D
+
+x⊤(θ − ˆθ(Φ))( θ − ˆθ(Φ)) ⊤x
+
+E
+
+> x, θ|Φ
+
+.
+
+(9) Using Ex[xx ⊤] = IK , we thus obtain 
+
+(y − ˆy)2 
+
+> x, θ|Φ
+
+= Tr 
+
+hD 
+
+(θ − ˆθ(Φ))( θ − ˆθ(Φ)) ⊤Ei 
+
+= Tr  Cθ|Φ
+
+. (10) 
+
+Posterior covariance for the Gaussian prior 
+
+We set up the Gaussian prior with θ ∼ ρ0 = N (0, C0)and suppose that the accumulated function vector after 
+
+ℓ layers is a noisy linear measurement 
+
+Φℓ = Aℓ(θ + ξ), ξ ∼ N (0 , τ 2IK ), (11) where Aℓ = W1 ⊕ W2 ⊕ · · · ⊕ Wℓ. Since θ and Φℓ are jointly Gaussian, the posterior ρ(θ | Φℓ) is also Gaussian. Its covariance reads 
+
+Cθ|Φ = C0 − Cov( θ, Φℓ)Cov( Φℓ, Φℓ)†Cov( Φℓ, θ). (12) 9The required covariances are Cov( θ, Φℓ) = Cov( Φℓ, θ)⊤ = C0A⊤ 
+
+> ℓ
+
+, (13) Cov( Φℓ, Φℓ) = Aℓ(C0 + τ 2IK )A⊤ 
+
+> ℓ
+
+. (14) Plugging these in returns 
+
+Cθ|Φℓ = C0 − C0A⊤
+
+> ℓ
+
+Aℓ(C0 + τ 2IK )A⊤
+
+> ℓ
+
+† AℓC0, (15) which is the expression used in the main text. 
+
+MMSE loss of different strategies for the tree prior 
+
+The tree prior is uniform over leaves σ = s1s2 . . . s h of a depth h balanced binary tree with sm = ±1, and: 
+
+θ(σ) = κ
+
+> h−1
+
+X
+
+> m=0
+
+αm/ 2sm+1 es1s2...s m , κ =
+
+r 1 − α
+
+1 − αh .
+
+(16) Each es1s2...s m is an independent coordinate for a total of 2h − 1 coordinates. Suppose we perform a measurement 
+
+W , which is an M × K matrix such that W W ⊤ = IM .The function vector given θ ∼ ρ0 is Φ = W (θ + ξ), where ξ ∼ N (0, τ 2IK ). Given the posterior covariance 
+
+Cθ|Φ, the MMSE loss for a given W is 
+
+L(W ) = ⟨Tr( Cθ|Φ)⟩ξ,θ = ⟨Tr( Cθ(σ)|W (θ(σ)+ ξ))⟩ξ,σ .
+
+(17) The posterior over σ given Φ is: 
+
+ρW (σ|Φ) = e−|| Φ−W θ (σ)|| 2/2τ 2
+
+P 
+
+> σ′
+
+e−|| Φ−W θ (σ′)|| 2/2τ 2 . (18) The posterior mean and trace of the covariance are ¯θ(Φ) = X
+
+> σ
+
+θ(σ)ρW (σ|Φ), (19) Tr  Cθ|Φ
+
+ = X
+
+> σ
+
+|| θ(σ) − ¯θ(Φ)|| 2ρW (σ|Φ). (20) The loss is therefore 
+
+L(W ) = 
+
+*
+
+2−h X
+
+> σ
+
+Tr  Cθ|W (θ(σ)+ ξ)) 
+
++
+
+> ξ
+
+(21) In practice, we sample a large batch of ξ and evaluate the average of the term inside for a given W over this batch. 
+
+Optimized non-adaptive. In the optimized non-adaptive strategy, we restrict the measurement matrix to a hybrid subspace. Let 
+
+H = span  {ev : depth( v) < g } ⊕ { μm}h−1
+
+> m=0
+
+ , (22) where μm = 2 −m/ 2 X
+
+> v∈V m
+
+ev , (23) where the first set contains the top 2 g − 1 prior-PC co-ordinates (with g = 4 in Figure 2b). We compute a row-orthonormal basis D for H and take W = U D with 
+
+U U ⊤ = IM . For fixed U , all leaves are enumerated ex-actly in the posterior, and the Monte Carlo objective is 
+
+J(U ) = 
+
+* X
+
+> σ
+
+θ(σ)ρU D (σ | U D (θ(σ0) + ξ)) 
+
+> 2
+
++
+
+> σ0,ξ
+
+.
+
+(24) Since || θ(σ)|| = 1, minimizing the MMSE is equivalent to maximizing J(U ). We optimize U using simultane-ous perturbation stochastic approximation (SPSA) on the row-orthonormal constraint U U ⊤ = IM . At each step, for a random sign matrix ∆, we evaluate J at the two re-orthonormalized perturbations R(U ± ck∆) and form the finite-difference estimate G. We project G onto the space of all matrices Z such that ZU ⊤ + U Z ⊤ = 0 (known as the Stiefel tangent space) using Π U (G) = 
+
+G − Sym( GU ⊤)U , update U ← U + akΠU (G), and re-orthonormalize the rows. Here, ak = ηk −0.602 and 
+
+ck = ϵk −0.101 are the SPSA step-size and perturbation schedules. 
+
+Adaptive along tree coordinates. In this adaptive strat-egy, first pick w1 = e∅. For σ, we get the first mea-surement φ1 = κs 1 + τ ξ ∅, where ξ∅ is the projec-tion of the noise along e∅. If φ1 > 0, pick e+1 or otherwise pick e−1. This procedure continues for M
+
+steps. Let ˆ σ = ˆs1 ˆs2 . . . ˆsM where ˆ sm is the inferred spin at step m. Thus, Φ = φ1 ⊕ φ2 ⊕ · · · ⊕ φM and 
+
+W = e∅ ⊕ eˆs1 ⊕ · · · eˆsM −1 . If the wrong side is picked at some step, then every subsequent measurement mea-sures noise. Estimating the loss for this strategy can be simplified by noting that the average loss over samples of 
+
+ξ needs to be measured for only one leaf. The rest of the leaves will have identical loss by symmetry. 
+
+Relation to linear attention transformers 
+
+The architecture in Eq. (6) can be understood as a constrained linear attention transformer which isolates low-dimensional communication between tokens. Here, we briefly explain how it arises from a standard linear attention update. Consider a residual stream activation 
+
+ui,ℓ ∈ RD for token i at layer ℓ. The standard linear attention update is written as 
+
+ui,ℓ +1 = ui,ℓ + Oℓ
+
+ 1
+
+N
+
+> N
+
+X
+
+> j=1
+
+(Vℓuj,ℓ )( Kℓuj,ℓ )⊤
+
+Qℓui,ℓ 
+
+
+
+(25) where Qℓ, Kℓ, Vℓ, Oℓ are learned matrices. We now re-strict the model to d independent attention heads with query/key dimension 1 each, as opposed to a single atten-tion head with query/key dimension d. In this case, each 10 attention head communicates a single scalar channel, and the linear attention update becomes 
+
+ui,ℓ +1 = ui,ℓ + Oℓ[φℓ ⊙ (Qℓui,ℓ )] , (26) 
+
+φℓ = 1
+
+N
+
+> N
+
+X
+
+> j=1
+
+(Vℓuj,ℓ ) ⊙ (Kℓuj,ℓ ), (27) where φℓ is the pooled key-value statistic that acts as a global context-dependent representation of the present information. The elementwise product preserves all d
+
+communication channels independently, in contrast to the standard matrix-vector contraction which mixes the channels. We next partition the residual stream into two as 
+
+ui,ℓ = zi ⊕ pℓ, (28) where zi = ( xi, yi) stores the contextual token informa-tion and pℓ is a shared internal workspace that evolves across layers. The workspace pℓ is identical across all to-kens and acts as the state variable which stores a repre-sentation of the accumulated information about the con-text. Only pℓ is updated across layers, while the token representation zi remains fixed. Once this separation is made, the useful information for the regression task is contained entirely in zi, while pℓ controls how informa-tion is processed and routed across layers. The theory developed in the main text predicts that later measurements should depend on information ac-quired in earlier layers. To implement this adaptive mea-surement strategy, we let the key matrix Kℓ depend on the workspace 
+
+Kℓ = ¯ϕℓ( ¯ pℓ), (29) where ¯ϕℓ is a feedforward block (MLP). Thus, the cur-rent internal state determines which measurement is per-formed at the next layer. The update to the workspace thus reads 
+
+pℓ+1 = pℓ + Oℓ[φℓ ⊙ (Qℓpℓ)] . (30) We finally include a factor of 1 /√d as a form of width normalization for the residual update, ensuring that the magnitude of the communicated signal remains O(1) as the channel dimension d is varied, leading to the form of Eq. (6) in the main text. 
+
+> MMSE loss of a one-layer linear attention transformer.
+
+A one-layer linear attention transformer without MLPs (model C) generates a prediction ˆ y(x; θ + ξ) = (K(θ + ξ)) ⊤ Qx for a context θ + ξ and M × K matrices 
+
+Q, K. The loss averaged over queries x is 
+
+LC(Q⊤K) = ⟨|| θ − Q⊤K(θ + ξ)|| 2⟩ξ,θ , (31) = Tr(( IK − Q⊤K)⊤(IK − Q⊤K)C0) + τ 2|| Q⊤K|| 2 
+
+> F
+
+,
+
+(32) where C0 is the covariance of ρ. Diagonalizing C0 and optimizing over rank-M matrices Q⊤K leads to 
+
+Q⊤K =
+
+> M
+
+X
+
+> i=1
+
+σ2
+
+> i
+
+σ2 
+
+> i
+
++ τ 2 eie⊤ 
+
+> i
+
+, (33) where σ2 
+
+> i
+
+and ei are the ith eigenvalue and eigenvector of C0 respectively. The minimum achievable loss is 
+
+L∗ 
+
+> C
+
+= Tr( C0) −
+
+> M
+
+X
+
+> i=1
+
+σ4
+
+> i
+
+σ2 
+
+> i
+
++ τ 2 . (34)
