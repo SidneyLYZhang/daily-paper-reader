@@ -1,0 +1,1022 @@
+Title: Distribution-Aware Robust Bilevel Optimization: Quantile-Guided Huber Updates in Two-Timescale Stochastic Approximation
+
+URL Source: https://arxiv.org/pdf/2606.22436v1
+
+Published Time: Tue, 23 Jun 2026 03:02:54 GMT
+
+Number of Pages: 36
+
+Markdown Content:
+# Distribution-Aware Robust Bilevel Optimization: Quantile-Guided Huber Updates in Two-Timescale Stochastic Approximation 
+
+Zhiyu Li 
+
+University of Science and Technology of China Hefei, China 
+
+lzyblank@mail.ustc.edu.cn 
+
+Xi Xuan 
+
+City University of Hong Kong Hong Kong SAR, China 
+
+xixuan3@cityu.edu.hk 
+
+Davide Carbone 
+
+Laboratoire de Physique de l’École Normale Supérieure, Université PSL, CNRS, Sorbonne Université, Université de Paris Paris, France 
+
+davide.carbone@phys.ens.fr 
+
+## Abstract 
+
+Bilevel optimization (BLO) is fundamental to hierarchical decision-making but suf-fers from critical instability under heavy-tailed stochastic noise. Existing variance-reduction techniques typically rely on myopic magnitude checks, which fail to distinguish informative geometric signals from impulsive outliers. To resolve this, we propose RQ-TTSA (Robust Quantile-guided TTSA), a distribution-aware framework that leverages historical gradient buffers to estimate rolling quantiles for adaptive Huber-style clipping, effectively preserving local optimization geometry while strictly bounding effective variance. Theoretically, we provide a convergence analysis for quantile-guided TTSA under nonconvex-strongly convex assumptions with infinite-variance noise ( p ∈ (1 , 2] ), deriving a rate of O(T − p−13p−2 ) that recov-ers optimal dependence on the heavy-tailed parameter. Empirically, across six diverse tasks, spanning heterogeneous vision benchmarks, dynamic games under momentum poisoning, and offline reinforcement learning, RQ-TTSA consistently outperforms state-of-the-art baselines by eliminating divergence spikes and en-suring stable convergence. Our method demonstrates significant robustness to hyperparameter variations and incurs negligible computational overhead ( ≈ 2.7% 
+
+increase), validating distribution-aware gradient control as a practical and necessary component for reliable bilevel learning. 
+
+## 1 Introduction 
+
+Bilevel optimization (BLO) serves as the foundational framework for hierarchical decision-making, formulated as min x F (x, y ∗(x)) subject to y∗(x) ∈ arg min y G(x, y ). This nested structure under-pins modern machine learning methods, including hyperparameter optimization Franceschi et al. [2018], meta-learning Hospedales et al. [2021], and actor–critic reinforcement learning Hong et al. [2022]. In applications such as coreset selection and data reweighting Killamsetty et al. [2021], the upper-level objective relies critically on the stability of the lower-level solution. However, this dependency creates a fragile bottleneck: stochastic noise or instability in the lower-level optimization propagates to the hyper-gradient, frequently leading to the instability of the entire learning process. 
+
+> 40th Conference on Neural Information Processing Systems (NeurIPS 2026).
+> arXiv:2606.22436v1 [cs.LG] 21 Jun 2026
+
+To address the intractability of exact solvers, Two-Timescale Stochastic Approximation (TTSA) has become the standard for scalable BLO, achieving a sample complexity of O(ϵ−3) under nonconvex– strongly convex assumptions Ji et al. [2021]. Yet, these guarantees hinge on the assumption of light-tailed (bounded-variance) noise. In practice, this assumption is routinely violated in regimes characterized by sparse rewards in RL Zhang et al. [2019], Gorbunov et al. [2020] or data hetero-geneity in federated learning Li et al. [2020]. Under such heavy-tailed conditions, rare but extreme gradients destabilize the coupled dynamics, triggering numerical collapse that standard momentum or variance reduction techniques Cutkosky and Orabona [2019], Simsekli et al. [2019], Dagréou et al. [2022] fail to mitigate. Prior literature has proposed two primary classes of stabilization techniques. Variance Reduction (VR) methods, such as SABA Dagréou et al. [2022] and blockwise VR Hu et al. [2023], integrate SVRG or SAGA estimators to diminish gradient noise. While theoretically powerful ( O(ϵ−2) rates), they incur significant memory overhead and typically assume bounded variance ( p = 2 ), rendering them ineffective against heavy-tailed outliers. Adaptive Step-size and Momentum methods, such as BiSLS Fan et al. [2023] and accelerated robust optimization Gong et al. [2024], attempt to control instability by scaling updates inversely with instantaneous gradient norms or smoothing noise via inertia. While effective in smooth landscapes, we argue that these approaches share a fundamental limitation: norm-based adaptation is strictly limited. Without distributional context, a large gradient norm is semantically ambiguous—it may indicate a steep descent trajectory or a stochastic outlier. Existing methods cannot disambiguate these cases, leading to either the over-damping of informative signals, such as BiSLS, or the accumulation of poisoned gradients in momentum buffers, a behavior charac-teristic of MA-SOBA Chen et al. [2024] and AccBO Gong et al. [2024]. This blind adaptation results in suboptimal convergence or latent instability in non-stationary environments. 
+
+Our approach: Distribution-Aware Robust Schemes. We propose RQ-TTSA (Robust Quantile-guided TTSA), a framework that integrates robust statistical principles directly into the optimization process. Instead of relying on instantaneous magnitude checks, RQ-TTSA maintains a historical gra-dient buffer to estimate the empirical distribution and computes a quantile-based threshold ψ defining a shifting safe region. Gradients exceeding this threshold are compressed via a Huber-style operator. This mechanism strictly bounds the effective variance of heavy-tailed updates while maintaining non-expansiveness, thereby preserving the local geometry of informative updates Gorbunov et al. [2020]. By leveraging distributional statistics, RQ-TTSA fundamentally resolves the myopia of prior methods, extending robust BLO to infinite-variance regimes. Building on advances in heavy-tailed optimization, our contributions are threefold. First , we introduce a quantile-guided Huber mechanism that embeds distribution-sensitive robustness into TTSA, discriminating informative geometric signals from stochastic outliers. Second , we establish rigorous theoretical guarantees, proving global convergence to stationary points under smooth nonconvex assumptions, even when gradient noise possesses infinite variance ( p-th moment bounded for p ∈ (1 , 2] ). We derive a convergence rate of O(T − p−13p−2 ), demonstrating that the proposed quantile-guided clipping allows TTSA to tolerate heavy-tailed noise without diverging, a property not guaranteed by standard variance reduction techniques. Third , we demonstrate consistent empirical gains across six diverse tasks, where RQ-TTSA reduces optimization variance by up to 50% and improves robustness 2–5× over strong baselines, immunizing momentum-based optimizers against poisoning in updating environments Yao et al. [2024]. Code is provided at the anonymous link (Appendix I). 
+
+## 2 Related Work 
+
+Research in stochastic BLO has progressed along three axes: variance reduction, adaptive step-size control, and robustness to heavy-tailed noise. Hong et al. [2022] established TTSA for BLO, proving O(ϵ−3) convergence for nonconvex-strongly convex objectives. Ji et al. [2021] and Dagréou et al. [2022] integrated momentum-based and SAGA-style loopless VR estimators to improve sample complexity to near-optimal rates. Sharrock [2022] derived diffusion approximations for long-term stability, and Hu et al. [2023] extended VR to multi-block settings. These analyses assume bounded variance or sub-Gaussian noise, making them fragile under impulsive perturbations. 2Table 1: Comparison of stochastic bilevel optimization solvers in the nonconvex-strongly-convex setting under smoothness assumptions on f and g. We omit variance reduction methods that assume mean-squared smoothness. The ˜O hides log( ϵ−1). SC means strongly-convex. Heavy-tailed refers to 
+
+p-th moment bounded for p ∈ (1 , 2] (infinite variance). 
+
+Method Sample Complexity (UL) f (LL) g
+
+TTSA Hong et al. [2022] ˜O(ϵ−3) C1,1 
+
+> L
+
+SC and C2,2
+
+> L
+
+BiSLS Fan et al. [2023] ˜O(ϵ−3) C1,1 
+
+> L
+
+SC and C2,2
+
+> L
+
+MA-SOBA Chen et al. [2024] O(ϵ−2) C1,1 
+
+> L
+
+SC and C2,2
+
+> L
+
+AccBO Gong et al. [2024] ˜O(ϵ−3) Unbounded Smooth SC and C2,2
+
+> L
+
+RQ-TTSA (Ours) O(ϵ− 3p−2 
+
+> p−1
+
+) C1,1 
+
+> L
+
+SC and C2,2
+
+> L
+
+Method Noise Assumption Hessian Inversion Single-Loop TTSA Hong et al. [2022] Bounded Variance Neumann approx. Yes BiSLS Fan et al. [2023] Bounded Variance SGD Yes MA-SOBA Chen et al. [2024] Bounded Variance SGD Yes AccBO Gong et al. [2024] Small Variance O(ϵ) SGD Yes RQ-TTSA (Ours) Heavy-tailed ( p ∈ (1 , 2] ) SGD Yes 
+
+To mitigate sensitivity to hyperparameters and transient instabilities, Khanduri et al. [2021] introduced a double-momentum scheme achieving O(ϵ−3/2) rates, and Reddi et al. [2020] developed adaptive momentum for federated settings. BiSLS Fan et al. [2023] scales step-sizes inversely with gradient norms to prevent explosion. MA-SOBA Chen et al. [2024] employs moving-average momentum for optimal complexity under relaxed smoothness; AccBO Gong et al. [2024] handles unbounded smoothness via acceleration. Their reliance on global normalization or linear accumulation renders them susceptible to infinite-variance noise ( p ∈ (1 , 2] ), lacking explicit mechanisms to filter impulsive outliers. Concurrent work Authors [2026] proposes Jacobian-free methods to escape variance traps in root-finding bilevel settings; unlike that focus on estimator variance in root-finding, our framework targets distributional robustness against heavy-tailed noise in minimization. For infinite-variance noise ( p ∈ (1 , 2] ), existing strategies integrate fixed-threshold clipping Zhang et al. [2019] or normalized momentum Cutkosky and Orabona [2019]. While some analyses leverage Polyak–Łojasiewicz (PL) conditions for linear convergence Karimi et al. [2016], we target general nonconvex smooth assumptions. Existing robust strategies, including static-threshold variants such as our ψ-Variant or aggressive normalization, indiscriminately dampen updates and distort optimization geometry by failing to distinguish large informative gradients from noise. In contrast, RQ-TTSA aligns with quantile-based robust statistics Lugosi and Mendelson [2019], updating the clipping threshold adaptively to preserve geometric fidelity. This adaptivity is essential for applications such as RL Zeng and Doan [2024] and LLM unlearning Yao et al. [2024], where gradient distributions vary. 
+
+## 3 Methodology 
+
+3.1 Problem Formulation 
+
+We consider stochastic bilevel optimization: 
+
+min 
+
+> x∈Rd
+
+Φ( x) := F (x, y ∗(x)) , y∗(x)= argmin 
+
+> y∈Rm
+
+G(x, y ) (1) with unbiased stochastic gradients ∇G(x, y ; ξ) and ∇F (x, y ; ζ) under heavy-tailed noise. Standard TTSA Hong et al. [2022] updates: 
+
+yk+1 = yk − βk∇y G(xk, y k; ξk),xk+1 = xk − αk ˆ∇Φ( xk, y k+1 ), (2) where αk = o(βk). While effective under bounded variance, standard TTSA is unstable under heavy-tailed noise. Adaptive methods such as BiSLS Fan et al. [2023] scale step sizes inversely with gradient norms but lack distributional awareness, leading to over-conservative updates or failure to filter outliers. 33.2 Proposed Algorithm: RQ-TTSA 
+
+Motivated by physical dynamics (see Appendix D.5), we propose RQ-TTSA, applying a distribution-aware quantile-based clipping mechanism to adapt to local optimization geometry. 
+
+Dynamic Thresholding via Quantile Estimation. RQ-TTSA maintains a sliding window of historical norms Hk = {∥∇ y G(xk−i, y k−i; ξk−i)∥} W −1 
+
+> i=0
+
+of size W . At iteration k, the τ -quantile ψk
+
+of Hk estimates the local scale, expanding in steep regions and contracting in flat ones—preserving optimization trajectories while filtering extreme noise. An annealing τ schedule balances early robustness with asymptotic precision. Guidelines for τ selection are in Appendix G. 
+
+Robust Lower-Level Update. Using ψk, we apply a Huber-style clipping operator Tψk : Rm →
+
+Rm:
+
+Tψk (g) = min 
+
+
+
+1, ψk
+
+∥g∥ + ϵ
+
+
+
+g, (3) yielding the lower-level update: 
+
+yk+1 = yk − βkTψk (∇y G(xk, y k; ξk)) , (4) where ϵ > 0 prevents division by zero. The norm-based vs. coordinate-wise design choice is validated in Appendix D.3. The non-expansive property ∥T ψk (u) − T ψk (v)∥ ≤ ∥ u − v∥ preserves the strongly convex lower-level contraction to prevent divergence. 
+
+Upper-Level Update. The upper-level variable x updates via a stochastic hypergradient estimator 
+
+ˆ∇Φ( xk, y k+1 ), with Hessian inverse approximated by Neumann series: 
+
+ˆ∇Φ = ∇xF − ∇ 2 
+
+> xy
+
+G
+
+
+
+> J
+
+X
+
+> j=0
+
+(I − η∇2 
+
+> yy
+
+G)j
+
+ ∇y F. (5) The theoretical analysis in Section 4 assumes a stylized deterministic growth schedule ψk ∝ kδ .The empirical quantile estimator in Algorithm 1 approximates this: for a stationary heavy-tailed distribution with tail index p, the τ -quantile of Hk grows as O(k1/p ), satisfying the growth condition for any δ ∈ (0 , 1/p ). Theoretical guarantees apply provided buffer size W is large enough for empirical quantile concentration, ensured by the sensitivity analysis in Appendix H. 
+
+Algorithm 1 Robust Quantile-guided TTSA (RQ-TTSA)  
+
+> 1:
+
+Input: x0, y 0, stepsizes {αk}, {βk}, window size W , quantile τ 
+
+> 2:
+
+Initialize: History buffer H ← ∅  
+
+> 3:
+
+for k = 0 , 1, . . . , T − 1 do  
+
+> 4:
+
+Sample ξk, compute gk = ∇y G(xk, y k; ξk)  
+
+> 5: // Stochastic gradient
+> 6:
+
+H ← H ∪ {∥ gk∥} , maintaining size W  
+
+> 7: // Update sliding window
+> 8:
+
+Compute threshold ψk ← Quantile( H, τ ) 
+
+> 9:
+
+Apply robust operator ˜gk ← T ψk (gk)  
+
+> 10: // Quantile clipping
+> 11:
+
+yk+1 = yk − βk ˜gk  
+
+> 12: // Lower-level update
+> 13:
+
+Estimate hyper-gradient ˆ∇Φ( xk, y k+1 ) 
+
+> 14:
+
+xk+1 = xk − αk ˆ∇Φ  
+
+> 15: // Upper-level update
+> 16:
+
+end for 
+
+## 4 Theoretical Analysis 
+
+We establish convergence guarantees for RQ-TTSA under heavy-tailed stochastic noise with poten-tially unbounded variance (i.e., E[∥∇ G∥2] = ∞), showing that distribution-aware clipping recovers optimal TTSA rates under bounded variance assumptions. 44.1 Assumptions and Preliminaries 
+
+We adopt standard bilevel regularity assumptions Hong et al. [2022], Ji et al. [2021] while relaxing noise conditions to heavy-tailed distributions. 
+
+Assumption 4.1 (Regularity of Objective Functions) . The objective functions satisfy: 1. Smoothness: F (x, y ) and G(x, y ) are LF -smooth and LG-smooth, respectively, with Lipschitz continuous derivatives ∇xF, ∇y F, ∇y G.2. Lower-Level Geometry: For any x ∈ Rd, G(x, y ) is μ-strongly convex in y.3. Bounded Cross-Derivatives: ∇2 
+
+> xy
+
+G and ∇2 
+
+> yy
+
+G are bounded and Lipschitz continuous. Assumption 4.1 ensures existence and uniqueness of y∗(x) and Lipschitz smoothness of Φ( x)
+
+Ghadimi and Wang [2018], Ji et al. [2021]. 
+
+Assumption 4.2 (Unbiasedness and Heavy-Tailed Noise) . The stochastic gradient oracles are unbi-ased: E[∇G(x, y ; ξ)] = ∇G(x, y ), with bounded p-th moment for p ∈ (1 , 2] :
+
+E[∥∇ y G(x, y ; ξ) − ∇ y G(x, y )∥p] ≤ σp. (6) 
+
+Remark: Standard TTSA requires p = 2 (bounded variance); when p < 2 variance is infinite, causing divergence. Assumption 4.2 captures realistic RL and robust statistics scenarios Zhang et al. [2019], Simsekli et al. [2019]. 
+
+4.2 Key Theoretical Properties 
+
+Our analysis leverages the non-expansiveness and bias-variance trade-off of the quantile-guided operator Tψ .
+
+Lemma 4.3 (Non-Expansiveness and Geometric Fidelity) . For any ψk > 0, the Huber operator Tψk
+
+is 1-Lipschitz: for any u, v ∈ Rm,
+
+∥T ψk (u) − T ψk (v)∥ ≤ ∥ u − v∥. (7) 
+
+Proof Sketch. Tψ is equivalent to projection onto the ℓ2-ball of radius ψ, which is non-expansive by the standard projection theorem. This preserves the contraction mapping of the lower-level strongly convex dynamics under heavy-tailed noise. Unlike norm-based methods such as BiSLS that distort gradient magnitude, quantile-guided clipping eliminates heavy-tailed outliers while retaining local curvature information. 
+
+Theorem 4.4 (Bias-Variance Trade-off in Heavy-Tailed Regimes) . Under Assumption 4.2, let ˜gk =
+
+Tψk (∇y G(xk, y k; ξk)) with ψk ≍ σ · kϵ for small ϵ. Then: 
+
+1. Bounded Bias: ∥E[˜ gk] − ∇ y G(xk, y k)∥ ≤ 2σpψ1−pk .2. Bounded Effective Variance: E[∥˜gk∥2] ≤ σpψ2−pk .Clipping with quantile-based ψk accepts a small bias, decaying as ψk grows, to strictly bound the second moment (otherwise infinite). This tradeoff is optimal for heavy-tailed estimation Prasad et al. [2020]. 
+
+Remark 4.5 (The Essence of Effective Variance) . Following Gorbunov et al. [2024], when p < 2
+
+the raw gradient estimator has infinite variance, making standard Lyapunov analysis inapplicable. RQ-TTSA intentionally introduces a small approximation bias via Tψk to prune the non-integrable distribution tails, yielding effective variance E[∥˜gk∥2] ≤ σpψ2−pk —mapping impulsive noise into a pseudo-Gaussian profile with bounded second moments, recovering lower-level contraction while asymptotically eliminating the clipping bias via ψk scaling. 
+
+4.3 Convergence Analysis 
+
+We construct a coupled Lyapunov function Vk := Φ( xk) + Cz ∥yk − y∗(xk)∥2 to analyze joint evolution of the two timescales, where Cz > 0 is a sufficiently large constant ensuring strong convexity dominates the two-timescale coupling. 5Theorem 4.6 (Global Convergence Rate under Heavy-Tailed Noise) . Under Assumptions 4.1 and 4.2, let αk = Θ( k−(1 −ν)), βk = Θ( k−ν ) for ν ∈ (0 .5, 1) , and ψk ∝ kδ for sufficient δ > 0. Then RQ-TTSA converges to a stationary point of Φ( x) at rate: 
+
+min  
+
+> 0≤k<T
+
+E[∥∇ Φ( xk)∥2] ≤ O 
+
+
+
+T − p−13p−2
+
+
+
+. (8) 
+
+As p → 2, the exponent approaches −1/4, aligning with robust convergence rates in clipped stochastic approximation for non-convex objectives without variance reduction. 
+
+Implication: RQ-TTSA achieves the same optimal convergence rate as BiSLS under substantially weaker conditions (infinite-variance noise). While standard TTSA may diverge when p < 2, RQ-TTSA remains stable, closing the theoretical gap between bounded-variance and heavy-tailed regimes; empirical verification under heavy-tailed Lévy noise is in Appendix D. 
+
+Remark on Distributional Awareness: The advantage of quantile-based ψk over fixed clipping Gong et al. [2024] lies in adaptive control of the bias term in Theorem 4.4: by estimating the distribution, ψk automatically minimizes Bias 2 + Variance, whereas fixed clipping requires manual threshold tuning for each noise level σ.
+
+## 5 Experiments 
+
+We evaluate RQ-TTSA across diverse bilevel problems spanning synthetic landscapes, heterogeneous representation learning, and dynamic zero-sum games, designed to stress failure modes including heavy-tailed noise and temporal non-stationarity. RQ-TTSA demonstrates superior stability with negligible computational overhead ( ≈ 2.7% increase). The suite comprises three settings: controlled synthetic bilevel problems with injected heavy-tailed perturbations; heterogeneous vision tasks (USPS under label shift and Fashion-MNIST); and varying environments including drifting zero-sum games and offline RL on LunarLander, where gradient scales and distributions evolve temporally. We benchmark against TTSA Hong et al. [2022] (no outlier protection), BiSLS Fan et al. [2023] (gradient scaling), MA-SOBA Chen et al. [2024] (moving-average momentum), and AccBO Gong et al. [2024] (acceleration for unbounded smoothness). To isolate distribution-aware truncation, we also evaluate a fixed-threshold ψ-Variant, reporting final objectives and empirical standard deviations. Appendix D verifies RQ-TTSA in physical and biological systems. 
+
+5.1 Controlled Synthetic Analysis 5.1.1 Stability under Heavy-Tailed Perturbations 
+
+This experiment investigates stability-fidelity trade-offs in non-convex coupled systems under heavy-tailed perturbations, using a synthetic bilevel problem where lower-level gradients gk are corrupted by 15% impulsive noise. TTSA applies no control; BiSLS performs norm-based normalization; MA-SOBA Chen et al. [2024] and AccBO Gong et al. [2024] rely on momentum smoothing and normalized momentum; the ψ-Variant uses fixed Huber-style thresholds; RQ-TTSA adopts an online quantile-guided adaptive ψk.As shown in Table 2, TTSA exhibits severe instability via large transient spikes ( 3.744 ± 0.343 ) and inflated gradient norms ( 12 .42 ). BiSLS suppresses variance ( 0.005 ) but stagnates at suboptimal loss (1.604 ) as strict normalization dampens informative signals. MA-SOBA suffers higher instability (0.046 , over 15 × worse than ours) and elevated gradient norms ( 6.23 ± 1.31 ) from momentum poisoning. RQ-TTSA achieves the lowest final loss ( 1.545 ), exceptional stability ( 0.003 ± 0.001 ), and negligible overhead ( 1.38 ms). Figure 1 shows that TTSA and MA-SOBA display sustained oscillations and BiSLS stagnates, whereas RQ-TTSA achieves rapid descent into stable, spike-free convergence. Non-zero loss analysis is in Appendix C. 6Figure 1: Convergence under heavy-tailed perturbations: RQ-TTSA achieves fast, stable descent, whereas BiSLS stabilizes at higher loss due to signal dampening and TTSA suffers sustained instability, with momentum-based methods exhibiting intermediate oscillations. The initial rise and subsequent drop in the RQ-TTSA trajectory reflect the buffer burn-in phase, where a fixed threshold is used before quantile estimates stabilize. 
+
+5.1.2 Constrained Non-Convex Geometry 
+
+To stress-test geometric fidelity near stationary points, we consider a coupled non-convex problem on a ridge:                
+
+> min
+> θ∈[−1,1]
+> θ2−θϕ −ϕ2
+> s.t. ϕ∈argmin
+> ϕ′
+> −(θ2−θϕ ′−ϕ′2) + λ
+> 2 (θ−ϕ′)2,(9)
+
+with λ = 10 , where the global saddle point (0 , 0) satisfying θ = ϕ implies vanishing lower-level gradients, requiring robust methods to allow natural decay without artificial amplification or directional distortion. We evaluate Final Loss, Stability (last-100-iteration standard deviation), Constraint Error |θ − ϕ|,and Average Gradient Norm. Table 3 shows that TTSA, MA-SOBA, and AccBO converge to losses of order 10 −11 , while BiSLS stalls at approximately 10 −5 with large gradient norms ( ≈ 6 × 10 −2), a precision lock from norm-based scaling near vanishing gradients. RQ-TTSA achieves final loss 
+
+≈ 10 −22 and constraint error below 10 −11 , outperforming all competitors by over ten orders of magnitude. Its negligible variance and average gradient norm at the 10 −12 scale confirm that quantile-guided scaling decouples signal from noise and allows gradients to decay naturally. This demonstrates that preserving local geometry via distribution-aware truncation enables substantially finer convergence in delicate non-convex bilevel regimes. 
+
+5.2 Heterogeneous Representation Learning 5.2.1 Natural Label Shift on USPS 
+
+This experiment studies bilevel optimization under natural label shift on USPS, where gradient shocks arise from class imbalance: frequent digits produce small, consistent gradients, while rare digits induce intermittent but informative large gradients, yielding a heavy-tailed gradient profile. The objective is to evaluate whether bilevel optimizers remain stable under such shocks without suppressing structurally important signals from minority classes. Table 4 reports Final Loss, Std, Spike, and Avg Grad Norm. RQ-TTSA achieves the lowest final loss ( 0.2061 ), outperforming AccBO ( 0.2675 ) by 23% and remaining baselines ( Loss ≈ 0.38 )7by over 45% , while maintaining the lowest gradient norm ( 27 .8012 ). TTSA, BiSLS, and MA-SOBA exhibit low Std ( ≈ 0.002 ) precisely because they suppress intermittent large gradients from rare digit classes, converging to a uniformly poor solution. RQ-TTSA’s quantile mechanism preserves these structurally informative shocks—confirmed by spike magnitude ( 0.4573 )—yielding a substantially better optimum. AccBO partially recovers accuracy ( 0.2675 ) but at the expense of stability ( Std = 0 .0049 ), whereas RQ-TTSA achieves superior accuracy without catastrophic instability events. 
+
+5.2.2 High-Dimensional Optimization: Fashion-MNIST 
+
+We evaluate the framework on Fashion-MNIST to assess performance in a high-signal vision setting where stability hinges on managing mini-batch stochasticity rather than mitigating heavy-tailed outliers, testing whether RQ-TTSA improves convergence speed and generalization without the bias or overhead inherent to norm-based adaptation. For rigorous comparison with MA-SOBA Chen et al. [2024] and AccBO Gong et al. [2024], we apply the RQ-TTSA operator as a plug-and-play gradient calibration mechanism on the momentum update: quantile-guided clipping is performed on the raw stochastic gradient before accumulation into the momentum buffer, yielding a robust momentum variant without altering the underlying TTSA structure. Table 5 summarizes results. RQ-TTSA attains Final Loss 0.574 and Test Accuracy 79 .838% , surpass-ing AccBO ( 79 .436% ) and MA-SOBA ( 78 .364% ), and outperforming the static ψ-Variant ( 78 .480% ), confirming that adaptive calibration is essential over fixed constraints. RQ-TTSA exhibits signifi-cantly lower variance in Gradient Norm ( ±0.098 ) versus TTSA ( ±0.180 ), and maintains the lowest stability metric ( 0.005 ), refuting speed-stability trade-offs. BiSLS reduces variance but suffers gradient stagnation, leading to higher loss. 0 50 100 150 200 250 300 350 400          
+
+> Iterations
+> 10 0
+> 6 × 10 1
+> 2 × 10 0
+> Validation Loss (Log Scale)
+> Convergence Stability (Lower & Narrower is Better)
+> TTSA
+> BiSLS
+> MA-SOBA
+> AccBO
+> psi-Variant
+> RQ-TTSA (Ours)
+> 050 100 150 200 250 300 350 400
+> Iterations
+> 1.0
+> 1.2
+> 1.4
+> 1.6
+> 1.8
+> Avg Gradient Norm
+> Gradient Norm Consistency
+
+Figure 2: Convergence on Fashion-MNIST (Momentum-Integrated). RQ-TTSA (solid blue) achieves the fastest and most stable convergence, outperforming MA-SOBA and AccBO. Shaded regions represent standard deviation across 10 seeds. 
+
+5.3 Dynamic Environments and Reinforcement Learning 
+
+The most critical test for any adaptive algorithm is performance in non-stationary environments, where the gradient norm changes over time. 
+
+5.3.1 Robustness under Momentum Poisoning 
+
+We investigate bilevel optimization stability in a stochastic zero-sum game contaminated by heavy-tailed gradient impulses, serving as a proxy for momentum poisoning—a failure mode where rare catastrophic outliers corrupt the momentum accumulation buffer, leading to persistent divergence. We compare RQ-TTSA against MA-SOBA Chen et al. [2024] and AccBO Gong et al. [2024], implementing the RQ-TTSA operator as a plug-and-play gradient filter before the momentum update, ensuring all methods benefit from acceleration and isolating the contribution of our calibration. 8Table 6 (5 seeds) shows RQ-TTSA achieving the lowest Standard Deviation ( 0.16 ± 0.23 ) and Spike magnitude ( 6.24 ± 5.99 ), significantly outperforming MA-SOBA (Std 1.50 ± 1.15 , Spike 
+
+12 .85 ± 9.17 ). RQ-TTSA attains stable Final Loss 0.16 , substantially closer to equilibrium than MA-SOBA ( 0.97 ) and AccBO ( 0.64 ). BiSLS achieves a slightly lower mean loss ( −0.01 ) but higher variance ( 0.26 vs. 0.16 ), confirming that distribution-aware clipping is essential. By neutralizing extreme impulses before they enter the momentum state, RQ-TTSA prevents long-term corruption of update directions, a capability vital in large-scale training where mini-batch statistics frequently exhibit heavy-tailed properties. 
+
+5.3.2 Offline Actor–Critic Optimization (LunarLander) 
+
+We consider an offline bilevel Actor–Critic problem on Gymnasium LunarLander, where the critic is trained on a fixed dataset and the actor is updated through the critic’s evaluation, inducing heavy-tailed temporal-difference errors that destabilize lower-level gradients: 
+
+min  
+
+> θ
+
+F (θ, w ⋆(θ)) , (10) s.t. w⋆(θ) ∈ arg min  
+
+> w
+
+E(s,a,r,s ′)∼D 
+
+ℓTD (w; θ), (11) where D denotes a fixed offline replay buffer. We evaluate average outer objective (actor loss), training stability (STD of actor loss), maximum single-step loss spike, and average lower-level gradient norm. Table 7 reveals severe instability in BiSLS and AccBO ( 0.434 , 1.089 ) alongside degraded loss. RQ-TTSA attains the lowest stability ( 0.003 ± 0.001 ), outperforming the ψ-Variant while matching MA-SOBA’s loss ( −25 .721 vs. −25 .726 ). Despite similar gradient norms ( ≈ 0.464 ), RQ-TTSA provides a tighter stability margin than TTSA ( 0.006 ±0.001 ), confirming that the quantile mechanism constrains oscillations without dampening necessary gradient magnitudes. 
+
+5.4 Efficiency, Sensitivity, and Ablation Analysis 
+
+The computational overhead of the history buffer is negligible: RQ-TTSA requires 12 .71 ms per iteration versus 12 .37 ms for BiSLS on Fashion-MNIST ( ≈ 0.34 ms difference), confirming that 
+
+O(W log W ) complexity remains insignificant relative to gradient computation. Sensitivity analysis shows RQ-TTSA maintains superior stability across a wide range of buffer sizes W and quantile thresholds τ , as detailed in Appendix H. All baselines were evaluated under identical hyperparameter search budgets: learning rates selected via grid search on a held-out validation split with the same candidate sets and trial counts; full configurations are in Appendix E. Ablation studies across all experiments compare against the fixed-threshold ψ-Variant to isolate the efficacy of distribution-aware adaptation. 
+
+## 6 Conclusion 
+
+In this paper, we propose RQ-TTSA , a robust bilevel optimization framework designed to alleviate the fluctuations induced by heavy-tailed stochastic noise. Unlike methods relying on instantaneous gradient norms, RQ-TTSA employs a history-based quantile mechanism to adaptively adjust clipping thresholds, aiming to control the effective variance of updates while preserving local optimization geometry. Theoretically, we provided a convergence analysis for two-timescale stochastic approximation under the assumption of infinite variance ( p-th moment bounded for p ∈ (1 , 2] ). We derived a convergence rate of O(T − p−13p−2 ), which aligns with standard bounds in the limiting case of bounded variance. Empirically, evaluations across synthetic problems, heterogeneous representation learning, and evolving games demonstrate that RQ-TTSA improves stability and accuracy compared to norm-based baselines, particularly in the presence of momentum poisoning. Furthermore, our analysis verifies that the method maintains low sensitivity to hyperparameter variations and incurs negligible computational overhead ( ≈ 2.7% increase), supporting its practicality for diverse bilevel optimization tasks. The quantile threshold τ is dimensionless and task-agnostic: τ = 0 .8 serves as a robust default across all reported benchmarks, and sensitivity analysis in Appendix H confirms that performance varies by less than 2.5% across τ ∈ [0 .6, 0.95] , making it no harder to set than the momentum coefficient in standard Adam. Future work remains to extend these theoretical guarantees beyond strongly convex lower-level problems to scenarios satisfying the Polyak–Łojasiewicz condition. 9References 
+
+Anonymous Authors. Escaping the variance trap: Jacobian-free dynamics for root-finding bilevel optimization. Concurrent Submission to ICML, 2026. Filename: Escaping the Variance Trap: Jacobian-Free Dynamics for Root-Finding Bilevel Optimization. Xuxing Chen, Tesi Xiao, and Krishnakumar Balasubramanian. Optimal algorithms for stochastic bilevel optimization under relaxed smoothness conditions. Journal of Machine Learning Research ,25(151):1–51, 2024. Ashok Cutkosky and Francesco Orabona. Momentum-based variance reduction in non-convex sgd. 
+
+Advances in neural information processing systems , 32, 2019. Mathieu Dagréou, Pierre Ablin, Samuel Vaiter, and Thomas Moreau. A framework for bilevel optimization that enables stochastic and global variance reduction algorithms. Advances in Neural Information Processing Systems , 35:26698–26710, 2022. Chen Fan, Gaspard Choné-Ducasse, Mark Schmidt, and Christos Thrampoulidis. Bisls/sps: Auto-tune step sizes for stable bi-level optimization. Advances in Neural Information Processing Systems , 36: 50144–50172, 2023. Luca Franceschi, Paolo Frasconi, Saverio Salzo, Riccardo Grazzi, and Massimiliano Pontil. Bilevel programming for hyperparameter optimization and meta-learning. In International conference on machine learning , pages 1568–1577. PMLR, 2018. Saeed Ghadimi and Mengdi Wang. Approximation methods for bilevel programming. arXiv preprint arXiv:1802.02246 , 2018. Xiaochuan Gong, Jie Hao, and Mingrui Liu. An accelerated algorithm for stochastic bilevel opti-mization under unbounded smoothness. Advances in Neural Information Processing Systems , 37: 78201–78243, 2024. Eduard Gorbunov, Marina Danilova, and Alexander Gasnikov. Stochastic optimization with heavy-tailed noise via accelerated gradient clipping. Advances in Neural Information Processing Systems ,33:15042–15053, 2020. Eduard Gorbunov, Marina Danilova, Innokentiy Shibaev, Pavel Dvurechensky, and Alexander Gas-nikov. High-probability complexity bounds for non-smooth stochastic convex optimization with heavy-tailed noise. Journal of Optimization Theory and Applications , 203(3):2679–2738, 2024. Mingyi Hong, Hoi-To Wai, Zhaoran Wang, and Zhuoran Yang. A two-timescale framework for bilevel optimization: Complexity analysis and application to actor-critic, 2022. URL https: //arxiv.org/abs/2007.05170 .Timothy Hospedales, Antreas Antoniou, Paul Micaelli, and Amos Storkey. Meta-learning in neural networks: A survey. IEEE transactions on pattern analysis and machine intelligence , 44(9): 5149–5169, 2021. Quanqi Hu, Zi-Hao Qiu, Zhishuai Guo, Lijun Zhang, and Tianbao Yang. Blockwise stochastic variance-reduced methods with parallel speedup for multi-block bilevel optimization. In Interna-tional Conference on Machine Learning , pages 13550–13583. PMLR, 2023. Kaiyi Ji, Junjie Yang, and Yingbin Liang. Bilevel optimization: Convergence analysis and enhanced design. In International conference on machine learning , pages 4882–4892. PMLR, 2021. Hamed Karimi, Julie Nutini, and Mark Schmidt. Linear convergence of gradient and proximal-gradient methods under the polyak-łojasiewicz condition. In Joint European conference on machine learning and knowledge discovery in databases , pages 795–811. Springer, 2016. Prashant Khanduri, Siliang Zeng, Mingyi Hong, Hoi-To Wai, Zhaoran Wang, and Zhuoran Yang. A momentum-assisted single-timescale stochastic approximation algorithm for bilevel optimization. 
+
+arXiv preprint arXiv:2102.07367 , 2021. 10 Krishnateja Killamsetty, Sivasubramanian Durga, Ganesh Ramakrishnan, Abir De, and Rishabh Iyer. Grad-match: Gradient matching based data subset selection for efficient deep model training. In 
+
+International Conference on Machine Learning , pages 5464–5474. PMLR, 2021. Tian Li, Anit Kumar Sahu, Manzil Zaheer, Maziar Sanjabi, Ameet Talwalkar, and Virginia Smith. Federated optimization in heterogeneous networks. Proceedings of Machine learning and systems ,2:429–450, 2020. Gábor Lugosi and Shahar Mendelson. Mean estimation and regression under heavy-tailed distribu-tions: A survey. Foundations of Computational Mathematics , 19(5):1145–1190, 2019. Adarsh Prasad, Arun Sai Suggala, Sivaraman Balakrishnan, and Pradeep Ravikumar. Robust estima-tion via robust gradient estimation. Journal of the Royal Statistical Society Series B: Statistical Methodology , 82(3):601–627, 2020. Arjun Raj and Alexander Van Oudenaarden. Nature, nurture, or chance: stochastic gene expression and its consequences. Cell , 135(2):216–226, 2008. Sashank Reddi, Zachary Charles, Manzil Zaheer, Zachary Garrett, Keith Rush, Jakub Koneˇ cn `y, Sanjiv Kumar, and H Brendan McMahan. Adaptive federated optimization. arXiv preprint arXiv:2003.00295 , 2020. Louis Sharrock. Two-timescale stochastic approximation for bilevel optimisation problems in continuous-time models. arXiv preprint arXiv:2206.06995 , 2022. Umut Simsekli, Levent Sagun, and Mert Gurbuzbalaban. A tail-index analysis of stochastic gradient noise in deep neural networks. In International Conference on Machine Learning , pages 5827– 5837. PMLR, 2019. Conrad Hal Waddington. The strategy of the genes . Routledge, 2014. Yuanshun Yao, Xiaojun Xu, and Yang Liu. Large language model unlearning. Advances in Neural Information Processing Systems , 37:105425–105475, 2024. Sihan Zeng and Thinh Doan. Fast two-time-scale stochastic gradient method with applications in reinforcement learning. In The Thirty Seventh Annual Conference on Learning Theory , pages 5166–5212. PMLR, 2024. Jingzhao Zhang, Tianxing He, Suvrit Sra, and Ali Jadbabaie. Why gradient clipping accelerates training: A theoretical justification for adaptivity. arXiv preprint arXiv:1905.11881 , 2019. 11 A Supplementary Experimental Tables 
+
+This section contains the detailed quantitative tables that complement the experimental analysis in Section 5. Table 2: Performance comparison under 15% heavy-tailed noise, where Spike denotes the maxi-mum transient upper-level loss increase and Grad Norm refers to the average implicit hypergradient norm; the ψ-Variant represents our method without distribution-aware reweighting. 
+
+Performance Stability Diagnostics 
+
+Method Final Loss ↓ Std ↓ Spike ↓ Grad Norm ↓
+
+TTSA 2.012 (± 0.158) 0.538 (± 0.095) 3.744 (± 0.343) 12.42 (± 3.88) 
+
+BiSLS 1.604 (± 0.004) 0.005 (± 0.001) 1.616 (± 0.006) 1.000 (± 0.00) 
+
+MA-SOBA 1.599 (± 0.043) 0.046 (± 0.029) 1.694 (± 0.081) 6.230 (± 1.31) 
+
+AccBO 1.714 (± 0.036) 0.027 (± 0.014) 1.758 (± 0.034) 1.911 (± 0.21) 
+
+ψ-Variant 1.621 (± 0.011) 0.011 (± 0.004) 1.652 (± 0.021) 0.383 (± 0.11) 
+
+RQ-TTSA (Ours) 1.545 (± 0.033) 0.003 (± 0.001) 1.550 (± 0.035) 0.259 (± 0.08) 
+
+Table 3: Results on Coupled Non-Convex Bilevel Optimization. Constr. Err denotes the mean absolute difference |θ − ϕ|, and Grad Norm denotes the average lower-level gradient norm over the last 100 iterations. The last two methods are considered tied due to their extremely low orders of magnitude. (Results over 5 seeds). 
+
+Performance Convergence Diagnostics 
+
+Method Final Loss ↓ Std ↓ Constr. Err ↓ Grad Norm ↓
+
+TTSA -8.34323E-12 5.64429E-12 9.05319E-07 2.10414E-06 BiSLS -5.61107E-05 6.24878E-05 4.97475E-03 5.97727E-02 MA-SOBA -1.96641E-11 1.29774E-11 1.06942E-06 5.31288E-06 AccBO -1.10276E-11 7.27774E-12 8.00850E-07 3.97863E-06 
+
+ψ-Variant -1.25691E-22 1.55899E-22 3.33741E-12 6.08360E-12 
+
+RQ-TTSA -2.14088E-22 2.65539E-22 4.35565E-12 7.93969E-12 
+
+Table 4: Performance comparison under natural label shift on USPS . Spike denotes the maximum transient increase of the upper-level loss during training, and Grad Norm refers to the average norm of the lower-level gradients. (Results over 5 seeds). 
+
+Performance Stability Diagnostics 
+
+Method Final Loss ↓ Std ↓ Spike ↓ Grad Norm ↓
+
+TTSA 0.3810 (± 0.0084) 0.0023 (± 0.0009) 0.4302 (± 0.3430) 27.9082 (± 5.7244) 
+
+BiSLS 0.3768 (± 0.0063) 0.0020 (± 0.0009) 0.0320 (± 0.0319) 27.9116 (± 5.7145) 
+
+MA-SOBA 0.3754 (± 0.0083) 0.0018 (± 0.0010) 0.4573 (± 0.0810) 27.8977 (± 5.7213) 
+
+AccBO 0.2675 (± 0.0097) 0.0049 (± 0.0012) 0.2472 (± 0.0340) 27.6995 (± 5.7104) 
+
+ψ-Variant 0.3733 (± 0.0054) 0.0022 (± 0.0007) 0.2472 (± 0.0210) 27.8908 (± 5.7131) 
+
+RQ-TTSA (Ours) 0.2061 (± 0.0809) 0.0321 (± 0.0918) 0.4573 (± 0.0350) 27.8012 (± 5.5569) 
+
+## B Detailed Theoretical Proofs 
+
+In this appendix, we provide comprehensive proofs for the theoretical results presented in Section 4. We first formally state the necessary notations and regularity assumptions. Subsequently, we establish the key properties of the quantile-guided clipping operator, including its non-expansiveness and 12 Table 5: Fashion-MNIST optimization results (Momentum-Integrated). RQ-TTSA achieves SOTA performance with the lowest variance. (Results over 10 seeds). 
+
+Performance Stability Diagnostics 
+
+Method Final Loss ↓ Test Acc (%) ↑ Std (Stability) ↓ Grad Norm ↓
+
+TTSA 0.621 (± 0.006) 77.960 (± 0.268) 0.012 (± 0.004) 1.523 (± 0.180) 
+
+BiSLS 0.689 (± 0.005) 76.159 (± 0.234) 0.007 (± 0.001) 1.346 (± 0.101) 
+
+MA-SOBA 0.615 (± 0.007) 78.364 (± 0.325) 0.005 (± 0.001) 1.139 (± 0.058) 
+
+AccBO 0.584 (± 0.006) 79.436 (± 0.244) 0.007 (± 0.001) 1.299 (± 0.053) 
+
+ψ-Variant 0.598 (± 0.009) 78.480 (± 0.396) 0.019 (± 0.002) 1.783 (± 0.199) 
+
+RQ-TTSA 0.574 (± 0.006) 79.838 (± 0.289) 0.005 (± 0.001) 1.104 (± 0.098) 
+
+Table 6: Zero-Sum Game Robustness Summary under heavy-tailed impulse noise ( 50 ×). Spike denotes the maximum sudden loss jump. Final Loss closer to 0 indicates better convergence to equilibrium. (Results over 5 seeds). 
+
+Performance Stability Diagnostics 
+
+Method Final Loss ↓ Std ↓ Spike (Max) ↓ Grad Norm ↓
+
+TTSA 2.13 (± 4.36) 2.20 (± 3.86) 22.45 (± 13.71) 17.2 (± 12.1) 
+
+BiSLS -0.01 (± 0.20) 0.26 (± 0.23) 7.03 (± 6.17) 14.9 (± 10.6) 
+
+MA-SOBA 0.97 (± 1.22) 1.50 (± 1.15) 12.85 (± 9.17) 14.3 (± 11.9) 
+
+AccBO 0.64 (± 1.37) 1.52 (± 1.02) 8.15 (± 6.78) 29.7 (± 19.2) 
+
+ψ-Var -0.02 (± 0.20) 0.25 (± 0.24) 7.03 (± 6.18) 14.9 (± 10.6) 
+
+RQ-TTSA 0.16 (± 0.33) 0.16 (± 0.23) 6.24 (± 5.99) 13.2 (± 10.4) 
+
+Table 7: Offline Actor–Critic optimization on Gymnasium LunarLander. RQ-TTSA achieves the best stability while maintaining competitive loss, effectively mitigating variance without loss degradation. (Results over 5 seeds). 
+
+Performance Stability Diagnostics 
+
+Method Actor Loss ↓ Stability (Std) ↓ Spike (Max Jump) ↓ Grad Norm ↓
+
+TTSA -25.661 (± 0.013) 0.006 (± 0.001) 0.430 (± 0.002) 0.383 (± 0.007) 
+
+BiSLS -5.801 (± 0.107) 0.434 (± 0.005) 0.032 (± 0.000) 1.781 (± 0.005) 
+
+MA-SOBA -25.726 (± 0.020) 0.004 (± 0.001) 0.459 (± 0.002) 0.621 (± 0.009) 
+
+AccBO -12.863 (± 0.135) 1.089 (± 0.007) 0.081 (± 0.001) 1.550 (± 0.006) 
+
+ψ-Variant -25.619 (± 0.010) 0.007 (± 0.002) 0.247 (± 0.001) 0.649 (± 0.014) 
+
+RQ-TTSA -25.721 (± 0.018) 0.003 (± 0.001) 0.457 (± 0.002) 0.464 (± 0.009) 
+
+13 bias-variance trade-off. Finally, we provide the detailed convergence analysis for RQ-TTSA, deriving the global convergence rate under heavy-tailed noise. 
+
+B.1 Notations and Problem Setup 
+
+Let ∥ · ∥ denote the Euclidean ℓ2-norm. We consider the unconstrained bilevel optimization problem where the upper-level (UL) and lower-level (LL) functions are defined as F (x, y ) and G(x, y ),respectively. Let Fk = σ(ξ0, . . . , ξ k−1, ζ 0, . . . , ζ k−1) be the σ-algebra generated by the random variables up to iteration k. We denote the condition number of the lower-level problem as κ := LG 
+
+> μG
+
+.
+
+B.2 Assumptions and Auxiliary Lemmas 
+
+We formally state the regularity assumptions required for the convergence analysis. 
+
+Assumption B.1 (Regularity of Bilevel Functions) . The functions F and G satisfy the following conditions: 1. G(x, ·) is μG-strongly convex for any x ∈ Rd.2. ∇F and ∇G are Lipschitz continuous. Specifically, there exist constants 
+
+LFx , L Fy , L Gx , L Gy such that for any z = ( x, y ), z ′ = ( x′, y ′):
+
+∥∇ F (z) − ∇ F (z′)∥ ≤ LF ∥z − z′∥, (12) 
+
+∥∇ G(z) − ∇ G(z′)∥ ≤ LG∥z − z′∥. (13) Here LF := max {LFx , L Fy } and LG := max {LGx , L Gy }.3. The second-order derivatives ∇2 
+
+> xy
+
+G and ∇2 
+
+> yy
+
+G exist and are Lipschitz continuous. 
+
+Assumption B.2 (Heavy-Tailed Noise) . The stochastic gradient g(x, y ; ξ) is an unbiased estimator of ∇y G(x, y ). The noise satisfies a bounded p-th moment condition for p ∈ (1 , 2] :
+
+E[∥g(x, y ; ξ) − ∇ y G(x, y )∥p | F k] ≤ σp, (14) where σ > 0 is a noise parameter. 
+
+Lemma B.3 (Smoothness of the Hyper-Objective) . Under Assumption B.1, the hyper-objective 
+
+Φ( x) = F (x, y ∗(x)) is LΦ-smooth. Proof. Based on the implicit function theorem, the gradient of the hyper-objective is: 
+
+∇Φ( x) = ∇xF (x, y ∗(x)) − ∇ 2 
+
+> xy
+
+G(x, y ∗(x))[ ∇2 
+
+> yy
+
+G(x, y ∗(x))] −1∇y F (x, y ∗(x)) . (15) Under Assumption B.1, the mapping y∗(x) is Lipschitz continuous with constant Ly∗ = Lxy /μ G.Combining the Lipschitz continuity of ∇F , ∇2G, and y∗(x), the gradient ∇Φ( x) satisfies the Lipschitz condition. We denote the Lipschitz constant as LΦ. Detailed derivation of the constant follows standard calculus of variations (see e.g., Ghadimi and Wang [2018]). 
+
+B.3 Properties of the Clipping Operator 
+
+We analyze the operator Tψ (v) = min {1, ψ/ ∥v∥} v.
+
+B.3.1 Geometric Non-Expansiveness (Lemma 4.3) Lemma B.4. For any ψ > 0, ∥T ψ (u) − T ψ (v)∥ ≤ ∥ u − v∥ for all u, v ∈ Rd.Proof. The operator Tψ is mathematically equivalent to the Euclidean projection onto the closed convex ball B(0 , ψ ) = {z ∈ Rd : ∥z∥ ≤ ψ}. A fundamental property of projection operators onto convex sets is non-expansiveness. Specifically, for any convex set C, the projection PC satisfies 
+
+∥PC (u) − PC (v)∥2 ≤ ⟨ PC (u) − PC (v), u − v⟩. By Cauchy-Schwarz inequality, this implies ∥PC (u) −
+
+PC (v)∥ ≤ ∥ u − v∥.14 B.3.2 Bias-Variance Trade-off (Theorem 4.4) Theorem B.5. Let ˆg = Tψ (g) be the clipped stochastic gradient where E[g] = v and E[∥g − v∥p] ≤
+
+σp. Then, up to constants depending on p and ∥v∥:
+
+1. Bias: ∥E[ˆ g] − v∥ ≤ 2σpψ1−p.2. Variance: E[∥ˆg∥2] ≤ σpψ2−p.
+
+Proof. Let I{·} denote the indicator function. The bias is defined as ∥E[ˆ g − g]∥. Note that ˆg − g =( ψ 
+
+> ∥g∥
+
+− 1) gI{∥ g∥>ψ }. Using the condition ∥g∥ > ψ , we have 1 ≤ (∥g∥/ψ )p−1. Thus: 
+
+∥ˆg − g∥ ≤ (∥g∥ − ψ)I{∥ g∥>ψ } ≤ ∥ g∥ · (∥g∥/ψ )p−1 = ψ1−p∥g∥p. (16) Taking expectations yields ∥E[ˆ g]−v∥ ≤ ψ1−pE[∥g∥p]. Using the inequality ∥a+b∥p ≤ 2p−1(∥a∥p +
+
+∥b∥p), we bound the raw moment E[∥g∥p] ≤ 2p−1(∥v∥p + σp), which yields the stated bound up to a constant depending on p.For the variance E[∥ˆg∥2], we decompose the expectation: 
+
+E[∥ˆg∥2] = E[∥g∥2I{∥ g∥≤ ψ}] + ψ2P(∥g∥ > ψ ). (17) On the event {∥ g∥ ≤ ψ}, we have ∥g∥2 = ∥g∥p∥g∥2−p ≤ ∥ g∥pψ2−p. For the second term, by Markov’s inequality, P(∥g∥ > ψ ) ≤ E[∥g∥p] 
+
+> ψp
+
+. Substituting these back implies E[∥ˆg∥2] ≤ σpψ2−p +
+
+ψ2(σp/ψ p) ≤ 2σpψ2−p.
+
+B.4 Proof of Convergence (Theorem 4.6) 
+
+We construct a Lyapunov function to analyze the coupled dynamics of the lower-level variable yk
+
+and the upper-level variable xk. Define zk := yk − y∗(xk). Let the Lyapunov function be: 
+
+Vk := Φ( xk) + Cz ∥zk∥2, (18) where Cz > 0 is a sufficiently large constant chosen so that strong convexity of G(x, ·) dominates the two-timescale coupling error; specifically, we require Cz ≥ 4L2Φ 
+
+> μG
+
+.
+
+B.4.1 Lemma Upper-Level Descent Lemma B.6. Under Assumptions B.1, the iteration xk+1 = xk − αk ˆ∇Φk satisfies: 
+
+E[Φ( xk+1 ) − Φ( xk)] ≤ − αk
+
+2 ∥∇ Φ( xk)∥2 + αkL2Φ
+
+2 E∥zk+1 ∥2 + αkEbias + α2
+
+> k
+
+Evar , (19) 
+
+where Ebias and Evar correspond to the heavy-tailed error terms. Proof. By the LΦ-smoothness of Φ (Lemma B.3): 
+
+Φ( xk+1 ) ≤ Φ( xk) + ⟨∇ Φ( xk), x k+1 − xk⟩ + LΦ
+
+2 ∥xk+1 − xk∥2 (20) 
+
+= Φ( xk) − αk⟨∇ Φ( xk), ˆ∇Φk⟩ + LΦα2
+
+> k
+
+2 ∥ ˆ∇Φk∥2. (21) Taking expectations given Fk:
+
+E[Φ( xk+1 )|F k] ≤ Φ( xk)−αk∥∇ Φ( xk)∥2 +αk ∥∇ Φ( xk)∥∥ Bias ( ˆ∇Φk)∥
+
+| {z }
+
+> Bias Term
+
++ LΦα2
+
+> k
+
+2 E∥ ˆ∇Φk∥2. (22) Using Young’s inequality, we absorb the bias term. The critical bilevel error arises from the gradient approximation, as the estimator ˆ∇Φk employs yk+1 rather than y∗(xk). Since the hypergradient is Lipschitz continuous with respect to the lower-level variable, this approximation error is bounded by Lgrad ∥yk+1 − y∗(xk)∥2, which explicitly introduces a coupling dependence on the lower-level tracking error ∥zk+1 ∥2.15 B.4.2 Lemma Lower-Level Contraction with Heavy Tails Lemma B.7. The lower-level tracking error zk = yk − y∗(xk) satisfies: 
+
+E[∥zk+1 ∥2] ≤ (1 − μGβk
+
+2 )E[∥zk∥2] + C1β2 
+
+> k
+
+ψ2−pk + C2
+
+α2
+
+> k
+
+βk
+
+κ2 + C3βkψ1−pk . (23) 
+
+Proof. We expand ∥zk+1 ∥2 = ∥yk+1 − y∗(xk+1 )∥2.
+
+∥zk+1 ∥2 = ∥yk − βkTψk (gk) − y∗(xk) + y∗(xk) − y∗(xk+1 )∥2 (24) 
+
+≤ (1 + ρ)∥yk − βkTψk (gk) − y∗(xk)∥2 + (1 + ρ−1)∥y∗(xk) − y∗(xk+1 )∥2. (25) Let ρ = μGβk/4. Using the Lipschitz property of y∗ (Lemma B.3), ∥y∗(xk) − y∗(xk+1 )∥2 ≤
+
+L2 
+
+> y∗
+
+∥xk − xk+1 ∥2 ≤ κ2α2
+
+> k
+
+M 2. For the first term, we use the clipped gradient properties from Theorem 4.4. 
+
+E[∥zk − βkTψk (gk)∥2] = ∥zk∥2 − 2βk⟨zk, E[Tψk (gk)] ⟩ + β2 
+
+> k
+
+E[∥T ψk (gk)∥2] (26) 
+
+= ∥zk∥2 − 2βk⟨zk, ∇y G(xk, y k)⟩ + 2 βk⟨zk, Bias k⟩ + β2 
+
+> k
+
+Var k. (27) By strong convexity, −⟨ zk, ∇y G⟩ ≤ − μG∥zk∥2. The bias term is bounded by 2βk∥zk∥(2 σpψ1−pk ).Using Young’s inequality 2ab ≤ μG 
+
+> 2
+
+a2 + 2 
+
+> μG
+
+b2, we absorb ∥zk∥. Combining terms leads to the contraction factor (1 − μGβk + μGβk/2) = (1 − μGβk/2) . The explicit dependence on κ appears in the drift term C2 α2 
+
+> k
+> βk
+
+κ2.
+
+B.4.3 Proof of Rate Derivation (Theorem 4.6) 
+
+We combine the lemmas into Vk.
+
+E[Vk+1 ] − E[Vk] ≤ − αk
+
+2 ∥∇ Φ( xk)∥2 − βk(Cz
+
+μG
+
+2 )∥zk∥2 (28) 
+
++ O(α2
+
+> k
+
+) + O(β2 
+
+> k
+
+ψ2−pk ) + O(βkψ1−pk ) + Cz
+
+α2
+
+> k
+
+βk
+
+κ2. (29) We choose parameters: αk = k−(1 −ν), βk = k−ν , ψk = kδ . Dominant error terms are Variance (β2 
+
+> k
+
+ψ2−pk ) and Bias ( βkψ1−pk ). To recover the optimal rate, we balance the rates. The effective error scales as T − p−13p−2 . Specifically, setting ν = p 
+
+> 3p−2
+
+and δ appropriately ensures that the coupling noise and the heavy-tailed variance decay at the optimal rate. Summing from k = 0 to T and dividing by P αk ∼ T ν yields: 
+
+min  
+
+> k<T
+
+E∥∇ Φ( xk)∥2 ≤ V0
+
+P αk
+
++ Error Terms ≤ O (T − p−13p−2 ). (30) Crucially, when p = 2 , the rate becomes T −1/4 (equivalent to 1/√T for non-squared norm), recovering the standard bilevel rate. 
+
+B.5 High Probability Analysis 
+
+We extend the convergence analysis to the high-probability regime. In standard stochastic optimiza-tion, heavy-tailed noise typically restricts convergence guarantees to have a polynomial dependence on the inverse confidence level 1/δ due to the lack of exponential moments. However, the proposed clipping operator Tψ explicitly enforces an almost-sure bound on the gradient estimator. This bound-edness property enables the application of Bernstein’s Inequality for martingales, thereby recovering the logarithmic dependence log(1 /δ ) characteristic of light-tailed (sub-Gaussian) regimes. 
+
+Lemma B.8 (Almost-Sure Boundedness of the Hypergradient Estimator) . Under Assumptions B.1 and B.2, let ˜gk = Tψk (∇y G(xk, y k; ξk)) be the clipped lower-level gradient. Then the hypergradient estimator ˆ∇Φ( xk, y k+1 ) defined in (5) satisfies almost surely: 
+
+∥ ˆ∇Φ( xk, y k+1 )∥ ≤ CΦ (1 + ψk + ∥zk∥) , (31) 
+
+where CΦ > 0 depends only on the Lipschitz and boundedness constants in Assumption B.1, and 
+
+zk = yk − y∗(xk).
+
+16 Proof. By definition of the Neumann-series estimator (5) , ˆ∇Φ is a composition of ∇xF , ∇y F ,
+
+∇2 
+
+> xy
+
+G, and ∇2 
+
+> yy
+
+G, all evaluated at (xk, y k+1 ). Under Assumption B.1, each of these terms is uniformly bounded and Lipschitz. The lower-level iterate satisfies yk+1 = yk − βk ˜gk, and since 
+
+∥˜gk∥ ≤ ψk almost surely by the definition of Tψk , we have ∥yk+1 − y∗(xk)∥ ≤ ∥ zk∥ + βkψk
+
+pathwise. Substituting into the Lipschitz bound on ˆ∇Φ with respect to its second argument yields the stated inequality with CΦ determined by the Lipschitz constants and the length of the Neumann truncation J.
+
+Theorem B.9 (High Probability Convergence) . For any δ ∈ (0 , 1) , with probability at least 1 − δ,the algorithm satisfies: 
+
+1
+
+T 
+
+> T−1
+
+X
+
+> k=0
+
+∥∇ Φ( xk)∥2 ≤ ˜O
+
+
+
+T − p−13p−2 log(1 /δ )
+
+
+
+. (32) 
+
+Proof. Let Xk = αk⟨∇ Φ( xk), ˆ∇Φk − ∇ Φ( xk)⟩. This is a martingale difference sequence (after centering). The clipping ensures that ∥ ˆ∇Φk∥ is bounded by ψk almost surely. Using Lemma A.2 from Gorbunov et al. [2024] (Bernstein’s Inequality): 
+
+P
+
+ X Xk > ϵ 
+
+
+
+≤ 2 exp 
+
+
+
+− ϵ2
+
+2 P Var k + 2 /3cϵ 
+
+
+
+. (33) Unlike standard SGD where the variance can be unbounded (heavy-tailed), here the variance is deterministically bounded by σpψ2−pk (Theorem 4.4). By selecting ψk to grow slowly, we bound the martingale range c and variance. This allows us to establish the concentration of the measure around the expectation derived in Theorem 4.6 with logarithmic dependency log(1 /δ ), rather than polynomial 1/δ α.17 C Non-zero loss analysis 
+
+The non-zero final loss of RQ-TTSA ( 1.545 ) indicates that the algorithm has reached the objective’s inherent statistical lower bound under heavy-tailed noise. Unlike BiSLS which suffers from a Precision Lock at 1.604 due to over-conservative updates, RQ-TTSA achieves a lower, more stable equilibrium ( Std = 0 .003 ), reflecting its ability to balance the truncation bias and noise suppression effectively as characterized in Theorem 4.6. 
+
+## D Empirical Verification of Convergence Rate 
+
+D.1 Experimental Setup and Methodology 
+
+To rigorously validate the theoretical convergence rate derived in Theorem 4.6, we designed a controlled synthetic experiment that isolates the impact of heavy-tailed stochastic noise on bilevel convergence dynamics. The problem setting involves a non-convex upper-level objective coupled with a strongly convex lower-level problem, injected with heavy-tailed gradient noise characterized by an infinite variance (tail index p = 1 .5). We compare three distinct optimization strategies to evaluate their asymptotic behavior: • RQ-TTSA (Ours): Utilizing the proposed quantile-guided clipping mechanism with a dynamic threshold ψk estimated from a history buffer. We evaluate RQ-TTSA under two distinct heavy-tailed distributions—Lévy stable noise and Student’s t-distribution—to verify its distributional robustness. • Standard TTSA (Baseline): The canonical two-timescale approach without any gradient clipping or normalization, serving as a control to demonstrate the destructive nature of infinite-variance noise. • BiSLS (Adaptive Baseline): A norm-adaptive method that scales step sizes by the inverse of the instantaneous gradient norm ( 1/∥∇ G∥). This baseline represents a common heuristic for handling large gradients but lacks the statistical robustness of quantile estimation. All methods are executed with theoretically decaying step sizes ( αk, β k ∝ k−ν ) to ensure a fair evaluation of their convergence rates in the asymptotic regime. 
+
+D.2 Analysis of Algorithmic Superiority 
+
+The results presented in Figure 3 provide compelling empirical evidence for the theoretical claims made in Section 4. We highlight three critical observations that underscore the superiority of the RQ-TTSA framework: 
+
+1. Tight Alignment with Theoretical Bounds: The most significant finding is the precise alignment between the empirical convergence rate of RQ-TTSA and our derived theoretical bound. The measured slope of −0.197 deviates by less than 1.5% from the theoretical prediction of −0.200 
+
+(O(T − p−13p−2 ) for p = 1 .5). This result validates that the quantile-guided clipping of RQ-TTSA converts the intractable infinite-variance optimization problem into a solvable regime with standard convergence guarantees, and RQ-TTSA achieves the theoretical convergence rate with predictable asymptotic behavior. 
+
+2. Distributional Agnosticism and Stability: RQ-TTSA demonstrates remarkable robustness across different noise distributions. As shown by the overlapping trajectories of the Lévy (solid blue) and Student’s t (green dash-dot) curves, the algorithm’s performance is invariant to the specific shape of the heavy-tailed distribution, provided the tail index p remains constant. This distribution-agnostic property is a key advantage over parametric robust methods that may require tuning specific to the noise type. Furthermore, RQ-TTSA maintains the smoothest descent trajectory among all methods, effectively filtering out catastrophic outliers that cause the jagged oscillations observed in the Standard TTSA baseline (gray line). 
+
+3. Overcoming the Limitations of Norm-Adaptivity: The comparison with BiSLS (orange dotted line) reveals a subtle but critical advantage of quantile-based clipping over simple norm adaptivity. While BiSLS manages to reduce variance compared to TTSA, its trajectory indicates a tendency 18 Figure 3: Empirical verification of convergence rates under heavy-tailed noise ( p = 1 .5). The log-log plot visualizes the decay of the upper-level gradient norm ∥∇ Φ( x)∥ over iterations T . (1) Precision: RQ-TTSA (solid blue) achieves an empirical slope of ≈ − 0.197 , aligning almost perfectly with the theoretical optimal rate of −0.200 (red dashed). (2) Robustness: The method exhibits identical convergence traits under both Lévy stable noise (blue) and Student’s t-noise (green dash-dot), confirming distribution-agnostic stability. (3) Superiority: In contrast, Standard TTSA (gray) suffers from severe oscillations and slower convergence, while the norm-adaptive BiSLS (orange dotted) exhibits aggressive over-correction. Theoretical lines are offset vertically for visual clarity. towards over-correction. In the presence of heavy-tailed noise, the gradient norms can become arbitrarily large, causing BiSLS to shrink the update step size to near-zero values. This aggressive dampening, while preventing divergence, often leads to stagnation or sub-optimal convergence paths. In contrast, RQ-TTSA’s quantile mechanism allows for a statistically grounded safe region, enabling the algorithm to preserve the magnitude of informative gradients while selectively clipping only the statistically improbable outliers. This balance ensures that RQ-TTSA not only survives the heavy-tailed noise but continues to learn efficiently at the theoretically optimal rate. 
+
+D.3 Ablation Study: Norm-Based vs. Coordinate-Wise Clipping 
+
+A critical design choice in RQ-TTSA is the employment of norm-based clipping (scaling the global gradient vector) rather than coordinate-wise clipping (clamping each element independently). While coordinate-wise methods are prevalent in standard heavy-tailed regression due to their simplicity, we argue that they are suboptimal for bilevel optimization. 
+
+Theoretical Justification: Directional Correctness. Bilevel optimization is inherently sensitive to the geometric trajectory of the lower-level update. The upper-level gradient ∇Φ( x) depends on the precise approximation of the lower-level response y∗(x). Coordinate-wise clipping operates element-wise: [˜ g]i = min( τ, max( −τ, [g]i)) . In high-dimensional spaces (e.g., neural networks), this operation alters the relative magnitude of gradient components, effectively rotating the gradient vector. If the noise is anisotropic, coordinate-wise clipping distorts the descent direction, causing the lower-level variable y to deviate from the true optimization path y∗(x). This directional bias propagates to the upper level, leading to inaccurate hypergradients and slow oscillation near saddle points. In contrast, our norm-based clipping ˜g = g · min(1 , ψ/ ∥g∥) performs a purely radial scaling. It acts as a brake rather than a steering wheel—it reduces the step size to ensure stability while strictly preserving the gradient’s original direction. This property, which we term Directional Correctness , is essential for navigating the ill-conditioned curvature of bilevel landscapes. 
+
+Empirical Validation on Fashion-MNIST. To verify this hypothesis, we conducted an ablation study on the Fashion-MNIST dataset under heavy-tailed noise ( p = 1 .5). We compared RQ-TTSA (Norm-Based) against a Coordinate-Wise variant and a momentum-based baseline (AccBO). We 19 specifically monitored the Upper-Level Gradient Norm ∥∇ Φ( x)∥ as a metric of convergence to stationary points. The results, visualized in Figure 4, provide conclusive evidence: • RQ-TTSA (Norm-Based, Blue): Demonstrates the most robust convergence, with the gra-dient norm steadily decreasing to the noise floor ( ≈ 10 0). By preserving directional fidelity, the algorithm effectively filters impulsive noise without losing the geometric information required for descent. • RQ-TTSA (Coordinate, Red): Suffers from persistent high gradient norms ( ≈ 10 0.8), significantly worse than the norm-based approach. The directional bias introduced by element-wise clamping prevents the optimizer from settling into sharp minima, forcing it to wander in suboptimal regions. • Baseline (AccBO, Orange): The momentum-based method fails to converge effectively. This highlights the momentum poisoning effect in heavy-tailed regimes, where a single extreme outlier corrupts the history buffer, derailing convergence for many subsequent iterations. These findings validate that preserving the global geometry of gradients via norm-based clipping is indispensable for robust bilevel learning. 
+
+Figure 4: Ablation on clipping mechanisms (Fashion-MNIST). Comparison of Upper-Level Gradi-ent Norm ∥∇ Φ( x)∥ trajectories. The Norm-Based approach (Ours, blue) significantly outperforms Coordinate-Wise clipping (red) and Momentum baseline (orange), confirming that preserving gradient direction is crucial for bilevel convergence under heavy-tailed noise. 
+
+D.4 Dynamics Verification in the Impulsive Corridor 
+
+To provide a visual intuition of the distribution-aware dynamics, we evaluate RQ-TTSA in the 
+
+Impulsive Corridor environment. This synthetic landscape is specifically designed to stress-test an algorithm’s ability to maintain directional fidelity while being subjected to high-magnitude, sparse gradient shocks that characterize heavy-tailed noise regimes ( p ∈ (1 , 2] ). 
+
+Experimental Setup. The landscape features a curved, narrow valley leading toward a global attractor at (1 .5, −0.5) . The centripetal residual field is defined such that the optimal path follows a sinusoidal manifold. We inject Heavy-Tailed Impulsive Noise : 95% of the time, the optimizer receives a standard Gaussian signal, but with a 5% probability, it is hit by a massive impulse (strength 15 .0,approximately 50 × the normal signal). We compare Standard TTSA with our proposed RQ-TTSA .To handle the extreme instability of the early training phase before the history buffer is populated, 20 RQ-TTSA employs a conservative warm-up protection for the first 20 iterations by using a fixed initial threshold before transitioning to full quantile-guided clipping. 
+
+Figure 5: Dynamics Verification in the Impulsive Corridor. The background streamlines visualize the underlying noise-free gradient field directing toward the Target Attractor. Standard TTSA (Amber) fails to bound the update variance; a single heavy-tailed impulse provides enough momentum to eject the trajectory from the stable region, leading to immediate divergence. In contrast, RQ-TTSA (Teal) leverages its distribution-aware memory to identify and prune destructive outliers. By maintaining the centripetal signal while filtering the shocks, RQ-TTSA executes a robust geometric tracking along the corridor, demonstrating superior structural stability in infinite-variance regimes. 
+
+Analysis of Results. As visualized in Figure 5, the contrast in trajectories highlights the fundamental necessity of distribution-aware clipping. The Standard TTSA trajectory (Amber dot-dashed line) exhibits erratic, large-angle deflections upon encountering impulses, eventually leaving the corridor’s basin of attraction. Conversely, RQ-TTSA (Teal solid line) remains strictly within the stable manifold. The evenly spaced teal markers indicate that our method preserves a steady convergence velocity despite the shocks. This experiment confirms that the quantile-guided Huber mechanism effectively transforms a heavy-tailed stochastic process into a stable, quasi-deterministic descent by neutralizing extreme impulsive variance without distorting the local optimization geometry. 
+
+D.5 A Dynamical Systems Perspective: Physical Robustness and Energy Dissipation 
+
+To provide a visual intuition of the distribution-aware dynamics, we evaluate RQ-TTSA in the 
+
+Impulsive Corridor environment. This synthetic landscape is specifically designed to stress-test an algorithm’s ability to maintain directional fidelity while being subjected to high-magnitude, sparse gradient shocks that characterize heavy-tailed noise regimes ( p ∈ (1 , 2] ). In this framework, we interpret the optimization process not as a mere sequence of numerical updates, but as the trajectory of a physical particle navigating a turbulent potential field. Standard methods typically act as rigid dampers: they work well under Gaussian fluctuations but are prone to structural failure when struck by high-energy, infinite-variance impulses. We conceptualize RQ-TTSA as an Adaptive Atmospheric Shield for the optimizer. By utilizing quantile-guided regulation, the algorithm effectively estimates the impact pressure of the noise distribution in real-time. This allows it to selectively dissipate the excess kinetic energy of catastrophic shocks while preserving the underlying directional momentum necessary to reach the equilibrium. This physical grounding reveals how distribution-awareness acts as a robust regulator, ensuring the geometric integrity of the descent path even in the presence of the stochastic turbulence of the impulsive corridor. 
+
+Simulation Results and Analysis. Figure 6 visualizes the system’s trajectory under a sequence of heavy-tailed impulses. 21 Figure 6: Dynamics Verification in the Impulsive Corridor. Top: The external heavy-tailed force 
+
+Fext (t), featuring catastrophic shocks and a sustained burst of high-energy noise. Bottom: The system convergence trajectory in parameter space. (1) Standard TTSA (Orange) lacks robust control and diverges instantly upon the first catastrophic shock. (2) Fixed Clipping (Red) prevents divergence but suffers from significant oscillations during the sustained burst due to threshold mismatch. (3) RQ-TTSA (Teal) leverages quantile-guided adaptation with an annealed τ schedule to tightly track the Ideal Noise-Free Convergence (Black Dashed) , effectively neutralizing infinite-variance outliers while preserving the convergence trajectory. 
+
+Physical Motivation and Problem Setup. We model the optimization process as a dynamical system governed by a second-order ordinary differential equation (ODE), analogous to a mass-spring-damper system subjected to stochastic forcing. The system state x(t) ∈ R evolves according to: 
+
+m¨x(t) + c ˙x(t) + kx (t) = Fext (t) + Fcontrol (t), (34) where m represents the mass (inertia), c is the damping coefficient (friction), and k is the spring constant (convexity of the loss landscape). The external force Fext (t) represents the stochastic gradient noise, which we model as a heavy-tailed Lévy process characterized by an infinite variance (tail index α = 1 .5). Specifically, the noise includes intermittent "catastrophic shocks" and "sustained bursts" to simulate extreme outliers and correlated noise sequences, respectively. The control force 
+
+Fcontrol (t) represents the optimization update, which attempts to counteract the noise and guide the system towards the equilibrium x = 0 .We compare three control strategies: • Standard TTSA: Applies a linear damping force proportional to the velocity, Fcontrol = −c ˙x.This corresponds to standard momentum-based updates without explicit robustness. 22 • Fixed Clipping ( ψ-Variant): Applies a Huber-style clipping with a static threshold ψfixed ,i.e., Fcontrol = −T ψfixed (c ˙x). This simulates heuristic gradient clipping. • RQ-TTSA (Ours): Employs our proposed quantile-guided clipping, where the threshold 
+
+ψt adapts dynamically based on the historical distribution of |Fext |. The control force is 
+
+Fcontrol = −T ψt (c ˙x), with ψt derived from a rolling quantile of the noise magnitude. The results demonstrate the distinct behaviors of each method: • Standard TTSA (Orange) : Upon encountering the first "Catastrophic Shock" at t ≈ 200 ,the linear controller fails to bound the update variance. The system gains excessive kinetic energy, causing the trajectory to diverge instantly from the stable region. This mirrors the instability of standard bilevel optimization under heavy-tailed noise. • Fixed Clipping (Red) : While the static threshold prevents immediate divergence, it fails to adapt to the "Sustained Burst" of noise around t ≈ 1300 . The fixed threshold is either too loose to filter the burst effectively or too tight to allow recovery, leading to visible oscillations and tracking errors. • RQ-TTSA (Teal) : Our method exhibits superior stability. By dynamically adjusting the clipping threshold via quantile estimation, RQ-TTSA effectively "absorbs" the catastrophic shocks and filters the sustained burst. The trajectory tightly adheres to the Ideal Noise-Free Convergence (Black Dashed) , confirming that distribution-aware clipping preserves the underlying geometric fidelity of the optimization path even in the presence of extreme, infinite-variance perturbations. 
+
+D.6 Biological Robustness: Canalization in Gene Regulatory Networks 
+
+The concept of canalization, originally proposed by Waddington Waddington [2014], describes the capacity of a developmental system to maintain a stable phenotypic trajectory despite genetic or environmental perturbations. In systems biology, gene regulatory networks (GRNs) are governed by non-linear feedbacks that create valleys in the epigenetic landscape, directing cellular states toward functional equilibria. However, gene expression is inherently discrete and characterized by transcriptional bursts, which manifest as heavy-tailed impulsive noise following power-law distributions rather than standard Gaussian profiles Raj and Van Oudenaarden [2008]. We model this as a bilevel optimization problem where the lower-level variable y represents fast protein concentration dynamics attempting to minimize a metabolic energy surface, while the upper-level x represents the slow evolutionary tuning of regulatory parameters. 
+
+Dynamics and Jacobian-Induced Instability. We simulate the GRN dynamics as a non-monotone vector field h(α), where the landscape features a narrow sinusoidal valley defined by y = 0 .5 sin( x).Standard gradient-based methods (LSE, AccBO) are governed by the conservative force F =
+
+−J(α)⊤h(α). In the presence of heavy-tailed bursts, the multiplication by the Jacobian J⊤ serves as a noise amplifier; a single impulsive outlier in the residual h is scaled by the local curvature, triggering a Variance Trap that ejects the trajectory from the stable developmental canal. Conversely, RQ-TTSA leverages a Jacobian-free update driven directly by the residual vector h. By implementing the quantile-guided Huber operator Tψk (h), RQ-TTSA maintains Directional Correctness while strictly bounding the effective variance, ensuring the particle remains within the geometric furrow even during extreme stochastic turbulence. 
+
+Analysis of Developmental Trajectories. The simulation results are visualized in Figure 7. The background streamlines represent the epigenetic regulatory flow toward the target equilibrium α∗.We highlight four distinct behaviors under 3% transcriptional burst probability: • Standard TTSA (Red dot-dashed): Exhibits severe "stochastic jumps." Without magnitude control, the first major burst provides enough kinetic energy to eject the system from the basin of attraction, leading to immediate divergence. • BiSLS (Magenta dotted): Demonstrates conservative stagnation. While its norm-based scaling prevents divergence, the aggressive step-size reduction in response to bursts causes the optimizer to "lock" in suboptimal regions, unable to reach the target precision. 23 • AccBO (Orange solid): Suffers from momentum poisoning. The momentum buffer accu-mulates the impulsive noise of the bursts, resulting in persistent oscillations that eventually derail the convergence trajectory. • RQ-TTSA (Cyan): Successfully achieves robust canalization. By utilizing the distribution-aware history buffer, it selectively filters the outliers while preserving the underlying direc-tional signal. The trajectory tightly adheres to the developmental valley, reaching the target equilibrium with high geometric fidelity. 
+
+Figure 7: Canalization under Impulsive Noise in Bio-GRNs. The streamlines visualize the regulatory flow toward the equilibrium α∗. Under transcriptional bursts, standard methods (TTSA, AccBO) are ejected from the developmental path, and BiSLS stagnates. In contrast, RQ-TTSA (Cyan) leverages quantile-guided updates to filter impulsive variance, maintaining stable canalization along the non-linear valley to reach the functional steady state. 
+
+## E Additional Experimental Details 
+
+This appendix provides comprehensive implementation details, architectural specifications, and hyperparameter configurations for all experiments presented in Section 5. All experiments were implemented in PyTorch and executed on an NVIDIA A100 GPU. The code is provided in the supplementary material for reproducibility. 
+
+E.1 Baselines and Implementation 
+
+We compare RQ-TTSA against the following baselines: • TTSA Hong et al. [2022]: The standard two-timescale stochastic approximation without explicit robust mechanisms. • BiSLS Fan et al. [2023]: A norm-based adaptive method that scales updates by the inverse of the gradient norm. • MA-SOBA Chen et al. [2024]: A state-of-the-art method utilizing momentum-based vari-ance reduction with bias correction. • AccBO Gong et al. [2024]: An accelerated algorithm designed for unbounded smoothness, employing normalized momentum. 24 • ψ-Variant : An ablation baseline using our framework but with a fixed (static) Huber threshold, illustrating the necessity of dynamic quantile estimation. 
+
+E.2 Synthetic Experiments (Section 5.1) Exp 5.1.1: Bilevel Representation Learning. 
+
+• Problem Setup: The lower-level problem learns a linear projection ϕ ∈ R20 ×20 to minimize classification loss on a synthetic training set ( N = 400 ), while the upper-level optimizes a linear classifier head w ∈ R20 ×5 on a validation set ( N = 400 ). • Noise Model: We inject heavy-tailed impulsive noise into the lower-level gradients. Specifi-cally, with probability p = 0 .15 , we add noise. • RQ-TTSA Settings: We use a history buffer size W = 100 and a quantile threshold 
+
+τ = 0 .7.• Hyperparameters: Due to the severe noise, baselines like TTSA require conservative learning rates. RQ-TTSA allows for larger steps due to its robust clipping. 
+
+Exp 5.1.2: Coupled Non-Convex Geometry. 
+
+• Objective: We minimize the coupled saddle-point problem defined by: Upper: θ2 −θϕ −ϕ2;Lower: −(θ2 − θϕ − ϕ2) + λ 
+
+> 2
+
+(θ − ϕ)2, with penalty λ = 10 .• Initialization: (θ0, ϕ 0) = (0 .5, −0.5) .• Protocol: The optimization runs for T = 1000 iterations. We measure the constraint error 
+
+|θ − ϕ| and the ability to converge to the global solution (0 , 0) despite the vanishing gradient problem near the saddle point. • RQ-TTSA Settings: Quantile τ = 0 .5 with a safety floor of 0.1 for the clipping threshold. 
+
+Hyperparameter Configuration. To ensure a fair comparison, we performed a grid search for learning rates ( ηlower , η upper ) and momentum coefficients ( β) for all methods. We maintained a consistent momentum factor β = 0 .9 across all momentum-based baselines. For the USPS task, the upper-level learning rate was fixed at ηupper = 0 .05 . The lower-level rate ηlower was tuned to 
+
+0.02 for TTSA and MA-SOBA, while AccBO and RQ-TTSA utilized a larger rate of 0.05 . In the Fashion-MNIST experiment, we set ηupper = 0 .01 globally. For the lower level, normalized methods (BiSLS and AccBO) required a conservative step size of ηlower = 0 .01 to prevent oscillation. In contrast, standard methods (TTSA, MA-SOBA) operated at 0.02 , while RQ-TTSA enabled the most aggressive step size of 0.04 with a quantile threshold τ = 0 .8. Clearly, the ability of RQ-TTSA to tolerate larger learning rates without divergence, despite the presence of heavy-tailed noise, validates the effectiveness of its distribution-aware clipping mechanism. 
+
+E.3 Real-World Vision Tasks (Section 5.2) Exp 5.2.1: USPS with Gradient Shocks. 
+
+• Data & Heterogeneity: We use the full USPS dataset. To simulate data heterogeneity (e.g., in federated settings), we apply weighted sampling where Class 0 is sampled with 5× higher probability than other classes. • Gradient Shocks: Instead of constant noise, we introduce intermittent shocks. With probability p = 0 .1, the gradient is perturbed by additive noise scaled by a factor of 10 .0.• Architecture: A linear projection layer ( 256 → 64 ) serves as the upper-level variable, and a classification head ( 64 → 10 ) serves as the lower-level variable. • Settings: Batch size B = 32 , Iterations T = 800 . RQ-TTSA uses τ = 0 .8 and buffer size 
+
+W = 100 .
+
+Exp 5.2.2: Fashion-MNIST (Momentum-Integrated). 
+
+• Architecture: Upper-level variable ϕ is a CNN (Conv2d 1 → 16 , 3 × 3, ReLU, MaxPool); Lower-level variable is a linear classifier. 25 • Momentum Integration: To strictly evaluate our contribution against momentum baselines (MA-SOBA, AccBO), RQ-TTSA is implemented as a plug-and-play filter applied before 
+
+the momentum buffer update. • Settings: Batch size B = 256 , Iterations T = 400 . RQ-TTSA uses τ = 0 .8.• Baselines: MA-SOBA uses standard momentum ( β = 0 .9) with bias correction. AccBO uses normalized momentum to handle potential scale variations. Table 8: Hyperparameters for Vision Experiments (Exp 5.2). RQ-TTSA utilizes a larger ηlower 
+
+than baselines as our quantile-guided mechanism provides a stability buffer. This enables more aggressive optimization and faster convergence without sacrificing reliability.                              
+
+> Task Method ηlower ηupper βτ
+> USPS TTSA/MA-SOBA 0.02 0.05 0.9 –AccBO 0.05 0.05 0.9 –RQ-TTSA 0.05 0.05 0.9 0.8 F-MNIST TTSA/MA-SOBA 0.02 0.01 0.9 –BiSLS/AccBO 0.01 0.01 0.9 –RQ-TTSA 0.04 0.01 0.9 0.8
+
+E.4 Dynamic Environments & RL (Section 5.3) Exp 5.3.1: Zero-Sum Game with Momentum Poisoning. 
+
+• Setup: A bilinear zero-sum game min ϕ max w ϕ⊤M w with dimension d = 5 .• Momentum Poisoning: We simulate a Momentum Killer scenario where sparse ( p =0.02 ) but catastrophic noise (magnitude 50 ×) is injected. This setting specifically targets momentum-based optimizers (like MA-SOBA) which accumulate these large errors. • RQ-TTSA Strategy: We use a strict quantile τ = 0 .5 to aggressively filter these rare outliers before they enter the momentum buffer. 
+
+Exp 5.3.2: Offline Actor-Critic (LunarLander). 
+
+• Dataset: We generate a fixed offline dataset of N = 30 , 000 transitions using a pre-trained policy on LunarLander-v2 .• Reward Shock: To stress-test stability, 5% of the transitions are corrupted with an extreme reward signal ( +20 .0), creating massive gradient spikes in the Critic updates. • Architecture: Both Actor and Critic are MLPs with 2 hidden layers of 128 units. • Parameters: Upper LR (Actor) α = 0 .005 , Lower LR (Critic) β = 0 .02 . RQ-TTSA utilizes a dynamic schedule for τ , ramping from 0.6 to 0.85 to balance early-stage exploration and late-stage stability. 
+
+## F Computational Complexity and Wall-Clock Time Analysis 
+
+In this section, we provide a detailed breakdown of the computational overhead introduced by the proposed RQ-TTSA algorithm. A potential concern with quantile-based methods is the cost associated with maintaining and sorting the history buffer to estimate ψk. Theoretically, for a buffer of size W , the sorting operation incurs a complexity of O(W log W ), whereas standard normalization methods (like BiSLS or AccBO) incur O(1) additional cost per iteration. 
+
+F.1 Empirical Runtimes 
+
+To evaluate the practical impact of this theoretical overhead, we measured the average wall-clock time per iteration across four distinct experimental settings: the synthetic bilevel problem (Exp 5.1.1), the high-dimensional Convolutional Neural Network task (Exp 5.2.2), the low-dimensional 26 Stochastic Game (Exp 5.3.1), and the Reinforcement Learning task (Exp 5.3.2). All measurements were averaged over the respective number of random seeds used in the main experiments. Table 9 summarizes the results. We observe three key trends: 
+
+1. Marginal Overhead in Deep Learning (Exp 5.2.2): In the Fashion-MNIST experiment involving a CNN, the gradient computation via backpropagation ( O(P ), where P is the parameter count) dominates the runtime. Consequently, the sorting cost of RQ-TTSA adds only ≈ 0.34 ms per iteration compared to the fastest baseline (BiSLS). This represents a relative increase of only ≈ 2.7% , verifying that the robustness mechanism does not create a bottleneck in high-dimensional optimization. 
+
+2. Ratio in Low-Dimensional Settings (Exp 5.1.1 & 5.3.1): In the synthetic and zero-sum game settings, the base gradient computation is fast. Here, the sorting overhead appears statistically larger in percentage terms (e.g., in Exp 5.1.1, increasing from ≈ 1.13 ms to 1.38 ms). However, the absolute difference remains sub-millisecond ( < 0.3 ms), which is negligible for any practical deployment. 
+
+3. Efficiency in Complex Pipelines (Exp 5.3.2): In the LunarLander RL setting, we observe that RQ-TTSA (2.69 ms) performs on par with standard methods (e.g., MA-SOBA at 2.68 ms) and is faster than AccBO (2.89 ms). This suggests that in complex pipelines involving environment interaction and forward passes, the sorting overhead is completely overshadowed by system variance and other computational factors. Table 9: Comprehensive Wall-Clock Time Comparison (Time per Iteration in milliseconds). RQ-TTSA introduces negligible overhead in computational-heavy tasks (Vision/RL). Even in lightweight toy problems, the absolute cost increase is sub-millisecond.                                                                                
+
+> Method Exp 5.1.1 (Synth) Exp 5.2.2 (Vision) Exp 5.3.1 (Game) Exp 5.3.2 (RL)
+> Synthetic Fashion-MNIST Zero-Sum Impulse LunarLander TTSA 1.25 ±0.22 12.38 ±0.05 0.67 ±0.01 2.61 ±0.32 BiSLS 1.13 ±0.02 12.37 ±0.03 0.69 ±0.01 2.76 ±0.08 MA-SOBA 1.16 ±0.04 12.42 ±0.03 0.70 ±0.01 2.68 ±0.02 AccBO 1.20 ±0.01 12.46 ±0.05 0.72 ±0.01 2.89 ±0.05
+> ψ-Variant 1.19 ±0.09 12.44 ±0.08 0.68 ±0.01 2.43 ±0.04 RQ-TTSA 1.38 ±0.02 12.71 ±0.06 0.96 ±0.01 2.69 ±0.03
+
+Conclusion: While RQ-TTSA theoretically incurs a sorting cost, empirical evidence across di-verse domains confirms that this cost is computationally insignificant relative to the stability gains it provides. The overhead is effectively amortized in deep learning and reinforcement learning workflows. 
+
+## G Practical Tuning Guide for the Quantile Threshold τ
+
+This section elaborates on the physical intuition of the quantile threshold τ and provides practical per-task tuning guidelines for RQ-TTSA in different robust optimization scenarios. 
+
+G.1 Dimensionless Robustness 
+
+The primary advantage of a quantile-based threshold τ over a fixed value ψ is its dimensionless nature . In a standard optimization task, the absolute norm of the gradient can vary by several orders of magnitude (e.g., 10 1 in vision tasks vs. 10 −3 in some RL environments). A fixed threshold requires manual scale-matching for every new problem. In contrast, τ = 0 .9 consistently represents the decision to filter the most extreme 10% of stochastic signals, regardless of the underlying scale. As shown in our sensitivity analysis (H), this leads to a remarkably flat performance landscape, where a wide range of τ values yields superior results compared to unclipped baselines. 
+
+G.2 Bias-Variance Trade-off Strategy 
+
+The choice of τ is fundamentally a trade-off between approximation bias and variance control. Based on our extensive empirical evaluations, we suggest the following heuristics: 27 • High-Signal Environments (e.g., Fashion-MNIST, standard Vision): In these settings, gradients are relatively reliable, and the goal is only to prune rare destructive spikes. We recommend a high τ ∈ [0 .9, 0.95] . This maintains a Low Bias strategy, preserving the fine-grained geometric information of the local landscape while ensuring basic stability. • Impulsive or Heavy-Tailed Environments (e.g., Momentum Poisoning, Offline RL): 
+
+When the stochastic oracle is frequently corrupted by high-magnitude outliers (infinite variance regime), the priority shifts to system survival. We recommend a lower τ ∈
+
+[0 .5, 0.7] . This represents a Low Variance strategy, where we intentionally accept a higher approximation bias to achieve a strictly bounded effective variance, preventing catastrophic divergence. 
+
+G.3 Summary of Recommended Settings 
+
+For most unknown bilevel optimization tasks, we found that τ = 0 .8 serves as a robust default starting point. If the training loss exhibits frequent, large upward spikes, τ should be decreased. Conversely, if the convergence speed is significantly slower than standard TTSA in a noise-free setting, τ should be increased to reduce bias. 
+
+## H Extended Sensitivity and Complexity Analysis 
+
+In this section, we provide a detailed evaluation of RQ-TTSA’s sensitivity to its core hyperparameters: the quantile threshold τ and the moving average window size W . The experiments are conducted on the Fashion-MNIST dataset using the same Momentum-Integrated setup described in Section 5.2.2. 
+
+H.1 Hyperparameter Sensitivity on Fashion-MNIST 
+
+We perform a grid search over τ ∈ { 0.5, 0.6, 0.7, 0.8, 0.9, 0.95 } and W ∈ { 25 , 50 , 100 , 200 } to assess how distribution-aware truncation affects convergence and stability. Table 10 summarizes representative configurations. Figure 8 presents a detailed sensitivity landscape, revealing a distinct performance dichotomy governed by the interaction between history length and clipping aggressiveness. In the top-left region ( W ≤ 50 , τ ≤ 0.6), the heatmap exhibits elevated validation loss (indicated by red/pink hues, ≥ 0.785 ). This visual evidence suggests that a minimal buffer ( W ≤ 50 ) is insufficient to capture stable gradient statistics. Furthermore, when combined with aggressive clipping ( τ ≤ 0.6), the algorithm potentially suppresses essential structural signals under the guise of noise reduction, thereby impeding the model’s ability to reach optimal minima. Conversely, larger windows ( W = 200 )coupled with moderate truncation ( τ ≥ 0.9) yield the most stable convergence trajectories. In contrast, the landscape transitions into a deep blue stability basin towards the bottom-right, particularly within the area highlighted by the dashed box ( W ≥ 150 , τ ≥ 0.90 ). Here, the loss stabilizes at its minimum ( ≈ 0.770 ), confirming that a larger moving average window effectively smooths out estimation variance. Furthermore, the preference for higher quantile thresholds ( τ →
+
+0.97 ) indicates that the optimal strategy is to clip only the most extreme heavy-tailed outliers while preserving the majority of the gradient information. The uniform color consistency within this dashed region demonstrates that RQ-TTSA achieves high robustness, maintaining optimal performance insensitive to local hyperparameter perturbations once within this regime. Table 10: Sensitivity of RQ-TTSA to hyperparameters τ and W on Fashion-MNIST. Each cell reports the terminal Validation Loss and its corresponding standard deviation (in parentheses) over 5 seeds.                                                                    
+
+> Quantile Threshold τ
+> Window Size W0.6 0.7 0.8 0.9 0.95 W=25 0.7865 (±0.0802) 0.7813 (±0.0783) 0.7751 (±0.0769) 0.7714 (±0.0775) 0.7699 (±0.0770)
+> W=50 0.7821 (±0.0774) 0.7774 (±0.0769) 0.7738 (±0.0766) 0.7702 (±0.0757) 0.7691 (±0.0763)
+> W=100 0.7764 (±0.0762) 0.7732 (±0.0761) 0.7712 (±0.0763) 0.7695 (±0.0764) 0.7684 (±0.0767)
+> W=200 0.7725 (±0.0759) 0.7696 (±0.0763) 0.7687 (±0.0769) 0.7675 (±0.0767) 0.7670 (±0.0772)
+
+28 Figure 8: RQ-TTSA Sensitivity Analysis on Fashion-MNIST. The heatmap illustrates the terminal validation loss across various quantile thresholds τ and window sizes W . The optimal configuration is identified at W = 100 , τ = 0 .95 , though the overall landscape demonstrates significant robustness to parameter selection. 
+
+## I Code Availability and Reproducibility 
+
+To support the reproducibility of our empirical results, we provide the complete source code, including the implementation of RQ-TTSA, baseline comparisons (TTSA, BiSLS, MA-SOBA, AccBO), and all task-specific scripts. The source code has been uploaded to an anonymous GitHub repository, with the access link provided in the code_ICML_RQTTSA2.txt file within the supplementary materials. Furthermore, to facilitate a comprehensive review of all experimental procedures, the complete code is also provided in the code_ICML_RQTTSA2.ipynb file in the supplementary materials, systematically categorized and organized by experiment name. 29 NeurIPS Paper Checklist 
+
+1. Claims 
+
+Question: Do the main claims made in the abstract and introduction accurately reflect the paper’s contributions and scope? Answer: [Yes] Justification: The theoretical claims are explicitly supported by Section 4 (Theoretical Analysis), and the empirical claims are validated in Section 5 (Experiments). Guidelines: • The answer [N/A] means that the abstract and introduction do not include the claims made in the paper. • The abstract and/or introduction should clearly state the claims made, including the contributions made in the paper and important assumptions and limitations. A [No] or [N/A] answer to this question will not be perceived well by the reviewers. • The claims made should match theoretical and experimental results, and reflect how much the results can be expected to generalize to other settings. • It is fine to include aspirational goals as motivation as long as it is clear that these goals are not attained by the paper. 2. Limitations 
+
+Question: Does the paper discuss the limitations of the work performed by the authors? Answer: [Yes] Justification: We discussed the limitations and scope in Section 6 (Conclusion) and the Impact Statement. Guidelines: • The answer [N/A] means that the paper has no limitation while the answer [No] means that the paper has limitations, but those are not discussed in the paper. • The authors are encouraged to create a separate “Limitations” section in their paper. • The paper should point out any strong assumptions and how robust the results are to violations of these assumptions (e.g., independence assumptions, noiseless settings, model well-specification, asymptotic approximations only holding locally). The authors should reflect on how these assumptions might be violated in practice and what the implications would be. • The authors should reflect on the scope of the claims made, e.g., if the approach was only tested on a few datasets or with a few runs. In general, empirical results often depend on implicit assumptions, which should be articulated. • The authors should reflect on the factors that influence the performance of the approach. For example, a facial recognition algorithm may perform poorly when image resolution is low or images are taken in low lighting. Or a speech-to-text system might not be used reliably to provide closed captions for online lectures because it fails to handle technical jargon. • The authors should discuss the computational efficiency of the proposed algorithms and how they scale with dataset size. • If applicable, the authors should discuss possible limitations of their approach to address problems of privacy and fairness. • While the authors might fear that complete honesty about limitations might be used by reviewers as grounds for rejection, a worse outcome might be that reviewers discover limitations that aren’t acknowledged in the paper. The authors should use their best judgment and recognize that individual actions in favor of transparency play an impor-tant role in developing norms that preserve the integrity of the community. Reviewers will be specifically instructed to not penalize honesty concerning limitations. 3. Theory assumptions and proofs 
+
+Question: For each theoretical result, does the paper provide the full set of assumptions and a complete (and correct) proof? 30 Answer: [Yes] Justification: All assumptions are formally stated in Section 4.1, and complete proofs are provided in Appendix A. Guidelines: • The answer [N/A] means that the paper does not include theoretical results. • All the theorems, formulas, and proofs in the paper should be numbered and cross-referenced. • All assumptions should be clearly stated or referenced in the statement of any theorems. • The proofs can either appear in the main paper or the supplemental material, but if they appear in the supplemental material, the authors are encouraged to provide a short proof sketch to provide intuition. • Inversely, any informal proof provided in the core of the paper should be complemented by formal proofs provided in appendix or supplemental material. • Theorems and Lemmas that the proof relies upon should be properly referenced. 4. Experimental result reproducibility 
+
+Question: Does the paper fully disclose all the information needed to reproduce the main ex-perimental results of the paper to the extent that it affects the main claims and/or conclusions of the paper (regardless of whether the code and data are provided or not)? Answer: [Yes] Justification: Detailed hyperparameter configurations, network architectures, and training setups are systematically documented in Appendix D. Guidelines: • The answer [N/A] means that the paper does not include experiments. • If the paper includes experiments, a [No] answer to this question will not be perceived well by the reviewers: Making the paper reproducible is important, regardless of whether the code and data are provided or not. • If the contribution is a dataset and/or model, the authors should describe the steps taken to make their results reproducible or verifiable. • Depending on the contribution, reproducibility can be accomplished in various ways. For example, if the contribution is a novel architecture, describing the architecture fully might suffice, or if the contribution is a specific model and empirical evaluation, it may be necessary to either make it possible for others to replicate the model with the same dataset, or provide access to the model. In general. releasing code and data is often one good way to accomplish this, but reproducibility can also be provided via detailed instructions for how to replicate the results, access to a hosted model (e.g., in the case of a large language model), releasing of a model checkpoint, or other means that are appropriate to the research performed. • While NeurIPS does not require releasing code, the conference does require all submis-sions to provide some reasonable avenue for reproducibility, which may depend on the nature of the contribution. For example (a) If the contribution is primarily a new algorithm, the paper should make it clear how to reproduce that algorithm. (b) If the contribution is primarily a new model architecture, the paper should describe the architecture clearly and fully. (c) If the contribution is a new model (e.g., a large language model), then there should either be a way to access this model for reproducing the results or a way to reproduce the model (e.g., with an open-source dataset or instructions for how to construct the dataset). (d) We recognize that reproducibility may be tricky in some cases, in which case authors are welcome to describe the particular way they provide for reproducibility. In the case of closed-source models, it may be that access to the model is limited in some way (e.g., to registered users), but it should be possible for other researchers to have some path to reproducing or verifying the results. 5. Open access to data and code 
+
+31 Question: Does the paper provide open access to the data and code, with sufficient instruc-tions to faithfully reproduce the main experimental results, as described in supplemental material? Answer: [Yes] Justification: We have provided an anonymous GitHub repository link to our source code and scripts in Appendix H to support reproducibility. Guidelines: • The answer [N/A] means that paper does not include experiments requiring code. • Please see the NeurIPS code and data submission guidelines ( https://neurips.cc/ public/guides/CodeSubmissionPolicy ) for more details. • While we encourage the release of code and data, we understand that this might not be possible, so [No] is an acceptable answer. Papers cannot be rejected simply for not including code, unless this is central to the contribution (e.g., for a new open-source benchmark). • The instructions should contain the exact command and environment needed to run to reproduce the results. See the NeurIPS code and data submission guidelines ( https: //neurips.cc/public/guides/CodeSubmissionPolicy ) for more details. • The authors should provide instructions on data access and preparation, including how to access the raw data, preprocessed data, intermediate data, and generated data, etc. • The authors should provide scripts to reproduce all experimental results for the new proposed method and baselines. If only a subset of experiments are reproducible, they should state which ones are omitted from the script and why. • At submission time, to preserve anonymity, the authors should release anonymized versions (if applicable). • Providing as much information as possible in supplemental material (appended to the paper) is recommended, but including URLs to data and code is permitted. 6. Experimental setting/details 
+
+Question: Does the paper specify all the training and test details (e.g., data splits, hyperpa-rameters, how they were chosen, type of optimizer) necessary to understand the results? Answer: [Yes] Justification: All relevant experimental settings, including grid search details and optimizer choices, are documented in Section 5 and comprehensively in Appendix D. Guidelines: • The answer [N/A] means that the paper does not include experiments. • The experimental setting should be presented in the core of the paper to a level of detail that is necessary to appreciate the results and make sense of them. • The full details can be provided either with the code, in appendix, or as supplemental material. 7. Experiment statistical significance 
+
+Question: Does the paper report error bars suitably and correctly defined or other appropriate information about the statistical significance of the experiments? Answer: [Yes] Justification: We report mean and standard deviations across multiple random seeds (e.g., 5 seeds for synthetic/RL tasks, and 10 seeds for Fashion-MNIST). Guidelines: • The answer [N/A] means that the paper does not include experiments. • The authors should answer [Yes] if the results are accompanied by error bars, confidence intervals, or statistical significance tests, at least for the experiments that support the main claims of the paper. • The factors of variability that the error bars are capturing should be clearly stated (for example, train/test split, initialization, random drawing of some parameter, or overall run with given experimental conditions). 32 • The method for calculating the error bars should be explained (closed form formula, call to a library function, bootstrap, etc.) • The assumptions made should be given (e.g., Normally distributed errors). • It should be clear whether the error bar is the standard deviation or the standard error of the mean. • It is OK to report 1-sigma error bars, but one should state it. The authors should preferably report a 2-sigma error bar than state that they have a 96% CI, if the hypothesis of Normality of errors is not verified. • For asymmetric distributions, the authors should be careful not to show in tables or figures symmetric error bars that would yield results that are out of range (e.g., negative error rates). • If error bars are reported in tables or plots, the authors should explain in the text how they were calculated and reference the corresponding figures or tables in the text. 8. Experiments compute resources 
+
+Question: For each experiment, does the paper provide sufficient information on the com-puter resources (type of compute workers, memory, time of execution) needed to reproduce the experiments? Answer: [Yes] Justification: The specific compute resources (NVIDIA A100 GPU) and empirical runtime analysis per iteration are disclosed in Appendix E. Guidelines: • The answer [N/A] means that the paper does not include experiments. • The paper should indicate the type of compute workers CPU or GPU, internal cluster, or cloud provider, including relevant memory and storage. • The paper should provide the amount of compute required for each of the individual experimental runs as well as estimate the total compute. • The paper should disclose whether the full research project required more compute than the experiments reported in the paper (e.g., preliminary or failed experiments that didn’t make it into the paper). 9. Code of ethics 
+
+Question: Does the research conducted in the paper conform, in every respect, with the NeurIPS Code of Ethics https://neurips.cc/public/EthicsGuidelines ?Answer: [Yes] Justification: This research focuses on fundamental optimization algorithms and strictly conforms to the NeurIPS Code of Ethics. Guidelines: • The answer [N/A] means that the authors have not reviewed the NeurIPS Code of Ethics. • If the authors answer [No], they should explain the special circumstances that require a deviation from the Code of Ethics. • The authors should make sure to preserve anonymity (e.g., if there is a special consid-eration due to laws or regulations in their jurisdiction). 10. Broader impacts 
+
+Question: Does the paper discuss both potential positive societal impacts and negative societal impacts of the work performed? Answer: [N/A] Justification: This paper develops a generic theoretical optimization algorithm and does not focus on applications with direct positive or negative societal impacts. Guidelines: • The answer [N/A] means that there is no societal impact of the work performed. 33 • If the authors answer [N/A] or [No], they should explain why their work has no societal impact or why the paper does not address societal impact. • Examples of negative societal impacts include potential malicious or unintended uses (e.g., disinformation, generating fake profiles, surveillance), fairness considerations (e.g., deployment of technologies that could make decisions that unfairly impact specific groups), privacy considerations, and security considerations. • The conference expects that many papers will be foundational research and not tied to particular applications, let alone deployments. However, if there is a direct path to any negative applications, the authors should point it out. For example, it is legitimate to point out that an improvement in the quality of generative models could be used to generate Deepfakes for disinformation. On the other hand, it is not needed to point out that a generic algorithm for optimizing neural networks could enable people to train models that generate Deepfakes faster. • The authors should consider possible harms that could arise when the technology is being used as intended and functioning correctly, harms that could arise when the technology is being used as intended but gives incorrect results, and harms following from (intentional or unintentional) misuse of the technology. • If there are negative societal impacts, the authors could also discuss possible mitigation strategies (e.g., gated release of models, providing defenses in addition to attacks, mechanisms for monitoring misuse, mechanisms to monitor how a system learns from feedback over time, improving the efficiency and accessibility of ML). 11. Safeguards 
+
+Question: Does the paper describe safeguards that have been put in place for responsible release of data or models that have a high risk for misuse (e.g., pre-trained language models, image generators, or scraped datasets)? Answer: [N/A] Justification: The paper does not release large-scale datasets or models with a high risk for misuse. Guidelines: • The answer [N/A] means that the paper poses no such risks. • Released models that have a high risk for misuse or dual-use should be released with necessary safeguards to allow for controlled use of the model, for example by requiring that users adhere to usage guidelines or restrictions to access the model or implementing safety filters. • Datasets that have been scraped from the Internet could pose safety risks. The authors should describe how they avoided releasing unsafe images. • We recognize that providing effective safeguards is challenging, and many papers do not require this, but we encourage authors to take this into account and make a best faith effort. 12. Licenses for existing assets 
+
+Question: Are the creators or original owners of assets (e.g., code, data, models), used in the paper, properly credited and are the license and terms of use explicitly mentioned and properly respected? Answer: [N/A] Justification: We strictly use standard public environments (e.g., Gymnasium LunarLander) and datasets (USPS, Fashion-MNIST) following their original, well-known public licenses without modification. Guidelines: • The answer [N/A] means that the paper does not use existing assets. • The authors should cite the original paper that produced the code package or dataset. • The authors should state which version of the asset is used and, if possible, include a URL. • The name of the license (e.g., CC-BY 4.0) should be included for each asset. 34 • For scraped data from a particular source (e.g., website), the copyright and terms of service of that source should be provided. • If assets are released, the license, copyright information, and terms of use in the package should be provided. For popular datasets, paperswithcode.com/datasets 
+
+has curated licenses for some datasets. Their licensing guide can help determine the license of a dataset. • For existing datasets that are re-packaged, both the original license and the license of the derived asset (if it has changed) should be provided. • If this information is not available online, the authors are encouraged to reach out to the asset’s creators. 13. New assets 
+
+Question: Are new assets introduced in the paper well documented and is the documentation provided alongside the assets? Answer: [N/A] Justification: The paper does not release new datasets or similar assets. Guidelines: • The answer [N/A] means that the paper does not release new assets. • Researchers should communicate the details of the dataset/code/model as part of their submissions via structured templates. This includes details about training, license, limitations, etc. • The paper should discuss whether and how consent was obtained from people whose asset is used. • At submission time, remember to anonymize your assets (if applicable). You can either create an anonymized URL or include an anonymized zip file. 14. Crowdsourcing and research with human subjects 
+
+Question: For crowdsourcing experiments and research with human subjects, does the paper include the full text of instructions given to participants and screenshots, if applicable, as well as details about compensation (if any)? Answer: [N/A] Justification: The research involves synthetic, simulation, and standard dataset benchmarks and does not involve human subjects or crowdsourcing. Guidelines: • The answer [N/A] means that the paper does not involve crowdsourcing nor research with human subjects. • Including this information in the supplemental material is fine, but if the main contribu-tion of the paper involves human subjects, then as much detail as possible should be included in the main paper. • According to the NeurIPS Code of Ethics, workers involved in data collection, curation, or other labor should be paid at least the minimum wage in the country of the data collector. 15. Institutional review board (IRB) approvals or equivalent for research with human subjects 
+
+Question: Does the paper describe potential risks incurred by study participants, whether such risks were disclosed to the subjects, and whether Institutional Review Board (IRB) approvals (or an equivalent approval/review based on the requirements of your country or institution) were obtained? Answer: [N/A] Justification: The research does not involve human subjects, hence IRB approval is not applicable. Guidelines: • The answer [N/A] means that the paper does not involve crowdsourcing nor research with human subjects. 35 • Depending on the country in which research is conducted, IRB approval (or equivalent) may be required for any human subjects research. If you obtained IRB approval, you should clearly state this in the paper. • We recognize that the procedures for this may vary significantly between institutions and locations, and we expect authors to adhere to the NeurIPS Code of Ethics and the guidelines for their institution. • For initial submissions, do not include any information that would break anonymity (if applicable), such as the institution conducting the review. 16. Declaration of LLM usage 
+
+Question: Does the paper describe the usage of LLMs if it is an important, original, or non-standard component of the core methods in this research? Note that if the LLM is used only for writing, editing, or formatting purposes and does not impact the core methodology, scientific rigor, or originality of the research, declaration is not required. Answer: [N/A] Justification: LLMs were not used as a core component of the methodology. Their use was strictly limited to text editing and formatting assistance. Guidelines: • The answer [N/A] means that the core method development in this research does not involve LLMs as any important, original, or non-standard components. • Please refer to our LLM policy in the NeurIPS handbook for what should or should not be described. 36
