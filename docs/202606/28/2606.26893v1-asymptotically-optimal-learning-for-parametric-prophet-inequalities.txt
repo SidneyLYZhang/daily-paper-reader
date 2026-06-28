@@ -1,0 +1,8157 @@
+Title: Asymptotically Optimal Learning for Parametric Prophet Inequalities
+
+URL Source: https://arxiv.org/pdf/2606.26893v1
+
+Published Time: Fri, 26 Jun 2026 00:52:17 GMT
+
+Number of Pages: 76
+
+Markdown Content:
+# Asymptotically Optimal Learning for Parametric Prophet Inequalities 
+
+Jung-hun Kim 1, Anna Grebennikova 2, and Vianney Perchet 1,3 1FairPlay Team, CREST, ENSAE, Institut Polytechnique de Paris 
+
+> 2
+
+UFR IM2AG, Université Grenoble Alpes 
+
+> 3
+
+Criteo AI Lab 
+
+junghun.kim@ensae.fr anna.grebennikova@etu.univ-grenoble-alpes.fr vianney.perchet@normalesup.org 
+
+Abstract 
+
+We study learning in prophet inequalities with i.i.d. rewards drawn from an exponential-type parametric family with an unknown parameter θ, a class that includes exponential, Pareto, and bounded-support power-family distributions. We first characterize the optimal full-information asymptotic competitive ratio for this family. In the unbounded-support case, the limit is 
+
+(θ/ (θ − c+)) c+/θ /Γ(1 − c+/θ ), while in the bounded-support case, the limit is 1. We then propose a confidence-based dynamic-programming policy for online learning. By exploiting the explicit parametric structure, the policy achieves the same optimal asymptotic competi-tive ratio using only online observations, without external offline samples. We further derive distribution-specific convergence rates for canonical examples. Finally, numerical experiments on synthetic instances illustrate the performance of our algorithm. 
+
+# 1 Introduction 
+
+Prophet inequalities are a fundamental model of online decision-making and optimal stopping [Hill and Kertz, 1992]. A decision-maker sequentially observes rewards and must irrevocably decide when to stop and accept the current reward. The benchmark is the prophet, who observes all realizations in advance and obtains the maximum reward. The goal is to design a stopping rule whose expected reward is competitive with this prophet benchmark. This framework has attracted significant attention due to its rich mathematical structure and its broad range of applications, including posted-price mechanisms [Lucier, 2017], online ad allocation [Alaei et al., 2012], and hiring processes in labor markets [Arsenis and Kleinberg, 2022]. Classical prophet inequalities assume that the reward distributions are known. Under this assumption, for i.i.d. reward distributions, Hill and Kertz [1982] established the classical 1 − 1/e 
+
+guarantee, and subsequent work characterized the optimal full-information i.i.d. worst-case constant 
+
+κ ≈ 0.745 [Correa et al., 2017, 2019b]. However, full distributional knowledge is rarely available in applications. This has motivated a growing literature on prophet inequalities with unknown distributions. A central message of this literature is that, for arbitrary unknown distributions, learning is severely limited without sufficient offline samples: in the i.i.d. setting, one cannot improve over the competitive ratio 1/e 
+
+with o(n) offline samples [Correa et al., 2019a]. Achieving near-optimal worst-case guarantees for 1
+
+> arXiv:2606.26893v1 [cs.LG] 25 Jun 2026
+
+arbitrary distributions requires substantial distributional information, such as Θ( n) or more offline samples [Rubinstein et al., 2020]. Thus, in the absence of structure, learning prophet inequalities is constrained by strong sample-complexity barriers. A complementary perspective is to seek distribution-specific asymptotic performance beyond distribution-free worst-case guarantees. Goldenshluger and Zeevi [2022] pursue this direction us-ing nonparametric relative-rank-based rules, establishing first-order asymptotic optimality in the Gumbel and reverse-Weibull domains. However, because their rules use only relative ranks, they cannot exploit parametric information in the observed reward values. This restriction is espe-cially pronounced in the Fréchet heavy-tailed regime: no relative rank-based rule can attain the full-information Fréchet heavy-tailed limit, as discussed later. Even where the relative rank-based framework applies, its nonparametric rates can be slower than those achievable under stronger parametric structure. Another closely related direction is online learning in structured prophet inequality models. Kim and Perchet [2026] study prophet inequalities under a linear reward structure with an unknown parameter and a known feature distribution. Their objective, however, is to recover the classical distribution-agnostic guarantee of 1 − 1/e . This guarantee is robust but not distribution-specific: it can be strictly below the optimal ratio achievable within a given distribution class, and is also below the optimal full-information i.i.d. worst-case constant κ ≈ 0.745 .These works motivate the following question: Can one exploit parametric distributional structure to learn the unknown parameter online and match the full-information distribution-specific bench-mark? We answer this question affirmatively for an exponential-type parametric family, which includes light-tailed, heavy-tailed, and bounded-support models such as exponential, Pareto, and bounded-support power-family distributions. Our goal is not to recover a distribution-agnostic worst-case constant, but to learn the parameter from online observations alone and match the full-information distribution-specific asymptotic competitive ratio. Our main contributions are summa-rized as follows. 
+
+• Optimal full-information asymptotics. We characterize the asymptotically optimal com-petitive ratio for the proposed exponential-type family when the distribution parameter θ is known. In the unbounded-support case, the limiting optimal ratio is 1Γ(1 −c+/θ )
+
+ θθ−c+
+
+c+/θ 
+
+,
+
+which is governed by the endpoint-growth parameter c+. In the bounded-support case, the optimal competitive ratio converges to 1.
+
+• Online learning with asymptotically optimal guarantees. We propose a confidence-based dynamic-programming policy for online learning. The policy first estimates the un-known distribution parameter from an initial exploration phase, constructs an upper confi-dence bound, and then applies the corresponding plug-in DP thresholds. By exploiting the explicit parametric structure, the proposed policy achieves the same asymptotically optimal competitive ratio as the optimal known-parameter policy, using only online observations and no external offline samples. 
+
+• Distribution-specific convergence guarantees. We derive refined convergence guarantees for representative distributions, including exponential, Pareto, and bounded-support power-family rewards. For exponential and bounded-support examples, our policy matches the convergence rates of the corresponding full-information optimal policies. For Pareto heavy-tailed rewards, we obtain a Pareto-specific convergence guarantee showing convergence to the full-information limiting ratio. These results show how tail or endpoint structure governs the speed of convergence, and are supported by numerical experiments. 22 Related Work 
+
+Prophet inequalities with known distributions. The classical prophet inequality was initi-ated by Krengel and Sucheston [1978]. Building on this line of work, Samuel-Cahn [1984] showed that a single threshold achieves the optimal 1/2 competitive ratio for independent non-identical rewards. For i.i.d. rewards, Hill and Kertz [1982] established stronger guarantees of 1 − 1/e , and later work characterized the optimal full-information i.i.d. competitive ratio as constant κ ≈ 0.745 
+
+[Correa et al., 2017]. These works assume that the reward distribution is known, whereas our focus is on learning the unknown parameter of a structured distribution online. 
+
+Unknown distributions and sample-based prophet inequalities. Correa et al. [2019a] stud-ied i.i.d. prophet inequalities with an unknown distribution and showed that, with no samples or even o(n) samples, the best possible ratio is 1/e . They also showed that n−1 samples yield a 1−1/e 
+
+guarantee and that O(n2) samples suffice to approach the optimal full-information constant κ. Ru-binstein et al. [2020] improved the i.i.d. sample complexity to O(n/ε 6) for an κ − O(ε) guarantee. Our work is complementary: instead of using external offline samples from an arbitrary distribution, we exploit a parametric form and learn the unknown parameter from the online observations. 
+
+Rank-based stopping and extreme-value theory. Goldenshluger and Zeevi [2022] studied optimal stopping for i.i.d. observations from an unknown continuous distribution using relative-rank-based rules. Their analysis is closely connected to extreme-value theory: they establish first-order asymptotic optimality in the Gumbel and reverse-Weibull domains, whereas in the Fréchet domain vanishing relative regret is impossible. Our endpoint regularity conditions admit a sim-ilar extreme-value interpretation. In contrast to their nonparametric, rank-based approach, we exploit parametric rewards to attain optimal distribution-specific asymptotic ratios across light-tailed, heavy-tailed, and bounded-support models within our family, with sharper convergence rates in canonical examples. 
+
+Structured and parametric learning in prophet inequalities. Kim and Perchet [2026] study prophet inequalities under a linear reward structure with an unknown parameter and a known feature distribution, and recover the classical 1−1/e guarantee. Their setting is structurally different from ours, and the resulting guarantee is distribution-agnostic rather than distribution-specific. In particular, it can be below the optimal ratio for a given distribution class and the optimal worst-case full-information i.i.d. constant κ ≈ 0.745 . Parametric learning in optimal stopping was also studied by Martinsek [1984] for exponential rewards with an unknown mean. In contrast, we consider finite-horizon prophet inequalities for a parametric exponential-type family with an unknown distribution parameter, and learn this parameter online to achieve the optimal distribution-specific competitive ratio. 
+
+# 3 Problem Statement 
+
+We consider the classical prophet-inequality framework over a finite horizon n ∈ N, where an i.i.d. nonnegative random reward Xi ≥ 0 is revealed sequentially to the decision maker (or gambler) at each stage i ∈ [n]. For the reward distribution, we consider a exponential-type parametric family ,defined as follows. 3Definition 1 (Exponential-Type Parametric Family) . We consider a parameter family with latent 
+
+θ > 0 and an upper support xF ∈ (x0, ∞], whose CDF is 
+
+Fθ(x) = 
+
+
+
+0, x < x 0,
+
+1 − exp( −θϕ (x)) , x0 ≤ x < x F ,
+
+1, x ≥ xF ,
+
+where ϕ : [ x0, x F ) → [0 , ∞) is a known strictly increasing function with ϕ(x0) = 0 and ϕ(x) →∞ as x ↑ xF .
+
+Online stopping objective. Let X1, . . . , X n be i.i.d. rewards drawn from Fθ under an unknown 
+
+parameter θ. A policy is a stopping time τ ∈ { 1, . . . , n } ∪ { n + 1 } adapted to the sequential observations (Xt)t≥1: after observing Xt, the decision-maker either stops and receives reward Xt,or continues to t + 1 (and can never return to t). We define Xn+1 := 0 to be the reward for the case when the stopping rule continues over all periods in [n]. The benchmark is the prophet value OPT( θ) := Eθ[max t∈[n] Xt], and the goal is to design a policy (not knowing θ) with a large competitive ratio 
+
+CR n(τ ; θ) = Eθ[Xτ ]OPT( θ) ,
+
+where Eθ denotes expectation under X1, . . . , X n i.i.d.
+
+∼ Fθ; we write E when θ is clear. 
+
+# 4 Preliminary Results 
+
+In this section, we derive an estimation guarantee for the exponential-type parametric family and introduce benchmark policies for comparison. 
+
+4.1 Estimator and Confidence Bound 
+
+Let Yi := ϕ(Xi) for i ∈ [n]. Then Yi ∼ Exp( θ), where Exp( θ) denotes the exponential distribution with rate θ. Since an exponential random variable with rate θ has mean 1/θ , we have θ = 1 
+
+> E[Yi]
+
+. This motivates the plug-in estimator bθm =   1
+
+> m
+
+Pmi=1 Yi
+
+−1 , and the corresponding estimated cumulative distribution function Fbθm (x) = 1 − exp  −bθmϕ(x). We next provide a confidence bound for bθm; see Appendix A.1 for the proof. 
+
+Lemma 2. For ε ∈ (0 , 1) , when m ≥ 4 
+
+> ε2
+
+log(2 /δ ) for δ ∈ (0 , 1] , with probability at least 1 − δ,
+
+θ
+
+bθm
+
+− 1 ≤ ε. 
+
+4.2 Baseline Policies 
+
+We next discuss two natural baseline policies. The first is a distribution-specific nonparametric baseline based on relative ranks. The second is a distribution-agnostic sample-based baseline using the confidence bound from the previous section. 4Rank-based distribution-specific baseline. A natural nonparametric baseline is the relative-rank-based rule of Goldenshluger and Zeevi [2022], which uses only the relative ranks of the ob-servations. It achieves first-order asymptotic optimality, in the sense of vanishing relative regret, in the Gumbel and reverse-Weibull domains. Specifically, for the exponential distribution, their guarantees imply CR n(τ ; θ) ≥ 1 − O(log log log n/ log n) , whereas for the uniform distribution on a bounded interval, they imply CR n(τ ; θ) ≥ 1 − O(log n/n ) , as n → ∞ . These convergence rates towards the optimal limit of 1 are useful nonparametric baselines, but they are not tailored to parametric subfamilies where sharper rates are possible. Moreover, as discussed later, the relative rank-based framework does not recover the full-information distribution-specific limit in the Fréchet heavy-tailed domain. 
+
+Distribution-agnostic sample-based baseline. Another natural reference is the Samples-CFHOV 
+
+rule of Rubinstein et al. [2020]. We adapt it to our online setting by estimating the unknown param-eter from the initial observations and then applying sample-based thresholds under the estimated model. With a suitable exploration length, this baseline achieves a competitive ratio arbitrarily close to the optimal i.i.d. worst-case constant κ ≈ 0.745 ; see Appendix A.5. However, it remains distribution-agnostic and does not target the sharper full-information distribution-specific baseline. Our main policy instead uses confidence-based DP thresholds for online learning, tailored to the exponential-type family. This allows us to exploit the parametric structure and achieve the optimal distribution-specific asymptotic competitive ratio, including for heavy-tailed Pareto-type rewards. 
+
+# 5 Optimal Competitive Ratio 
+
+To characterize the full-information asymptotic benchmark, we impose the following endpoint reg-ularity condition. 
+
+Assumption 3 (Endpoint regularity) . Let ψ := ϕ−1, so that ψ : [0 , ∞) → [x0, x F ). Assume that 
+
+ψ is eventually twice differentiable and that one of the following two support regimes holds. (i) Unbounded-support case: xF = ∞. There exist upper-tail growth constants c+, c ′ 
+
+> +
+
+∈ [0 , θ ) s.t. 
+
+lim 
+
+> y→∞
+
+ψ′(y)
+
+ψ(y) = c+, lim 
+
+> y→∞
+
+ψ′′ (y)
+
+ψ′(y) = c′
+
+> +
+
+.
+
+(ii) Bounded-support case: xF < ∞. Let ¯ψ(y) := xF − ψ(y). There exist endpoint-gap decay constants c−, c ′− ∈ [0 , ∞) such that 
+
+lim 
+
+> y→∞
+
+¯ψ′(y)¯ψ(y) = −c−, lim 
+
+> y→∞
+
+¯ψ′′ (y)¯ψ′(y) = −c′−.
+
+Remark 4 (The two endpoint constants coincide) . Assumption 3 is written with two limits in each endpoint regime in order to separate the endpoint-growth condition from the corresponding smoothness condition. However, the two constants are not independent. Whenever both limits exist, they necessarily coincide: 
+
+c+ = c′ 
+
+> +
+
+and c− = c′−.
+
+The proof is given in Appendix A.2. Thus, throughout the paper, we write simply c+ in the unbounded-endpoint case and c− in the bounded-endpoint case. 
+
+5Endpoint indices and finite prophet benchmarks. Since ϕ is strictly increasing, its inverse ψ
+
+is also strictly increasing. Hence ψ′(y) ≥ 0 wherever the derivative exists, and the endpoint indices 
+
+c+ and c− are necessarily nonnegative. The restriction c+ < θ is imposed only in the unbounded-endpoint case. It is an integrability condition: if c+ > θ , then 1 E[Xi] = ∞, and in the boundary case c+ = θ, the mean may still be infinite in general; see Appendix A.3. In contrast, when xF < ∞,the support is bounded above, so E[Xi] ≤ xF < ∞. Therefore no analogous restriction on c− is needed. 
+
+Canonical examples. This family includes several common distributions as special cases. In the unbounded-endpoint case, the exponential distribution corresponds to ϕ(x) = x on [0 , ∞), for which 
+
+ψ(y) = y and hence c+ = 0 . Another example is the Pareto family, obtained from ϕ(x) = log( x/x 0)
+
+on [x0, ∞). In this case ψ(y) = x0ey, so c+ = 1 . In the bounded-support case, a natural example is bounded-support power-family distributions with ϕ(x) = log 
+
+ xF −x0 
+
+> xF−x
+
+
+
+for x ∈ [x0, x F ), for which 
+
+¯ψ(y) = ( xF − x0)e−y and hence c− = 1 . This includes the uniform distribution on [x0, x F ] as the special case θ = 1 .
+
+Remark 5 (Extreme-value interpretation) . The endpoint conditions above have a natural inter-pretation in extreme-value theory. Let U (t) = F −1 
+
+> θ
+
+(1 − 1/t ) = ψ(log t/θ ) . If xF = ∞ and 
+
+ψ′(y)/ψ (y) → c+, then U is regularly varying with index c+/θ . Hence, when c+ > 0, Fθ be-longs to the Fréchet domain of attraction with extreme-value index γ = c+/θ ; the case c+ = 0 is consistent with Gumbel-type behavior. If xF < ∞ and ¯ψ′(y)/ ¯ψ(y) → − c−, then xF − U (t) is reg-ularly varying with index −c−/θ , corresponding to the reverse-Weibull domain with extreme-value index γ = −c−/θ . The derivation is given in Appendix A.4. 
+
+Under Assumption 3, we now analyze the asymptotically optimal competitive ratio for the exponential-type family. The characterization depends on the tail parameter c+ in the unbounded-support case and on the endpoint parameter c− in the bounded-support case. We first provide the optimal ratio for the unbounded support case, and the proof is provided in Appendix A.6. 
+
+Theorem 6 (Optimal ratio for the unbounded-support case) . Suppose Assumption 3(i) holds. Let 
+
+τ ∗ be the optimal full-information stopping rule. Then, for c+ ∈ [0 , θ ), we have 
+
+Eθ[Xτ ∗ ] = 
+
+ θθ − c+
+
+c+/θ 
+
+ψ
+
+ log nθ
+
+
+
+(1 + o(1)) ,
+
+OPT( θ) = Γ 
+
+
+
+1 − c+
+
+θ
+
+
+
+ψ
+
+ log nθ
+
+
+
+(1 + o(1)) ,
+
+and therefore 
+
+lim  
+
+> n→∞
+
+CR n(τ ∗; θ) = 
+
+ θθ−c+
+
+c+/θ 
+
+Γ 1 − c+
+
+> θ
+
+ := ρ(c+, θ ).
+
+We next provide the optimal ratio for the bounded-support case; the proof is in Appendix A.7. 
+
+Theorem 7 (Optimal ratio for the bounded-support case) . Suppose Assumption 3(ii) holds. Let 
+
+τ ∗ be the optimal full-information stopping rule. Then, for c− ≥ 0,
+
+Eθ[Xτ ∗ ] = xF −
+
+ θ + c−
+
+θ
+
+c−/θ 
+
+¯ψ
+
+ log nθ
+
+
+
+(1 + o(1)) ,
+
+> 1In such cases, the prophet benchmark is infinite, so the standard competitive-ratio formulation is not well defined.
+
+6OPT( θ) = xF − Γ
+
+
+
+1 + c−
+
+θ
+
+ ¯ψ
+
+ log nθ
+
+
+
+(1 + o(1)) ,
+
+and, since ¯ψ(log n/θ ) → 0,
+
+lim  
+
+> n→∞
+
+CR n(τ ∗; θ) = 1 .
+
+Remark 8 (Connection to extreme-value asymptotics) . The full-information limits above are con-sistent with EVT-based characterizations of i.i.d. prophet inequalities [Kennedy and Kertz, 1991, Livanos and Mehta, 2025]. In the unbounded-support case, the extreme-value index is γ = c+/θ ∈
+
+[0 , 1) , so ρ(c+, θ ) = (1 − γ)−γ /Γ(1 − γ). In the bounded-support case, γ = −c−/θ ≤ 0, and the standard maximization competitive ratio converges to 1. Our main contribution is to attain these full-information benchmarks under an unknown parameter using only online observations. 
+
+# 6 Confidence-based Dynamic-Programming Policy for Online Learn-ing 
+
+To target the distribution-specific optimal competitive ratio analyzed in the previous section, we propose a confidence-based dynamic-programming (DP) policy for online learning; see Algorithm 1. The algorithm first uses the initial m periods for exploration, during which it only collects observa-tions. It then computes the estimator bθm, constructs an upper confidence bound θ(U ), and applies the DP policy obtained by plugging θ(U ) into the value recursion. Although θ(U ) is an upper confidence bound, a larger rate parameter makes the reward distri-bution stochastically smaller. Thus, the surrogate model yields conservative continuation values and lower plug-in DP thresholds on the event θ(U ) ≥ θ. This prevents the policy from being overly selective under parameter uncertainty. 
+
+6.1 Unbounded-support case 
+
+We first analyze the guarantee of Algorithm 1 in the unbounded-support case, where xF = ∞,under Assumption 3(i). The proof of the following theorem is given in Appendix A.8. 
+
+Theorem 9. For any δ ∈ (0 , 1) , let the exploration length satisfy m = ω(log 2 n log(1 /δ )) and 
+
+m = o(n). Then the stopping policy τ of Algorithm 1 satisfies, 
+
+lim inf  
+
+> n→∞
+
+CR n(τ ; θ) ≥ (1 − δ)ρ(c+, θ ),
+
+where, recall, ρ(c+, θ ) is the optimal ratio of 
+
+ θθ−c+
+
+c+/θ 
+
+/Γ 1 − c+
+
+> θ
+
+.
+
+Theorem 9 shows that Algorithm 1 attains the full-information optimal ratio of Theorem 6 in the unbounded-support case, up to the confidence factor 1 − δ. Since δ ∈ (0 , 1) is arbitrary, the limiting guarantee can be made arbitrarily close to ρ(c+, θ ).When c+ > 0, the extreme-value index is γ = c+/θ ∈ (0 , 1) , placing the model in the Fréchet heavy-tailed domain, where the guarantees of relative rank-based rule in Goldenshluger and Zeevi [2022] do not apply. Moreover, Appendix A.13 shows that any relative rank-based rule is asymp-totically bounded away from the full-information Fréchet benchmark. Thus, exploiting parametric reward values is essential for recovering the optimal heavy-tailed limit. 7Algorithm 1 Confidence-based DP for Online Learning ( CDP-OL )
+
+Ensure: stopping time τ
+
+// Exploration phase  
+
+> 1:
+
+for i = 1 to m do  
+
+> 2:
+
+observe Xi and reject it  
+
+> 3:
+
+end for  
+
+> 4:
+
+set Yi ← ϕ(Xi) for i = 1 , . . . , m  
+
+> 5:
+
+bθm ← m
+
+Pmi=1 Yi
+
+; εm ←
+
+r 4 log(2 /δ )
+
+m ; θ(U) ← (1 + εm)bθm 
+
+> 6:
+
+N ← n − m
+
+// Backward DP under the surrogate parameter θ(U)  
+
+> 7:
+
+bVN ← Eθ(U) [X1] 
+
+> 8:
+
+for i = N − 1, N − 2, . . . , 1 do  
+
+> 9:
+
+bVi ← bVi+1 + rθ(U) ( bVi+1 ), where rη(a) := R xF 
+
+> a
+
+exp( −ηϕ (t)) dt  
+
+> 10:
+
+end for 
+
+// Online stopping phase  
+
+> 11:
+
+for t = 1 to N − 1 do  
+
+> 12:
+
+observe Xm+t 
+
+> 13:
+
+if Xm+t ≥ bVt+1 then  
+
+> 14:
+
+return m + t 
+
+> 15:
+
+end if  
+
+> 16:
+
+end for  
+
+> 17:
+
+return n
+
+6.2 Bounded-support case 
+
+Now we analyze the guarantee of Algorithm 1 in the bounded-support case, where xF < ∞, under Assumption 3(ii). The proof of the following theorem is given in Appendix A.9. 
+
+Theorem 10. For any δ ∈ (0 , 1) , let the exploration length satisfy m = o(n) and m = ω log(1 /δ ) log 2 n.
+
+Then the stopping policy τ of Algorithm 1 satisfies, 
+
+lim inf  
+
+> n→∞
+
+CR n(τ ; θ) ≥ 1 − δ. 
+
+In Theorem 10, we show that our algorithm achieves asymptotically optimal competitive ratio in the bounded-support case, matching the optimal ratio in Theorem 7. 
+
+# 7 Canonical Examples: Exponential, Pareto, and Bounded-Support Families 
+
+In this section, we instantiate the general framework for exponential, Pareto, and bounded-support models. In each case, the explicit form of ϕ allows us to compute the tail integral rη(a), derive the corresponding plug-in DP recursion, and obtain sharper model-specific convergence guarantees. We also compare these rates with those of Goldenshluger and Zeevi [2022]. 
+
+7.1 Exponential Distribution 
+
+We first investigate the case of an exponential reward distribution such that Xi ∼ Exp( θ) with 
+
+θ > 0. This corresponds to ϕ(x) = x on [0 , ∞), so that Fθ(x) = 1 − exp( −θx ) for x ≥ 0. This 8distribution falls into the unbounded-endpoint case and satisfies c+ = 0 . Hence, the limiting optimal competitive ratio is ρ(0 , θ ) = 1 .For the estimated value update in Line 9 of Algorithm 1, note that for any a ≥ 0, rη(a) = 
+
+R ∞ 
+
+> a
+
+e−ηϕ (t) dt = R ∞ 
+
+> a
+
+e−ηt dt = e−ηa  
+
+> η
+
+. Hence the plug-in DP recursion becomes 
+
+bVN = Eθ(U) [X1] = 1
+
+θ(U) , bVi = bVi+1 +exp 
+
+
+
+−θ(U) bVi+1 
+
+
+
+θ(U) , i = 1 , . . . , N − 1. (1) That is, at each stage t ∈ [N ], the algorithm uses the corresponding plug-in DP threshold determined by the above recursion. The following theorem gives its competitive ratio; the proof is in Appendix A.10. 
+
+Theorem 11. Suppose X1, . . . , X n i.i.d.
+
+∼ Exp( θ). For any δ ∈ (0 , 1) , let m = o(n) and m =
+
+ω(log(1 /δ ) log 2 n). Then the stopping policy τ of Algorithm 1 satisfies 
+
+CR n(τ ; θ) ≥ (1 − δ) 1 − O
+
+r log(1 /δ )
+
+m
+
+!
+
+− O
+
+ mn log n
+
+
+
+− O
+
+ 1log n
+
+!
+
+.
+
+The three error terms have different origins. The first term comes from estimating the unknown parameter, the second from discarding the first m observations for exploration, and the last term is the intrinsic full-information finite-horizon gap. In particular, Theorem 11 implies that Algo-rithm 1 is asymptotically optimal in the exponential case, achieving the optimal competitive ratio 
+
+1 from Theorem 6 when c+ = 0 . Optimizing the exploration length m then yields the following convergence rate. 
+
+Corollary 12. Suppose X1, . . . , X n i.i.d.
+
+∼ Exp( θ). For any δ ∈ (0 , 1) , let m = ( n log n)2/3 log 1/3(1 /δ ).
+
+Then the stopping policy τ of Algorithm 1 satisfies 
+
+CR n(τ ; θ) ≥ (1 − δ) 1 − O log 1/3(1 /δ )(n log n)1/3
+
+!
+
+− O
+
+ 1log n
+
+!
+
+.
+
+By taking δ = δn = 1 /n , the estimation and exploration errors become lower order, and the overall competitive-ratio gap is dominated by the intrinsic full-information finite-horizon gap of order 
+
+1/ log n. Thus, the rate matches that of the optimal stopping policy when the distribution parameter is known, as shown below. Compared with the relative rank-based method of Goldenshluger and Zeevi [2022], whose guarantee for the exponential case is O(log log log n/ log n), our parametric approach exploits the exponential-type structure to attain the full-information-optimal O(1 / log n)
+
+rate, thereby removing the extra log log log n factor. The precise full-information convergence rate is given in the following proposition, whose proof is provided in Appendix A.11. 
+
+Proposition 13 (Full-information convergence rate for exponential rewards) . Suppose X1, . . . , X n i.i.d.
+
+∼
+
+Exp( θ), and let τ ∗ be the optimal full-information stopping rule. Then, 
+
+CR n(τ ∗; θ) = 1 − Θ
+
+ 1log n
+
+
+
+.
+
+97.2 Pareto Distribution 
+
+We now consider Pareto rewards Xi ∼ Pareto( θ) with shape parameter θ > 1 (otherwise, E[Xi] = 
+
+∞), and scale parameter x0 > 0. This corresponds to ϕ(x) = log( x/x 0) for x ≥ x0, so that 
+
+Fθ(x) = 1 −   x0
+
+> x
+
+θ for x ≥ x0. This distribution has an unbounded endpoint and satisfies c+ = 1 .For the estimated value update in Line 9 of Algorithm 1, note that for any a ≥ x0 and η > 1,this gives rη(a) = xη
+
+> 0
+
+R ∞ 
+
+> a
+
+t−η dt = xη 
+
+> 0
+> η−1
+
+a1−η. Hence, the plug-in DP recursion becomes 
+
+bVN = Eθ(U) [X1] = θ(U) x0
+
+θ(U) − 1 , bVi = bVi+1 + xθ(U) 
+
+> 0
+
+θ(U) − 1 bV 1−θ(U)  
+
+> i+1
+
+, i = 1 , . . . , N − 1. (2) The following theorem presents the competitive ratio achieved by this algorithm; the proof is in Appendix A.12. 
+
+Theorem 14. Suppose X1, . . . , X n i.i.d.
+
+∼ Pareto( θ) for θ > 1. For any δ ∈ (0 , 1) , let the exploration length satisfy m = o(n) and m = ω(log(1 /δ ) log 2 n). Then the stopping policy τ of Algorithm 1 satisfies 
+
+CR n(τ ; θ) ≥ (1 − δ)ρ(1 , θ )
+
+
+
+1 − O
+
+ mn + log(1 /δ ) log 2 nm
+
+ 
+
+.
+
+In particular, Theorem 14 implies that Algorithm 1 is asymptotically optimal in the Pareto case, achieving the optimal competitive ratio of ρ(1 , θ ) = ( θθ−1 )1/θ  
+
+> Γ(1 −1/θ )
+
+in Theorem 6. Optimizing the exploration length m then yields the following convergence rate. 
+
+Corollary 15. Suppose X1, . . . , X n i.i.d.
+
+∼ Pareto( θ) for θ > 1. For any δ ∈ (0 , 1) , let m =pn log(1 /δ ) log n. Then the stopping policy τ of Algorithm 1 satisfies 
+
+CR n(τ ; θ) ≥ (1 − δ)ρ(1 , θ ) 1 − O
+
+plog(1 /δ ) log n
+
+√n
+
+!! 
+
+.
+
+In contrast, the relative rank-based framework of Goldenshluger and Zeevi [2022] does not recover the full-information Pareto-specific limit in the Fréchet heavy-tailed regime: indeed, no relative rank-based rule can attain ρ(1 , θ ) for Pareto rewards, as shown in Appendix A.13. Our algorithm attains this optimal asymptotic competitive ratio, and this separation is also reflected in the experiments below. Unlike the exponential case, the full-information Pareto DP ratio has no 1/ log n bottleneck; it approaches ρ(1 , θ ) with a smaller finite-horizon correction of order log n/n . Thus, the rate in Corollary 15 is governed by the learning and exploration errors. The corresponding full-information rate is provided in Appendix A.14. 
+
+7.3 Bounded-Support Power Family 
+
+We next investigate the bounded-support power family ϕ(x) = log 
+
+ xF −x0 
+
+> xF−x
+
+
+
+for x ∈ [x0, x F ), for which Fθ(x) = 1 −
+
+ xF −xxF −x0
+
+θ
+
+for x ∈ [x0, x F ] for θ > 0. This includes the uniform distribution on 
+
+[x0, x F ] as the special case θ = 1 .10 For the estimated value update in Line 9 of Algorithm 1, note that for any a ∈ [x0, x F ], rη(a) = 
+
+R xF 
+
+> a
+
+e−ηϕ (t) dt = R xF
+
+> a
+
+ xF −txF −x0
+
+η
+
+dt = (xF −a)η+1   
+
+> (η+1)( xF−x0)η
+
+. Hence the plug-in DP recursion becomes 
+
+bVN = Eθ(U) [X1] = x0 + xF − x0
+
+θ(U) + 1 = xF − θ(U) 
+
+θ(U) + 1 (xF − x0), (3) 
+
+bVi = bVi+1 + (xF − bVi+1 )θ(U) +1 
+
+(θ(U) + 1)( xF − x0)θ(U) , i = 1 , . . . , N − 1. (4) The following theorem presents the competitive ratio achieved by this algorithm; the proof is in Appendix A.15. 
+
+Theorem 16. Suppose X1, . . . , X n i.i.d.
+
+∼ Fθ where Fθ(x) = 1 −
+
+ xF −xxF −x0
+
+θ
+
+for x ∈ [x0, x F ] and θ > 0.For any δ ∈ (0 , 1) , let the exploration length satisfy m = o(n) and m = ω(log(1 /δ ) log 2 n). Then the stopping policy τ of Algorithm 1 satisfies 
+
+CR n(τ ; θ) ≥ (1 − δ)
+
+
+
+1 − O
+
+
+
+n−1/θ  
+
+.
+
+In particular, for the uniform distribution, corresponding to the special case θ = 1 , Theorem 16 with δ = 1 /n yields an O(1 /n ) convergence rate toward the optimal competitive ratio 1. This improves over the O(log n/n ) rate of the relative rank-based approach of Goldenshluger and Zeevi [2022]. More generally, the rate n−1/θ is already the intrinsic finite-horizon rate of the optimal full-information DP policy. The following proposition shows that even when the parameter θ is known, the competitive ratio approaches its limiting value 1 at order n−1/θ . Thus, up to the multiplicative factor 1 − δ, the rate in Theorem 16 matches the full-information finite-horizon rate. 
+
+Proposition 17 (Full-information convergence rate for bounded-support power rewards) . Suppose 
+
+X1, . . . , X n i.i.d.
+
+∼ Fθ where Fθ(x) = 1 −
+
+ xF −xxF −x0
+
+θ
+
+for x ∈ [x0, x F ] and θ > 0. Let τ ∗ be the optimal full-information stopping rule. Then 
+
+CR n(τ ∗; θ) = 1 − Θ
+
+
+
+n−1/θ 
+
+.
+
+# 8 Experiments 
+
+We evaluate Algorithm 1 on exponential, Pareto, and bounded-support rewards, and compare it with three baselines: the secretary-type Gusein-Zade rule [Gusein-Zade, 1966, Correa et al., 2019a], the online Samples-CFHOV variant (Algorithm 2), and the relative rank-based GZ-RANK rule of Goldensh-luger and Zeevi [2022]. Figure 1 shows that our algorithm consistently approaches the corresponding optimal asymptotic ratio and performs favorably against the baselines, especially in the Pareto case where rank-based methods do not guarantee asymptotic optimality. The Samples-CFHOV curve starts later because its required exploration length exceeds the horizon for small n. The detailed setup is described in Appendix A.17. 
+
+# 9 Conclusion 
+
+We studied prophet inequalities for an exponential-type parametric family with an unknown parame-ter. We characterized the full-information distribution-specific asymptotic benchmark and proposed 11 10 2 10 3 10 4 10 5         
+
+> Horizon n
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+> Competitive ratio
+> Exponential
+> 10 210 310 410 5
+> Horizon n
+> Pareto
+> 10 210 310 4
+> Horizon n
+> Bounded Support
+> Algorithm 1 (ours) Gusein-Zade Samples-CFHOV GZ-Rank Theoretical optimum
+
+Figure 1: Competitive-ratio curves for exponential, Pareto, and bounded-support rewards. a confidence-based DP learning policy that attains it using only online observations. Our example-specific analyses and experiments show how parametric structure enables distribution-specific op-timal performance beyond distribution-agnostic worst-case guarantees, including in heavy-tailed settings. 
+
+Limitations. Our guarantees rely on an exponential-type parametric family with a one-dimensional unknown parameter. An interesting direction for future work is to extend this approach to richer parametric, contextual, or misspecified models. 
+
+# References 
+
+Saeed Alaei, MohammadTaghi Hajiaghayi, and Vahid Liaghat. Online prophet-inequality matching with applications to ad allocation. In Proceedings of the 13th ACM Conference on Electronic Commerce , pages 18–35, 2012. Makis Arsenis and Robert Kleinberg. Individual fairness in prophet inequalities. arXiv preprint arXiv:2205.10302 , 2022. José Correa, Patricio Foncea, Ruben Hoeksma, Tim Oosterwijk, and Tjark Vredeveld. Posted price mechanisms for a random stream of customers. In Proceedings of the 2017 ACM Conference on Economics and Computation , pages 169–186, 2017. José Correa, Paul Dütting, Felix Fischer, and Kevin Schewior. Prophet inequalities for iid ran-dom variables from an unknown distribution. In Proceedings of the 2019 ACM Conference on Economics and Computation , pages 3–17, 2019a. Jose Correa, Patricio Foncea, Ruben Hoeksma, Tim Oosterwijk, and Tjark Vredeveld. Recent developments in prophet inequalities. ACM SIGecom Exchanges , 17(1):61–70, 2019b. Thomas S Ferguson. Who solved the secretary problem? Statistical science , 4(3):282–289, 1989. Alexander Goldenshluger and Assaf Zeevi. Optimal stopping of a random sequence with unknown distribution. Mathematics of Operations Research , 47(1):29–49, 2022. SM Gusein-Zade. The problem of choice and the optimal stopping rule for a sequence of independent trials. Theory of Probability & Its Applications , 11(3):472–476, 1966. 12 Theodore P Hill and Robert P Kertz. Comparisons of stop rule and supremum expectations of iid random variables. The Annals of Probability , pages 336–345, 1982. Theodore P Hill and Robert P Kertz. A survey of prophet inequalities in optimal stopping theory. 
+
+Contemporary Mathematics , 125(1):191, 1992. Douglas P Kennedy and Robert P Kertz. The asymptotic behavior of the reward sequence in the optimal stopping of iid random variables. The Annals of Probability , 19(1):329–341, 1991. Jung-hun Kim and Vianney Perchet. Learning in prophet inequalities with noisy observations. In 
+
+The Fourteenth International Conference on Learning Representations , 2026. Ulrich Krengel and Louis Sucheston. On semiamarts, amarts, and processes with finite value. 
+
+Probability on Banach spaces , 4(197-266):1–2, 1978. Vasilis Livanos and Ruta Mehta. Minimization iid prophet inequality via extreme value theory: A unified approach. In Proceedings of the 26th ACM Conference on Economics and Computation ,pages 1157–1179, 2025. Brendan Lucier. An economic view of prophet inequalities. ACM SIGecom Exchanges , 16(1):24–47, 2017. Adam T Martinsek. Approximations to optimal stopping rules for exponential random variables. 
+
+The Annals of Probability , 12(3):876–881, 1984. Aviad Rubinstein, Jack Z Wang, and S Matthew Weinberg. Optimal single-choice prophet inequal-ities from samples. Innovations in Theoretical Computer Science , 2020. Ester Samuel-Cahn. Comparison of threshold stop rules and maximum for independent nonnegative random variables. The Annals of Probability , pages 1213–1216, 1984. 13 A Appendix 
+
+A.1 Proof of Lemma 2 
+
+Let S = Pmi=1 Yi then S follows a Gamma distribution with mean m/θ . Using multiplicative Chernoff bound, for ε ∈ (0 , 1) , we have Pr 
+
+ Sm/θ − 1 ≥ ε
+
+
+
+≤ 2 exp( −mε 2/4) . Therefore, if m ≥ 
+
+> 4
+> ε2
+
+log(2 /δ ), then the above probability is at most δ, which proves the lemma. 
+
+A.2 Equality of the asymptotic constants 
+
+We prove the two endpoint regimes separately. 
+
+Unbounded-support case. Define 
+
+f (y) := ψ′(y)
+
+ψ(y) , g(y) := ψ′′ (y)
+
+ψ′(y) .
+
+Then f (y) > 0 eventually, f (y) → c, and g(y) → c′. Differentiating f , we obtain 
+
+f ′(y) = ψ′′ (y)ψ(y) − (ψ′(y)) 2
+
+ψ(y)2 = ψ′(y)
+
+ψ(y)
+
+ ψ′′ (y)
+
+ψ′(y) − ψ′(y)
+
+ψ(y)
+
+
+
+= f (y) g(y) − f (y).
+
+If c > 0, then 
+
+f ′(y) → c(c′ − c).
+
+Since f (y) converges to the finite limit c, its derivative cannot converge to a nonzero constant; otherwise f would eventually grow or decrease linearly. Hence c(c′ − c) = 0 , and since c > 0, we get 
+
+c′ = c.It remains to consider c = 0 . Suppose, toward a contradiction, that c′ > 0. Then for all sufficiently large y,
+
+0 < f (y) ≤ c′
+
+4 , g(y) ≥ c′
+
+2 .
+
+Therefore, 
+
+f ′(y) = f (y) g(y) − f (y) ≥ c′
+
+4 f (y).
+
+Equivalently, (log f (y)) ′ ≥ c′/4 for all sufficiently large y. Hence f (y) grows at least exponentially along the tail, contradicting f (y) → 0. Thus c′ = 0 , and therefore c = c′ also when c = 0 .
+
+Bounded-support case. Let 
+
+w(y) := ¯ψ(y) = xF − ψ(y).
+
+Then w(y) > 0, w(y) → 0, and w′(y) < 0 eventually. Define 
+
+p(y) := − w′(y)
+
+w(y) , q(y) := − w′′ (y)
+
+w′(y) .
+
+The assumptions imply p(y) → c and q(y) → c′. Moreover, p(y) > 0 eventually. Differentiating p,we get 
+
+p′(y) = − w′′ (y)
+
+w(y) +
+
+ w′(y)
+
+w(y)
+
+2
+
+.
+
+Since w′′ (y)
+
+w(y) = w′′ (y)
+
+w′(y)
+
+w′(y)
+
+w(y) =  −q(y)  −p(y) = p(y)q(y),
+
+14 we obtain 
+
+p′(y) = p(y) p(y) − q(y).
+
+If c > 0, then 
+
+p′(y) → c(c − c′).
+
+Since p(y) converges to the finite limit c, the derivative p′(y) cannot converge to a nonzero constant. Hence c(c − c′) = 0 , and because c > 0, we get c′ = c.Now suppose c = 0 . We claim that c′ = 0 . Assume, toward a contradiction, that c′ > 0. Then for all sufficiently large y,
+
+0 < p (y) ≤ c′
+
+4 , q(y) ≥ c′
+
+2 .
+
+Thus 
+
+p′(y) = p(y) p(y) − q(y) ≤ − c′
+
+4 p(y).
+
+Consequently, for some y0 and all y ≥ y0,
+
+p(y) ≤ p(y0) exp 
+
+
+
+− c′
+
+4 (y − y0)
+
+
+
+.
+
+In particular, Z ∞
+
+> y0
+
+p(s) ds < ∞.
+
+But p(y) = −w′(y)/w (y), so 
+
+log w(y) = log w(y0) −
+
+Z yy0
+
+p(s) ds. 
+
+The finiteness of the integral implies that log w(y) remains bounded below as y → ∞ , and hence 
+
+w(y) cannot converge to 0. This contradicts w(y) = ¯ψ(y) → 0. Therefore c′ = 0 .Thus c = c′ in the bounded-support case as well. 
+
+A.3 Why we assume c, c ′ ∈ [0 , θ )
+
+Lemma 18. Let 
+
+Y ∼ Exp( θ), X = ψ(Y ),
+
+where θ > 0 and ψ : [0 , ∞) → [x0, ∞) is strictly increasing. Define 
+
+c := lim 
+
+> y→∞
+
+ψ′(y)
+
+ψ(y) , c′ := lim 
+
+> y→∞
+
+ψ′′ (y)
+
+ψ′(y) ,
+
+whenever the limits exist. If either c > θ or c′ > θ , then 
+
+E[X] = ∞.
+
+Proof. Since Y ∼ Exp( θ) and X = ψ(Y ), we have 
+
+E[X] = E[ψ(Y )] = θ
+
+Z ∞
+
+> 0
+
+e−θy ψ(y) dy. 
+
+Thus it suffices to show that the integral on the right-hand side diverges. 15 Case 1: c > θ . Choose ε > 0 such that 
+
+c − ε > θ. 
+
+Since ψ′(y)
+
+ψ(y) → c, 
+
+there exists y0 such that 
+
+ψ′(y)
+
+ψ(y) ≥ c − ε, y ≥ y0.
+
+Using 
+
+ψ′(y)
+
+ψ(y) = ddy log ψ(y),
+
+we integrate from y0 to y ≥ y0 and obtain 
+
+log ψ(y) − log ψ(y0) = 
+
+Z yy0
+
+ψ′(u)
+
+ψ(u) du ≥ (c − ε)( y − y0).
+
+Hence 
+
+ψ(y) ≥ ψ(y0)e−(c−ε)y0 e(c−ε)y =: C1e(c−ε)y, y ≥ y0,
+
+for some constant C1 > 0. Therefore 
+
+E[X] ≥ θC 1
+
+Z ∞
+
+> y0
+
+e−θy e(c−ε)y dy = θC 1
+
+Z ∞
+
+> y0
+
+e(c−ε−θ)y dy. 
+
+Since c − ε − θ > 0, the last integral diverges. Thus 
+
+E[X] = ∞.
+
+Case 2: c′ > θ . Choose ε > 0 such that 
+
+c′ − ε > θ. 
+
+Since ψ′′ (y)
+
+ψ′(y) → c′,
+
+there exists y1 such that 
+
+ψ′′ (y)
+
+ψ′(y) ≥ c′ − ε, y ≥ y1.
+
+Using 
+
+ψ′′ (y)
+
+ψ′(y) = ddy log ψ′(y),
+
+we integrate from y1 to y ≥ y1 and obtain 
+
+log ψ′(y) − log ψ′(y1) = 
+
+Z yy1
+
+ψ′′ (u)
+
+ψ′(u) du ≥ (c′ − ε)( y − y1).
+
+Hence 
+
+ψ′(y) ≥ ψ′(y1)e−(c′−ε)y1 e(c′−ε)y =: C2e(c′−ε)y, y ≥ y1,
+
+16 for some constant C2 > 0. Integrating once more, 
+
+ψ(y) − ψ(y1) = 
+
+Z yy1
+
+ψ′(u) du 
+
+≥ C2
+
+Z yy1
+
+e(c′−ε)u du 
+
+= C2
+
+c′ − ε
+
+
+
+e(c′−ε)y − e(c′−ε)y1
+
+
+
+.
+
+Therefore, for all sufficiently large y,
+
+ψ(y) ≥ C3e(c′−ε)y
+
+for some constant C3 > 0. Consequently, 
+
+E[X] ≥ θC 3
+
+Z ∞
+
+> y2
+
+e−θy e(c′−ε)y dy = θC 3
+
+Z ∞
+
+> y2
+
+e(c′−ε−θ)y dy 
+
+for some y2 large enough. Since c′ − ε − θ > 0, this integral diverges, and hence 
+
+E[X] = ∞.
+
+This completes the proof. 
+
+Remark 19. When c = θ, the mean E[X] may be infinite. For example, if ψ(y) = eθy , then 
+
+E[X] = θ
+
+Z ∞
+
+> 0
+
+e−θy ψ(y) dy = θ
+
+Z ∞
+
+> 0
+
+1 dy = ∞.
+
+Hence, in our asymptotic analysis we restrict attention to the regime c, c ′ ∈ [0 , θ ).
+
+A.4 Extreme-value interpretation of the endpoint regularity condition 
+
+In this appendix, we justify the connection between Assumption 3 and the classical extreme-value domains of attraction. Recall that 
+
+Fθ(x) = 1 − exp( −θϕ (x)) , x ∈ [x0, x F ),
+
+with ψ := ϕ−1, and define the upper quantile function 
+
+U (t) := F −1 
+
+> θ
+
+(1 − 1/t ), t > 1.
+
+Since 
+
+1 − 1
+
+t = 1 − exp( −θϕ (U (t))) ,
+
+we obtain 
+
+exp( −θϕ (U (t))) = 1
+
+t , hence ϕ(U (t)) = log tθ .
+
+Therefore 
+
+U (t) = ψ
+
+ log tθ
+
+
+
+.
+
+We now analyze the two endpoint regimes separately. 17 Lemma 20 (Quantile growth under endpoint regularity) . Let U (t) = ψ((log t)/θ ).(i) Suppose xF = ∞ and 
+
+ψ′(y)
+
+ψ(y) → c+ ≥ 0 as y → ∞ .
+
+Then for every x > 0,
+
+U (tx )
+
+U (t) → xc+/θ as t → ∞ .
+
+In particular: 
+
+• if c+ > 0, then U is regularly varying at infinity with index c+/θ ;
+
+• if c+ = 0 , then U is slowly varying at infinity. (ii) Suppose xF < ∞, define ¯ψ(y) := xF − ψ(y),
+
+and assume ¯ψ′(y)¯ψ(y) → − c− as y → ∞ 
+
+for some c− ≥ 0. Then for every x > 0,
+
+xF − U (tx )
+
+xF − U (t) → x−c−/θ as t → ∞ .
+
+In particular, if c− > 0, then xF − U (t) is regularly varying at infinity with index −c−/θ .Proof. We start with the unbounded-endpoint case. Fix x > 0. Since 
+
+U (t) = ψ
+
+ log tθ
+
+
+
+,
+
+we have 
+
+log U (tx )
+
+U (t) = log 
+
+ψ
+
+ log t+log xθ
+
+
+
+ψ
+
+ log tθ
+
+ .
+
+By the fundamental theorem of calculus, 
+
+log U (tx )
+
+U (t) =
+
+Z (log t+log x)/θ  
+
+> log t/θ
+
+ψ′(u)
+
+ψ(u) du. 
+
+Let 
+
+at := log tθ , bt := log xθ .
+
+Then at → ∞ as t → ∞ , while bt is constant. Hence 
+
+Z at+bt
+
+> at
+
+ψ′(u)
+
+ψ(u) du − c+bt =
+
+Z at+bt
+
+> at
+
+ ψ′(u)
+
+ψ(u) − c+
+
+
+
+du. 
+
+Given ε > 0, by the assumption ψ′(u)/ψ (u) → c+, there exists M such that 
+
+ψ′(u)
+
+ψ(u) − c+ ≤ ε for all u ≥ M. 
+
+18 For t large enough, the whole interval [at, a t + bt] lies beyond M if bt ≥ 0, and similarly the same estimate applies when bt < 0. Therefore 
+
+Z at+bt
+
+> at
+
+ ψ′(u)
+
+ψ(u) − c+
+
+
+
+du ≤ ε|bt|.
+
+Since ε is arbitrary, 
+
+log U (tx )
+
+U (t) → c+bt = c+
+
+θ log x. 
+
+Exponentiating yields 
+
+U (tx )
+
+U (t) → xc+/θ .
+
+This proves part (i). For the bounded-support case, note that 
+
+xF − U (t) = xF − ψ
+
+ log tθ
+
+
+
+= ¯ψ
+
+ log tθ
+
+
+
+.
+
+Hence 
+
+log xF − U (tx )
+
+xF − U (t) = log ¯ψ
+
+ log t+log xθ
+
+
+
+¯ψ
+
+ log tθ
+
+ =
+
+Z (log t+log x)/θ  
+
+> log t/θ
+
+¯ψ′(u)¯ψ(u) du. 
+
+Using exactly the same argument as above together with 
+
+¯ψ′(u)¯ψ(u) → − c−,
+
+we obtain 
+
+log xF − U (tx )
+
+xF − U (t) → − c−
+
+θ log x. 
+
+Exponentiating gives 
+
+xF − U (tx )
+
+xF − U (t) → x−c−/θ .
+
+This proves part (ii). 
+
+Corollary 21 (Connection with extreme-value domains) . Under the assumptions of Lemma 20: (i) If xF = ∞ and c+ > 0, then Fθ belongs to the Fréchet domain of attraction, with extreme-value index 
+
+γ = c+
+
+θ .
+
+(ii) If xF < ∞ and c− > 0, then Fθ belongs to the reverse-Weibull domain of attraction, with extreme-value index 
+
+γ = − c−
+
+θ .
+
+If c+ = 0 , then U is slowly varying, which is consistent with Gumbel-type behavior. Proof. Part (i) follows from the standard quantile characterization of the Fréchet domain: for distributions with unbounded upper endpoint, F belongs to the Fréchet domain of attraction with index γ > 0 if and only if its upper quantile function U is regularly varying with index γ.Part (ii) follows from the corresponding characterization of the reverse-Weibull domain: for distributions with finite upper endpoint xF , F belongs to the reverse-Weibull domain of attraction with index γ < 0 if and only if xF − U (t) is regularly varying with index γ.The final statement is immediate from Lemma 20(i). 19 Algorithm 2 ETC with Samples-CFHOV [Rubinstein et al., 2020]  
+
+> 1:
+
+Set 
+
+m = 4 log 2(n/η 2)log 2(1 + η) log 
+
+ 2Cn log( n/η 2)
+
+η2
+
+
+
+. 
+
+> 2:
+
+Following the policy with quantiles q1, q 2, . . . , q n of Correa et al. [2017], define monotone in-creasing probabilities 
+
+0 ≤ pm+1 (= q1) ≤ · · · ≤ pn(= qn−m) ≤ 1,
+
+with pi = 0 for all i ∈ [m]. 
+
+> 3:
+
+For all i such that pi ≤ k = η2/n , update pi ← 0. 
+
+> 4:
+
+For each i > m , round down pi to the nearest integer power of (1 + η), and denote the rounded value by 
+
+⌊pi⌋ ∈ { (1 + η)−1, (1 + η)−2, . . . }. 
+
+> 5:
+
+For each i > m , set 
+
+˜pi ← ⌊pi⌋
+
+1 + η . 
+
+> 6:
+
+Compute the estimator 
+
+bθm = m
+
+Pms=1 ϕ(Xs) . 
+
+> 7:
+
+For each i > m , define the threshold τi such that 
+
+1 − Fbθm (τi) = ˜ pi. 
+
+> 8:
+
+For stage i ≤ m, always continue to the next stage. For stage i > m , accept Xi (and stop) if and only if 
+
+Xi > τ i.
+
+A.5 Baseline Algorithm 
+
+We provide a pseudocode in Algorithm 2. The following proposition gives its competitive ratio guarantee. 
+
+Proposition 22. Let 
+
+m = 4 log 2(n/η 2)log 2(1 + η) log 
+
+ 2Cn log( n/η 2)
+
+η2
+
+
+
+for some η > 0 and a sufficiently large constant C > 0. Then the stopping time τ returned by Algorithm 2, run with exploration length m, satisfies 
+
+lim inf  
+
+> n→∞
+
+CR n(τ ; θ) ≥ κ 1 − η
+
+(1 + η)3 ,
+
+where κ ≈ 0.745 .
+
+This baseline is useful as a worst-case reference: as η ↓ 0, its guarantee approaches the optimal full-information i.i.d. worst-case constant κ [Correa et al., 2017]. The proof of Proposition 22 is provided in the following. 20 Lemma 23. Let m = 4 log 2(n/η 2)log 2(1+ η) log(2 Cn log( n/η 2)/η 2) for large enough constant C > 0 and η ∈
+
+(0 , 1) . With probability at least 1 − η, we have that for every i ∈ [m + 1 , n ],
+
+pi
+
+(1 + η)3 ≤ Pr 
+
+> x∼D
+
+(x > τ i) ≤ pi.
+
+Proof. Let R := θ/ ˆθm. From exp( −ˆθmϕ(τi)) = ˜pi, we have Pr( X > τ i) = exp( −θϕ (τi)) = exp( − log(1 /˜pi)θ 
+
+> ˆθ
+
+) = (1 /˜pi)−θ/ ˆθ = (1 /˜pi)−R. From the range of η and ˜pi, we have log 1/˜pi (1 + η) ≤
+
+1 and 1/˜pi ≤ n/η 2. Applying Lemma 2, with ε = log 1/˜pi (1 + η) and 4 log 2(1 /˜pi)(log(1+ η)) 2 log(2 /δ ) ≤ 
+
+> 4 log 2(n/η 2)log 2(1+ η)
+
+log(2 /δ ) = m for i > m , with probability 1 − δ, we have 
+
+˜pi
+
+11 + η ≤ Pr( X > τ i) ≤ ˜pi(1 + η).
+
+From ⌊pi⌋ ≤ pi ≤ (1 + η)⌊pi⌋ and the definition of ˜pi we have pi/(1 + η)2 ≤ ˜pi ≤ pi/(1 + η) and therefore with probability 1 − δ, we have 
+
+pi
+
+1(1 + η)3 ≤ Pr( X > τ i) ≤ pi.
+
+By applying a union bound for all possible ⌊pi⌋ ∈ { (1+ η)−1, (1+ η)−2, . . . , η 2/n }, the cardinality of which is Θ(log( n/η 2)/η ), and setting δ = ξη/ (Cn log( n/η 2)) for some constant C > 0, we have for any i ∈ [n], with probability 1 − ξ,
+
+pi
+
+1(1 + η)3 ≤ Pr( X > τ i) ≤ pi.
+
+We can complete the proof with ξ = η.Let τ ′ be the stopping algorithm of Correa et al. [2017] with n − m horizon. By following the proof steps in Rubinstein et al. [2020], for ε > 0, we have 
+
+E[Xτ ] ≥ E[Xτ ′ ] 1 − ε
+
+(1 + ε)3 ≥ κ 1 − ε
+
+(1 + ε)3 E
+
+
+
+max  
+
+> i∈[m+1 ,n ]
+
+Xi
+
+
+
+≥ κ 1 − ε
+
+(1 + ε)3
+
+n − mn E
+
+
+
+max  
+
+> i∈[n]
+
+Xi
+
+
+
+, (5) where the last inequality is obtained from the following. Let k := n − m, and let S ⊆ [n] be a uniformly random subset of size k, independent of (X1, . . . , X n). Since X1, . . . , X n are i.i.d., we have 
+
+max  
+
+> i∈S
+
+Xi d
+
+= max  
+
+> i∈[m+1 ,n ]
+
+Xi.
+
+Fix a realization of (X1, . . . , X n) and let j∗ be an index attaining max i∈[n] Xi (breaking ties arbi-trarily). Since Xi ≥ 0,
+
+max  
+
+> i∈S
+
+Xi ≥ 1{j∗ ∈ S} max  
+
+> i∈[n]
+
+Xi.
+
+Taking conditional expectation given (X1, . . . , X n) yields 
+
+E
+
+
+
+max  
+
+> i∈S
+
+Xi | X1, . . . , X n
+
+
+
+≥ P(j∗ ∈ S) max  
+
+> i∈[n]
+
+Xi = kn max  
+
+> i∈[n]
+
+Xi.
+
+Taking expectation again, we obtain 
+
+E
+
+
+
+max  
+
+> i∈[m+1 ,n ]
+
+Xi
+
+
+
+= E
+
+
+
+max  
+
+> i∈S
+
+Xi
+
+
+
+≥ n − mn E
+
+
+
+max  
+
+> i∈[n]
+
+Xi
+
+
+
+.
+
+Finally from (5), for ε > 0, lim inf n→∞ CR n(τ ; θ) ≥ κ 1−ε 
+
+> (1+ ε)3
+
+. We can complete the proof with 
+
+ε = η.21 A.6 Proof of Theorem 6 
+
+For each i ∈ [n], let Vi denote the optimal expected reward when only periods i, i + 1 , . . . , n remain, and set Vn+1 := 0 . Then the optimal stopping rule is the threshold rule 
+
+τ ∗ = inf {i ∈ [n] : Xi ≥ Vi+1 },
+
+and the value function satisfies 
+
+Vi = E[max {Xi, V i+1 }], i = 1 , . . . , n. 
+
+Since the last observation must be accepted, 
+
+Vn = E[X1].
+
+Define, for a ≥ x0,
+
+rθ(a) := E[( X1 − a)+] = 
+
+Z ∞
+
+> a
+
+P(X1 > t ) dt =
+
+Z ∞
+
+> a
+
+e−θϕ (t) dt. 
+
+Then the dynamic-programming recursion becomes 
+
+Vi = Vi+1 + rθ(Vi+1 ), i = 1 , . . . , n − 1. (A.6.1) We first derive the asymptotic behavior of rθ(a) as a → ∞ . Write a = ψ(y). With the change of variables t = ψ(u), so that dt = ψ′(u) du , we obtain 
+
+rθ(ψ(y)) = 
+
+Z ∞
+
+> y
+
+e−θu ψ′(u) du = e−θy ψ′(y)
+
+Z ∞
+
+> 0
+
+e−θs ψ′(y + s)
+
+ψ′(y) ds. (A.6.2) Since ψ′′ (y)/ψ ′(y) → c+, for every ε > 0 there exists yε such that 
+
+ψ′′ (u)
+
+ψ′(u) ≤ c+ + ε for all u ≥ yε.
+
+Hence, for y ≥ yε and s ≥ 0,
+
+ψ′(y + s)
+
+ψ′(y) = exp 
+
+Z y+sy
+
+ψ′′ (u)
+
+ψ′(u) du 
+
+
+
+≤ e(c++ε)s.
+
+Also, for each fixed s ≥ 0,
+
+ψ′(y + s)
+
+ψ′(y) → ec+s (y → ∞ ).
+
+Since c+ + ε < θ , dominated convergence in (A.6.2) yields 
+
+rθ(ψ(y)) ∼ e−θy ψ′(y)
+
+Z ∞
+
+> 0
+
+e−(θ−c+)s ds = ψ′(y)e−θy 
+
+θ − c+
+
+. (A.6.3) Next define 
+
+Ψ( x) := 1 + 
+
+Z xVn
+
+dt rθ(t) , x ≥ Vn,
+
+and let 
+
+Wi := Ψ( Vi), i = 1 , . . . , n. 
+
+22 Then Wn = 1 .Now define 
+
+Q(y) := Ψ( ψ(y)) .
+
+By the chain rule and (A.6.3), 
+
+Q′(y) = ψ′(y)
+
+rθ(ψ(y)) ∼ (θ − c+)eθy .
+
+Since Q(y) → ∞ , l’Hôpital’s rule implies 
+
+Q(y) ∼ θ − c+
+
+θ eθy .
+
+Equivalently, 
+
+Ψ( x) ∼ θ − c+
+
+θ eθϕ (x) (x → ∞ ). (A.6.4) We next study the increments Wi − Wi+1 . From (A.6.1), 
+
+Vi − Vi+1 = rθ(Vi+1 ).
+
+Since rθ is decreasing, 
+
+Wi − Wi+1 =
+
+Z Vi
+
+> Vi+1
+
+dt rθ(t) ≥ Vi − Vi+1 
+
+rθ(Vi+1 ) = 1 . (A.6.5) Therefore, 
+
+Wj ≥ Wn + ( n − j) = 1 + n − j, j = 1 , . . . , n. (A.6.6) For the upper bound, let a := Vi+1 . Then Vi = a + rθ(a), and so 
+
+Wi − Wi+1 =
+
+Z a+rθ (a)
+
+> a
+
+dt rθ(t) ≤ rθ(a)
+
+rθ(a + rθ(a)) .
+
+Also, 
+
+rθ(a) − rθ(a + rθ(a)) = 
+
+Z a+rθ (a)
+
+> a
+
+e−θϕ (t) dt ≤ rθ(a)e−θϕ (a).
+
+Hence 
+
+rθ(a + rθ(a)) ≥ rθ(a) 1 − e−θϕ (a),
+
+which implies 
+
+Wi − Wi+1 ≤ 11 − e−θϕ (a) . (A.6.7) Now consider 
+
+G(a) := 
+
+ 11 − e−θϕ (a) − 1
+
+
+
+Ψ( a) = e−θϕ (a)
+
+1 − e−θϕ (a) Ψ( a).
+
+Using (A.6.4), we have 
+
+G(a) → θ − c+
+
+θ (a → ∞ ).
+
+Thus G is bounded on [Vn, ∞), so there exists a constant C > 0 such that 
+
+11 − e−θϕ (a) ≤ 1 + C
+
+Ψ( a) , a ≥ Vn.
+
+23 Applying this to a = Vi+1 in (A.6.7), we obtain 
+
+Wi − Wi+1 ≤ 1 + CWi+1 
+
+. (A.6.8) Summing (A.6.8) from i = 1 to n − 1 gives 
+
+W1 − Wn ≤ n − 1 + C
+
+> n−1
+
+X
+
+> i=1
+
+1
+
+Wi+1 
+
+.
+
+Using (A.6.6), n−1X
+
+> i=1
+
+1
+
+Wi+1 
+
+≤
+
+> n−1
+
+X
+
+> i=1
+
+1
+
+n − i =
+
+> n−1
+
+X
+
+> k=1
+
+1
+
+k = O(log n).
+
+Since Wn = 1 , it follows that 
+
+W1 ≤ n + O(log n).
+
+Combining this with the lower bound (A.6.6), we obtain 
+
+W1 = n + O(log n). (A.6.9) Since W1 = Ψ( V1), combining (A.6.4) and (A.6.9) yields 
+
+θ − c+
+
+θ eθϕ (V1) = n(1 + o(1)) .
+
+Hence 
+
+ϕ(V1) = log nθ + 1
+
+θ log 
+
+ θθ − c+
+
+
+
++ o(1) . (A.6.10) Let 
+
+yn := log nθ , d := 1
+
+θ log 
+
+ θθ − c+
+
+
+
+.
+
+Then (A.6.10) reads 
+
+V1 = ψ(yn + d + o(1)) .
+
+Now, since ψ′(y)/ψ (y) → c+, for every fixed u,
+
+log ψ(y + u)
+
+ψ(y) =
+
+Z y+uy
+
+ψ′(t)
+
+ψ(t) dt → c+u. 
+
+Therefore 
+
+ψ(yn + d)
+
+ψ(yn) → ecd =
+
+ θθ − c+
+
+c+/θ 
+
+.
+
+It follows that 
+
+V1 =
+
+ θθ − c+
+
+c+/θ 
+
+ψ
+
+ log nθ
+
+
+
+(1 + o(1)) .
+
+Since V1 = E[Xτ ∗ ], this proves the first asymptotic statement. We now turn to the prophet benchmark. Define 
+
+Yi := ϕ(Xi).
+
+24 Then Y1, . . . , Y n are i.i.d. Exp( θ) random variables, and 
+
+Mn = ψ(Y(n)), Y(n) := max  
+
+> 1≤i≤n
+
+Yi.
+
+The density of Y(n) is 
+
+fn(y) = nθe −θy (1 − e−θy )n−1, y ≥ 0.
+
+Therefore 
+
+E[Mn] = 
+
+Z ∞
+
+> 0
+
+nθe −θy (1 − e−θy )n−1ψ(y) dy. 
+
+With the substitution 
+
+z = θy − log n, y = log n + zθ ,
+
+we obtain 
+
+E[Mn]
+
+ψ((log n)/θ ) =
+
+Z ∞− log n
+
+e−z
+
+
+
+1 − e−z
+
+n
+
+n−1 ψ((log n + z)/θ )
+
+ψ((log n)/θ ) dz. (A.6.11) Fix z ∈ R. Then 
+
+e−z
+
+
+
+1 − e−z
+
+n
+
+n−1
+
+→ e−z−e−z
+
+,
+
+and, since ψ′(y)/ψ (y) → c+,
+
+ψ((log n + z)/θ )
+
+ψ((log n)/θ ) → e(c+/θ )z . (A.6.12) We now justify dominated convergence in (A.6.11). For z < 0, since ψ is increasing, 
+
+ψ((log n + z)/θ )
+
+ψ((log n)/θ ) ≤ 1,
+
+and 
+
+1 − e−z
+
+n
+
+n−1
+
+≤ exp 
+
+
+
+− n − 1
+
+n e−z
+
+
+
+,
+
+so the integrand is bounded by 
+
+e−z exp 
+
+
+
+− 12 e−z
+
+
+
+for all large n, which is integrable on (−∞ , 0] .For z ≥ 0, choose ε > 0 such that c + ε < θ . Then for all large n,
+
+ψ((log n + z)/θ )
+
+ψ((log n)/θ ) = exp 
+
+Z (log n+z)/θ  
+
+> (log n)/θ
+
+ψ′(t)
+
+ψ(t) dt 
+
+!
+
+≤ e(( c++ε)/θ )z .
+
+Since 
+
+
+
+1 − e−z
+
+> n
+
+n−1
+
+≤ 1, the integrand is bounded by 
+
+e−(1 −(c++ε)/θ )z ,
+
+which is integrable on [0 , ∞).Therefore dominated convergence applies to (A.6.11), and by (A.6.12), 
+
+lim 
+
+> n→∞
+
+E[Mn]
+
+ψ((log n)/θ ) =
+
+Z ∞−∞ 
+
+e−z−e−z
+
+e(c+/θ )z dz. 
+
+25 With the change of variables u = e−z , so that dz = −du/u , this becomes 
+
+Z ∞
+
+> 0
+
+u−c+/θ e−u du = Γ 
+
+
+
+1 − c+
+
+θ
+
+
+
+.
+
+Hence 
+
+E[Mn] = Γ 
+
+
+
+1 − c+
+
+θ
+
+
+
+ψ
+
+ log nθ
+
+
+
+(1 + o(1)) .
+
+Finally, 
+
+CR n(τ ∗; θ) = E[Xτ ∗ ]
+
+E[Mn] →
+
+ θθ−c+
+
+c+/θ 
+
+Γ 1 − c+
+
+> θ
+
+ .
+
+This proves the theorem. 
+
+A.7 Proof of Theorem 7 
+
+Recall ¯ψ(y) := xF − ψ(y), y ≥ 0.
+
+Then ¯ψ(y) ↓ 0, ¯ψ′(y) = −ψ′(y), and 
+
+¯ψ′(y)¯ψ(y) = − ψ′(y)
+
+xF − ψ(y) → − c−. (A.7.1) For each i ∈ [n], let Vi denote the optimal expected reward when only periods i, i + 1 , . . . , n 
+
+remain, and set Vn+1 := 0 . Then the optimal stopping rule is the threshold rule 
+
+τ ∗ = inf {i ∈ [n] : Xi ≥ Vi+1 },
+
+and the value function satisfies 
+
+Vi = E[max {Xi, V i+1 }], i = 1 , . . . , n. 
+
+Since the last observation must be accepted, 
+
+Vn = E[X1].
+
+Define, for a ∈ [x0, x F ),
+
+rθ(a) := E[( X1 − a)+] = 
+
+Z xF
+
+> a
+
+P(X1 > t ) dt =
+
+Z xF
+
+> a
+
+e−θϕ (t) dt. 
+
+Then the dynamic-programming recursion is 
+
+Vi = Vi+1 + rθ(Vi+1 ), i = 1 , . . . , n − 1. (A.7.2) We first derive the asymptotic behavior of rθ(a) as a ↑ xF . Write a = ψ(y). With the change of variables t = ψ(u), so that dt = ψ′(u) du , we get 
+
+rθ(ψ(y)) = 
+
+Z ∞
+
+> y
+
+e−θu ψ′(u) du = e−θy ψ′(y)
+
+Z ∞
+
+> 0
+
+e−θs ψ′(y + s)
+
+ψ′(y) ds. (A.7.3) 26 Since ψ′′ (y)/ψ ′(y) → − c−, for every ε ∈ (0 , c −) there exists yε such that 
+
+ψ′′ (u)
+
+ψ′(u) ≤ − (c− − ε) for all u ≥ yε.
+
+Hence, for y ≥ yε and s ≥ 0,
+
+ψ′(y + s)
+
+ψ′(y) = exp 
+
+Z y+sy
+
+ψ′′ (u)
+
+ψ′(u) du 
+
+
+
+≤ e−(c−−ε)s.
+
+In the case when c− = 0 , we can show that for any ε > 0,
+
+ψ′(y + s)
+
+ψ′(y) = exp 
+
+Z y+sy
+
+ψ′′ (u)
+
+ψ′(u) du 
+
+
+
+≤ eεs .
+
+Then for any c− ≥ 0, for each fixed s ≥ 0,
+
+ψ′(y + s)
+
+ψ′(y) → e−c−s (y → ∞ ).
+
+Therefore, dominated convergence in (A.7.3) yields 
+
+rθ(ψ(y)) ∼ e−θy ψ′(y)
+
+Z ∞
+
+> 0
+
+e−(θ+c−)s ds = ψ′(y)e−θy 
+
+θ + c−
+
+. (A.7.4) Next define 
+
+Ψ( x) := 1 + 
+
+Z xVn
+
+dt rθ(t) , Vn ≤ x < x F ,
+
+and let 
+
+Wi := Ψ( Vi), i = 1 , . . . , n. 
+
+Then Wn = 1 . Also define 
+
+Q(y) := Ψ( ψ(y)) .
+
+By the chain rule and (A.7.4), 
+
+Q′(y) = ψ′(y)
+
+rθ(ψ(y)) ∼ (θ + c−)eθy .
+
+Since Q(y) → ∞ , l’Hôpital’s rule gives 
+
+Q(y) ∼ θ + c−
+
+θ eθy .
+
+Equivalently, 
+
+Ψ( x) ∼ θ + c−
+
+θ eθϕ (x) (x ↑ xF ). (A.7.5) We next study the increments Wi − Wi+1 . From (A.7.2), 
+
+Vi − Vi+1 = rθ(Vi+1 ).
+
+Since rθ is decreasing, 
+
+Wi − Wi+1 =
+
+Z Vi
+
+> Vi+1
+
+dt rθ(t) ≥ Vi − Vi+1 
+
+rθ(Vi+1 ) = 1 . (A.7.6) 27 Therefore, 
+
+Wj ≥ Wn + ( n − j) = 1 + n − j, j = 1 , . . . , n. (A.7.7) For the upper bound, let a := Vi+1 . Since X1 ≤ xF a.s., 
+
+rθ(a) = E[( X1 − a)+] ≤ xF − a, 
+
+so a + rθ(a) ≤ xF . Hence 
+
+Wi − Wi+1 =
+
+Z a+rθ (a)
+
+> a
+
+dt rθ(t) ≤ rθ(a)
+
+rθ(a + rθ(a)) .
+
+Also, 
+
+rθ(a) − rθ(a + rθ(a)) = 
+
+Z a+rθ (a)
+
+> a
+
+e−θϕ (t) dt ≤ rθ(a)e−θϕ (a).
+
+Thus 
+
+rθ(a + rθ(a)) ≥ rθ(a) 1 − e−θϕ (a),
+
+which implies 
+
+Wi − Wi+1 ≤ 11 − e−θϕ (a) . (A.7.8) Now consider 
+
+G(a) := 
+
+ 11 − e−θϕ (a) − 1
+
+
+
+Ψ( a) = e−θϕ (a)
+
+1 − e−θϕ (a) Ψ( a).
+
+Using (A.7.5), 
+
+G(a) → θ + c−
+
+θ (a ↑ xF ).
+
+Hence G is bounded on [Vn, x F ), so there exists C > 0 such that 
+
+11 − e−θϕ (a) ≤ 1 + C
+
+Ψ( a) , Vn ≤ a < x F .
+
+Applying this to a = Vi+1 in (A.7.8), we obtain 
+
+Wi − Wi+1 ≤ 1 + CWi+1 
+
+. (A.7.9) Summing (A.7.9) from i = 1 to n − 1 and using (A.7.7), 
+
+W1 − Wn ≤ n − 1 + C
+
+> n−1
+
+X
+
+> i=1
+
+1
+
+Wi+1 
+
+≤ n − 1 + C
+
+> n−1
+
+X
+
+> k=1
+
+1
+
+k = n + O(log n).
+
+Since Wn = 1 , combining with (A.7.7) yields 
+
+W1 = n + O(log n). (A.7.10) Now W1 = Ψ( V1), so (A.7.5) and (A.7.10) imply 
+
+θ + c−
+
+θ eθϕ (V1) = n(1 + o(1)) .
+
+28 Hence 
+
+ϕ(V1) = log nθ + 1
+
+θ log 
+
+ θθ + c−
+
+
+
++ o(1) . (A.7.11) Let 
+
+yn := log nθ , d := 1
+
+θ log 
+
+ θθ + c−
+
+
+
+.
+
+Then (A.7.11) reads 
+
+V1 = ψ(yn + d + o(1)) .
+
+We now convert this to an asymptotic for the endpoint gap. Since (A.7.1) holds, for any bounded sequence un → u,
+
+log ¯ψ(yn + un)¯ψ(yn) =
+
+Z yn+un
+
+> yn
+
+¯ψ′(t)¯ψ(t) dt → − c−u. 
+
+Applying this with un = d + o(1) , we obtain 
+
+xF − V1 = ¯ψ(yn + d + o(1)) = e−c−d ¯ψ(yn)(1 + o(1)) = 
+
+ θ + c−
+
+θ
+
+c−/θ 
+
+xF − ψ
+
+ log nθ
+
+ 
+
+(1 + o(1)) .
+
+Since V1 = Eθ[Xτ ∗ ], this proves the first asymptotic formula. We now turn to the prophet benchmark. Define 
+
+Yi := ϕ(Xi).
+
+Then Y1, . . . , Y n are i.i.d. Exp( θ), and 
+
+Mn = max  
+
+> 1≤i≤n
+
+Xi = ψ(Y(n)), Y(n) := max  
+
+> 1≤i≤n
+
+Yi.
+
+Let ¯ψ(y) = xF − ψ(y).
+
+Then 
+
+xF − E[Mn] = E[ ¯ψ(Y(n))] = 
+
+Z ∞
+
+> 0
+
+nθe −θy (1 − e−θy )n−1 ¯ψ(y) dy. 
+
+With the substitution 
+
+z = θy − log n, y = log n + zθ ,
+
+we obtain 
+
+xF − E[Mn]¯ψ((log n)/θ ) =
+
+Z ∞− log n
+
+e−z
+
+
+
+1 − e−z
+
+n
+
+n−1 ¯ψ((log n + z)/θ )¯ψ((log n)/θ ) dz. (A.7.12) Fix z ∈ R. By (A.7.1), ¯ψ((log n + z)/θ )¯ψ((log n)/θ ) → e−(c−/θ )z . (A.7.13) Also, 
+
+e−z
+
+
+
+1 − e−z
+
+n
+
+n−1
+
+→ e−z−e−z
+
+.
+
+We now justify dominated convergence in (A.7.12). For z ≥ 0, since ¯ψ is decreasing, 
+
+¯ψ((log n + z)/θ )¯ψ((log n)/θ ) ≤ 1,
+
+29 so the integrand is bounded by e−z , which is integrable on [0 , ∞).For z < 0, choose ε ∈ (0 , c −). Using ψ′(y)/(xF − ψ(y)) → c−, one checks by integrating over 
+
+[(log n + z)/θ, (log n)/θ ] and absorbing the part below a fixed y0 into a constant that there exists 
+
+Cε > 0 such that for all large n,
+
+¯ψ((log n + z)/θ )¯ψ((log n)/θ ) ≤ Cεe−(( c−+ε)/θ )z , − log n ≤ z < 0.
+
+Also, 
+
+1 − e−z
+
+n
+
+n−1
+
+≤ exp 
+
+
+
+− n − 1
+
+n e−z
+
+
+
+≤ exp 
+
+
+
+− 12 e−z
+
+
+
+for all large n. Hence the integrand in (A.7.12) is bounded by 
+
+Cεe−(1+( c−+ε)/θ )z exp 
+
+
+
+− 12 e−z
+
+
+
+,
+
+which is integrable on (−∞ , 0] .Therefore dominated convergence applies to (A.7.12). Using (A.7.13), 
+
+lim 
+
+> n→∞
+
+xF − E[Mn]¯ψ((log n)/θ ) =
+
+Z ∞−∞ 
+
+e−z−e−z
+
+e−(c−/θ )z dz. 
+
+With the change of variables u = e−z , so that dz = −du/u , this becomes 
+
+Z ∞
+
+> 0
+
+uc−/θ e−u du = Γ 
+
+
+
+1 + c−
+
+θ
+
+
+
+.
+
+Thus 
+
+xF − OPT( θ) = Γ 
+
+
+
+1 + c−
+
+θ
+
+ 
+
+xF − ψ
+
+ log nθ
+
+ 
+
+(1 + o(1)) .
+
+Finally, since xF − ψ((log n)/θ ) → 0, both Eθ[Xτ ∗ ] and OPT( θ) converge to xF , so 
+
+CR n(τ ∗; θ) → 1.
+
+This proves the theorem. 
+
+A.8 Proof of Theorem 9 
+
+Lemma 24. 
+
+E[Xτ ] ≥ (1 − δ)V1(θ+; N ).
+
+Proof. We divide the proof into four steps. 
+
+Step 1: Estimating θ from the exploration samples. From Lemma 2, with 
+
+εm := 
+
+r 4 log(2 /δ )
+
+m ,
+
+the event 
+
+Gm := 
+
+ θ
+
+bθm
+
+− 1 ≤ εm
+
+
+
+30 satisfies 
+
+P(Gm) ≥ 1 − δ. 
+
+On Gm, θ
+
+1 + εm
+
+≤ bθm ≤ θ
+
+1 − εm
+
+,
+
+and therefore, for 
+
+θ(U) := (1 + εm)bθm,
+
+we have 
+
+θ ≤ θ(U) ≤ θ 1 + εm
+
+1 − εm
+
+= θ+. (A.8.1) 
+
+Step 2: A deterministic comparison lemma. Fix a parameter η ≥ θ, and suppose that after the exploration phase we use the DP thresholds computed from η, namely 
+
+ti := Vi+1 (η; N ), i = 1 , . . . , N − 1,
+
+and accept the last observation for sure. Let Li(θ, η ; N ) be the expected reward of this threshold policy under the true parameter θ,starting from remaining stage i ∈ { 1, . . . , N }. Thus 
+
+LN (θ, η ; N ) = Eθ[X1],
+
+and for i = 1 , . . . , N − 1,
+
+Li(θ, η ; N ) = Eθ[Xi1{Xi ≥ ti} + Li+1 (θ, η ; N )1{Xi < t i}] .
+
+We claim that 
+
+Li(θ, η ; N ) ≥ Vi(η; N ) for all i = 1 , . . . , N. (A.8.2) We prove (A.8.2) by backward induction. 
+
+Base case: Since η ≥ θ, the tail e−θϕ (x) dominates e−ηϕ (x), so 
+
+LN (θ, η ; N ) = Eθ[X1] ≥ Eη[X1] = VN (η; N ).
+
+Induction step: Assume Li+1 (θ, η ; N ) ≥ Vi+1 (η; N ) = ti. Using 
+
+Pθ(Xi ≥ ti) = e−θϕ (ti)
+
+and 
+
+Eθ[Xi1{Xi ≥ ti}] = tie−θϕ (ti) + rθ(ti),
+
+we get 
+
+Li(θ, η ; N ) = (1 − e−θϕ (ti))Li+1 (θ, η ; N ) + tie−θϕ (ti) + rθ(ti)= ti + (1 − e−θϕ (ti))( Li+1 (θ, η ; N ) − ti) + rθ(ti).
+
+By the induction hypothesis, the middle term is nonnegative. Also η ≥ θ implies rθ(ti) ≥ rη(ti).Hence 
+
+Li(θ, η ; N ) ≥ ti + rη(ti) = Vi(η; N ).
+
+This proves (A.8.2). In particular, 
+
+L1(θ, η ; N ) ≥ V1(η; N ). (A.8.3) 31 Step 3: Monotonicity of the DP value in the parameter. For fixed N , define 
+
+Tη(v) := v + rη(v), v ≥ x0.
+
+Then Tη is increasing in v, because 
+
+ddv Tη(v) = 1 − e−ηϕ (v) = Fη(v) ≥ 0,
+
+and Tη is decreasing in η, because rη(v) is decreasing in η.Also VN (η; N ) = Eη[X1] is decreasing in η. Therefore, a backward induction yields that for every fixed i,
+
+η1 ≤ η2 =⇒ Vi(η1; N ) ≥ Vi(η2; N ). (A.8.4) 
+
+Step 4: Apply the comparison on the good event. Condition on the exploration samples and on the good event Gm. Then the algorithm uses η = θ(U) , and by (A.8.1), 
+
+θ ≤ θ(U) ≤ θ+.
+
+By (A.8.3), 
+
+E[Xτ | X1, . . . , X m, Gm] ≥ V1(θ(U) ; N ).
+
+By the monotonicity (A.8.4), 
+
+V1(θ(U) ; N ) ≥ V1(θ+; N ).
+
+Hence 
+
+E[Xτ | X1, . . . , X m, Gm] ≥ V1(θ+; N ).
+
+Taking expectations and using P(Gm) ≥ 1 − δ,
+
+E[Xτ ] ≥ P(Gm) V1(θ+; N ) ≥ (1 − δ)V1(θ+; N ).
+
+Lemma 25 (Uniform asymptotic for the DP value) . Let 
+
+K = [ η, η ] ⊂ (c+, ∞)
+
+be a compact interval. Define 
+
+C(η) := 
+
+ ηη − c+
+
+c+/η 
+
+.
+
+Then, as N → ∞ ,
+
+V1(η; N ) = C(η)ψ
+
+ log Nη
+
+
+
+(1 + o(1)) ,
+
+uniformly in η ∈ K.Proof. We write the proof in several steps. 32 Step 1: Uniform asymptotic for rη. Fix η ∈ K. For a = ψ(y), the change of variables t = ψ(u)
+
+gives 
+
+rη(ψ(y)) = 
+
+Z ∞
+
+> y
+
+e−ηu ψ′(u) du = e−ηy ψ′(y)
+
+Z ∞
+
+> 0
+
+e−ηs ψ′(y + s)
+
+ψ′(y) ds. (A.8.5) Since ψ′′ (u)/ψ ′(u) → c+, for every ε > 0 there exists yε such that 
+
+ψ′′ (u)
+
+ψ′(u) − c+ ≤ ε for all u ≥ yε.
+
+Choose ε > 0 so small that 
+
+c+ + ε < η. 
+
+Then for all y ≥ yε and all s ≥ 0,
+
+ψ′(y + s)
+
+ψ′(y) = exp 
+
+Z y+sy
+
+ψ′′ (u)
+
+ψ′(u) du 
+
+
+
+≤ e(c++ε)s. (A.8.6) Moreover, for each fixed s ≥ 0,
+
+ψ′(y + s)
+
+ψ′(y) → ecs (y → ∞ ).
+
+Now define 
+
+Iη(y) := 
+
+Z ∞
+
+> 0
+
+e−ηs ψ′(y + s)
+
+ψ′(y) ds. 
+
+From (A.8.6), 
+
+e−ηs ψ′(y + s)
+
+ψ′(y) ≤ e−(η−c−ε)s,
+
+and the right-hand side is integrable on [0 , ∞). Therefore dominated convergence gives 
+
+sup 
+
+> η∈K
+
+Iη(y) −
+
+Z ∞
+
+> 0
+
+e−(η−c)s ds → 0.
+
+Since Z ∞
+
+> 0
+
+e−(η−c+)s ds = 1
+
+η − c ,
+
+we obtain 
+
+sup 
+
+> η∈K
+
+rη(ψ(y)) 
+
+ψ′(y)e−ηy − 1
+
+η − c+
+
+→ 0. (A.8.7) Equivalently, 
+
+rη(ψ(y)) = ψ′(y)e−ηy 
+
+η − c (1 + o(1)) ,
+
+uniformly for η ∈ K.33 Step 2: Uniform asymptotic for the scale transform Ψη. Let 
+
+μ(η) := Eη[X1], Ψη(x) := 1 + 
+
+Z xμ(η)
+
+dt rη(t) , x ≥ μ(η).
+
+Define also 
+
+Qη(y) := Ψ η(ψ(y)) .
+
+Then, by the chain rule, 
+
+Q′
+
+> η
+
+(y) = ψ′(y)
+
+rη(ψ(y)) .
+
+Using (A.8.7), 
+
+sup 
+
+> η∈K
+
+Q′
+
+> η
+
+(y)(η − c+)eηy − 1 → 0. (A.8.8) We now integrate this asymptotic. Fix ρ ∈ (0 , 1) . By (A.8.8), there exists y0 such that for all 
+
+y ≥ y0 and all η ∈ K,
+
+(1 − ρ)( η − c+)eηy ≤ Q′
+
+> η
+
+(y) ≤ (1 + ρ)( η − c+)eηy .
+
+Integrating from y0 to y ≥ y0,
+
+(1 − ρ) η − c+
+
+η
+
+ eηy − eηy 0  ≤ Qη(y) − Qη(y0) ≤ (1 + ρ) η − c+
+
+η
+
+ eηy − eηy 0 .
+
+Since Qη(y0) is bounded uniformly in η ∈ K, dividing by eηy and letting y → ∞ gives 
+
+sup 
+
+> η∈K
+
+Qη(y)(( η − c+)/η )eηy − 1 → 0.
+
+Equivalently, 
+
+Ψη(x) = η − c+
+
+η eηϕ (x)(1 + o(1)) (x → ∞ ), (A.8.9) uniformly for η ∈ K.
+
+Step 3: Uniform growth of the transformed DP sequence. For η ∈ K and horizon N ,define 
+
+W (η,N ) 
+
+> i
+
+:= Ψ η(Vi(η; N )) , i = 1 , . . . , N. 
+
+Then 
+
+W (η,N ) 
+
+> N
+
+= Ψ η(μ(η)) = 1 .
+
+Since 
+
+Vi(η; N ) − Vi+1 (η; N ) = rη(Vi+1 (η; N )) ,
+
+and rη is decreasing, we get 
+
+W (η,N ) 
+
+> i
+
+− W (η,N ) 
+
+> i+1
+
+=
+
+Z Vi(η;N ) 
+
+> Vi+1 (η;N)
+
+dt rη(t) ≥ Vi(η; N ) − Vi+1 (η; N )
+
+rη(Vi+1 (η; N )) = 1 .
+
+Hence 
+
+W (η,N ) 
+
+> j
+
+≥ 1 + N − j, j = 1 , . . . , N. (A.8.10) 34 For the upper bound, let a := Vi+1 (η; N ). Then 
+
+W (η,N ) 
+
+> i
+
+− W (η,N ) 
+
+> i+1
+
+=
+
+Z a+rη (a)
+
+> a
+
+dt rη(t) ≤ rη(a)
+
+rη(a + rη(a)) .
+
+Also, 
+
+rη(a) − rη(a + rη(a)) = 
+
+Z a+rη (a)
+
+> a
+
+e−ηϕ (t) dt ≤ rη(a)e−ηϕ (a),
+
+so 
+
+rη(a + rη(a)) ≥ rη(a) 1 − e−ηϕ (a),
+
+and therefore 
+
+W (η,N ) 
+
+> i
+
+− W (η,N ) 
+
+> i+1
+
+≤ 11 − e−ηϕ (a) . (A.8.11) Now define 
+
+Gη(a) := 
+
+ 11 − e−ηϕ (a) − 1
+
+
+
+Ψη(a) = e−ηϕ (a)
+
+1 − e−ηϕ (a) Ψη(a).
+
+Using (A.8.9), 
+
+Gη(a) = e−ηϕ (a)
+
+1 − e−ηϕ (a) · η − cη eηϕ (a)(1 + o(1)) = η − cη
+
+1 + o(1) 1 − e−ηϕ (a) ,
+
+uniformly in η ∈ K. Since η ≥ η > 0 and ϕ(a) → ∞ , it follows that Gη(a) is uniformly bounded for all sufficiently large a. By continuity, it is then bounded on all relevant compact ranges as well. Thus there exists a constant BK > 0, depending only on K, such that 
+
+11 − e−ηϕ (a) ≤ 1 + BK
+
+Ψη(a) , a ≥ μ(η), η ∈ K. 
+
+Applying this to a = Vi+1 (η; N ) in (A.8.11) gives 
+
+W (η,N ) 
+
+> i
+
+− W (η,N ) 
+
+> i+1
+
+≤ 1 + BK
+
+W (η,N )
+
+> i+1
+
+. (A.8.12) Summing (A.8.12) from i = 1 to N − 1, and using (A.8.10), 
+
+W (η,N )1 − 1 ≤ (N − 1) + BKN −1X
+
+> i=1
+
+1
+
+W (η,N )
+
+> i+1
+
+≤ (N − 1) + BKN −1X
+
+> i=1
+
+1
+
+N − i = ( N − 1) + BKN −1X
+
+> k=1
+
+1
+
+k .
+
+Hence 
+
+W (η,N )1 ≤ N + O(log N ),
+
+uniformly in η ∈ K. Combining with (A.8.10), we obtain 
+
+W (η,N )1 = N + O(log N ), (A.8.13) uniformly in η ∈ K.35 Step 4: Recovering V1(η; N ). Since W (η,N )1 = Ψ η(V1(η; N )) , combining (A.8.9) and (A.8.13) yields η − c+
+
+η eηϕ (V1(η;N )) (1 + o(1)) = N + O(log N ),
+
+uniformly in η ∈ K. Therefore 
+
+η − c+
+
+η eηϕ (V1(η;N )) = N (1 + o(1)) ,
+
+uniformly in η ∈ K, and hence 
+
+ϕ(V1(η; N )) = log Nη + 1
+
+η log 
+
+ ηη − c+
+
+
+
++ o(1) , (A.8.14) uniformly in η ∈ K.Set 
+
+yN (η) := log Nη , d(η) := 1
+
+η log 
+
+ ηη − c+
+
+
+
+.
+
+Then (A.8.14) says 
+
+V1(η; N ) = ψ yN (η) + d(η) + o(1) ,
+
+uniformly in η ∈ K. Since K is compact, d(η) is bounded on K; let 
+
+D := sup 
+
+> η∈K
+
+|d(η)| < ∞.
+
+Also, 
+
+inf  
+
+> η∈K
+
+yN (η) = log Nη → ∞ .
+
+Because ψ′(y)/ψ (y) → c, for every fixed D′ > 0,
+
+sup 
+
+> |u|≤ D′
+
+log ψ(y + u)
+
+ψ(y) − c+u → 0 (y → ∞ ).
+
+Applying this with u = d(η) + o(1) , which is uniformly bounded, gives 
+
+ψ(yN (η) + d(η) + o(1)) 
+
+ψ(yN (η)) = ec+ d(η)(1 + o(1)) ,
+
+uniformly in η ∈ K. Since 
+
+ec+ d(η) = exp 
+
+ c+
+
+η log 
+
+ ηη − c+
+
+ 
+
+=
+
+ ηη − c+
+
+c+/η 
+
+= C(η),
+
+we conclude that 
+
+V1(η; N ) = C(η)ψ
+
+ log Nη
+
+
+
+(1 + o(1)) ,
+
+uniformly in η ∈ K. This proves the lemma. 36 Since θ+ → θ and θ > c +, we may choose ρ ∈ (0 , θ − c+) and define 
+
+K = [ θ − ρ, θ + ρ] ⊂ (c+, ∞),
+
+such that θ+ ∈ K for all sufficiently large n. Therefore, by Lemma 25, 
+
+V1(θ+; Nn) = C(θ+)ψ
+
+ log Nθ+
+
+
+
+(1 + o(1)) ,
+
+where 
+
+C(η) := 
+
+ ηη − c+
+
+c+/η 
+
+.
+
+Also, by Theorem 6, 
+
+E[OPT( θ)] = Γ 
+
+
+
+1 − c+
+
+θ
+
+
+
+ψ
+
+ log nθ
+
+
+
+(1 + o(1)) .
+
+Therefore V1(θ+; N )
+
+E[OPT( θ)] = ρ(c+, θ ) C(θ+)
+
+C(θ)
+
+ψ((log Nn)/θ +)
+
+ψ(yn) (1 + o(1)) , (A.8.15) where 
+
+ρ(c+, θ ) := C(θ)Γ(1 − c+/θ ) =
+
+ θθ−c+
+
+c+/θ 
+
+Γ(1 − c+/θ ) .
+
+Since C is continuous and differentiable in a neighborhood of θ and 
+
+θ+,n − θ = θ
+
+ 1 + εm
+
+1 − εm
+
+− 1
+
+
+
+= 2 θε m + O(ε2
+
+> m
+
+),
+
+using the mean value theorem, we have 
+
+C(θ+,n )
+
+C(θ) = 1 + O(εm). (A.8.16) Next define 
+
+un := log Nθ+
+
+− log nθ .
+
+Using 1
+
+θ+
+
+= 1 − εm
+
+θ(1 + εm) = 1
+
+θ
+
+ 1 − 2εm + O(ε2
+
+> m
+
+)
+
+and 
+
+log N = log n + log(1 − m/n ) = log n − mn + O
+
+ m2
+
+n2
+
+
+
+,
+
+we get 
+
+un = − 2εm log nθ − mθn + o
+
+
+
+εm log n + mn
+
+
+
+. (A.8.17) Let yn = log n/θ . Since ψ′(y)/ψ (y) → c, and un → 0, we have 
+
+log ψ(yn + un)
+
+ψ(yn) =
+
+Z yn+un
+
+> yn
+
+ψ′(t)
+
+ψ(t) dt = c+ un + o(un).
+
+37 Hence ψ(yn + un)
+
+ψ(yn) = 1 + c+ un + o(un). (A.8.18) Substituting (A.8.17) into (A.8.18), 
+
+ψ((log N )/θ +)
+
+ψ(yn) = 1 − 2c+
+
+θ εm log n − c+
+
+θmn − o
+
+
+
+εm log n + mn
+
+
+
+. (A.8.19) Combining (A.8.15), (A.8.16), and (A.8.19), and using εm = o(εm log n), we obtain 
+
+V1(θ+; N )
+
+E[OPT( θ)] ≥ ρ(c+, θ )
+
+
+
+1 − 2c+
+
+θ εm log n − c+
+
+θmn − o
+
+
+
+εm log n + mn
+
+n
+
+
+
+(1 + o(1)) .
+
+Together with Lemma 24, this yields 
+
+CR n(τ ; θ) ≥ ρ(c+, θ )(1 − δ)
+
+
+
+1 − 2c+
+
+θ εm log n − c+
+
+θmn − o
+
+
+
+εm log n + mn
+
+
+
+(1 + o(1)) .
+
+From m = o(n) and ϵm log n → 0, this proves the theorem. 
+
+A.9 Proof of Theorem 10 
+
+Lemma 26. 
+
+E[Xτ ] ≥ (1 − δ)V1(θ+; N ).
+
+Proof. The proof is the same four-step argument as in the unbounded-support case, with 
+
+rη(a) = 
+
+Z xF
+
+> a
+
+e−ηϕ (t) dt 
+
+in place of the integral over [a, ∞).
+
+Step 1: Estimating θ from the exploration samples. From Lemma 2, with 
+
+εm := 
+
+r 4 log(2 /δ )
+
+m ,
+
+the event 
+
+Gm := 
+
+ θ
+
+bθm
+
+− 1 ≤ εm
+
+
+
+satisfies 
+
+P(Gm) ≥ 1 − δ. 
+
+On Gm, θ
+
+1 + εm
+
+≤ bθm ≤ θ
+
+1 − εm
+
+,
+
+and therefore, for 
+
+θ(U) := (1 + εm)bθm,
+
+we have 
+
+θ ≤ θ(U) ≤ θ 1 + εm
+
+1 − εm
+
+= θ+. (A.9.1) 38 Step 2: A deterministic comparison lemma. Fix a parameter η ≥ θ, and suppose that after the exploration phase we use the DP thresholds computed from η, namely 
+
+ti := Vi+1 (η; N ), i = 1 , . . . , N − 1,
+
+and accept the last observation for sure. Let Li(θ, η ; N ) be the expected reward of this threshold policy under the true parameter θ,starting from remaining stage i ∈ { 1, . . . , N }. Thus 
+
+LN (θ, η ; N ) = Eθ[X1],
+
+and for i = 1 , . . . , N − 1,
+
+Li(θ, η ; N ) = Eθ[Xi1{Xi ≥ ti} + Li+1 (θ, η ; N )1{Xi < t i}] .
+
+We claim that 
+
+Li(θ, η ; N ) ≥ Vi(η; N ) for all i = 1 , . . . , N. (A.9.2) We prove (A.9.2) by backward induction. 
+
+Base case: Since η ≥ θ, the tail e−θϕ (x) dominates e−ηϕ (x) on [x0, x F ), so 
+
+LN (θ, η ; N ) = Eθ[X1] ≥ Eη[X1] = VN (η; N ).
+
+Induction step: Assume Li+1 (θ, η ; N ) ≥ Vi+1 (η; N ) = ti. Using 
+
+Pθ(Xi ≥ ti) = e−θϕ (ti)
+
+and 
+
+Eθ[Xi1{Xi ≥ ti}] = tie−θϕ (ti) + rθ(ti),
+
+we get 
+
+Li(θ, η ; N ) = (1 − e−θϕ (ti))Li+1 (θ, η ; N ) + tie−θϕ (ti) + rθ(ti)= ti + (1 − e−θϕ (ti))( Li+1 (θ, η ; N ) − ti) + rθ(ti).
+
+By the induction hypothesis, the middle term is nonnegative. Also η ≥ θ implies rθ(ti) ≥ rη(ti).Hence 
+
+Li(θ, η ; N ) ≥ ti + rη(ti) = Vi(η; N ).
+
+This proves (A.9.2). In particular, 
+
+L1(θ, η ; N ) ≥ V1(η; N ). (A.9.3) 
+
+Step 3: Monotonicity of the DP value in the parameter. For fixed N , define 
+
+Tη(v) := v + rη(v), v ∈ [x0, x F ).
+
+Then Tη is increasing in v, because 
+
+ddv Tη(v) = 1 − e−ηϕ (v) = Fη(v) ≥ 0,
+
+and Tη is decreasing in η, because rη(v) is decreasing in η.Also VN (η; N ) = Eη[X1] is decreasing in η. Therefore, a backward induction yields that for every fixed i,
+
+η1 ≤ η2 =⇒ Vi(η1; N ) ≥ Vi(η2; N ). (A.9.4) 39 Step 4: Apply the comparison on the good event. Condition on the exploration samples and on the good event Gm. Then the algorithm uses η = θ(U) , and by (A.9.1), 
+
+θ ≤ θ(U) ≤ θ+.
+
+By (A.9.3), 
+
+E[Xτ | X1, . . . , X m, Gm] ≥ V1(θ(U) ; N ).
+
+By the monotonicity (A.9.4), 
+
+V1(θ(U) ; N ) ≥ V1(θ+; N ).
+
+Hence 
+
+E[Xτ | X1, . . . , X m, Gm] ≥ V1(θ+; N ).
+
+Taking expectations and using P(Gm) ≥ 1 − δ,
+
+E[Xτ ] ≥ P(Gm) V1(θ+; N ) ≥ (1 − δ)V1(θ+; N ).
+
+Lemma 27 (Uniform asymptotic for the DP value in the bounded-support case) . Let 
+
+K = [ η, η ] ⊂ (0 , ∞)
+
+be compact, and define 
+
+C−(η) := 
+
+ η + cη
+
+c/η 
+
+.
+
+Then, as N → ∞ ,
+
+V1(η; N ) = xF − C−(η) ¯ψ
+
+ log Nη
+
+
+
+(1 + o(1)) ,
+
+uniformly in η ∈ K.Proof. We write the proof in several steps. 
+
+Step 1: Uniform asymptotic for rη. Fix η ∈ K. For a = ψ(y), the change of variables t = ψ(u)
+
+gives 
+
+rη(ψ(y)) = 
+
+Z ∞
+
+> y
+
+e−ηu ψ′(u) du = e−ηy ψ′(y)
+
+Z ∞
+
+> 0
+
+e−ηs ψ′(y + s)
+
+ψ′(y) ds. (A.9.5) Since ψ′′ (u)/ψ ′(u) → − c−, for each fixed s ≥ 0,
+
+ψ′(y + s)
+
+ψ′(y) = exp 
+
+Z y+sy
+
+ψ′′ (u)
+
+ψ′(u) du 
+
+
+
+→ e−c−s (y → ∞ ).
+
+If c− > 0, choose ε ∈ (0 , c −). For all sufficiently large y and all s ≥ 0,
+
+ψ′(y + s)
+
+ψ′(y) ≤ e−(c−−ε)s. (A.9.6) Hence 
+
+sup 
+
+> η∈K
+
+Z ∞
+
+> 0
+
+e−ηs ψ′(y + s)
+
+ψ′(y) ds −
+
+Z ∞
+
+> 0
+
+e−(η+c−)s ds ≤
+
+Z ∞
+
+> 0
+
+e−ηs ψ′(y + s)
+
+ψ′(y) − e−c−s ds 
+
+→ 0,
+
+40 by dominated convergence, since the integrand is dominated by 
+
+e−(η+c−−ε)s + e−(η+c−)s ∈ L1([0 , ∞)) .
+
+If c− = 0 , choose 0 < ε < η . Then, uniformly over η ∈ K,
+
+e−ηs ψ′(y + s)
+
+ψ′(y) ≤ e−(η−ε)s ≤ e−(η−ε)s,
+
+and 
+
+e−(η+c−)s = e−ηs ≤ e−ηs .
+
+Since 
+
+e−(η−ε)s + e−ηs ∈ L1([0 , ∞)) ,
+
+dominated convergence also applies. Therefore 
+
+sup 
+
+> η∈K
+
+rη(ψ(y)) 
+
+ψ′(y)e−ηy − 1
+
+η + c−
+
+→ 0. (A.9.7) Equivalently, 
+
+rη(ψ(y)) = ψ′(y)e−ηy 
+
+η + c−
+
+(1 + o(1)) ,
+
+uniformly for η ∈ K.
+
+Step 2: Uniform asymptotic for the scale transform Ψη. Let 
+
+μ(η) := Eη[X1], Ψη(x) := 1 + 
+
+Z xμ(η)
+
+dt rη(t) , x ∈ [μ(η), x F ).
+
+Define also 
+
+Qη(y) := Ψ η(ψ(y)) .
+
+Then, by the chain rule, 
+
+Q′
+
+> η
+
+(y) = ψ′(y)
+
+rη(ψ(y)) .
+
+Using (A.9.7), 
+
+sup 
+
+> η∈K
+
+Q′
+
+> η
+
+(y)(η + c−)eηy − 1 → 0. (A.9.8) Fix ρ ∈ (0 , 1) . Choose y0 so large that ψ(y0) > sup η∈K μ(η) and, for all y ≥ y0 and all η ∈ K,
+
+(1 − ρ)( η + c−)eηy ≤ Q′
+
+> η
+
+(y) ≤ (1 + ρ)( η + c−)eηy .
+
+Integrating from y0 to y ≥ y0,
+
+(1 − ρ) η + c−
+
+η
+
+ eηy − eηy 0  ≤ Qη(y) − Qη(y0) ≤ (1 + ρ) η + c−
+
+η
+
+ eηy − eηy 0 .
+
+Since Qη(y0) is bounded uniformly in η ∈ K, dividing by eηy and letting y → ∞ gives 
+
+sup 
+
+> η∈K
+
+Qη(y)(( η + c−)/η )eηy − 1 → 0.
+
+Equivalently, 
+
+Ψη(x) = η + c−
+
+η eηϕ (x)(1 + o(1)) (x ↑ xF ), (A.9.9) uniformly for η ∈ K.41 Step 3: Uniform growth of the transformed DP sequence. For η ∈ K and horizon N ,define 
+
+W (η,N ) 
+
+> i
+
+:= Ψ η(Vi(η; N )) , i = 1 , . . . , N. 
+
+Then 
+
+W (η,N ) 
+
+> N
+
+= Ψ η(μ(η)) = 1 .
+
+Since 
+
+Vi(η; N ) − Vi+1 (η; N ) = rη(Vi+1 (η; N )) ,
+
+and rη is decreasing, we get 
+
+W (η,N ) 
+
+> i
+
+− W (η,N ) 
+
+> i+1
+
+=
+
+Z Vi(η;N ) 
+
+> Vi+1 (η;N)
+
+dt rη(t) ≥ Vi(η; N ) − Vi+1 (η; N )
+
+rη(Vi+1 (η; N )) = 1 .
+
+Hence 
+
+W (η,N ) 
+
+> j
+
+≥ 1 + N − j, j = 1 , . . . , N. (A.9.10) For the upper bound, let a := Vi+1 (η; N ). Since X1 ≤ xF almost surely, 
+
+rη(a) = Eη[( X1 − a)+] ≤ xF − a, 
+
+and therefore a + rη(a) ≤ xF . Hence 
+
+W (η,N ) 
+
+> i
+
+− W (η,N ) 
+
+> i+1
+
+=
+
+Z a+rη (a)
+
+> a
+
+dt rη(t) ≤ rη(a)
+
+rη(a + rη(a)) .
+
+Also, 
+
+rη(a) − rη(a + rη(a)) = 
+
+Z a+rη (a)
+
+> a
+
+e−ηϕ (t) dt ≤ rη(a)e−ηϕ (a),
+
+so 
+
+rη(a + rη(a)) ≥ rη(a) 1 − e−ηϕ (a),
+
+and therefore 
+
+W (η,N ) 
+
+> i
+
+− W (η,N ) 
+
+> i+1
+
+≤ 11 − e−ηϕ (a) . (A.9.11) Now define 
+
+Gη(a) := 
+
+ 11 − e−ηϕ (a) − 1
+
+
+
+Ψη(a) = e−ηϕ (a)
+
+1 − e−ηϕ (a) Ψη(a).
+
+Using (A.9.9), 
+
+Gη(a) = e−ηϕ (a)
+
+1 − e−ηϕ (a) · η + cη eηϕ (a)(1 + o(1)) = η + cη
+
+1 + o(1) 1 − e−ηϕ (a) ,
+
+uniformly in η ∈ K. Since η ≥ η > 0 and ϕ(a) → ∞ as a ↑ xF , it follows that Gη(a) is uniformly bounded for all sufficiently large a. On the compact set 
+
+{(η, a ) : η ∈ K, μ (η) ≤ a ≤ a0}
+
+it is continuous, hence uniformly bounded there as well. Therefore there exists a constant BK > 0,depending only on K, such that 
+
+11 − e−ηϕ (a) ≤ 1 + BK
+
+Ψη(a) , a ∈ [μ(η), x F ), η ∈ K. 
+
+42 Applying this to a = Vi+1 (η; N ) in (A.9.11) gives 
+
+W (η,N ) 
+
+> i
+
+− W (η,N ) 
+
+> i+1
+
+≤ 1 + BK
+
+W (η,N )
+
+> i+1
+
+. (A.9.12) Summing (A.9.12) from i = 1 to N − 1, and using (A.9.10), 
+
+W (η,N )1 − 1 ≤ (N − 1) + BKN −1X
+
+> i=1
+
+1
+
+W (η,N )
+
+> i+1
+
+≤ (N − 1) + BKN −1X
+
+> i=1
+
+1
+
+N − i = ( N − 1) + BKN −1X
+
+> k=1
+
+1
+
+k .
+
+Hence 
+
+W (η,N )1 ≤ N + O(log N ),
+
+uniformly in η ∈ K. Combining with (A.9.10), we obtain 
+
+W (η,N )1 = N + O(log N ), (A.9.13) uniformly in η ∈ K.
+
+Step 4: Recovering V1(η; N ). Since W (η,N )1 = Ψ η(V1(η; N )) , combining (A.9.9) and (A.9.13) yields η + c−
+
+η eηϕ (V1(η;N )) (1 + o(1)) = N + O(log N ),
+
+uniformly in η ∈ K. Therefore 
+
+η + c−
+
+η eηϕ (V1(η;N )) = N (1 + o(1)) ,
+
+uniformly in η ∈ K, and hence 
+
+ϕ(V1(η; N )) = log Nη + 1
+
+η log 
+
+ ηη + c−
+
+
+
++ o(1) , (A.9.14) uniformly in η ∈ K.Set 
+
+yN (η) := log Nη , d(η) := 1
+
+η log 
+
+ ηη + c−
+
+
+
+.
+
+Then (A.9.14) says 
+
+xF − V1(η; N ) = ¯ψ yN (η) + d(η) + o(1) ,
+
+uniformly in η ∈ K. Since K is compact, d(η) is bounded on K; let 
+
+D := sup 
+
+> η∈K
+
+|d(η)| < ∞.
+
+Also, 
+
+inf  
+
+> η∈K
+
+yN (η) = log Nη → ∞ .
+
+43 Because ¯ψ′(y)/ ¯ψ(y) → − c−, for every fixed D′ > 0,
+
+sup 
+
+> |u|≤ D′
+
+log ¯ψ(y + u)¯ψ(y) + c−u → 0 (y → ∞ ).
+
+Applying this with u = d(η) + o(1) , which is uniformly bounded, gives 
+
+¯ψ(yN (η) + d(η) + o(1)) ¯ψ(yN (η)) = e−c− d(η)(1 + o(1)) ,
+
+uniformly in η ∈ K. Since 
+
+e−c− d(η) = exp 
+
+
+
+− c−
+
+η log 
+
+ ηη + c−
+
+ 
+
+=
+
+ η + c−
+
+η
+
+c−/η 
+
+= C−(η),
+
+we conclude that 
+
+V1(η; N ) = xF − C−(η) ¯ψ
+
+ log Nη
+
+
+
+(1 + o(1)) ,
+
+uniformly in η ∈ K. This proves the lemma. Since θ+ → θ, we may choose ρ ∈ (0 , θ ) and define 
+
+K = [ θ − ρ, θ + ρ] ⊂ (0 , ∞),
+
+such that θ+ ∈ K for all sufficiently large n. Therefore, by Lemma 27 applied with η = θ+,
+
+V1(θ+; N ) = xF − C−(θ+) ¯ψ
+
+ log Nθ+
+
+
+
+(1 + o(1)) . (A.9.15) We next compare the argument of ¯ψ with (log n)/θ :
+
+un := log Nθ+
+
+− log nθ = log(1 − m/n )
+
+θ+
+
++ log n
+
+ 1
+
+θ+
+
+− 1
+
+θ
+
+
+
+.
+
+Since m = o(n), the first term is o(1) . Also 
+
+θ+ − θ = O(θε m),
+
+so the second term is O(εm log n) = o(1) . Thus 
+
+un → 0. (A.9.16) Let 
+
+yn := log nθ .
+
+Now, since ¯ψ′(y)/ ¯ψ(y) → − c,
+
+log ¯ψ(yn + un)¯ψ(yn) =
+
+Z yn+un
+
+> yn
+
+¯ψ′(t)¯ψ(t) dt → 0,
+
+and therefore ¯ψ((log N )/θ +)¯ψ((log n)/θ ) → 1. (A.9.17) 44 Also C−(θ+) → C−(θ). Combining (A.9.15) and (A.9.17), 
+
+V1(θ+; N ) = xF − C−(θ) ¯ψ
+
+ log nθ
+
+
+
+(1 + o(1)) . (A.9.18) By the bounded-support analogue of Theorem 6, 
+
+OPT( θ) = xF − Γ
+
+
+
+1 + c−
+
+θ
+
+ ¯ψ
+
+ log nθ
+
+
+
+(1 + o(1)) . (A.9.19) We can obtain 
+
+1OPT( θ) = 1
+
+xF
+
+
+
+1 + Γ(1 + c− 
+
+> θ
+
+)
+
+xF
+
+¯ψ(log n/θ ) + o( ¯ψ(log n/θ )) 
+
+
+
+,
+
+then we have 
+
+V1(θ+; N )OPT( θ) = 1 − C−(θ) − Γ(1 + c−/θ )
+
+xF
+
+¯ψ(log n/θ ) + o( ¯ψ(log n/θ )) .
+
+From Assumption 3, in the bounded-support case, if c > 0, then 
+
+log ¯ψ(y) = −c−y + o(y), y → ∞ .
+
+Therefore, 
+
+¯ψ
+
+ log nθ
+
+
+
+= n−c−/θ +o(1) .
+
+When c− = 0 , since ψ(y) ↑ xF as y → ∞ , we have ¯ψ(y) = xF − ψ(y) → 0, and hence 
+
+¯ψ
+
+ log nθ
+
+
+
+= o(1) .
+
+Combining these estimates, we obtain 
+
+CR n(τ ; θ) ≥ 1 − δ − O
+
+
+
+n−c−/θ +o(1) 
+
+, c− > 0,
+
+whereas for c− = 0 ,
+
+CR n(τ ; θ) ≥ 1 − δ − o(1) .
+
+The proof of the theorem is concluded by n → ∞ .
+
+A.10 Proof of Theorem 11 
+
+We split the proof into five steps. 
+
+Step 1: Dynamic programming values and the plug-in thresholds. For the true exponen-tial model Xi ∼ Exp( θ), let Vi be the optimal dynamic-programming value when stages i, i +1 , . . . , n 
+
+remain, and set Vn+1 := 0 . Then 
+
+Vi = Emax {Xi, V i+1 }, i = 1 , . . . , n. 
+
+Since Xn must be accepted at the last stage, 
+
+Vn = E[Xn] = 1
+
+θ .
+
+45 Using max( X, a ) = a + ( X − a)+ and 
+
+E(X − a)+ =
+
+Z ∞
+
+> a
+
+Pr( X > t ) dt =
+
+Z ∞
+
+> a
+
+e−θt dt = e−θa 
+
+θ ,
+
+we get the recursion 
+
+Vi = Vi+1 + e−θV i+1 
+
+θ , i = 1 , . . . , n − 1.
+
+Now define 
+
+Ui := θV i.
+
+Then 
+
+Un+1 = 0 , Un = 1 , Ui = Ui+1 + e−Ui+1 , i = 1 , . . . , n − 1.
+
+In particular, the sequence (Ui)n+1  
+
+> i=1
+
+does not depend on θ.Next fix a deterministic upper bound θ(U) ≥ θ, and define the plug-in threshold values by 
+
+bVn+1 := 0 , bVn := 1
+
+θ(U) , bVi = bVi+1 + e−θ(U) bVi+1 
+
+θ(U) .
+
+Let bUi := θ(U) bVi.
+
+Then bUn+1 = 0 , bUn = 1 , and 
+
+bUi = bUi+1 + e− bUi+1 , i = 1 , . . . , n − 1.
+
+Since ( bUi) and (Ui) satisfy the same backward recursion with the same terminal condition, they are identical: bUi = Ui for all i. 
+
+Therefore 
+
+bVi = Ui
+
+θ(U) for all i. 
+
+Step 2: Performance of the plug-in threshold policy under the true θ. Consider the stopping policy that, at time i, uses threshold 
+
+ti := bVi+1 = Ui+1 
+
+θ(U) .
+
+Let Li be the expected reward of this plug-in threshold policy from stages i, i + 1 , . . . , n under the true model Xj ∼ Exp( θ), and set Ln+1 := 0 . Thus 
+
+Li = E[Xi1{Xi ≥ ti} + Li+1 1{Xi < t i}] .
+
+We claim that the plug-in policy loses at most a multiplicative factor θ/θ (U) compared with the optimal DP. 
+
+Lemma 28. For every i ∈ [n],
+
+Li ≥ θθ(U) Vi.
+
+In particular, 
+
+L1 ≥ θθ(U) V1.
+
+46 Proof. Let 
+
+R := θθ(U) ∈ (0 , 1] , wi := θL i.
+
+We first derive a recursion for Li. Since Xi ∼ Exp( θ),
+
+Pr( Xi ≥ ti) = e−θt i .
+
+Also, by the memoryless property, 
+
+E[Xi | Xi ≥ ti] = ti + 1
+
+θ .
+
+Therefore 
+
+Li = E[Xi1{Xi ≥ ti}] + E[Li+1 1{Xi < t i}]= Pr( Xi ≥ ti) E[Xi | Xi ≥ ti] + (1 − Pr( Xi ≥ ti)) Li+1 
+
+=
+
+
+
+ti + 1
+
+θ
+
+
+
+e−θt i + (1 − e−θt i )Li+1 .
+
+Multiplying both sides by θ, we get 
+
+wi = ( θt i + 1) e−θt i + (1 − e−θt i )wi+1 .
+
+Since 
+
+θt i = θ bVi+1 = θθ(U) Ui+1 = R U i+1 ,
+
+this becomes 
+
+wi = ( RU i+1 + 1) e−RU i+1 + (1 − e−RU i+1 )wi+1 .
+
+We now prove by backward induction that 
+
+wi ≥ R U i for all i ∈ [n].
+
+Base case: At stage n, the policy accepts Xn for sure because tn = bVn+1 = 0 . Hence 
+
+Ln = E[Xn] = 1
+
+θ , wn = θL n = 1 .
+
+Since Un = 1 and R ≤ 1,
+
+wn = 1 ≥ R = RU n.
+
+Induction step: Assume that wi+1 ≥ RU i+1 . Then 
+
+wi = ( RU i+1 + 1) e−RU i+1 + (1 − e−RU i+1 )wi+1 
+
+≥ (RU i+1 + 1) e−RU i+1 + (1 − e−RU i+1 )RU i+1 
+
+= RU i+1 + e−RU i+1 .
+
+On the other hand, since Ui = Ui+1 + e−Ui+1 ,
+
+RU i = RU i+1 + Re −Ui+1 .
+
+Thus it remains to show that 
+
+e−RU i+1 ≥ Re −Ui+1 .
+
+47 But for every u ≥ 0 and every R ∈ (0 , 1] ,
+
+e−Ru 
+
+e−u = e(1 −R)u ≥ 1 ≥ R. 
+
+Hence e−Ru ≥ Re −u, and therefore 
+
+wi ≥ RU i.
+
+This closes the induction. Finally, since wi = θL i and Ui = θV i, the inequality wi ≥ RU i is equivalent to 
+
+Li ≥ θθ(U) Vi.
+
+As an immediate consequence, if τ denotes the stopping time of the plug-in threshold policy, then 
+
+E[Xτ ] = L1 ≥ θθ(U) V1 = θθ(U) 
+
+U1
+
+θ .
+
+Since for i.i.d. exponential rewards 
+
+E
+
+
+
+max  
+
+> 1≤i≤n
+
+Xi
+
+
+
+= Hn
+
+θ , Hn := 
+
+> n
+
+X
+
+> k=1
+
+1
+
+k ,
+
+we obtain 
+
+E[Xτ ]
+
+E[max 1≤i≤n Xi] ≥ (θ/θ (U) )V1
+
+Hn/θ = θθ(U) 
+
+U1
+
+Hn
+
+.
+
+Thus the plug-in threshold policy suffers only the multiplicative loss θ/θ (U) relative to the optimal exponential dynamic program. 
+
+Step 3: The online algorithm with m forced exploration stages. Now consider the actual online algorithm: it rejects the first m observations X1, . . . , X m (forced exploration), uses them to compute bθm and θ(U) , and from stage m + 1 onward uses the plug-in DP thresholds computed from θ(U) . Since the Xi’s are i.i.d., the first m rejected observations are distributed exactly like independent training samples, and they are independent of the future observations Xm+1 , . . . , X n.With εm = p4 log(2 /δ )/m , let 
+
+G := 
+
+ θ
+
+bθm
+
+− 1 ≤ εm
+
+
+
+,
+
+which holds at least 1 − δ probability. Conditional on the event G, we have θ(U) ≥ θ, so by the lemma, the expected reward collected from stages m + 1 , . . . , n is at least 
+
+θθ(U) Vm+1 ≥ 1 − εm
+
+1 + εm
+
+Vm+1 = 1 − εm
+
+1 + εm
+
+Um+1 
+
+θ .
+
+On the complement event Gc, the reward is nonnegative. Therefore, using Pr( G) ≥ 1 − δ,
+
+E[Xτ ] ≥ (1 − δ) 1 − εm
+
+1 + εm
+
+Um+1 
+
+θ .
+
+Dividing by E[max 1≤i≤n Xi] = Hn/θ , we conclude that 
+
+CR n(τ ) := E[Xτ ]
+
+E[max 1≤i≤n Xi] ≥ (1 − δ) 1 − εm
+
+1 + εm
+
+Um+1 
+
+Hn
+
+, εm =
+
+r 4 log(2 /δ )
+
+m .
+
+48 Step 4: Asymptotics of Um+1 . It remains to estimate Um+1 . Let 
+
+Wi := eUi .
+
+Since Ui = Ui+1 + e−Ui+1 , we have 
+
+Wi = eUi+1 +e−Ui+1 
+
+= Wi+1 e1/W i+1 ,
+
+and hence 
+
+Wi − Wi+1 = Wi+1 
+
+ e1/W i+1 − 1.
+
+Because ey − 1 ≥ y for all y ≥ 0,
+
+Wi − Wi+1 ≥ 1.
+
+Summing from i = j to n − 1 gives 
+
+Wj ≥ Wn + ( n − j) = e + n − j. 
+
+In particular, Wi ≥ e for all i, so 1/W i+1 ≤ 1/e . For 0 ≤ y ≤ 1/e , Taylor’s theorem implies 
+
+ey − 1 ≤ y + y2, and therefore 
+
+Wi − Wi+1 ≤ Wi+1 
+
+ 1
+
+Wi+1 
+
++ 1
+
+W 2
+
+> i+1
+
+
+
+= 1 + 1
+
+Wi+1 
+
+.
+
+Summing again from i = j to n − 1,
+
+Wj − Wn ≤ (n − j) + 
+
+> n−1
+
+X
+
+> i=j
+
+1
+
+Wi+1 
+
+.
+
+Using the lower bound Wi+1 ≥ e + n − i − 1,
+
+> n−1
+
+X
+
+> i=j
+
+1
+
+Wi+1 
+
+≤
+
+> n−j−1
+
+X
+
+> k=0
+
+1
+
+e + k = O(log( n − j + 1)) .
+
+Hence 
+
+Wj = ( n − j + 1) + O(log( n − j + 1)) .
+
+Taking logarithms yields 
+
+Uj = log Wj = log( n − j + 1) + O
+
+ log( n − j + 1) 
+
+n − j + 1 
+
+
+
+= log( n − j + 1) + o(1) .
+
+Setting j = m + 1 , we obtain 
+
+Um+1 = log( n − m) + o(1) .
+
+Finally, since 
+
+Hn = log n + Θ(1) ,
+
+we conclude that Um+1 
+
+Hn
+
+=
+
+
+
+1 − Θ
+
+ 1log n
+
+ log( n − m)log n .
+
+Therefore 
+
+CR n(τ ) ≥ (1 − δ) 1 − ϵ
+
+1 + ϵUm+1 
+
+Hn
+
+= (1 − δ) 1 − Θ p log(1 /δ )/m 
+
+1 + Θ  p log(1 /δ )/m 
+
+1 − Θ
+
+ 1log n
+
+ log( n − m)log n .
+
+49 Step 5: Optimization with respect to m. Therefore, for all sufficiently large n,
+
+CR n(τ ) ≥ (1 − δ)1 − Θ
+
+plog(1 /δ )/m 
+
+
+
+1 + Θ 
+
+plog(1 /δ )/m 
+
+ · log( n − m)log n
+
+
+
+1 − Θ
+
+ 1log n
+
+ 
+
+.
+
+To make this precise, there exist constants c1, c 2, c 3, c 4 > 0 such that 
+
+CR n(τ ) ≥ (1 − δ) 1 − c1
+
+plog(1 /δ )/m 
+
+1 + c2
+
+plog(1 /δ )/m ·
+
+
+
+1 − c3
+
+mn log n
+
+  
+
+1 − c4
+
+1log n
+
+
+
+,
+
+where in the second factor we used 
+
+log( n − m)log n = 1 + log(1 − m/n )log n = 1 − O
+
+ mn log n
+
+
+
+,
+
+which holds because m = o(n) and 
+
+log(1 − x) = −x + O(x2) (x → 0) .
+
+Now set 
+
+an := 
+
+r log(1 /δ )
+
+m .
+
+Since m = ω(log(1 /δ )) , we have an → 0. Using 
+
+1 − c1an
+
+1 + c2an
+
+= 1 − (c1 + c2)an
+
+1 + c2an
+
+≥ 1 − C1an
+
+for some constant C1 > 0 and all sufficiently large n, we obtain 
+
+CR n(τ ) ≥ (1 − δ) 1 − C1
+
+r log(1 /δ )
+
+m
+
+! 
+
+1 − c3
+
+mn log n
+
+  
+
+1 − c4
+
+1log n
+
+
+
+.
+
+Using (1 − x)(1 − y) ≥ 1 − x − y for x, y ≥ 0, it follows that 
+
+CR n(τ ) ≥ (1 − δ) 1 − C1
+
+r log(1 /δ )
+
+m − c3
+
+mn log n − c4
+
+1log n
+
+!
+
+.
+
+Hence 
+
+CR n(τ ) ≥ (1 − δ) 1 − O
+
+r log(1 /δ )
+
+m
+
+!
+
+− O
+
+ mn log n
+
+
+
+− O
+
+ 1log n
+
+!
+
+.
+
+A.11 Proof of Theorem 13 
+
+Let Vi be the optimal DP value when periods i, i +1 , . . . , n remain, and set Vn+1 = 0 . For exponential rewards, 
+
+Vi = Vi+1 + e−θV i+1 
+
+θ , i = 1 , . . . , n − 1,
+
+with terminal value Vn = 1 /θ . Define 
+
+Ui := θV i.
+
+50 Then 
+
+Un = 1 , Ui = Ui+1 + e−Ui+1 , i = 1 , . . . , n − 1.
+
+Let 
+
+Wi := eUi .
+
+Then Wn = e, and 
+
+Wi = eUi = eUi+1 +e−Ui+1 
+
+= Wi+1 exp 
+
+ 1
+
+Wi+1 
+
+
+
+.
+
+Therefore 
+
+Wi − Wi+1 = Wi+1 
+
+
+
+exp 
+
+ 1
+
+Wi+1 
+
+
+
+− 1
+
+
+
+.
+
+Since ex ≥ 1 + x, we have 
+
+Wi − Wi+1 ≥ 1.
+
+Thus 
+
+Wi ≥ Wn + n − i = e + n − i. 
+
+In particular Wi+1 ≥ e + n − i − 1. Since Wi+1 ≥ e, we have 1/W i+1 ≤ 1/e . Hence Taylor’s theorem gives 
+
+ex − 1 ≤ x + Cx 2, 0 ≤ x ≤ 1/e, 
+
+for some absolute constant C > 0. Applying this with x = 1 /W i+1 , we obtain 
+
+Wi − Wi+1 ≤ 1 + CWi+1 
+
+≤ 1 + Ce + n − i − 1 .
+
+Summing from i = 1 to n − 1, we get 
+
+W1 = n + O(log n).
+
+Consequently, 
+
+U1 = log W1 = log n + O
+
+ log nn
+
+
+
+.
+
+Since V1 = U1/θ , the optimal full-information expected reward is 
+
+Eθ[Xτ ∗ ] = 1
+
+θ
+
+
+
+log n + O
+
+ log nn
+
+ 
+
+.
+
+On the other hand, for exponential rewards, 
+
+Eθ
+
+
+
+max  
+
+> i∈[n]
+
+Xi
+
+
+
+= Hn
+
+θ ,
+
+where Hn is the n-th harmonic number. Using 
+
+Hn = log n + γ + O
+
+ 1
+
+n
+
+
+
+,
+
+where γ ≈ 0.57721 is the Euler–Mascheroni constant, we obtain 
+
+CR n(τ ∗; θ) = U1
+
+Hn
+
+= log n + O(log n/n )log n + γ + O(1 /n ) .
+
+Therefore 
+
+CR n(τ ∗; θ) = 1 − γ
+
+log n + O
+
+ 1log 2 n
+
+
+
+.
+
+This proves the claim. 51 A.12 Proof of Theorem 14 
+
+We first provide a lemma for the lower bound. 
+
+Lemma 29. Algorithm 1 with DP valuation updates (2) satisfies 
+
+E[Xτ ]
+
+E[OPT( θ)] ≥ (1 − δ)ξθ(α⋆) Vm+1 (θ)
+
+E[OPT( θ)] ,
+
+where α⋆ = min i Vi(θ(U )) 
+
+> Vi(θ)
+
+and ξθ(α) = θα θ−1+ αθ .Proof. The proof consists of 5 steps. 
+
+Step 1: Dynamic-programming recursion. Let Vi(θ) be the optimal expected reward when stages i, i + 1 , . . . , n remain. Then Vn+1 (θ) := 0 , and at the last stage one must accept, so 
+
+Vn(θ) = E[Xn] = θx 0
+
+θ − 1 .
+
+For i = n − 1, . . . , 1,
+
+Vi(θ) = E[max {Xi, V i+1 (θ)}].
+
+Since Vi+1 (θ) ≥ Vn(θ) > x 0, we may use the Pareto tail formula: for any a ≥ x0,
+
+E[( X − a)+] = 
+
+Z ∞
+
+> a
+
+Pr( X > t ) dt =
+
+Z ∞
+
+> a
+
+ x0
+
+t
+
+θ
+
+dt = xθ
+
+> 0
+
+θ − 1 a1−θ.
+
+Hence 
+
+Vi(θ) = Vi+1 (θ) + xθ
+
+> 0
+
+θ − 1 Vi+1 (θ)1−θ, i = n − 1, . . . , 1.
+
+Define the normalized values 
+
+Ui(θ) := Vi(θ)
+
+x0
+
+.
+
+Then 
+
+Un(θ) = θθ − 1 , Ui(θ) = Ui+1 (θ) + 1
+
+θ − 1 Ui+1 (θ)1−θ, i = n − 1, . . . , 1.
+
+Step 2: The prophet benchmark. Let Mn = max 1≤j≤n Xj . Writing Xj = x0U −1/θ j with 
+
+Uj i.i.d.
+
+∼ Unif(0 , 1) , one gets 
+
+E[OPT( θ)] = x0 Γ
+
+
+
+1 − 1
+
+θ
+
+ Γ( n + 1) Γ( n + 1 − 1/θ ) .
+
+By the Gamma-ratio asymptotic, 
+
+Γ( n + 1) Γ( n + 1 − 1/θ ) = n1/θ (1 + o(1)) ,
+
+so 
+
+E[OPT( θ)] = x0 Γ
+
+
+
+1 − 1
+
+θ
+
+
+
+n1/θ (1 + o(1)) .
+
+Step 3: Recursion for the plug-in policy after exploration. With εm = p4 log(2 /δ )/m , let 
+
+Gm := 
+
+ θ
+
+bθm
+
+− 1 ≤ εm
+
+
+
+,
+
+52 which holds at least 1 − δ probability from Lemma 2. On the event Gm, fix the realized value of 
+
+θ(U) . The policy rejects the first m observations and then uses thresholds 
+
+ti := Vi+1 (θ(U) ), i = m + 1 , . . . , n − 1,
+
+and accepts at stage n. Let Li be the expected reward of this plug-in policy starting from stage i,under the true parameter θ. Then 
+
+Ln = E[Xn] = Vn(θ).
+
+For i = n − 1, . . . , m + 1 , conditioning on whether Xi ≥ ti,
+
+Li = Pr( Xi ≥ ti) E[Xi | Xi ≥ ti] + Pr( Xi < t i) Li+1 .
+
+Now 
+
+Pr( Xi ≥ ti) = 
+
+ x0
+
+ti
+
+θ
+
+, E[Xi | Xi ≥ ti] = θθ − 1 ti.
+
+Therefore 
+
+Li =
+
+ x0
+
+ti
+
+θ θt i
+
+θ − 1 + 1 −
+
+ x0
+
+ti
+
+θ!
+
+Li+1 .
+
+Step 4: A comparison lemma. We first prove a deterministic comparison bound. 
+
+Lemma 30. Fix α ∈ (0 , 1] . Suppose that 
+
+ti ≥ α V i+1 (θ), i = m + 1 , . . . , n − 1.
+
+Then for every i = m + 1 , . . . , n ,
+
+Li ≥ ξθ(α) Vi(θ), ξθ(α) = θα θ − 1 + αθ .
+
+Proof. We argue by backward induction on i. For i = n, we have Ln = Vn(θ). Since 
+
+ξθ(α) ≤ 1 (α ∈ (0 , 1]) ,
+
+it follows that 
+
+Ln = Vn(θ) ≥ ξθ(α)Vn(θ).
+
+To verify ξθ(α) ≤ 1, note that this is equivalent to 
+
+θα ≤ θ − 1 + αθ.
+
+Define 
+
+h(α) := θ − 1 + αθ − θα. 
+
+Then h(1) = 0 , and 
+
+h′(α) = θα θ−1 − θ = θ(αθ−1 − 1) ≤ 0 for α ∈ (0 , 1] .
+
+Hence h(α) ≥ h(1) = 0 . Now suppose that for some i ∈ { m + 1 , . . . , n − 1},
+
+Li+1 ≥ ξθ(α)Vi+1 (θ).
+
+Write 
+
+ti = βiVi+1 (θ)
+
+53 with βi ≥ α. Since ti = Vi+1 (θ(U) ) and θ(U) ≥ θ, one also has βi ≤ 1; indeed, if η′ ≥ η, then under the coupling 
+
+Xj (η) = x0U −1/η j , Uj ∼ Unif(0 , 1) ,
+
+we have Xj (η′) ≤ Xj (η) almost surely for every j. Therefore any stopping rule earns no more under 
+
+η′ than under η, so 
+
+Vi(η′) ≤ Vi(η) for all i. 
+
+Applying this with η′ = θ(U) and η = θ yields ti ≤ Vi+1 (θ), i.e. βi ≤ 1. Using the recursion for Li
+
+and the induction hypothesis, 
+
+Li =
+
+ x0
+
+ti
+
+θ θt i
+
+θ − 1 + 1 −
+
+ x0
+
+ti
+
+θ!
+
+Li+1 
+
+≥
+
+ x0
+
+ti
+
+θ θt i
+
+θ − 1 + 1 −
+
+ x0
+
+ti
+
+θ!
+
+ξθ(α)Vi+1 (θ)= ξθ(α)Vi+1 (θ) + 
+
+ x0
+
+ti
+
+θ  θt i
+
+θ − 1 − ξθ(α)Vi+1 (θ)
+
+
+
+.
+
+Substituting ti = βiVi+1 (θ),
+
+Li ≥ ξθ(α)Vi+1 (θ) + 
+
+ x0
+
+βiVi+1 (θ)
+
+θ  θβ iVi+1 (θ)
+
+θ − 1 − ξθ(α)Vi+1 (θ)
+
+
+
+.
+
+On the other hand, from the recursion for Vi(θ),
+
+ξθ(α)Vi(θ) = ξθ(α)Vi+1 (θ) + ξθ(α) xθ
+
+> 0
+
+θ − 1 Vi+1 (θ)1−θ.
+
+Thus it is enough to show 
+
+ x0
+
+βiVi+1 (θ)
+
+θ  θβ iVi+1 (θ)
+
+θ − 1 − ξθ(α)Vi+1 (θ)
+
+
+
+≥ ξθ(α) xθ
+
+> 0
+
+θ − 1 Vi+1 (θ)1−θ.
+
+After cancelling the common factor xθ
+
+> 0
+
+Vi+1 (θ)1−θ, this is equivalent to 
+
+β−θi
+
+ θβ i
+
+θ − 1 − ξθ(α)
+
+
+
+≥ ξθ(α)
+
+θ − 1 ,
+
+or, equivalently, 
+
+θβ i ≥ ξθ(α) θ − 1 + βθi
+
+.
+
+But 
+
+ξθ(β) = θβ θ − 1 + βθ ,
+
+so the last inequality is exactly 
+
+ξθ(βi) ≥ ξθ(α).
+
+This holds because βi ≥ α and ξθ is increasing on (0 , 1] . Indeed, 
+
+ξ′
+
+> θ
+
+(β) = θ(θ − 1)(1 − βθ)(θ − 1 + βθ)2 ≥ 0 for β ∈ (0 , 1] .
+
+Hence Li ≥ ξθ(α)Vi(θ), completing the induction. 54 Step 5: Proof of the theorem. On Gm, define 
+
+α∗ 
+
+> n
+
+:= min 
+
+> m+1 ≤i≤n
+
+Vi(θ(U) )
+
+Vi(θ) .
+
+Then for every i = m + 1 , . . . , n − 1,
+
+ti = Vi+1 (θ(U) ) ≥ α⋆n Vi+1 (θ).
+
+By the lemma with α = α⋆n,
+
+Lm+1 ≥ ξθ(α⋆n)Vm+1 (θ).
+
+Since Xτ ≥ 0 always, we obtain 
+
+E[Xτ ] ≥ E[Xτ 1Gm ]= Pr( Gm) E[Xτ | G m]
+
+≥ (1 − δ) ξθ(α⋆n) Vm+1 (θ).
+
+Dividing by E[OPT( θ)] yields 
+
+E[Xτ ]
+
+E[OPT( θ)] ≥ (1 − δ) ξθ(α⋆n) Vm+1 (θ)
+
+E[OPT( θ)] .
+
+Under Gm, we have θ ≤ θ(U ) ≤ 1+ εm 
+
+> 1−εm
+
+θ := (1 + ηm)θ. By Lemma 29, 
+
+E[Xτn ]
+
+E[OPT( θ)] ≥ (1 − δ) ξθ(α⋆n) Vm+1 (θ)
+
+E[OPT( θ)] , ξθ(α) = θα θ − 1 + αθ ,
+
+where 
+
+α⋆n := min 
+
+> m+1 ≤i≤n
+
+Vi(θ(U) )
+
+Vi(θ) .
+
+We first lower-bound α⋆n. Since Vi(β) is decreasing in β, on Gm we have 
+
+α⋆n ≥ min 
+
+> m+1 ≤i≤n
+
+Vi((1 + ηm)θ)
+
+Vi(θ) .
+
+Lemma 31 (Pareto DP value asymptotic) . Let 
+
+D(β) := 
+
+ ββ − 1
+
+1/β 
+
+, β > 1.
+
+For Pareto rewards with shape parameter β > 1, let Vi(β) be the optimal DP value when periods 
+
+i, i + 1 , . . . , n remain. Then, with r := n − i + 1 ,
+
+Vi(β) = x0D(β)r1/β 
+
+
+
+1 + β − 12β2
+
+log rr + O
+
+ 1
+
+r
+
+ 
+
+.
+
+Equivalently, 
+
+Vi(β) = x0D(β)( n − i + 1) 1/β 
+
+
+
+1 + β − 12β2
+
+log( n − i + 1) 
+
+n − i + 1 + O
+
+ 1
+
+n − i + 1 
+
+ 
+
+.
+
+55 Proof. Let r = n − i + 1 be the number of stages remaining from time i, and define 
+
+eUr(β) := Vn−r+1 (β)
+
+x0
+
+.
+
+Then 
+
+eU1(β) = ββ − 1 ,
+
+and, for r ≥ 2,
+
+eUr(β) = eUr−1(β) + 1
+
+β − 1 eUr−1(β)1−β .
+
+Set 
+
+Yr(β) := eUr(β)β .
+
+Then 
+
+Yr(β) = Yr−1(β)
+
+
+
+1 + 1(β − 1) Yr−1(β)
+
+β
+
+.
+
+Let 
+
+aβ := ββ − 1 .
+
+Expanding the right-hand side gives 
+
+Yr(β) − Yr−1(β) = aβ + β
+
+2( β − 1) 1
+
+Yr−1(β) + O
+
+ 1
+
+Yr−1(β)2
+
+
+
+.
+
+Since the rough estimate 
+
+Yr(β) = aβ r + O(log r)
+
+follows by the same upper and lower bounds as in the previous proof, we have 
+
+> r−1
+
+X
+
+> s=1
+
+1
+
+Ys(β) = 1
+
+aβ
+
+log r + O(1) ,
+
+> r−1
+
+X
+
+> s=1
+
+1
+
+Ys(β)2 = O(1) .
+
+Therefore, 
+
+Yr(β) = aβ r + β
+
+2( β − 1) · 1
+
+aβ
+
+log r + O(1) .
+
+Since aβ = β/ (β − 1) , this simplifies to 
+
+Yr(β) = aβ r + 12 log r + O(1) .
+
+Taking the 1/β -th power, 
+
+eUr(β) = 
+
+
+
+aβ r + 12 log r + O(1) 
+
+1/β 
+
+.
+
+Thus 
+
+eUr(β) = a1/β β r1/β 1 + 1
+
+β 
+
+> 12
+
+log r + O(1) 
+
+aβ r + O
+
+ log 2 rr2
+
+!
+
+.
+
+Using aβ = β/ (β − 1) , we obtain 
+
+eUr(β) = D(β)r1/β 
+
+
+
+1 + β − 12β2
+
+log rr + O
+
+ 1
+
+r
+
+ 
+
+.
+
+Multiplying by xm gives the desired expansion for Vi(β).56 From Lemma 31, 
+
+Vi(β) = x0 D(β) ( n − i + 1) 1/β (1 + o(1)) ,
+
+uniformly for β > 1. Hence for i > m ,
+
+Vi((1 + ηm)θ)
+
+Vi(θ) = D((1 + ηm)θ)
+
+D(θ) (n − i + 1) 1(1+ ηm )θ − 1 
+
+> θ
+
+(1 + o(1)) .
+
+Because 1(1+ ηm)θ − 1 
+
+> θ
+
+< 0, the minimum is attained at the largest remaining horizon, namely i = m+1 .Therefore 
+
+α⋆n ≥ αn (1 + o(1)) , αn := D((1 + ηm)θ)
+
+D(θ) (n − m) 1(1+ ηm )θ − 1 
+
+> θ
+
+.
+
+Now let 
+
+g(β) := log D(β) = 1
+
+β log ββ − 1 .
+
+Then 
+
+g′(β) = − 1
+
+β2
+
+ 1
+
+β − 1 + log ββ − 1
+
+
+
+,
+
+so that 
+
+−θg ′(θ) = 1
+
+θ
+
+ 1
+
+θ − 1 + log θθ − 1
+
+
+
+= Bθ.
+
+A first-order Taylor expansion gives 
+
+g((1 + ηm)θ) − g(θ) = θg ′(θ)ηm + O(η2
+
+> m
+
+) = −Bθηm + O(η2
+
+> m
+
+).
+
+Also, 1(1 + ηm)θ − 1
+
+θ = − ηm
+
+(1 + ηm)θ = − ηm
+
+θ + O(η2
+
+> m
+
+).
+
+Therefore 
+
+log αn = g((1 + ηm)θ) − g(θ) + 
+
+ 1(1 + ηm)θ − 1
+
+θ
+
+
+
+log( n − m)= −
+
+ log( n − m)
+
+θ + Bθ
+
+
+
+ηm + O(η2 
+
+> m
+
+log n)= −Aθ(n, m )ηm + O(η2 
+
+> m
+
+log n),
+
+where Aθ(n, m ) := log( n−m) 
+
+> θ
+
++ Bθ. Because ηm log( n − m) → 0, the exponent tends to 0, and hence 
+
+1 − αn = Aθ(n, m )ηm + o(ηm log n).
+
+Next we expand ξθ around 1. From ξθ(α) = θα θ−1+ αθ , one checks directly that 
+
+ξθ(1) = 1 , ξ′
+
+> θ
+
+(1) = 0 , ξ′′  
+
+> θ
+
+(1) = 1 − θ. 
+
+Thus, for s ↓ 0,
+
+ξθ(1 − s) = 1 − θ − 12 s2 + O(s3).
+
+Since ξθ is non-decreasing under α ≤ 1 and θ > 1, and α⋆n ≥ αn(1 + o(1)) ,
+
+ξθ(α⋆n) ≥ ξθ(αn) = 1 − θ − 12 Aθ(n, m )2η2 
+
+> m
+
++ o(η2 
+
+> m
+
+log 2 n).
+
+57 We now estimate the exploration loss more precisely. Let 
+
+N := n − m, aθ := θ − 12θ2 .
+
+By Lemma 31, 
+
+Vm+1 (θ) = x0D(θ)N 1/θ 
+
+
+
+1 + aθ
+
+log NN + O
+
+ 1
+
+N
+
+ 
+
+.
+
+On the other hand, 
+
+E[OPT( θ)] = x0Γ
+
+
+
+1 − 1
+
+θ
+
+ Γ( n + 1) Γ( n + 1 − 1/θ ) .
+
+Using the Gamma-ratio expansion, 
+
+Γ( n + 1) Γ( n + 1 − 1/θ ) = n1/θ 
+
+
+
+1 + aθ
+
+1
+
+n + O
+
+ 1
+
+n2
+
+ 
+
+,
+
+we obtain 
+
+E[OPT( θ)] = x0Γ
+
+
+
+1 − 1
+
+θ
+
+
+
+n1/θ 
+
+
+
+1 + aθ
+
+1
+
+n + O
+
+ 1
+
+n2
+
+ 
+
+.
+
+Therefore, 
+
+Vm+1 (θ)
+
+E[OPT( θ)] = D(θ)Γ(1 − 1/θ )
+
+ Nn
+
+1/θ 
+
+1 + aθ
+
+log NN + O
+
+ 1
+
+N
+
+  
+
+1 − aθ
+
+1
+
+n + O
+
+ 1
+
+n2
+
+ 
+
+.
+
+Since m = o(n), N = n − m, and 
+
+ Nn
+
+1/θ 
+
+= 1 − mθn + O
+
+ m2
+
+n2
+
+
+
+,
+
+while log NN = log nn + O
+
+ m log nn2
+
+
+
+,
+
+we get 
+
+Vm+1 (θ)
+
+E[OPT( θ)] = D(θ)Γ(1 − 1/θ )
+
+
+
+1 + aθ
+
+log nn − mθn + O
+
+ 1
+
+n + m log nn2 + m2
+
+n2
+
+ 
+
+.
+
+Combining the lower bound on ξθ(α⋆n) with the refined estimate of Vm+1 (θ)/E[OPT( θ)] , we obtain 
+
+E[Xτn ]
+
+E[OPT( θ)] ≥ (1 − δ) D(θ)Γ(1 − 1/θ )
+
+"
+
+1 + aθ
+
+log nn − mθn − θ − 12 Aθ(n, m )2η2
+
+> m
+
++ o η2 
+
+> m
+
+log 2 n + O
+
+ 1
+
+n + m log nn2 + m2
+
+n2
+
+ #
+
+,
+
+where 
+
+aθ = θ − 12θ2 , Aθ(n, m ) = log( n − m)
+
+θ + Bθ,
+
+and 
+
+ηm = 2εm
+
+1 − εm
+
+, εm =
+
+r log(1 /δ )
+
+m .
+
+58 Since 
+
+m = ω(log(1 /δ ) log 2 n),
+
+we have 
+
+η2 
+
+> m
+
+= log(1 /δ )
+
+m (1 + o(1)) .
+
+Also, since m = o(n),
+
+Aθ(n, m ) = log nθ + O(1) .
+
+Therefore, 
+
+Aθ(n, m )2η2 
+
+> m
+
+= O
+
+ log(1 /δ ) log 2 nm
+
+
+
+.
+
+Moreover, 
+
+m log nn2 + m2
+
+n2 = o
+
+ mn
+
+
+
+.
+
+Thus 
+
+CR n(τ ; θ) ≥ (1 − δ) D(θ)Γ(1 − 1/θ )
+
+
+
+1 + θ − 12θ2
+
+log nn − O
+
+ mn + log(1 /δ ) log 2 nm + 1
+
+n
+
+ 
+
+,
+
+which implies 
+
+CR n(τ ; θ) ≥ (1 − δ) D(θ)Γ(1 − 1/θ )
+
+
+
+1 − O
+
+ mn + log(1 /δ ) log 2 nm
+
+ 
+
+.
+
+A.13 Suboptimality of Relative Rank-only Rules for Fréchet tails 
+
+We first provide a proposition to show the suboptimality of relative rank-based rules for Fréchet tails. 
+
+Proposition 32 (Relative rank-only rules are suboptimal for Fréchet tails) . Let X1, . . . , X n be i.i.d. nonnegative continuous random variables whose upper quantile function 
+
+U (t) := F −1(1 − 1/t )
+
+is regularly varying with index γ ∈ (0 , 1) . Let τn be any stopping rule based only on relative ranks. Then 
+
+lim sup 
+
+> n→∞
+
+E[Xτn ]
+
+E[X(n)] ≤ 1 − γ
+
+
+
+1 − 1
+
+e
+
+
+
+,
+
+where X(n) is the largest order statistic. Moreover, 
+
+1 − γ
+
+
+
+1 − 1
+
+e
+
+
+
+< (1 − γ)−γ
+
+Γ(1 − γ) .
+
+Consequently, no relative-rank-only rule can attain the full-information Fréchet-specific limit 
+
+ργ := (1 − γ)−γ
+
+Γ(1 − γ) .
+
+In the parametric family of this paper, γ = c+/θ , so ργ = ρ(c+, θ ).
+
+59 Proof. Let Aτn denote the absolute rank selected by the rule, with Aτn = 1 corresponding to selecting the maximum X(n). Since τn uses only relative ranks, the classical secretary upper bound [Ferguson, 1989] gives 
+
+lim sup 
+
+> n→∞
+
+P(Aτn = 1) ≤ 1
+
+e .
+
+On {Aτn = 1 }, the selected value is X(n). On the complement, the selected value is at most X(n−1) .Since relative ranks are independent of the order statistics, 
+
+E[Xτn ] ≤ pn E[X(n)] + (1 − pn) E[X(n−1) ], pn := P(Aτn = 1) .
+
+Therefore E[Xτn ]
+
+E[X(n)] ≤ pn + (1 − pn) E[X(n−1) ]
+
+E[X(n)] .
+
+It remains to identify the limiting ratio of the two largest order statistics. Since U is regularly varying with index γ ∈ (0 , 1) , standard Fréchet order-statistic convergence gives 
+
+ X(n)
+
+U (n) , X(n−1) 
+
+U (n)
+
+
+
+⇒
+
+
+
+Γ−γ 
+
+> 1
+
+, Γ−γ
+
+> 2
+
+
+
+,
+
+where Γj = E1 + · · · + Ej and E1, E 2, . . . are i.i.d. Exp(1) . Since γ < 1, the corresponding first moments converge, and hence 
+
+E[X(n)]
+
+U (n) → E[Γ −γ 
+
+> 1
+
+] = Γ(1 − γ),
+
+while E[X(n−1) ]
+
+U (n) → E[Γ −γ 
+
+> 2
+
+] = Γ(2 − γ).
+
+Thus E[X(n−1) ]
+
+E[X(n)] → Γ(2 − γ)Γ(1 − γ) = 1 − γ. 
+
+Combining this with the secretary upper bound yields 
+
+lim sup 
+
+> n→∞
+
+E[Xτn ]
+
+E[X(n)] ≤ 1
+
+e +
+
+
+
+1 − 1
+
+e
+
+
+
+(1 − γ) = 1 − γ
+
+
+
+1 − 1
+
+e
+
+
+
+.
+
+Finally, the full-information Fréchet-specific limit in our parametric family is 
+
+ργ = (1 − γ)−γ
+
+Γ(1 − γ) .
+
+For γ ∈ (0 , 1) , one has 
+
+ργ > 1 − γ
+
+
+
+1 − 1
+
+e
+
+
+
+.
+
+Indeed, using the expansion 
+
+log Γ(1 − γ) = γE γ +
+
+> ∞
+
+X
+
+> k=2
+
+ζ(k)
+
+k γk,
+
+60 where γE ≈ 0.57721 denotes the Euler–Mascheroni constant, we get 
+
+log ργ = −γE γ +
+
+> ∞
+
+X
+
+> k=2
+
+ 1
+
+k − 1 − ζ(k)
+
+k
+
+
+
+γk > −γE γ, 
+
+because ζ(k) < k/ (k − 1) for k ≥ 2. Hence 
+
+ργ > e −γE γ ≥ 1 − γE γ > 1 − γ
+
+
+
+1 − 1
+
+e
+
+
+
+,
+
+since γE < 1 − 1/e . This proves the strict separation. Although the preceding results already imply the suboptimality of rank-based rules for Pareto tails, we include the following proposition for completeness, showing that relative-rank-only rules are suboptimal for Pareto tails. 
+
+Proposition 33 (Relative rank-only rules are suboptimal for Pareto tails) . Let X1, . . . , X n be i.i.d. Pareto random variables with scale x0 > 0 and shape parameter θ > 1:
+
+Fθ(x) = 1 −
+
+ x0
+
+x
+
+θ
+
+, x ≥ x0.
+
+Let τn be any stopping rule based only on relative ranks. Then 
+
+lim sup 
+
+> n→∞
+
+E[Xτn ]
+
+E[X(n)] ≤ 1 − 1
+
+θ
+
+
+
+1 − 1
+
+e
+
+
+
+.
+
+Moreover, 
+
+1 − 1
+
+θ
+
+
+
+1 − 1
+
+e
+
+
+
+< (θ/ (θ − 1)) 1/θ 
+
+Γ(1 − 1/θ ) = ρ(1 , θ ).
+
+Consequently, no relative-rank-only rule can attain the full-information Pareto-specific asymptotic competitive ratio ρ(1 , θ ).Proof. Let Aτn denote the absolute rank of the selected observation, with Aτn = 1 corresponding to selecting the maximum X(n). Since τn is based only on relative ranks, the classical secretary upper bound implies 
+
+lim sup 
+
+> n→∞
+
+P(Aτn = 1) ≤ 1
+
+e .
+
+On the event {Aτn = 1 }, the selected value is X(n). On the complement, the selected value is at most X(n−1) . Hence, using the independence between the order statistics and the rank vector, 
+
+E[Xτn ] ≤ P(Aτn = 1) E[X(n)] +  1 − P(Aτn = 1) E[X(n−1) ].
+
+Dividing by E[X(n)] gives 
+
+E[Xτn ]
+
+E[X(n)] ≤ pn + (1 − pn) E[X(n−1) ]
+
+E[X(n)] , pn := P(Aτn = 1) .
+
+It remains to compute the order-statistic ratio. Let γ := 1 /θ ∈ (0 , 1) . If U ∼ Unif(0 , 1) , then 
+
+X d
+
+= x0U −γ . Therefore, if U(1) ≤ U(2) ≤ · · · ≤ U(n) are the uniform order statistics, 
+
+X(n)
+
+> d
+
+= x0U −γ 
+
+> (1)
+
+, X(n−1) 
+
+> d
+
+= x0U −γ 
+
+> (2)
+
+.
+
+61 Using the densities of U(1) and U(2) ,
+
+E[X(n)] = x0n
+
+Z 10
+
+u−γ (1 − u)n−1 du = x0
+
+Γ( n + 1)Γ(1 − γ)Γ( n + 1 − γ) ,
+
+and 
+
+E[X(n−1) ] = x0n(n − 1) 
+
+Z 10
+
+u1−γ (1 − u)n−2 du = x0
+
+Γ( n + 1)Γ(2 − γ)Γ( n + 1 − γ) .
+
+Thus E[X(n−1) ]
+
+E[X(n)] = Γ(2 − γ)Γ(1 − γ) = 1 − γ = 1 − 1
+
+θ .
+
+Combining this identity with the secretary upper bound yields 
+
+lim sup 
+
+> n→∞
+
+E[Xτn ]
+
+E[X(n)] ≤ 1
+
+e +
+
+
+
+1 − 1
+
+e
+
+  
+
+1 − 1
+
+θ
+
+
+
+= 1 − 1
+
+θ
+
+
+
+1 − 1
+
+e
+
+
+
+.
+
+Finally, the full-information Pareto-specific limit is 
+
+ρ(1 , θ ) = (θ/ (θ − 1)) 1/θ 
+
+Γ(1 − 1/θ ) = (1 − γ)−γ
+
+Γ(1 − γ) .
+
+For γ ∈ (0 , 1) , this quantity is strictly larger than 1 − γ(1 − 1/e ). Hence the rank-only upper bound is strictly below ρ(1 , θ ), proving the claim. 
+
+A.14 Full-information Convergence Rate for Pareto Rewards 
+
+Proposition 34 (Full-information convergence rate for Pareto rewards) . Suppose X1, . . . , X n i.i.d.
+
+∼
+
+Pareto( θ). Let τ ∗ be the optimal full-information stopping rule. Then 
+
+CR n(τ ∗; θ) = ρ(1 , θ )
+
+
+
+1 + Θ 
+
+ log nn
+
+ 
+
+.
+
+Proof. Let Vi(θ) denote the optimal DP value when periods i, i +1 , . . . , n remain. Then Vn+1 (θ) = 0 ,and 
+
+Vi(θ) = E[max {Xi, V i+1 (θ)}], i = 1 , . . . , n. 
+
+Since the final observation must be accepted, 
+
+Vn(θ) = E[X1] = θx 0
+
+θ − 1 .
+
+For a ≥ x0,
+
+E[( X1 − a)+] = 
+
+Z ∞
+
+> a
+
+Pr( X1 > t ) dt =
+
+Z ∞
+
+> a
+
+ x0
+
+t
+
+θ
+
+dt = xθ
+
+> 0
+
+θ − 1 a1−θ.
+
+Therefore, 
+
+Vi(θ) = Vi+1 (θ) + xθ
+
+> 0
+
+θ − 1 Vi+1 (θ)1−θ, i = 1 , . . . , n − 1.
+
+It is convenient to re-index by the number of remaining periods. Define 
+
+eUr := Vn−r+1 (θ)
+
+x0
+
+, r = 1 , . . . , n. 
+
+62 Then 
+
+eU1 = θθ − 1 ,
+
+and for r ≥ 2,
+
+eUr = eUr−1 + 1
+
+θ − 1 eU 1−θr−1 .
+
+Set 
+
+Yr := eU θr .
+
+Then 
+
+Yr = Yr−1
+
+
+
+1 + 1(θ − 1) Yr−1
+
+θ
+
+.
+
+Let 
+
+aθ := θθ − 1 .
+
+Using (1 + u)θ ≥ 1 + θu for u ≥ 0, we get 
+
+Yr − Yr−1 ≥ aθ.
+
+Hence 
+
+Yr ≥ Y1 + aθ(r − 1) ≥ cθr
+
+for some constant cθ > 0.For the upper bound, since Yr → ∞ , Taylor’s theorem gives, for all large r,
+
+(1 + u)θ ≤ 1 + θu + Cθu2
+
+with u = 1 /(( θ − 1) Yr−1). Therefore 
+
+Yr − Yr−1 ≤ aθ + Cθ
+
+Yr−1
+
+.
+
+Using the lower bound Yr−1 ≥ cθ(r − 1) , we obtain 
+
+Yr − Yr−1 ≤ aθ + Cθ
+
+r .
+
+Summing over r, this yields 
+
+Yr = aθr + O(log r).
+
+Consequently, eUr = Y 1/θ r = ( aθr + O(log r)) 1/θ .
+
+Thus 
+
+eUr = a1/θ θ r1/θ 
+
+
+
+1 + O
+
+ log rr
+
+ 
+
+.
+
+Taking r = n, we get 
+
+V1(θ) = x0
+
+ θθ − 1
+
+1/θ 
+
+n1/θ 
+
+
+
+1 + O
+
+ log nn
+
+ 
+
+.
+
+Since V1(θ) = E[Xτ ∗ ], this gives the full-information DP value. 63 We now compute the prophet benchmark. Let Mn = max i∈[n] Xi. Write 
+
+Xi = x0U −1/θ i , Ui i.i.d.
+
+∼ Unif(0 , 1) .
+
+Then 
+
+Mn = x0U −1/θ  
+
+> (1)
+
+,
+
+where U(1) = min i∈[n] Ui. Since U(1) has density 
+
+n(1 − u)n−1, u ∈ [0 , 1] ,
+
+we obtain 
+
+E[Mn] = x0n
+
+Z 10
+
+u−1/θ (1 − u)n−1 du. 
+
+Using the beta function, 
+
+E[Mn] = x0nB 
+
+
+
+1 − 1
+
+θ , n 
+
+
+
+= x0Γ
+
+
+
+1 − 1
+
+θ
+
+ Γ( n + 1) Γ( n + 1 − 1/θ ) .
+
+By the standard Gamma-ratio expansion, 
+
+Γ( n + 1) Γ( n + 1 − 1/θ ) = n1/θ 
+
+
+
+1 + O
+
+ 1
+
+n
+
+ 
+
+.
+
+Therefore 
+
+E[Mn] = x0Γ
+
+
+
+1 − 1
+
+θ
+
+
+
+n1/θ 
+
+
+
+1 + O
+
+ 1
+
+n
+
+ 
+
+.
+
+Combining the asymptotic expansion for V1(θ) with the expansion for E[Mn], we obtain 
+
+CR n(τ ∗; θ) = V1(θ)
+
+E[Mn] =
+
+ θθ−1
+
+1/θ 
+
+Γ 1 − 1
+
+> θ
+
+
+
+1 + O
+
+ log nn
+
+ 
+
+.
+
+This proves the claim. 
+
+A.15 Proof of Theorem 16 
+
+Let 
+
+D := xF − x0.
+
+Consider 
+
+ϕ(x) = log 
+
+ DxF − x
+
+
+
+, x ∈ [x0, x F ),
+
+so that 
+
+Fθ(x) = 1 − exp( −θϕ (x)) = 1 −
+
+ xF − xD
+
+θ
+
+, x ∈ [x0, x F ].
+
+Equivalently, 
+
+¯Fθ(x) = 1 − Fθ(x) = 
+
+ xF − xD
+
+θ
+
+.
+
+64 For the estimated value update in Line 9 of Algorithm 1, note that for any a ∈ [x0, x F ],
+
+rη(a) := 
+
+Z xF
+
+> a
+
+e−ηϕ (t) dt =
+
+Z xF
+
+> a
+
+ xF − tD
+
+η
+
+dt 
+
+= (xF − a)η+1 
+
+(η + 1) Dη . (A.15.1) Therefore the plug-in DP recursion becomes 
+
+bVN = Eθ(U) [X1] = x0 + Dθ(U) + 1 , (A.15.2) 
+
+bVi = bVi+1 + (xF − bVi+1 )θ(U) +1 
+
+(θ(U) + 1) Dθ(U) , i = 1 , . . . , N − 1. (A.15.3) That is, at each stage t ∈ [N ], the algorithm uses the corresponding plug-in DP threshold determined by (A.15.2)–(A.15.3). Let δ ∈ (0 , 1) , m = o(n), and m = ω(log(1 /δ ) log 2 n). We define 
+
+θ+ := θ 1 + εm
+
+1 − εm
+
+.
+
+Let Vi(η; N ) denote the N -period optimal DP values under known parameter η, namely 
+
+VN (η; N ) = x0 + Dη + 1 , (A.15.4) 
+
+Vi(η; N ) = Vi+1 (η; N ) + (xF − Vi+1 (η; N )) η+1 
+
+(η + 1) Dη , i = 1 , . . . , N − 1. (A.15.5) 
+
+Lemma 35. 
+
+E[Xτ ] ≥ (1 − δ)V1(θ+; N ).
+
+Proof. We split the proof into four steps. 
+
+Step 1: Concentration of the plug-in estimator. By Lemma 2, 
+
+Gm := 
+
+ θ
+
+bθm
+
+− 1 ≤ εm
+
+
+
+satisfies 
+
+Pr( Gm) ≥ 1 − δ. 
+
+On Gm, θ
+
+1 + εm
+
+≤ bθm ≤ θ
+
+1 − εm
+
+,
+
+and thus 
+
+θ ≤ θ(U) = (1 + εm)bθm ≤ θ 1 + εm
+
+1 − εm
+
+= θ+.
+
+65 Step 2: A deterministic comparison lemma. Fix any η ≥ θ. Consider the policy on the last 
+
+N stages that uses the DP thresholds computed under parameter η, namely 
+
+ti := Vi+1 (η; N ), i = 1 , . . . , N − 1,
+
+and accepts the last observation for sure. Let Li(θ, η ; N ) be the expected reward of this policy from stage i onward under the true parameter θ. We claim that 
+
+Li(θ, η ; N ) ≥ Vi(η; N ) for all i = 1 , . . . , N. 
+
+We prove this by backward induction. For the base case i = N ,
+
+LN (θ, η ; N ) = Eθ[X1] = x0 +
+
+Z xF
+
+> x0
+
+ xF − tD
+
+θ
+
+dt = x0 + Dθ + 1 .
+
+Since η ≥ θ, we have 1/(θ + 1) ≥ 1/(η + 1) , so 
+
+LN (θ, η ; N ) = x0 + Dθ + 1 ≥ x0 + Dη + 1 = VN (η; N ).
+
+Now assume that Li+1 (θ, η ; N ) ≥ Vi+1 (η; N ) = ti. Then 
+
+Li(θ, η ; N ) = Eθ[Xi1{Xi ≥ ti} + Li+1 (θ, η ; N )1{Xi < t i}]= Eθ[Xi1{Xi ≥ ti}] + Pr( Xi < t i)Li+1 (θ, η ; N ).
+
+Using 
+
+Eθ[Xi1{Xi ≥ ti}] = ti Pr( Xi ≥ ti) + rθ(ti),
+
+we obtain 
+
+Li(θ, η ; N ) = ti Pr( Xi ≥ ti) + rθ(ti) +  1 − Pr( Xi ≥ ti)Li+1 (θ, η ; N )= ti +  1 − Pr( Xi ≥ ti)  Li+1 (θ, η ; N ) − ti
+
+ + rθ(ti).
+
+By the induction hypothesis, the middle term is nonnegative. Also η ≥ θ implies rθ(ti) ≥ rη(ti),because the integrand e−λϕ (t) decreases in λ. Therefore 
+
+Li(θ, η ; N ) ≥ ti + rη(ti) = Vi(η; N ).
+
+This completes the induction, and in particular 
+
+L1(θ, η ; N ) ≥ V1(η; N ).
+
+Step 3: Monotonicity of Vi(η; N ) in η. For fixed N , the terminal value 
+
+VN (η; N ) = x0 + Dη + 1 
+
+is decreasing in η. Also, for fixed a ∈ [x0, x F ],
+
+rη(a) = (xF − a)η+1 
+
+(η + 1) Dη
+
+is decreasing in η, because (xF − a)/D ∈ [0 , 1] . Hence a backward induction on (A.15.4)–(A.15.5) shows that for each fixed i,
+
+η1 ≤ η2 =⇒ Vi(η1; N ) ≥ Vi(η2; N ).
+
+66 Step 4: Apply the comparison on the good event. Conditional on Gm, the algorithm uses 
+
+η = θ(U) , and Step 2 yields 
+
+E[Xτ | G m] ≥ V1(θ(U) ; N ).
+
+By Step 3 and θ(U) ≤ θ+,
+
+V1(θ(U) ; N ) ≥ V1(θ+; N ).
+
+Thus 
+
+E[Xτ | G m] ≥ V1(θ+; N ).
+
+Since rewards are nonnegative, 
+
+E[Xτ ] ≥ Pr( Gm) V1(θ+; N ) ≥ (1 − δ)V1(θ+; N ).
+
+Lemma 36 (Bounded-support DP asymptotic) . Fix a compact interval K = [ η, η ] ⊂ (0 , ∞). Then, uniformly for η ∈ K,
+
+V1(η; N ) = xF − D
+
+ η + 1 
+
+ηN 
+
+1/η 
+
+1 − η + 1 2η2
+
+log NN + Oη
+
+ 1
+
+N
+
+ 
+
+.
+
+Equivalently, with 
+
+C(η) := 
+
+ η + 1 
+
+η
+
+1/η 
+
+,
+
+we have 
+
+xF − V1(η; N ) = DC (η)N −1/η 
+
+
+
+1 − η + 1 2η2
+
+log NN + Oη
+
+ 1
+
+N
+
+ 
+
+.
+
+Proof. Fix η > 0. Define the normalized endpoint gaps 
+
+Gi(η; N ) := xF − Vi(η; N ), Si(η; N ) := Gi(η; N )
+
+D .
+
+From (A.15.4)–(A.15.5), 
+
+SN (η; N ) = ηη + 1 ,
+
+and 
+
+Si(η; N ) = Si+1 (η; N ) − 1
+
+η + 1 Si+1 (η; N )η+1 .
+
+Index by the number of remaining stages: 
+
+ak := SN −k+1 (η; N ), k = 1 , . . . , N. 
+
+Then 
+
+a1 = ηη + 1 , ak+1 = ak − 1
+
+η + 1 aη+1  
+
+> k
+
+.
+
+Define 
+
+bk := a−ηk .
+
+Since 
+
+ak+1 = ak
+
+
+
+1 − 1
+
+η + 1 aηk
+
+
+
+= ak
+
+
+
+1 − 1(η + 1) bk
+
+
+
+,
+
+67 we have 
+
+bk+1 = bk
+
+
+
+1 − 1(η + 1) bk
+
+−η
+
+.
+
+Therefore 
+
+bk+1 − bk = bk
+
+"
+
+1 − 1(η + 1) bk
+
+−η
+
+− 1
+
+#
+
+.
+
+Taylor’s theorem gives 
+
+(1 − z)−η = 1 + ηz + η(η + 1) 2 z2 + Oη(z3), z ↓ 0.
+
+Applying this with 
+
+z = 1(η + 1) bk
+
+,
+
+we obtain 
+
+bk+1 − bk = ηη + 1 + η
+
+2( η + 1) 1
+
+bk
+
++ Oη
+
+ 1
+
+b2
+
+> k
+
+
+
+.
+
+First, the rough estimate 
+
+bk = ηη + 1 k + Oη(log k)
+
+follows by the same upper and lower bounds as in the coarse proof. In particular, bk ≍η k. Hence  
+
+> N−1
+
+X
+
+> k=1
+
+1
+
+bk
+
+= η + 1 
+
+η log N + Oη(1) ,
+
+and N −1X
+
+> k=1
+
+1
+
+b2
+
+> k
+
+= Oη(1) .
+
+Summing the increment formula gives 
+
+bN = ηη + 1 N + η
+
+2( η + 1) · η + 1 
+
+η log N + Oη(1) .
+
+Thus 
+
+bN = ηη + 1 N + 12 log N + Oη(1) .
+
+Since aN = b−1/η N , we get 
+
+aN =
+
+ ηη + 1 N + 12 log N + Oη(1) 
+
+−1/η 
+
+.
+
+Therefore 
+
+aN =
+
+ η + 1 
+
+ηN 
+
+1/η 
+
+1 − η + 1 2η2
+
+log NN + Oη
+
+ 1
+
+N
+
+ 
+
+.
+
+Finally, 
+
+xF − V1(η; N ) = Da N ,
+
+which proves the claim. 68 Lemma 37. For every θ > 0,
+
+OPT n(θ) = xF − D Γ
+
+
+
+1 + 1
+
+θ
+
+ Γ( n + 1) Γ( n + 1 + 1 /θ ) .
+
+In particular, 
+
+OPT n(θ) = xF − D Γ
+
+
+
+1 + 1
+
+θ
+
+
+
+n−1/θ 
+
+
+
+1 − θ + 1 2θ2
+
+1
+
+n + O
+
+ 1
+
+n2
+
+ 
+
+.
+
+Proof. Define 
+
+Ui := 
+
+ xF − Xi
+
+D
+
+θ
+
+.
+
+Then for u ∈ [0 , 1] ,
+
+Pr( Ui ≤ u) = Pr 
+
+
+
+Xi ≥ xF − Du 1/θ 
+
+= 1 − Fθ(xF − Du 1/θ ) = u. 
+
+Hence U1, . . . , U n are i.i.d. Unif(0 , 1) . If 
+
+U(1) := min  
+
+> 1≤i≤n
+
+Ui,
+
+then 
+
+max  
+
+> 1≤i≤n
+
+Xi = xF − D U 1/θ  
+
+> (1)
+
+.
+
+Since U(1) has density n(1 − u)n−1 on [0 , 1] ,
+
+E[U 1/θ  
+
+> (1)
+
+] = n
+
+Z 10
+
+u1/θ (1 − u)n−1 du 
+
+= n B 
+
+
+
+1 + 1
+
+θ , n 
+
+
+
+= Γ 
+
+
+
+1 + 1
+
+θ
+
+ Γ( n + 1) Γ( n + 1 + 1 /θ ) .
+
+Therefore 
+
+OPT( θ) = xF − D Γ
+
+
+
+1 + 1
+
+θ
+
+ Γ( n + 1) Γ( n + 1 + 1 /θ ) .
+
+The asymptotic formula follows from the standard Gamma-ratio expansion 
+
+Γ( n + 1) Γ( n + 1 + 1 /θ ) = n−1/θ 
+
+
+
+1 − θ + 1 2θ2
+
+1
+
+n + O
+
+ 1
+
+n2
+
+ 
+
+.
+
+By Lemma 35, 
+
+E[Xτ ] ≥ (1 − δ)V1(θ+; N ).
+
+Hence 
+
+CR n(τ ; θ) ≥ (1 − δ) V1(θ+; N )OPT n(θ) .
+
+Recall 
+
+N := n − m, εm := 
+
+r 4 log(2 /δ )
+
+m , θ+ := θ 1 + εm
+
+1 − εm
+
+.
+
+69 Since 
+
+m = ω(log(1 /δ ) log 2 n),
+
+we have 
+
+εm log n → 0.
+
+Also m = o(n), and therefore θ+ → θ. Thus, for all sufficiently large n, θ+ ∈ K := [ θ/ 2, 2θ].Define 
+
+C(η) := 
+
+ η + 1 
+
+η
+
+1/η 
+
+, Gθ := Γ 
+
+
+
+1 + 1
+
+θ
+
+
+
+.
+
+By Lemma 36, 
+
+V1(θ+; N ) = xF − DC (θ+)N −1/θ +
+
+
+
+1 − θ+ + 1 2θ2+
+
+log NN + O
+
+ 1
+
+N
+
+ 
+
+.
+
+Since θ+ = θ + O(εm), smoothness of C gives 
+
+C(θ+) = C(θ) + O(εm).
+
+Moreover, 1
+
+θ+
+
+= 1 − εm
+
+θ(1 + εm) = 1
+
+θ
+
+ 1 − 2εm + O(ε2
+
+> m
+
+) .
+
+Thus 
+
+log N −1/θ +
+
+n−1/θ 
+
+!
+
+=
+
+ 1
+
+θ − 1
+
+θ+
+
+
+
+log n − 1
+
+θ+
+
+log 
+
+
+
+1 − mn
+
+
+
+= O(εm log n) + O(m/n ).
+
+Since both terms are o(1) ,
+
+N −1/θ + = n−1/θ 
+
+1 + O
+
+
+
+εm log n + mn
+
+ 
+
+.
+
+Also, 
+
+log NN = O
+
+ log nn
+
+
+
+.
+
+Combining these estimates, 
+
+V1(θ+; N ) = xF − DC (θ)n−1/θ 
+
+1 + O
+
+
+
+εm log n + mn
+
+ 
+
++ O
+
+
+
+D log nn1+1 /θ 
+
+
+
+.
+
+Equivalently, 
+
+V1(θ+; N ) = xF − DC (θ)n−1/θ + O
+
+
+
+Dn −1/θ 
+
+εm log n + mn
+
+
+
++ D log nn1+1 /θ 
+
+
+
+.
+
+On the other hand, by Lemma 37, 
+
+OPT n(θ) = xF − DG θn−1/θ + O
+
+
+
+Dn −1−1/θ 
+
+.
+
+70 Therefore, 
+
+V1(θ+; N )OPT n(θ) =
+
+xF − DC (θ)n−1/θ + O
+
+
+
+Dn −1/θ  εm log n + mn
+
+ + D log nn1+1 /θ 
+
+
+
+xF − DG θn−1/θ + O(Dn −1−1/θ ) .
+
+Since xF > 0,
+
+1OPT n(θ) = 1
+
+xF
+
+
+
+1 + DG θ
+
+xF
+
+n−1/θ + O(n−2/θ + n−1−1/θ )
+
+
+
+.
+
+Multiplying the expansions gives 
+
+V1(θ+; N )OPT n(θ) = 1 − DxF
+
+ C(θ) − Gθ
+
+n−1/θ 
+
+− O
+
+
+
+n−1/θ 
+
+εm log n + mn
+
+
+
++ n−2/θ + log nn1+1 /θ 
+
+
+
+.
+
+Define 
+
+κθ := DxF
+
+[C(θ) − Gθ] = DxF
+
+" θ + 1 
+
+θ
+
+1/θ 
+
+− Γ
+
+
+
+1 + 1
+
+θ
+
+#
+
+.
+
+Since C(θ) > Γ(1 + 1 /θ ), we have κθ > 0. Hence 
+
+V1(θ+; N )OPT n(θ) ≥ 1 − κθn−1/θ − O
+
+
+
+n−1/θ 
+
+εm log n + mn
+
+
+
++ n−2/θ + log nn1+1 /θ 
+
+
+
+.
+
+Multiplying by 1 − δ, we obtain 
+
+CR n(τ ; θ) ≥ (1 − δ)
+
+
+
+1 − κθn−1/θ − O
+
+
+
+n−1/θ 
+
+εm log n + mn
+
+
+
++ n−2/θ + log nn1+1 /θ 
+
+ 
+
+.
+
+Finally, because 
+
+εm log n → 0, mn → 0,
+
+this simplifies to 
+
+CR n(τ ; θ) ≥ (1 − δ)
+
+
+
+1 − κθn−1/θ − O(n−1/θ )
+
+
+
+,
+
+which implies 
+
+CR n(τ ; θ) ≥ (1 − δ)
+
+
+
+1 − O(n−1/θ )
+
+
+
+.
+
+This proves the theorem. 
+
+A.16 Proof of Proposition 17 
+
+Let Vi(θ; n) denote the optimal DP value when periods i, i + 1 , . . . , n remain. For readability, we suppress the horizon n and write Vi(θ). Let D := xF − x0. The optimal full-information rule is the usual threshold rule, and 
+
+Vi(θ) = Eθ[max {Xi, V i+1 (θ)}], Vn+1 (θ) = 0 .
+
+At the last stage, 
+
+Vn(θ) = Eθ[X1] = x0 + Dθ + 1 = xF − θθ + 1 D. 
+
+71 For a ∈ [x0, x F ],
+
+rθ(a) := Eθ[( X1 − a)+] = 
+
+Z xF
+
+> a
+
+Pr  
+
+> θ
+
+(X1 > t ) dt. 
+
+Since 
+
+Pr  
+
+> θ
+
+(X1 > t ) = 
+
+ xF − tD
+
+θ
+
+,
+
+we get 
+
+rθ(a) = 
+
+Z xF
+
+> a
+
+ xF − tD
+
+θ
+
+dt = (xF − a)θ+1 
+
+(θ + 1) Dθ .
+
+Therefore the DP recursion is 
+
+Vi(θ) = Vi+1 (θ) + (xF − Vi+1 (θ)) θ+1 
+
+(θ + 1) Dθ , i = 1 , . . . , n − 1.
+
+Define the normalized endpoint gap 
+
+Si := xF − Vi(θ)
+
+D .
+
+Then 
+
+Sn = θθ + 1 ,
+
+and 
+
+Si = Si+1 − 1
+
+θ + 1 Sθ+1  
+
+> i+1
+
+.
+
+It is more convenient to index by the number of remaining periods. Set 
+
+ak := Sn−k+1 , k = 1 , . . . , n. 
+
+Then 
+
+a1 = θθ + 1 , ak+1 = ak − 1
+
+θ + 1 aθ+1  
+
+> k
+
+, k = 1 , . . . , n − 1.
+
+Now define 
+
+bk := a−θk .
+
+Since 
+
+ak+1 = ak
+
+
+
+1 − 1
+
+θ + 1 aθk
+
+
+
+= ak
+
+
+
+1 − 1(θ + 1) bk
+
+
+
+,
+
+we have 
+
+bk+1 = bk
+
+
+
+1 − 1(θ + 1) bk
+
+−θ
+
+.
+
+Thus 
+
+bk+1 − bk = bk
+
+"
+
+1 − 1(θ + 1) bk
+
+−θ
+
+− 1
+
+#
+
+.
+
+We first record a rough estimate. Since 
+
+(1 − z)−θ = 1 + θz + O(z2)
+
+72 for small z, and since bk is increasing, the preceding display implies 
+
+bk+1 − bk = θθ + 1 + O
+
+ 1
+
+bk
+
+
+
+.
+
+This gives 
+
+bk = θθ + 1 k + O(log k),
+
+and in particular bk ≍θ k.We now refine the expansion. Taylor’s theorem gives 
+
+(1 − z)−θ = 1 + θz + θ(θ + 1) 2 z2 + O(z3).
+
+Applying this with 
+
+z = 1(θ + 1) bk
+
+,
+
+we obtain 
+
+bk+1 − bk = θθ + 1 + θ
+
+2( θ + 1) 1
+
+bk
+
++ O
+
+ 1
+
+b2
+
+> k
+
+
+
+.
+
+Using bk = θθ+1 k + O(log k), we have 
+
+> n−1
+
+X
+
+> k=1
+
+1
+
+bk
+
+= θ + 1 
+
+θ log n + O(1) ,
+
+and n−1X
+
+> k=1
+
+1
+
+b2
+
+> k
+
+= O(1) .
+
+Summing the increment formula yields 
+
+bn = θθ + 1 n + θ
+
+2( θ + 1) · θ + 1 
+
+θ log n + O(1) .
+
+Hence 
+
+bn = θθ + 1 n + 12 log n + O(1) .
+
+Since an = b−1/θ n , we get 
+
+an =
+
+ θθ + 1 n + 12 log n + O(1) 
+
+−1/θ 
+
+.
+
+Therefore 
+
+an =
+
+ θ + 1 
+
+θn 
+
+1/θ 
+
+1 − θ + 1 2θ2
+
+log nn + O
+
+ 1
+
+n
+
+ 
+
+.
+
+Since 
+
+xF − V1(θ) = Da n,
+
+we conclude that 
+
+V1(θ) = xF − D
+
+ θ + 1 
+
+θn 
+
+1/θ 
+
+1 − θ + 1 2θ2
+
+log nn + O
+
+ 1
+
+n
+
+ 
+
+.
+
+73 Equivalently, with 
+
+Cθ := 
+
+ θ + 1 
+
+θ
+
+1/θ 
+
+,
+
+we have 
+
+Eθ[Xτ ∗ ] = V1(θ) = xF − DC θn−1/θ 
+
+
+
+1 − θ + 1 2θ2
+
+log nn + O
+
+ 1
+
+n
+
+ 
+
+.
+
+We now compute the prophet benchmark. Define 
+
+Ui := 
+
+ xF − Xi
+
+D
+
+θ
+
+.
+
+Then U1, . . . , U n are i.i.d. Unif(0 , 1) . If 
+
+U(1) := min  
+
+> i∈[n]
+
+Ui,
+
+then 
+
+max  
+
+> i∈[n]
+
+Xi = xF − DU 1/θ  
+
+> (1)
+
+.
+
+The density of U(1) is 
+
+n(1 − u)n−1, u ∈ [0 , 1] .
+
+Thus 
+
+E[U 1/θ  
+
+> (1)
+
+] = n
+
+Z 10
+
+u1/θ (1 − u)n−1 du = nB 
+
+
+
+1 + 1
+
+θ , n 
+
+
+
+.
+
+Using the beta-gamma identity, 
+
+nB 
+
+
+
+1 + 1
+
+θ , n 
+
+
+
+= Γ 
+
+
+
+1 + 1
+
+θ
+
+ Γ( n + 1) Γ( n + 1 + 1 /θ ) .
+
+Therefore 
+
+OPT n(θ) = xF − DΓ
+
+
+
+1 + 1
+
+θ
+
+ Γ( n + 1) Γ( n + 1 + 1 /θ ) .
+
+The standard Gamma-ratio expansion gives 
+
+Γ( n + 1) Γ( n + 1 + 1 /θ ) = n−1/θ 
+
+
+
+1 − θ + 1 2θ2
+
+1
+
+n + O
+
+ 1
+
+n2
+
+ 
+
+.
+
+Hence, defining 
+
+Gθ := Γ 
+
+
+
+1 + 1
+
+θ
+
+
+
+,
+
+we obtain 
+
+OPT n(θ) = xF − DG θn−1/θ 
+
+
+
+1 − θ + 1 2θ2
+
+1
+
+n + O
+
+ 1
+
+n2
+
+ 
+
+.
+
+Combining the two expansions, we write 
+
+Eθ[Xτ ∗ ] = xF − DC θn−1/θ + O
+
+
+
+D log nn1+1 /θ 
+
+
+
+,
+
+and 
+
+OPT n(θ) = xF − DG θn−1/θ + O
+
+
+
+Dn −1−1/θ 
+
+.
+
+74 Therefore, 
+
+CR n(τ ∗; θ) = Eθ[Xτ ∗ ]OPT n(θ)= 1 − DxF
+
+(Cθ − Gθ) n−1/θ + O
+
+
+
+n−2/θ + log nn1+1 /θ 
+
+
+
+.
+
+Finally, Cθ − Gθ > 0. Equivalently, with α = 1 /θ > 0,
+
+Cθ = (1 + α)α, Gθ = Γ(1 + α),
+
+and the standard inequality 
+
+Γ(1 + α) < (1 + α)α, α > 0,
+
+implies Cθ > G θ. Hence 
+
+CR n(τ ∗; θ) = 1 − Θ
+
+
+
+n−1/θ 
+
+.
+
+This proves the lemma. 
+
+A.17 Additional Experimental Details 
+
+We provide additional details for the experiments in Figure 1. All experiments are synthetic i.i.d. simulations. They were run on lightweight CPUs without GPU acceleration. For each horizon n,we generate a reward sequence (X1, . . . , X n), run all algorithms on the same sequence, and compare the selected reward with the realized prophet reward max i∈[n] Xi.
+
+Distributions. We consider three canonical families. The exponential experiment uses 
+
+Fθ(x) = 1 − exp( −θx ), x ≥ 0,
+
+where θ is sampled independently from [0 .25 , 1.25] in each trial. The Pareto experiment uses 
+
+Fθ(x) = 1 −
+
+ x0
+
+x
+
+θ
+
+, x ≥ x0,
+
+with x0 = 1 and θ = 2 . We fix θ in this case because the optimal asymptotic competitive ratio depends on θ, so this choice keeps the theoretical benchmark fixed across trials. The bounded-support experiment uses 
+
+Fθ(x) = 1 −
+
+ xF − xxF − x0
+
+θ
+
+, x ∈ [x0, x F ],
+
+with x0 = 1 , xF = 2 , and θ = 1 , corresponding to the uniform distribution on [1 , 2] . We use this instance as a representative bounded-support setting where the theoretical benchmarks, including the GZ-RANK guarantee, are directly comparable. 
+
+Algorithms and parameters. We compare Algorithm 1 with three baselines: the Gusein–Zade secretary-type rule, the online Samples-CFHOV baseline, and the rank-based Goldenshluger–Zeevi rule. The DP plug-in policy uses δ = 0 .05 , and both the DP plug-in policy and the Samples-CFHOV baseline use the exploration lengths prescribed by the corresponding theoretical bounds. For Samples-CFHOV, we set η = 0 .9 and C = 10 ; when its required exploration length exceeds the horizon n, the baseline is not run for that horizon. 75 Following the practical tuning suggested by Goldenshluger and Zeevi [2022, Section 5.1], we set 
+
+k = ⌈3 log log n⌉ for the exponential experiment, since the exponential distribution belongs to their Gumbel subclass with β = 1 . For the bounded-support uniform experiment, which corresponds to the reverse-Weibull subclass with α = 1 , we set k = ⌈3 log n⌉. For the Pareto experiment, the distribution lies in the Fréchet domain, where Goldenshluger and Zeevi [2022] show that first-order asymptotic optimality is not achievable by any stopping rule. Thus there is no theoretically pre-scribed rank-based tuning for this case; we nevertheless include the same rank-based implementation as a heuristic benchmark, using k = ⌈3 log log n⌉.
+
+Horizons and repetitions. We use 
+
+n ∈ { 100 , 300 , 1000 , 3000 , 10000 , 30000 , 100000 }.
+
+For each horizon, we run independent trials with seeds 0, 1, . . . , R − 1. We use R = 500 repetitions for the exponential and bounded-support experiments, and R = 10000 repetitions for the Pareto experiment because the heavy-tailed rewards lead to higher variance. 
+
+Reported metric. For trial s, let τs be the stopping time and Ms = max i∈[n] X(s) 
+
+> i
+
+. We report the aggregate empirical competitive ratio 
+
+dCR n =
+
+PRs=1 X(s)
+
+> τs
+
+PRs=1 Ms
+
+,
+
+which estimates E[Xτ ]/E[max i∈[n] Xi].76

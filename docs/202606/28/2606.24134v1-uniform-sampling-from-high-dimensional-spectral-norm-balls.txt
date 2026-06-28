@@ -1,0 +1,1385 @@
+Title: Uniform Sampling from High-dimensional Spectral Norm Balls
+
+URL Source: https://arxiv.org/pdf/2606.24134v1
+
+Published Time: Wed, 24 Jun 2026 00:28:53 GMT
+
+Number of Pages: 16
+
+Markdown Content:
+# Uniform Sampling from High-dimensional Spectral Norm Balls 
+
+Michael R. Metel ∗
+
+June 24, 2026 
+
+Abstract 
+
+Motivated by an application in machine learning optimization, this paper focuses on the challenges of sampling a matrix uniformly from the unit spectral norm ball. It is proven that all singular values of sampled matrices converge to 1 almost surely as the matrix dimensions increase. This result provides the theoretical justification for a proposed simple sampling method applicable for large dimension sizes matching matrices found in modern large language models. Experimental results demonstrate both the convergence of the singular values, as well as the exact and proposed approximate sampling methods. 
+
+# 1 Introduction 
+
+This paper studies the uniform sampling of matrices ∆ ∈ Rn×m from the unit spectral norm ball, 
+
+B := {∆ ∈ Rn×m : σmax (∆) ≤ 1},
+
+where σmax (∆) denotes the largest singular value of ∆. A sample from this distribution will be denoted as ˆ∆ ∼ U (B). Given that a sample from the spectral norm ball of radius ρ > 0can be generated as ρ ˆ∆, the focus on ρ = 1 is without loss of generality. After a possible transpose, it will also be assumed that m ≥ n.A polynomial-time recipe to sample from this distribution can be found across two papers (Calafiore and Dabbene, 2002; Calafiore et al., 2000), which was motivated by probabilistic robustness techniques for control systems. The idea is to consider a normalized singular value decomposition of ∆,
+
+∆ = U ΣV T ,
+
+where U ∈ Rn,n and V ∈ Rm,n have orthonormal columns with V1,j > 0 (almost surely) for j = 1 , ..., n , and Σ = diag( σ1, .., σ n) for singular values σ1 ≥ σ2 ≥ ... ≥ σn. It is proven (Calafiore et al., 2000, Theorem 2) that to uniformly sample over B, U , Σ, and V
+
+> ∗
+
+michaelrmetel@gmail.com 
+
+1
+
+> arXiv:2606.24134v1 [math.PR] 23 Jun 2026
+
+can be sampled independently, with U and V sampled uniformly over the orthogonal and normalized semi-orthogonal matrices, respectively, which can be done using samples from the standard Normal distribution and QR decomposition as shown in Algorithm 1. 
+
+Algorithm 1 Uniformly sampling U and V
+
+Sample ˆU ∈ Rn,n and ˆV ∈ Rm,m : ˆUj,k ∼ N (0 , 1) and ˆVj,k ∼ N (0 , 1) ∀j, k 
+
+[Q( ˆU ), R( ˆU )] = QR( ˆU )[Q( ˆV ), R( ˆV )] = QR( ˆV )ˆU = Q( ˆU ) diag(sign( R( ˆU )11 , ..., sign( R( ˆU )nn )ˆV = Q( ˆV )[: , 1 : n]ˆV = ˆV diag(sign( ˆV11 ), ..., sign( ˆV1n)) 
+
+Output: ˆU , ˆV
+
+In order to sample Σ requires significantly more effort. Singular values are proposed to be sampled iteratively following the conditional distribution method (Devroye, 1986, Chapter 11). The algorithm presented in (Calafiore and Dabbene, 2002, page 1269) samples singular values using exact conditional densities which contain both constants and exponents which result in over and underflows for modest problem sizes. As the motivation is to sample matrices at the scale of modern large language models, e.g., the largest linear layer weight matrix of the 32 billion-parameter Qwen 3 model (Qwen Team, 2025) is n × m = 5 , 120 ×
+
+25 , 600, the first step, detailed in Section 2, was to simplify the algorithm by using functions which are only proportional to the exact conditional densities. After failing to scale up the algorithm directly, the distribution of the singular values as the dimensions of ∆ increase is studied in Section 3. The main contribution presented as Theorem 1 is that all singular values converge to 1 almost surely as n → ∞ , and in Theorem 2, it is proven that all singular values converge to 1 almost surely as only m → ∞ for a fixed value of n.These results present a viable approximate sampling algorithm consisting of setting 
+
+Σ = I, and simply using Algorithm 1 to sample from U(B). Section 4 contains further implementation details of the exact sampling algorithm, and empirical results demonstrat-ing the convergence of the exact and proposed approximate sampling methods. There appears to have been no attempts to develop a practical approach to sample from 
+
+U(B) at the scale of real-world problems. The software package RACT (Tremba et al., 2008) supports sampling from U(B), but a warning stating “This can take a LONG time...” will be given when min( m, n ) > 6. The experiments presented in (Calafiore and Dabbene, 2002) are also restricted to problem sizes upper bounded by max( n, m ) ≤ 4. This section ends with an application that motivated this work, requiring an efficient sampling approach for high-dimensional matrices. 
+
+1.1 Neural Network Training with Random Weight Perturbation 
+
+Gaussian, uniform l2, and l∞-norm ball perturbations have been applied to loss function decision variables when computing stochastic gradients for first-order optimization methods (Duchi et al., 2012, Appendix E). This has a smoothing effect, resulting in non-differentiable 2Lipchitz continuous functions becoming smooth in expectation, enabling provably convergent optimization algorithms. From a neural network perspective, random weight perturbation pushes convergence to flatter local minima, improving a trained model’s ability to generalize (Bisla et al., 2022). These forms of perturbation implicitly view a model’s weights as a vector w ∈ RN . Considering that neural networks contain several layers, each of which consisting of matrices, a line of research (Bernstein and Newhouse, 2025) has focused on incorporating this structure into the design of optimization methods. Letting each weight matrix W i live in its own vector space V i with norm ∥ · ∥ i, the neural network is contained in the product space Π iV i, with norm max  
+
+> i
+
+ai∥W i∥i for per-matrix weights ai > 0. Assuming that the input xi ∈ Rm and output yi ∈ Rn of each linear layer lie in Euclidean space, ∥ · ∥ i
+
+is set to the induced matrix norm of W i: the spectral norm. Given an efficient method to sample ˆ∆i ∼ U (B), W i can then be perturbed by ρi ˆ∆i for per-matrix radii ρi, enabling the extension of random weight perturbation to architecture-aware optimization algorithms. 
+
+# 2 Singular Value Sampling Algorithm 
+
+This section describes an implementation of the algorithm described in (Calafiore and Dabbene, 2002, page 1269) to sample iteratively the singular values σ1 ≥ σ2 ≥ ... ≥ σn. While the differences between the described implementation and the published method are described, for a full derivation of this algorithm, it is recommended to consult the original publication. 
+
+2.1 Definitions 
+
+Let v := 12 (m − n − 1), β := n 
+
+> 2
+
+(n − 1), J := 
+
+ 0 1
+
+−1 0
+
+
+
+, and 1n := [1 , 1, ..., 1] T ∈ Rn. Let 
+
+S ∈ Rn×n be a skew-symmetric matrix, where Sij := i−j 
+
+> (i+v)( j+v)( i+j+2 v)
+
+, let F ∈ Rn be a vector defined as Fj := 1 
+
+> j+v
+
+, and let X : R → Rn be defined as Xj (x) := xj−1. When sampling σi,the algorithm depends on the parity of n and i, so the resulting four cases will need to be considered. The functions defined below are used for the recursive definitions of the marginal densities of the singular values. Even number of rows n: Let 
+
+Z0(x) := diag( xβ , x β−1, ..., x β−n−1)Q−10 diag( xβ , x β−1, ..., x β−n−1),
+
+or element-wise, ( Z0(x)) ij = x2β−i−j+2 (Q−10 )ij , where Q0 := S, and let he(x) := X(x). The functions Z0 and he are used to generate even-indexed samples ˆ σi. Let 
+
+Z1(x) := diag( xβ , x β−1, ..., x β−n−1, x β , x β )Q−11 diag( xβ , x β−1, ..., x β−n−1, x β , x β ),
+
+or (Z1(x)) ij := 
+
+
+
+x2β−i−j+2 (Q−11 )ij if i, j ∈ [1 , 2, ..., n ]
+
+x2β−i+1 (Q−11 )ij if i ∈ [1 , 2, ..., n ] and j ∈ [n + 1 , n + 2] 
+
+x2β−j+1 (Q−11 )ij if j ∈ [1 , 2, ..., n ] and i ∈ [n + 1 , n + 2] 
+
+x2β (Q−11 )ij if i, j ∈ [n + 1 , n + 2] ,
+
+(1) 3where 
+
+Q1 := 
+
+
+
+S F 1n
+
+−F T 0 0
+
+−1Tn 0 0
+
+ ,
+
+and let ho(x) := [ X(x); 0; 0], which are used to generate odd-indexed samples ˆ σi.Odd number of rows n: Let 
+
+Z0(x) := diag( xβ , x β−1, ..., x β−n−1, x β )Q−10 diag( xβ , x β−1, ..., x β−n−1, x β ),
+
+where 
+
+Q0 := 
+
+ S F
+
+−F T 0
+
+
+
+,
+
+Z1(x) := diag( xβ , x β−1, ..., x β−n−1, x β )Q−11 diag( xβ , x β−1, ..., x β−n−1, x β ),
+
+where 
+
+Q1 := 
+
+ S 1n
+
+−1Tn 0
+
+
+
+,
+
+and he(x) := ho(x) := [ X(x); 0]. The exponent of x in ( Z0(x)) ij and ( Z1(x)) ij for all 1 ≤ i, j ≤ n + 1 is identical to (1). In the original algorithm, Z0 and Z1 contain the matrices Adj( Q0) and Adj( Q1) instead of Q−10 and Q−11 , with our implementation not including the constants det( Q0) and det( Q1), which both underflow when n ≥ 28 using 64-bit floating point arithmetic 1. Let the scalar function 
+
+p(x) := xβ
+
+also be defined, which will replace the scalar functions p0(x) = xβ pdet( Q0) and p1(x) = 
+
+xβ pdet( Q1) used in the original algorithm. The next section verifies that these simplifica-tions preserve the proportionality to the conditional probability distribution of all σi.
+
+2.2 Algorithm Implementation 
+
+With the given definitions, the basic algorithm is shown in Algorithm 2. Line 1: The probability density function of σ1 is equal to f1(σ1) = K 
+
+> 2n−1
+
+σ2( v+1)( n−1) 1 p1(σ21 )σm−n 
+
+> 1
+
+,where K is a normalization constant (Calafiore and Dabbene, 2002, Eq. 5). Removing con-stants and simplifying the exponents results in the given function proportional to f1.Lines 3, 5, & 11: These are exponents that σi will be taken to in its conditional density. Sim-plifying, e1(i) = ( m − n)( n − i + 1) + n − i, and by considering the case m = n, e1(i) ≥ n − i.When i is even, e2(i) = −(i−1) n(n−1), and when odd, e2(i) = −(i−2) n(n−1). The exponent 
+
+e1(i) + e2(i) is decreasing in i: For even i, e1(i + 1) + e2(i + 1) − (e1(i) + e2(i)) = −(m − n) − 1, and for odd i, e1(i + 1) + e2(i + 1) − (e1(i) + e2(i)) = −(m − n) − 1 − 2n(n − 1). 
+
+> 1This was tested using numpy.linalg.det in the same Python environment described in Section 4.
+
+4Line 16: This is the recursive calculation of Zi(x) as given in (Calafiore and Dabbene, 2002, page 1269). Defining ˜Z0(x) := det( Q0)Z0(x) and ˜Z1(x) := det( Q1)Z1(x) as the original def-initions of Z0 and Z1, and using the same recursion to compute ˜Zi, ˜Zi(x) = det( Q0)2 i 
+
+> 2
+
+Zi(x)when i is even, and ˜Zi(x) = det( Q1)2 i−12 Zi(x) when i is odd. Lines 7 & 13: The marginal density of {σj }ij=1 is equal to 
+
+K
+
+2n−i pi(σ2 
+
+> i
+
+)σ2( v+1)( n−i)+ m−ni Πi−1
+
+> j=1
+
+σm−nj ,
+
+where pi(x) = p0(x)−(i−1) |he(σ2
+
+> i−1
+
+)T ˜Zi−2(x)he(x)| when i is even and 
+
+pi(x) = p1(x)−(i−2) |ho(σ2
+
+> i−2
+
+)T ˜Zi−2(x)ho(σ2
+
+> i−1
+
+)| when i is odd. Given that {σj = ˆ σj }i−1 
+
+> j=1
+
+are known, the required conditional density of σi is proportional to this marginal density. By removing the constant K 
+
+> 2n−i
+
+Πi−1
+
+> j=1
+
+σm−nj , and recalling that p0(x) & p1(x) ∝ xβ and Zi−2 ∝
+
+˜Zi−2, the functions on Lines 7 & 13 are proportional to fi(σi|σ1 = ˆ σ1, ..., σ i−1 = ˆ σi−1). 
+
+Algorithm 2 Sampling singular values σ1 ≥ σ2 ≥ ... ≥ σn
+
+1: Generate sample ˆ σ1 from density f1(σ1) ∝ σmn −11
+
+2: for i = 2 , ..., n do 
+
+3: e1(i) = 2( v + 1)( n − i) + m − n
+
+4: if i mod 2 = 0 then 
+
+5: e2(i) = −2( i − 1) β
+
+6: di(x) = he(ˆ σ2
+
+> i−1
+
+)T Zi−2(x)he(x)
+
+7: Generate sample ˆ σi from density fi(σi|σ1 = ˆ σ1, ..., σ i−1 = ˆ σi−1) ∝ σe1(i)+ e2(i) 
+
+> i
+
+|di(σ2 
+
+> i
+
+)|
+
+8: Update di(x) = he(ˆ σ2
+
+> i−1
+
+)T Zi−2(x)he(ˆ σ2 
+
+> i
+
+)
+
+9: H(i) = [ he(ˆ σ2
+
+> i−1
+
+), he(ˆ σ2 
+
+> i
+
+)] J[he(ˆ σ2
+
+> i−1
+
+), he(ˆ σ2 
+
+> i
+
+)] T
+
+10: else 
+
+11: e2(i) = −2( i − 2) β
+
+12: di(x) = ho(ˆ σ2
+
+> i−2
+
+)T Zi−2(x)ho(ˆ σ2
+
+> i−1
+
+)
+
+13: Generate sample ˆ σi from density fi(σi|σ1 = ˆ σ1, ..., σ i−1 = ˆ σi−1) ∝ σe1(i)+ e2(i) 
+
+> i
+
+|di(σ2 
+
+> i
+
+)|
+
+14: H(i) = [ ho(ˆ σ2
+
+> i−2
+
+), ho(ˆ σ2
+
+> i−1
+
+)] J[ho(ˆ σ2
+
+> i−2
+
+), ho(ˆ σ2
+
+> i−1
+
+)] T
+
+15: end if 
+
+16: Zi(x) = di(x)Zi−2(x) + Zi−2(x)H(i)Zi−2(x)
+
+17: end for 
+
+# 3 Convergence of {σi} in High Dimension 
+
+The main result of this work is that as n increases, all singular values converge to 1 almost surely, where we recall that σ1 ≥ σ2 ≥ ... ≥ σn by definition. 
+
+Theorem 1. For matrices uniformly distributed in the unit spectral norm ball, ∆ ∼ U (B),
+
+lim  
+
+> n→∞
+
+σn = 1 almost surely. 
+
+5Proof. From the definitions of Z0 and Z1, the recursions defining Zi for i > 1, and the definitions of di, all elements of Zi and the functions di are polynomials in x, with all σi
+
+sampled from univariate polynomial functions. Let the unnormalized conditional density function of σi, ˜fi(σi|σ1, ..., σ i−1) := σe1(i)+ e2(i) 
+
+> i
+
+|di(σ2 
+
+> i
+
+)|, with domain [0 , σ i−1], be written as 
+
+X
+
+> j
+
+aij σtij  
+
+> i
+
+,
+
+where all coefficients aij > 0. The polynomial changes with n, but as will be seen, the result is independent of the number of polynomial terms or the values of their coefficients. By normalization, fi(σi|σ1, ..., σ i−1) is equal to 
+
+P 
+
+> j
+
+aij σtij 
+
+> i
+
+P  
+
+> jaij
+> tij +1
+
+σtij +1 
+
+> i−1
+
+.
+
+Viewing fi(σi|σ1, ..., σ i−1) as a weighted average of the terms 
+
+aij σtij   
+
+> iaij
+> tij +1
+
+σtij +1 
+
+> i−1
+
+= tij + 1 
+
+σi−1
+
+( σi
+
+σi−1
+
+)tij 
+
+with weights   
+
+> aij
+> tij +1
+
+σtij +1 
+
+> i−1
+
+P  
+
+> kaik
+> tik +1
+
+σtik +1 
+
+> i−1
+
+,fi(σi|σ1, ..., σ i−1) can be bounded as inf 
+
+> j
+
+tij + 1 
+
+σi−1
+
+( σi
+
+σi−1
+
+)tij ≤ fi(σi|σ1, ..., σ i−1) ≤ sup 
+
+> j
+
+tij + 1 
+
+σi−1
+
+( σi
+
+σi−1
+
+)tij . (2) The task now is to lower bound the exponents {tij }j for each i. By showing that these exponents are growing sufficiently fast with n, the theorem can be proven. To first compute the entries of 
+
+Zi(x) = di(x)Zi−2(x) + Zi−2(x)H(i)Zi−2(x),
+
+the values of di are derived: When i and n are even, 
+
+di(x) = X(σ2
+
+> i−1
+
+)T Zi−2(x)X(x) = [1 , σ 2
+
+> i−1
+
+, ..., σ 2( n−1)  
+
+> i−1
+
+]Zi−2(x)[1 , x, ..., x n−1]T
+
+=
+
+> n
+
+X
+
+> p=1
+> n
+
+X
+
+> q=1
+
+σ2( p−1)  
+
+> i−1
+
+xq−1(Zi−2(x)) p,q ,
+
+and when n is odd, 
+
+di(x) = [ X(σ2
+
+> i−1
+
+)T , 0] Zi−2(x)[ X(x); 0] = [1 , σ 2
+
+> i−1
+
+, ..., σ 2( n−1)  
+
+> i−1
+
+, 0] Zi−2(x)[1 , x, ..., x n−1, 0] T
+
+=
+
+> n
+
+X
+
+> p=1
+> n
+
+X
+
+> q=1
+
+σ2( p−1)  
+
+> i−1
+
+xq−1(Zi−2(x)) p,q .
+
+6When i is odd and n is even, 
+
+di(x) = [ X(σ2
+
+> i−2
+
+)T , 0, 0] Zi−2(x)[ X(σ2
+
+> i−1
+
+); 0; 0] = 
+
+> n
+
+X
+
+> p=1
+> n
+
+X
+
+> q=1
+
+σ2( p−1)  
+
+> i−2
+
+σ2( q−1)  
+
+> i−1
+
+(Zi−2(x)) p,q ,
+
+and when n is odd, 
+
+di(x) =[ X(σ2
+
+> i−2
+
+)T , 0] Zi−2(x)[ X(σ2
+
+> i−1
+
+); 0] = 
+
+> n
+
+X
+
+> p=1
+> n
+
+X
+
+> q=1
+
+σ2( p−1)  
+
+> i−2
+
+σ2( q−1)  
+
+> i−1
+
+(Zi−2(x)) p,q .
+
+For the entries of Zi, when i is even, (Zi(x)) jk = ( 
+
+> n
+
+X
+
+> p=1
+> n
+
+X
+
+> q=1
+
+σ2( p−1)  
+
+> i−1
+
+xq−1(Zi−2(x)) p,q )( Zi−2(x)) jk (3) +
+
+> n
+
+X
+
+> p=1
+> n
+
+X
+
+> q=1
+
+(Zi−2(x)) jp H(i)pq (Zi−2(x)) qk ,
+
+and when i is odd, (Zi(x)) jk = ( 
+
+> n
+
+X
+
+> p=1
+> n
+
+X
+
+> q=1
+
+σ2( p−1)  
+
+> i−2
+
+σ2( q−1)  
+
+> i−1
+
+(Zi−2(x)) p,q )( Zi−2(x)) jk (4) +
+
+> n
+
+X
+
+> p=1
+> n
+
+X
+
+> q=1
+
+(Zi−2(x)) jp H(i)pq (Zi−2(x)) qk ,
+
+where the summations involving H(i) only go up to n given that H(i)pq = 0 when p or 
+
+q > n . The matrices Q−10 and Q−11 in the definitions of Z0(x) and Z1(X), and the matrices 
+
+H(i) are skew-symmetric, hence zero-diagonal. For simplicity, this will be ignored by lower bounding all exponents {tij }j of each σi, even those whose corresponding coefficient aij = 0. Let E(i)jk be the infimum of the exponents of x in the polynomial ( Zi(x)) jk , and E(i) := inf  
+
+> j,k
+
+E(i)jk . From Section 2.1, it can be observed that E(0) = E(0) nn and E(1) = E(1) nn 
+
+for even or odd n, with the equalities holding uniquely for ( j, k ) = ( n, n ) when n ≥ 2. From the above recursions, for i > 1, E(i) = E(i)nn and E(i) = 2 E(i − 2) for both even and odd i, by considering the term ( Zi−2(x)) nn H(i)nn (Zi−2(x)) nn in (3) and (4), and also 
+
+σ2( n−1)  
+
+> i−2
+
+σ2( n−1)  
+
+> i−1
+
+(Zi−2(x)) n,n (Zi−2(x)) nn in (4). Let D(i) be a lower bound on the exponents of x in the polynomial di(x). By considering odd i in particular, where x is only an argument of Zi−2, setting D(i) = E(i − 2) for all i is valid, where D(2) = D(3) = 2 β −2n+2 = n2 −3n+2, and in general, D(i) = 2 i−22 (n2 −3n+2) and D(i) = 2 i−32 (n2 − 3n + 2) for all even and odd i > 1, respectively. These exponents are with respect to the argument x, whereas di is evaluated at σ2 
+
+> i
+
+, so by adding 2 D(i) to the lower bound of e1(i) + e2(i), by considering m = n from Section 2.2, let e ˜f (i) be a lower bound on the exponents of σi contained in ˜fi for i > 1, where for even i,
+
+e ˜f (i) = n − i − (i − 1) n(n − 1) + 2 ∗ 2i−22 (n2 − 3n + 2) (5) = (2 i 
+
+> 2
+
+− i + 1) n2 + ( i − 3 ∗ 2 i 
+
+> 2
+
+)n + 2 i+2 2 − i, 
+
+7and for odd i,
+
+e ˜f (i) = n − i − (i − 2) n(n − 1) + 2 ∗ 2i−32 (n2 − 3n + 2) (6) = (2 i−12 − i + 2) n2 + ( i − 3 ∗ 2i−12 − 1) n + 2 i+1 2 − i. 
+
+The function e ˜f can be further lower bounded by c2 i 
+
+> 2
+
+n2 and c2i−12 n2 for even and odd i using a constant 0 < c < 14 for n sufficiently large: For even i,
+
+e ˜f (i)2 i 
+
+> 2
+
+n2 = (2 i 
+
+> 2
+
+− i + 1) n2 + ( i − 3 ∗ 2 i 
+
+> 2
+
+)n + 2 i+2 2 − i
+
+2 i 
+
+> 2
+
+n2
+
+= (2 i 
+
+> 2
+
+− i + 1) 2 i
+
+> 2
+
++ (i − 3 ∗ 2 i 
+
+> 2
+
+)2 i 
+
+> 2
+
+n + 2i+2 2 − i
+
+2 i 
+
+> 2
+
+n2
+
+≥ 14 − 3
+
+n + 0 ,
+
+where the first term equals 14 when i = 4. For odd i,
+
+e ˜f (i)2i−12 n2 = (2 i−12 − i + 2) n2 + ( i − 3 ∗ 2i−12 − 1) n + 2 i+1 2 − i
+
+2i−12 n2
+
+≥ 14 − 3
+
+n + 0 ,
+
+where the bound c2i−12 n2 < 14 2i−12 n2 is also valid for i = 1: mn − 1 ≥ n2 − 1 > n2 
+
+> 4
+
+when 
+
+n ≥ 2. For both even and odd i, let nc ≥ 2 be sufficiently large such that e ˜f (i) ≥ c2i−12 n2
+
+holds for i ≥ 1 and n ≥ nc for a given c > 0. Given that a lower bound on {tij }j for each i has been established, the next step is to upper bound P(1 − σn > ϵ ) for any ϵ > 0. Defining σ0 := 1, 
+
+P(1 − σn > ϵ ) = P(
+
+> n
+
+X
+
+> i=1
+
+σi−1 − σi > ϵ )
+
+≤ P(∪ni=1 (σi−1 − σi > ϵn)) 
+
+≤
+
+> n
+
+X
+
+> i=1
+
+P(σi−1 − σi > ϵn), where (7) 
+
+P(σi−1 − σi > ϵn) = 
+
+Z 10
+
+· · · 
+
+Z σi−2
+
+> 0
+
+Z σi−1− ϵn
+
+> 0
+
+fi(σ1, ..., σ i)dσ idσ i−1...dσ 1
+
+=
+
+Z 10
+
+· · · 
+
+Z σi−2
+
+> 0
+
+Z σi−1− ϵn
+
+> 0
+
+fi(σi|σ1, ..., σ i−1)dσ ifi−1(σ1, ..., σ i−1)dσ i−1...dσ 1, and (8) 8Z σi−1− ϵn
+
+> 0
+
+fi(σi|σ1, ..., σ i−1)dσ i ≤
+
+Z σi−1− ϵn
+
+> 0
+
+sup 
+
+> j
+
+tij + 1 
+
+σi−1
+
+( σi
+
+σi−1
+
+)tij dσ i
+
+=
+
+Z 1− ϵσi−1n
+
+> 0
+
+sup 
+
+> j
+
+(tij + 1) ytij dy 
+
+≤
+
+Z 1− ϵn
+
+> 0
+
+sup 
+
+> j
+
+(tij + 1) ytij dy, (9) where the first inequality uses (2), and the equality uses the change of variable y = σi 
+
+> σi−1
+
+.Given that the upper bound (9) is independent of {σj }i−1
+
+> j=1
+
+, applying it to (8), 
+
+P(σi−1 − σi > ϵn) ≤
+
+Z 1− ϵn
+
+> 0
+
+sup 
+
+> j
+
+(tij + 1) ytij dy 
+
+Z 10
+
+· · · 
+
+Z σi−2
+
+> 0
+
+fi−1(σ1, ..., σ i−1)dσ i−1...dσ 1
+
+=
+
+Z 1− ϵn
+
+> 0
+
+sup 
+
+> j
+
+(tij + 1) ytij dy. (10) For all j, tij ≥ e ˜f (i) ≥ c2i−12 n2 when n ≥ nc. It will now be shown that for sufficiently large 
+
+n, sup 
+
+> j
+
+(tij + 1) ytij ≤ (c2i−12 n2 + 1) yc2 i−12 n2
+
+for all y ∈ [0 , 1 − ϵn ]. For a positive exponent t > 0and y ∈ (0 , 1 − ϵn ], 
+
+ddt (t + 1) yt = yt(1 + ( t + 1) ln( y)) ≤ 0 (11) when t ≥ − ( 1ln( y) + 1). By enforcing t ≥ − ( 1ln(1 − ϵn ) + 1), (11) holds for all y ∈ (0 , 1 − ϵn ]. Considering t ≥ cn 2, i.e., i = 1 in c2i−12 n2, and n ≥ n1 
+
+> c
+
+:= max { 1 
+
+> ϵc
+
+, n c},
+
+ϵcn ≥ 1
+
+⇒ − ϵn(cn 2 + 1) ≤ − 1
+
+⇒ e− ϵn (cn 2+1) ≤ e−1
+
+⇒ (1 − ϵn)cn 2+1 ≤ e−1
+
+⇒(cn 2 + 1) ln(1 − ϵn) ≤ − 1
+
+⇒ t ≥ cn 2 ≥ − 
+
+ 1ln(1 − ϵn ) + 1 
+
+
+
+, (12) where the fourth inequality uses the bound (1 + x)k ≤ exk , (13) which holds for k ≥ 0 and x ≥ − 1. For n ≥ n1 
+
+> c
+
+, (11) holds for y ∈ (0 , 1 − ϵn ] when t ≥ cn 2.It follows that sup 
+
+> j
+
+(tij + 1) ytij ≤ (c2i−12 n2 + 1) yc2 i−12 n2
+
+≤ (cn 2 + 1) ycn 2
+
+for y ∈ [0 , 1 − ϵn ] when 
+
+n ≥ n1 
+
+> c
+
+, given that tij ≥ c2i−12 n2 ≥ cn 2 for all j and i ≥ 1. 9Continuing from (10) assuming that n ≥ n1 
+
+> c
+
+,
+
+P(σi−1 − σi > ϵn) ≤
+
+Z 1− ϵn
+
+> 0
+
+(c2i−12 n2 + 1) yc2 i−12 n2
+
+dy 
+
+=
+
+
+
+1 − ϵn
+
+c2 i−12 n2+1 
+
+≤ e− ϵn (c2 i−12 n2+1) 
+
+≤ e− ϵn (c(1+( i−1)( √2−1)) n2+1) 
+
+= e−ϵ(cn + 1 
+
+> n)
+
+e−ϵcn (√2−1)( i−1) , (14) where the second inequality uses (13) and the third uses Bernoulli’s inequality, (1 + x)k ≥
+
+1 + kx for nonnegative integer k and x > −1, to bound 2 i−12 ≥ 1 + ( i − 1)( √2 − 1) for i ≥ 1. Plugging (14) into (7) for n ≥ n1 
+
+> c
+
+,
+
+P(1 − σn > ϵ ) ≤ e−ϵ(cn + 1 
+
+> n)
+> n−1
+
+X
+
+> i=0
+
+e−ϵcn (√2−1) i
+
+= e−ϵ(cn + 1  
+
+> n)
+
+1 − e−ϵcn 2(√2−1) 
+
+1 − e−ϵcn (√2−1) 
+
+≤ e−ϵcn 
+
+1 − e−ϵcn (√2−1) .
+
+The series 
+
+> ∞
+
+X
+
+> n=n1
+> c
+
+P(1 − σn > ϵ ) ≤
+
+> ∞
+
+X
+
+> n=n1
+> c
+
+e−ϵcn 
+
+1 − e−ϵcn (√2−1) 
+
+is convergent for all ϵ > 0 using the ratio test: 
+
+e−ϵc (n+1) 
+
+e−ϵcn 
+
+1 − e−ϵcn (√2−1) 
+
+1 − e−ϵc (n+1)( √2−1) ≤ e−ϵc < 1,
+
+hence σn → 1 almost surely using the first Borel-Cantelli lemma (Williams, 1991, Appendix A13). The previous theorem assumed that n → ∞ , implying that m → ∞ as well. The following theorem considers the case where m → ∞ for a fixed value of n.
+
+Theorem 2. For matrices uniformly distributed in the unit spectral norm ball, ∆ ∼ U (B),with a fixed number of rows n, lim  
+
+> m→∞
+
+σn = 1 almost surely. Proof. The proof begins by redefining e ˜f (i) for i > 1 in equations (5) and (6) by not assuming that m = n. Using the exact value of e1(i) found in Section 2.2, for even i,
+
+e ˜f (i) = ( m − n)( n − i + 1) + n − i − (i − 1) n(n − 1) + 2 i 
+
+> 2
+
+(n2 − 3n + 2) =: m(n − i + 1) + z(i, n ),
+
+10 and for odd i,
+
+e ˜f (i) = ( m − n)( n − i + 1) + n − i − (i − 2) n(n − 1) + 2 i−12 (n2 − 3n + 2) =: m(n − i + 1) + z(i, n ),
+
+where the terms in e ˜f (i) not including m have been collected into the function z, and e ˜f is extended to the case i = 1 by defining z(1 , n ) := −1. Given that min  
+
+> i
+
+z(i, n ) ∈ Z is a fixed value independent of m, the function e ˜f (i) ≥ m + min  
+
+> i
+
+z(i, n ) can be further lower bounded by cm for a constant 0 < c < 1 when m ≥ mc for a sufficiently large mc ∈ Z.Wanting to again upper bound, in this case only over a finite number of terms, max  
+
+> j
+
+(tij +1) ytij in (10), by considering m ≥ mnc := max { nϵc , m c},
+
+ϵncm ≥ 1
+
+⇒ − ϵn(cm + 1) ≤ − 1
+
+⇒ e− ϵn (cm +1) ≤ e−1
+
+⇒ (1 − ϵn)cm +1 ≤ e−1
+
+⇒(cm + 1) ln(1 − ϵn) ≤ − 1
+
+⇒ cm ≥ − 
+
+ 1ln(1 − ϵn ) + 1 
+
+
+
+,
+
+using the same steps to show (12). It follows that (11) holds for y ∈ (0 , 1 − ϵn ] when t ≥ cm nc ,hence max  
+
+> j
+
+(tij + 1) ytij ≤ (cm + 1) ycm for y ∈ [0 , 1 − ϵn ] when m ≥ mnc , given that tij ≥ cm 
+
+for all j and i ≥ 1. Continuing from (10) assuming that m ≥ mnc ,
+
+P(σi−1 − σi > ϵn) ≤
+
+Z 1− ϵn
+
+> 0
+
+(cm + 1) ycm dy 
+
+=
+
+
+
+1 − ϵn
+
+cm +1 
+
+≤ e− ϵn (cm +1) . (15) Plugging (15) into (7), P(1 − σn > ϵ ) ≤ ne − ϵn (cm +1) . By applying the ratio test, 
+
+ne − ϵn (c(m+1)+1) 
+
+ne − ϵn (cm +1) = e− ϵn c < 1,
+
+it follows that the series 
+
+> ∞
+
+X
+
+> m=mnc
+
+P(1 − σn > ϵ ) ≤
+
+> ∞
+
+X
+
+> m=mnc
+
+ne − ϵn (cm +1) 
+
+is convergent for all ϵ > 0, proving that σn → 1 almost surely. 11 4 Computational Experiments 
+
+This section empirically verifies the convergence of σn → 1, demonstrates the inability to scale up Algorithm 2, and shows the viability of only using Algorithm 1 to approximately sample from U(B). Before presenting these results, implementation details are first de-scribed. 
+
+4.1 Implementation Details 
+
+All computation was done using 64-bit floating-point arithmetic using Numpy 2.4.4 in Python 3.13.13. All function evaluations when sampling σi are performed over a grid of M := 1000 evenly-spaced points Xi in the interval [ X1, ˆσi−1], where the minimum value was fixed to 
+
+X1 := 0 .01: The need to take large negative exponents of σi results in overflows for small values, while at the same time, the likelihood of σi < X 1 decreases rapidly as n increases. When sampling σi, which will be described next, the point X0 = 0 is also included, which still allows, through linear interpolation, sampled values of σi ∈ [0 , X 1]. Let the extended set of points be denoted as ˜Xi := Xi ∪ { X0}.Sampling σi: Recalling that ˜fi(·| σ1, ..., σ i−1) is the unnormalized distribution proportional to fi(·| σ1, ..., σ i−1), σi is sampled based on the inversion method (Devroye, 1986, Chapter 2): An unnormalized conditional CDF is first computed given the realized samples {ˆσj }i−1
+
+> j=1
+
+,˜Fi(Xij |ˆσ1, ..., ˆσi−1) := 
+
+> j
+
+X
+
+> k=1
+
+˜fi(Xik|ˆσ1, ..., ˆσi−1),
+
+with the conditional CDF of σi estimated as 
+
+Fi(Xij |ˆσ1, ..., ˆσi−1) := ˜Fi(Xij |ˆσ1, ..., ˆσi−1)˜Fi(XiM |ˆσ1, ..., ˆσi−1)over the points Xi. The function Fi := Fi(·| ˆσ1, ..., ˆσi−1) is then extended to include X0 by setting Fi(X0) = 0. By sampling ˆ u ∼ U [0 , 1], setting 
+
+j∗ = max(min {j : ˆ u ≤ Fi( ˜Xij )}, 1) ,
+
+and using linear interpolation, ˆσi = (( ˜Xij∗ − ˆu)Fi( ˜Xij∗−1) + (ˆ u − ˜Xij∗−1)Fi( ˜Xij∗ )) ( ˜Xij∗ − ˜Xij∗−1) .
+
+Computing Zi: Versus Algorithm 2, where Zi is updated in iteration i on line 16, given that Zi must be evaluated at the points Xi+2 , which are not known until iteration i + 1 has completed, Zi is instead computed at the beginning of iteration i + 2. In order to delay underflows and overflows, if 0 < Z max  
+
+> i
+
+:= max  
+
+> j,k,x ∈Xi+2
+
+|(Zi(x)) jk | < 1 or Zmax  
+
+> i
+
+> √max value ,
+
+12 Zi is divided by Zmax  
+
+> i
+
+or Zmax  
+
+> i
+
+/√max value, respectively, where max value is the maxi-mum representable number in the 64-bit floating-point representation, with √max value = 1.341 × 10 154 . As a final detail, there were only two Zi tensors stored, Ze and Zo for even and odd indexed singular values, respectively, with one being updated at the beginning of each iteration. Exponent Canceling: The unnormalized distribution ˜fi(·| σ1, ..., σ i−1) consists of the product of σe1(i)+ e2(i) 
+
+> i
+
+and |di(σ2 
+
+> i
+
+)|. As given by 2 D(i) in the proof of Theorem 1, the exponents of σi
+
+in |di(σ2 
+
+> i
+
+)| are non-negative and increasing with n and i. The exponent e1(i) + e2(i), found in Section 2.2, is always decreasing in i, and for values of m < 2n, e1(i) + e2(i) is negative: 
+
+e1(i) + e2(i) ≤ (m − n)( n − 1) + n − 2 − n(n − 1) 
+
+≤ (n − 1) 2 + n − 2 − n(n − 1) = −1,
+
+where the first inequality considers i = 2, and the second inequality uses m = 2 n − 1. For values of σi < 1, as n increases, large negative exponents e1(i) + e2(i) cause overflows, whereas large positive exponents within |di(σ2 
+
+> i
+
+)| cause underflows, which can be remedied by shifting negative exponents from e1(i) + e2(i) to |di(σ2 
+
+> i
+
+)|.For i ∈ { 2, 3}, e1(i) + e2(i) is initially increased by a quantity e3(2) = e3(3) > 0. To correct for this, within Z0 and Z1, β is replaced by β − e3(2) 4 , resulting in all of the polynomial exponents within Z0(σ22 ) and Z1(σ23 ), and subsequently within d2(σ22 ) and d3(σ23 ), to decrease by e3(2). This initial injection of −e3(2) decreases exponentially given the recursive updates of Zi on line 16 of Algorithm 2. At iteration i, the exponent of σi in di(σ2 
+
+> i
+
+) has decreased by 
+
+−e3(2)2 ⌊ i 
+
+> 2⌋− 1
+
+. To correct for this, for i > 3 e1(i) + e2(i) is increased by e3(i) := e3(2)2 ⌊ i 
+
+> 2⌋− 1
+
+.The initial quantity e3(2) is set to 
+
+e3(2) : = min(max( −(e1(n) + e2(n)) , 0) , 2D(n)) 2⌊ n  
+
+> 2⌋− 1
+
+. (16) When e1(n) + e2(n) < 0 and −(e1(n) + e2(n)) ≤ 2D(n), e1(n) + e2(n) + e3(n) = 0, meaning that by the nth iteration the negative exponent e1(n) + e2(n) has been cancelled out with the positive exponents of σn within |dn(σ2
+
+> n
+
+)|, and likewise, when −(e1(n) + e2(n)) > 2D(n), the positive exponents of σn within |dn(σ2
+
+> n
+
+)| are cancelled out with the negative exponent 
+
+e1(n) + e2(n). In addition to using exponent canceling, the convention that 0 ∗ ∞ = 0 is applied when computing ˜fi(·| ˆσ1, ..., ˆσi−1) over Xi by setting ˜fi(x|ˆσ1, ..., ˆσi−1) = 0 when di(x2) = 0, regard-less of xe1(i)+ e2(i) overflowing or not. 
+
+4.2 Results 
+
+With the described implementation, for each choice of ( n, m ), n singular values were gen-erated 1000 times. Beginning with square matrices, it was only possible to generate up to 
+
+n = 19 singular values. The experiment with n = m = 20 was stopped after the computed conditional CDF underflowed for all x ∈ X20 in the 99 th trial. Fixing n = 19, singular values 13 were then generated for m ∈ { 50 , 100 , 250 , 500 , 1000 }. The mean and standard deviation of all sampled singular values are given in Table 1. In each trial, samples of U and V were also generated using Algorithm 1, with the computed errors ave error := 1
+
+nm 
+
+nX
+
+j=1 
+
+mX
+
+k=1 
+
+|( ˆU ˆΣ ˆV T − ˆU ˆV T )jk | and (17) max error := max 
+
+j,k |( ˆU ˆΣ ˆV T − ˆU ˆV T )jk |
+
+from replacing ˆΣ := diag(ˆ σ1, .., ˆσn) with an identity matrix, bypassing the use of Algorithm n m ˆσ1 ˆσ2 ˆσ3 ˆσ4 ˆσ5 ˆσ6 ˆσ7 ˆσ8 ˆσ9 ˆσ10 ˆσ11 ˆσ12 ˆσ13 ˆσ14 ˆσ15 ˆσ16 ˆσ17 ˆσ18 ˆσ19 
+
+1 1 μ 0.509 
+
+s 0.287 2 2 μ 0.803 0.299 
+
+s 0.159 0.203 3 3 μ 0.902 0.604 0.210 
+
+s 0.087 0.168 0.146 4 4 μ 0.942 0.759 0.478 0.164 
+
+s 0.053 0.115 0.143 0.113 5 5 μ 0.962 0.840 0.644 0.394 0.052 
+
+s 0.035 0.081 0.111 0.125 0.070 6 6 μ 0.974 0.887 0.745 0.556 0.325 0.309 
+
+s 0.025 0.059 0.085 0.105 0.125 0.118 7 7 μ 0.980 0.916 0.809 0.664 0.489 0.472 0.452 
+
+s 0.019 0.044 0.066 0.085 0.101 0.097 0.092 8 8 μ 0.985 0.935 0.852 0.737 0.597 0.582 0.564 0.562 
+
+s 0.014 0.035 0.052 0.070 0.086 0.083 0.081 0.080 9 9 μ 0.988 0.948 0.882 0.789 0.675 0.662 0.649 0.647 0.645 
+
+s 0.011 0.028 0.042 0.057 0.072 0.070 0.071 0.071 0.071 10 10 μ 0.990 0.958 0.903 0.828 0.735 0.725 0.718 0.717 0.715 0.714 
+
+s 0.009 0.023 0.035 0.049 0.065 0.065 0.065 0.065 0.065 0.065 11 11 μ 0.992 0.965 0.920 0.884 0.839 0.834 0.828 0.827 0.825 0.824 0.823 
+
+s 0.008 0.019 0.029 0.050 0.078 0.078 0.078 0.078 0.077 0.077 0.077 12 12 μ 0.993 0.970 0.932 0.919 0.900 0.896 0.892 0.890 0.889 0.888 0.887 0.886 
+
+s 0.006 0.016 0.025 0.027 0.034 0.034 0.034 0.034 0.034 0.034 0.034 0.034 13 13 μ 0.994 0.975 0.942 0.931 0.917 0.913 0.910 0.908 0.907 0.906 0.905 0.904 0.904 
+
+s 0.006 0.014 0.021 0.023 0.026 0.026 0.026 0.026 0.026 0.026 0.026 0.026 0.026 14 14 μ 0.995 0.980 0.952 0.942 0.930 0.927 0.924 0.923 0.922 0.921 0.920 0.919 0.919 0.918 
+
+s 0.005 0.011 0.018 0.020 0.022 0.022 0.023 0.022 0.023 0.022 0.022 0.023 0.023 0.023 15 15 μ 0.996 0.982 0.960 0.951 0.942 0.939 0.936 0.935 0.934 0.933 0.933 0.932 0.931 0.931 0.930 
+
+s 0.004 0.010 0.015 0.017 0.019 0.019 0.019 0.019 0.019 0.019 0.019 0.019 0.019 0.019 0.019 16 16 μ 0.996 0.984 0.964 0.957 0.949 0.947 0.945 0.944 0.943 0.942 0.941 0.941 0.940 0.940 0.939 0.939 
+
+s 0.004 0.009 0.015 0.016 0.018 0.018 0.018 0.018 0.018 0.018 0.018 0.018 0.018 0.018 0.018 0.018 17 17 μ 0.997 0.987 0.972 0.966 0.959 0.957 0.954 0.953 0.952 0.952 0.951 0.95 0.95 0.949 0.949 0.948 0.948 
+
+s 0.003 0.008 0.011 0.012 0.014 0.014 0.014 0.014 0.014 0.014 0.014 0.014 0.014 0.014 0.014 0.014 0.014 18 18 μ 0.997 0.988 0.975 0.970 0.964 0.962 0.960 0.959 0.958 0.957 0.957 0.956 0.956 0.955 0.955 0.954 0.954 0.953 
+
+s 0.003 0.007 0.012 0.012 0.014 0.014 0.014 0.014 0.014 0.014 0.014 0.014 0.014 0.014 0.014 0.014 0.014 0.014 19 19 μ 0.997 0.989 0.976 0.972 0.966 0.965 0.963 0.962 0.961 0.961 0.960 0.959 0.959 0.958 0.958 0.958 0.957 0.957 0.956 
+
+s 0.003 0.006 0.009 0.01 0.011 0.011 0.011 0.011 0.011 0.011 0.011 0.011 0.011 0.011 0.011 0.011 0.011 0.011 0.011 19 50 μ 0.999 0.997 0.996 0.994 0.992 0.990 0.989 0.988 0.987 0.987 0.986 0.985 0.985 0.984 0.984 0.983 0.983 0.982 0.982 
+
+s 0.001 0.002 0.002 0.003 0.003 0.004 0.004 0.004 0.004 0.004 0.004 0.004 0.004 0.004 0.004 0.004 0.004 0.004 0.004 19 100 μ 0.999 0.998 0.998 0.997 0.996 0.995 0.994 0.993 0.992 0.991 0.991 0.990 0.989 0.989 0.988 0.988 0.987 0.987 0.986 
+
+s 0.001 0.001 0.001 0.001 0.002 0.002 0.002 0.002 0.002 0.002 0.002 0.002 0.002 0.003 0.003 0.003 0.003 0.003 0.003 19 250 μ 1.000 0.999 0.998 0.998 0.997 0.997 0.996 0.995 0.995 0.994 0.993 0.993 0.992 0.992 0.991 0.991 0.990 0.990 0.989 
+
+s 0.000 0.000 0.001 0.001 0.001 0.001 0.001 0.001 0.001 0.001 0.001 0.001 0.002 0.002 0.002 0.002 0.002 0.002 0.002 19 500 μ 1.000 0.999 0.999 0.998 0.998 0.997 0.996 0.996 0.995 0.995 0.994 0.994 0.993 0.993 0.992 0.992 0.991 0.991 0.990 
+
+s 0.000 0.000 0.000 0.001 0.001 0.001 0.001 0.001 0.001 0.001 0.001 0.001 0.001 0.001 0.001 0.001 0.001 0.001 0.001 19 1000 μ 1.000 0.999 0.999 0.998 0.998 0.997 0.997 0.996 0.996 0.995 0.995 0.994 0.994 0.993 0.993 0.992 0.992 0.991 0.991 
+
+s 0.000 0.000 0.000 0.001 0.001 0.001 0.001 0.001 0.001 0.001 0.001 0.001 0.001 0.001 0.001 0.001 0.001 0.001 0.001 Table 1: The mean μ and standard deviation s from 1000 samples of the singular values {σi}
+
+of uniformly sampled n × m matrices from the unit spectral norm ball B using Algorithm 2. 14 2. The mean and standard deviation of these errors over the 1000 trials are given in Table 2. The values of e3(2), e1(n), e2(n), and 2 D(n) are also given, which were used for exponent canceling following (16). Examining Table 1, starting from n = m = 6, μ(ˆ σn) is monotonically increasing with 
+
+μ(ˆ σ19 ) = 0 .956 when n = m = 19. This is interpreted as verification that σn → 1 following Theorem 1. From the starting point of n = m = 19, by further increasing m, μ(ˆ σn) continues to monotonically increase to a final value of μ(ˆ σn) = 0 .991 when m = 1000, verifying Theorem 2.                                                                                                                                                                                                                                                                      
+
+> nme3(2) e1(n)e2(n) 2 D(n)ave error max error nme3(2) e1(n)e2(n)2D(n)ave error max error 11----μ0.491 0.491 13 13 53.625 0-1716 8,448 μ0.018 0.060
+> s0.287 0.287 s0.005 0.018 2200-2 0μ0.316 0.574 14 14 36.969 0-2366 19,968 μ0.015 0.050
+> s0.100 0.179 s0.004 0.015 3340-6 4μ0.246 0.573 15 15 42.656 0-2730 23,296 μ0.012 0.042
+> s0.054 0.136 s0.004 0.012 4412 0-36 24 μ0.207 0.552 16 16 28.125 0-3600 53,760 μ0.011 0.036
+> s0.034 0.108 s0.003 0.011 5524 0-60 48 μ0.191 0.569 17 17 31.875 0-4080 61,440 μ0.009 0.030
+> s0.019 0.092 s0.002 0.009 6637.5 0-150 160 μ0.148 0.437 18 18 20.320 0-5202 139,264 μ0.007 0.027
+> s0.025 0.093 s0.002 0.009 7752.5 0-210 240 μ0.116 0.346 19 19 22.711 0-5814 156,672 μ0.007 0.024
+> s0.021 0.075 s0.002 0.007 8849 0-392 672 μ0.091 0.280 19 50 22.590 31 -5814 156,672 μ0.001 0.006
+> s0.017 0.063 s0.000 0.002 9963 0-504 896 μ0.073 0.227 19 100 22.395 81 -5814 156,672 μ0.001 0.003
+> s0.015 0.050 s0.000 0.001 10 10 50.625 0-810 2,304 μ0.058 0.182 19 250 21.809 231 -5814 156,672 μ0.000 0.002
+> s0.013 0.045 s0.000 0.000 11 11 61.875 0-990 2,880 μ0.035 0.112 19 500 20.832 481 -5814 156,672 μ0.000 0.001
+> s0.015 0.051 s0.000 0.000 12 12 45.375 0-1452 7,040 μ0.022 0.072 19 1000 18.879 981 -5814 156,672 μ0.000 0.001
+> s0.007 0.023 s0.000 0.000
+
+Table 2: For each matrix size ( n > 1) × m, the value of e3(2) used for exponent canceling following (16) is shown given the values of e1(n) and e2(n) in Algorithm 2 and 2 D(n) from the proof of Theorem 1. The columns ave and max error contain the mean μ and standard deviation s from 1000 samples of computing these errors following (17). Examining Table 2, beginning again from n = m = 6, the means of ave and max error are monotonically decreasing with μ(ave error) = 0 .007 and μ(max error) = 0 .024 when 
+
+n = m = 19. By further increasing m, these mean errors continue to decrease to 0 .001 and 0 .006 when m = 50, and finally to 0 .000 and 0 .001 when m = 1000, demonstrating the viability in terms of accuracy of only using Algorithm 1 to generate samples ˆ∆. The remaining columns show the use of (16) in choosing e3(2), and perhaps more interestingly, the scale of the exponents required when only sampling up to 19 singular values. The lower bound on the exponents contained in |dn(σ2
+
+> n
+
+)|, 2 D(n) = O(n22n 
+
+> 2
+
+), hence its value will continue to grow exponentially, demonstrating the futility of trying to sample {σi} for larger values of n. In addition, |e1(n) + e2(n)| = O(n3), limiting the benefit of exponent canceling as n increases, which can already be seen when n = m = 19, where e1(n) + e2(n) = −5, 814 is already much smaller than 2 D(n) = 156 , 672. As a final experiment, Algorithm 1 was tested on the example matrix size of 5 , 120 ×
+
+25 , 600 given in Section 1, and it was verified that approximate samples of ˆ∆ = ˆU ˆV T can be 15 generated using numpy.linalg.qr (NumPy Developers, 2026) with 64 and 32-bit floating-point arithmetic. 
+
+# 5 Conclusion 
+
+This paper studied uniform sampling from the unit spectral norm ball in high dimension. Motivated by numerical challenges of directly sampling from this distribution, it was proven that as the size of the sampled matrix increases, all singular values converge to 1 almost surely. This finding led to a much simpler approximate sampling algorithm which is scalable and shown empirically to have monotonically decreasing error as the size of the matrix increases. 
+
+# References 
+
+Jeremy Bernstein and Laker Newhouse. Modular Duality in Deep Learning. In ICML , pages 3920–3930, 2025. Devansh Bisla, Jing Wang, and Anna Choromanska. Low-Pass Filtering SGD for Recovering Flat Optima in the Deep Learning Optimization Landscape. In AISTATS , pages 8299– 8339, 2022. Giuseppe Calafiore and Fabrizio Dabbene. A probabilistic framework for problems with real structured uncertainty in systems and control. Automatica , 38(8):1265–1276, 2002. Giuseppe C. Calafiore, Fabrizio Dabbene, and Roberto Tempo. Randomized Algorithms for Probabilistic Robustness with Real and Complex Structured Uncertainty. IEEE Transac-tions on Automatic Control , 45(12):2218–2235, 2000. Luc Devroye. Non-Uniform Random Variate Generation . Springer, 1986. John C. Duchi, Peter L. Bartlett, and Martin J. Wainwright. Randomized Smoothing for Stochastic Optimization. SIAM Journal on Optimization , 22(2):674–701, 2012. NumPy Developers. numpy.linalg.qr. https://numpy.org/doc/2.4/reference/ generated/numpy.linalg.qr.html , 2026. Qwen Team. Qwen3 Technical Report, 2025. Andrey Tremba, Giuseppe Calafiore, Fabrizio Dabbene, Elena Gryazina, Boris Polyak, Pavel Shcherbakov, and Roberto Tempo. RACT: Randomized Algorithms Control Toolbox for MATLAB. In IFAC World Congress , pages 390–395. Elsevier, 2008. David Williams. Probability with Martingales . Cambridge University Press, 1991. 16
