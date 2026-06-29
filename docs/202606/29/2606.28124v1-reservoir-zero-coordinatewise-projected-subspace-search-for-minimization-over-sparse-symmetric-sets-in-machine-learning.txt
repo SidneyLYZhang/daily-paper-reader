@@ -1,0 +1,1581 @@
+Title: Reservoir Zero-Coordinatewise Projected Subspace Search for Minimization Over Sparse Symmetric Sets in Machine Learning
+
+URL Source: https://arxiv.org/pdf/2606.28124v1
+
+Published Time: Mon, 29 Jun 2026 00:55:49 GMT
+
+Number of Pages: 42
+
+Markdown Content:
+RESERVOIR ZERO-COORDINATEWISE PROJECTED SUBSPACE SEARCH FOR MINIMIZATION OVER SPARSE SYMMETRIC SETS IN MACHINE LEARNING 
+
+MORTEZA KIMIAEI, SHIMA SHABANI, AND MICHAEL BREUSS 
+
+Abstract. We study a class of nonconvex cardinality-constrained op-timization problems arising in sparse learning. These problems are NP-hard due to the combinatorial nature of sparsity constraints. We introduce a Reservoir Zero-Coordinatewise Projected Subspace Search (RZCW-PSS ) algorithm, a simplex-style method on sparse manifolds that integrates coordinatewise search, symmetry-aware swap-based support updates, randomized low-dimensional subspace exploration, and zero-coordinatewise reservoir injection. The proposed method augments classical coordinate and swap moves with sparse-compatible subspace searches constructed from a dynamically maintained reservoir of pre-viously accepted feasible points. A key feature of the approach is a refined reservoir initialization strategy that embeds sparse projection di-rectly into a uniform sampling procedure, preserving geometric diversity within the feasible set. The algorithm also includes an optional support-identification safeguard that enforces full-support stabilization under a fixed support-change decrease threshold. We establish that, under the stated regularity, sampling, and subproblem-accuracy assumptions, ev-ery full-support accumulation point of the RZCW-PSS iterates is Beck– Hallak zero-coordinatewise stationary almost surely; with the safeguard and full-support initialization, this conclusion applies to all accumu-lation points. We further prove a conditional local linear convergence rate after support stabilization and derive the corresponding logarithmic local iteration complexity. Numerical experiments on synthetic sparse learning problems demonstrate that RZCW-PSS improves robustness and solution quality while remaining computationally competitive with Par-tial Simplex Search, Basic Feasible Search, and Zero-Coordinatewise Search methods. 
+
+1. Introduction 
+
+Sparsity-constrained optimization problems arise ubiquitously in modern data analysis, signal processing, machine learning, and statistics, where one seeks high-quality solutions that depend on only a small subset of deci-sion variables. A widely studied modeling paradigm for enforcing sparsity 
+
+2020 Mathematics Subject Classification. Primary 90C30; Secondary 90C06, 65K05, 90C27, 90C59. 
+
+Key words and phrases. Cardinality-constrained optimization, randomized optimiza-tion, subspace technique, global convergence, convergence rate. M. Kimiaei acknowledges financial support of the Austrian Science Foundation under 
+
+https://doi.org/10.55776/PAT2747625 .S. Shabani and M. Breuß acknowledge funding from the Federal Ministry of Research, Technology and Space (BMFTR), Germany, through the project “Digital GreenTech (DGT) – Environmental Technology Meets Robotics” (grant number 68542).  
+
+> 1
+> arXiv:2606.28124v1 [math.OC] 26 Jun 2026 2MORTEZA KIMIAEI, SHIMA SHABANI, AND MICHAEL BREUSS
+
+is the incorporation of an explicit cardinality constraint, which limits the number of nonzero components of the decision vector. While such formula-tions offer strong interpretability and modeling fidelity, they also introduce fundamental algorithmic challenges due to the resulting nonconvexity and combinatorial structure of the feasible set. This paper focuses on the de-sign and analysis of an efficient algorithm for solving smooth optimization problems under explicit cardinality constraints, with a particular emphasis on stationarity concepts and low-dimensional search mechanisms that strike a balance between computational tractability and solution quality. 1.1. Problem Formulation. We consider the cardinality-constrained optimization problem (CCOP) 
+
+min 
+
+> x∈C∩Cs
+
+f (x), Cs := {x ∈ Rn : ∥x∥0 ≤ s}, (1) where f : Rn → R is continuously differentiable. Let g(x) := ∇f (x)
+
+be the gradient of f at x. In this work, we propose the Reservoir Zero-Coordinatewise Projected Subspace Search (RZCW-PSS ) method for the CCOP (1).. 
+
+Assumptions on CCOP. The feasible set C ⊆ Rn is assumed to be closed, convex, and symmetric in the sense of [4], as detailed in Subsec-tion 2.1. Typical examples of such symmetric sets include Rn, the nonnega-tive orthant, the unit simplex, ℓp-norm balls, and centered box-constrained sets; see [26, Section 2] for details. These feasible regions are invariant un-der permutations of the coordinate indices and, in certain cases, also under componentwise sign changes. This symmetry plays a fundamental role in the characterization and effi-cient computation of sparse projections [4], as discussed further in Section 3 of [26]. In particular, it ensures that sparse projection operators and coor-dinate permutations preserve feasibility, a property that is exploited by the coordinatewise and support-exchange steps of the proposed algorithm. Arelated convexification perspective is developed in [21], where permutation-and sign-invariant sets are studied through majorization-based convex-hull descriptions, with applications to sparse PCA and cardinality-constrained norm balls. In contrast, our use of symmetry is algorithmic rather than relaxation-based: we exploit the symmetric structure of C to characterize sparse projections, support exchanges, and ZCW super-support subproblems within a feasible-search algorithm. The sparsity set Cs enforces at most s nonzero components, rendering the feasible region nonconvex and combinatorial. Consequently, problem (1) is NP-hard in general. We assume throughout that g = ∇f is Lipschitz continuous on bounded subsets of C.
+
+Support sets. For any x ∈ Rn, we define the active and inactive index sets, respectively, by 
+
+I1(x) = supp( x) := {i ∈ [n] : xi̸ = 0 }, I0(x) := {i ∈ [n] : xi = 0 }, (2) where supp( ·) denotes the support operator, and [n] := {1, . . . , n }.For a feasible point x ∈ C ∩ Cs, we say that x has saturated support, or full sparse support, if ∥x∥0 = s, and unsaturated support if ∥x∥0 < s .A super support of x is any index set L ⊆ [n] with |L| = s such that RESERVOIR ZCW PROJECTED SUBSPACE SEARCH 3
+
+I1(x) ⊆ L . Super supports play a central role in characterizing admissible support modifications under the cardinality constraint. 1.2. Related Works. We organize the related literature into two main categories. We first review stationarity-based methods for cardinality-constrained optimization, and then discuss subspace methods that exploit low-dimensional search spaces. 1.2.1. Stationarity-Based Methods for CCOP. In the sparse optimization setting, classical first-order stationarity with respect to all feasible direc-tions is typically too strong to be enforced efficiently. As a result, differ-ent algorithms aim to satisfy restricted first-order optimality conditions of varying strength, ranging from projection-based fixed-point conditions to coordinatewise and support-aware notions of stationarity. We briefly review several methods proposed in [3, 4], emphasizing their algorithmic ideas and the specific stationarity concepts they enforce. 
+
+Basic Feasible Search ( BFS ). BFS is based on the concept of basic fea-sibility , which can be viewed as a restricted form of first-order stationarity adapted to cardinality constraints. A point is said to be basic feasible if the gradient vanishes on its active support (and on all coordinates when the support is not full). In contrast to classical stationarity, basic feasibility does not require optimality with respect to all directions or support modifications; it only enforces first-order conditions on a fixed support. The BFS algorithm repeatedly constructs candidate super supports of cardinality s and solves smooth subproblems restricted to these supports. Under mild assumptions, finite termination can be guaranteed. BFS serves as a fundamental building block for more advanced sparse optimization methods. 
+
+Iterative Hard Thresholding ( IHT ). IHT is a first-order projection method for solving (1). Each iteration consists of a gradient descent step followed by a hard thresholding operator that retains the s largest compo-nents in magnitude. From a stationarity perspective, IHT seeks fixed points of the projected gradient mapping onto the nonconvex sparse set Cs. Under Lipschitz continuity of the gradient g, accumulation points of IHT satisfy an 
+
+L-stationarity condition (see [26, Section 4]), expressed as a projection-based fixed-point relation. This condition represents a weak form of first-order optimality, as it does not exclude descent along individual coordinates or support-changing directions. 
+
+Partial Sparse Simplex ( PSS ). PSS is a coordinate-descent-type al-gorithm designed to improve upon IHT by enforcing a stronger notion of stationarity. At each iteration, it performs exact one-dimensional minimiza-tions along coordinate directions while preserving sparsity. By allowing controlled single-index support exchanges, PSS explores a richer set of fea-sible descent directions than IHT . As a result, PSS targets partial coordi-natewise stationarity , which requires optimality with respect to all one-dimensional perturbations along active coordinates as well as all single-index support swaps. This notion strictly strengthens L-stationarity by ruling out coordinatewise and swap-based descent directions. 
+
+Zero-Coordinatewise Search ( ZCWS ). ZCWS , also referred to as zero-coordinatewise search, enforces a stronger stationarity concept that builds 4 MORTEZA KIMIAEI, SHIMA SHABANI, AND MICHAEL BREUSS 
+
+upon basic feasibility. Starting from a basic feasible point, it systematically replaces poorly performing active coordinates with more promising inactive ones based on gradient information. Each support update is followed by a restricted minimization and a BFS step to restore feasibility. The resulting iterates satisfy zero-coordinatewise (ZCW) stationarity (see below), which excludes descent along any coordinate direction, including after full reoptimization on modified supports. This is the strongest stationarity no-tion among the methods reviewed. Overall, the methods BFS , IHT , PSS , and ZCWS differ primarily in the strength of the stationarity conditions they enforce. BFS targets basic feasi-bility, a weak but foundational form of first-order stationarity on fixed sup-ports. IHT relies on L-stationarity defined via a projected-gradient fixed-point condition. PSS enforces partial coordinatewise stationarity with re-spect to both active-coordinate descent and single-index support swaps. 
+
+ZCWS targets ZCW stationary points, which correspond to the strongest notion in this hierarchy. This ordering explains both the increasing algorith-mic complexity and the progressively stronger optimality guarantees of these methods. The proposed RZCW-PSS method fits naturally within this hierar-chy: it retains the ZCW-stationarity target while enriching the search pro-cess through randomized low-dimensional projected subspace exploration. For completeness and clarity, Section 2.2 gives the precise definition of the ZCW stationarity concept used in this paper. The broader hierarchy of related stationarity notions, including basic feasibility, L-stationarity, and ZCW stationarity, is summarized in Figure 1 of [26], where arrows indicate implications from stronger to weaker conditions. Beyond the stationarity-based methods reviewed above, several other algorithmic families have been developed for cardinality-constrained and sparse optimization. Greedy methods, such as matching-pursuit and forward/backward selection schemes, are computationally attractive, but may be sensitive to noise, correlations, and early variable-selection errors [15, 32]. Convex relaxation approaches, including basis pursuit, LASSO , and elastic-net formulations, replace the ℓ0-constraint by tractable convex surro-gates, but typically produce biased or only approximately sparse solutions [13, 16, 31]. Thresholding and projected-gradient methods, including IHT 
+
+and its nonmonotone or support-changing variants, provide scalable first-order alternatives but are often sensitive to stepsize rules and problem condi-tioning [6, 8, 18, 28, 35]. Penalty-decomposition and augmented-Lagrangian frameworks form another important class, since they separate smooth objec-tive components from sparsity or geometric constraints [20, 27, 28]. These methods can also be combined with line-search strategies and quasi-Newton updates to improve practical efficiency and scalability [29]. Finally, mixed-integer and combinatorial formulations can certify global optimality for some sparse models, but their scalability is limited by the underlying combina-torial search space [7, 9]. Recent specialized branch-and-bound frameworks for sparse regression exploit first-order optimization, warm starts, active RESERVOIR ZCW PROJECTED SUBSPACE SEARCH 5
+
+sets, gradient screening, and problem-specific dual bounds to improve scala-bility substantially [17]. These methods provide global certificates for ℓ0ℓ2-regularized sparse regression, whereas the focus of the present work is differ-ent: we target general smooth cardinality-constrained problems and develop a stationarity-oriented randomized subspace method rather than an exact global optimization procedure. 1.2.2. Subspace Methods. Subspace methods play a central role in practi-cal optimization and can be broadly classified into deterministic approaches [22, 24, 25] and randomized approaches [10, 11, 12]. These methods are em-ployed either to construct local models within deterministic or randomized subspaces, whose solutions provide effective search directions, or to generate subspaces spanned by collections of vectors such as descent directions, differ-ences of iterates, gradient differences, or related quantities. As emphasized in the comprehensive review of subspace techniques by Yuan [34], the effec-tiveness of subspace methods in large-scale optimization stems from their ability to replace full-dimensional subproblems with lower-dimensional ones, thereby significantly reducing computational cost while retaining favorable convergence properties. The review systematically covers subspace methods for unconstrained and constrained optimization, nonlinear equations, nonlin-ear least squares, and matrix optimization, and highlights that the construc-tion and selection of appropriate subspaces are the essential components gov-erning algorithmic performance. In the context of cardinality-constrained optimization, subspace searches enable simultaneous multi-coordinate ex-ploration without explicit enumeration of supports and can significantly en-hance the ability of coordinate-based methods to escape poor stationary points. Projection-free sparse convex optimization provides a related but distinct low-dimensional search paradigm. Frank–Wolfe, or conditional-gradient, methods move toward atoms obtained from linear minimization oracles and maintain iterates as convex combinations of few atoms, thereby naturally producing sparse or low-rank structures [19]. This philosophy is related to our use of low-dimensional exploratory steps, but the setting and mechanism are different: Frank–Wolfe operates over convex hulls of atoms and avoids projections, whereas RZCW-PSS works directly with the nonconvex feasible set C ∩ Cs and uses sparse projections, support exchanges, and ZCW-aware reservoir injections. 1.3. Our Contribution. Building on the stationarity hierarchy underlying 
+
+IHT , PSS , BFS , and ZCWS , the proposed RZCW-PSS method augments classical simplex-style coordinate updates with low-dimensional projected subspace searches constructed from a reservoir of previously accepted feasible points and ZCW-aware support injections. A key algorithmic component of RZCW-PSS is a novel reservoir initializa-tion and update mechanism based on a refined uniform sampling proce-dure. The refined uniform sequence, denoted by usequence and introduced in [23], generates well-separated points in a simple ambient domain, typi-cally the hypercube [−1, 1] n, without regard to problem-specific constraints. In RZCW-PSS , we generate a projected uniform sequence (see Section 8 of 6 MORTEZA KIMIAEI, SHIMA SHABANI, AND MICHAEL BREUSS 
+
+[26]), called p-usequence , by preserving the max-min separation property of usequence and coupling it with sparse feasibility through the application of the sparse projection operators of [4, Algorithms 1–4] to each generated sample, yielding a reservoir of points in C ∩ Cs that remains well distributed after projection and is directly usable by the algorithm. The proposed framework consists of the following components (i) –(vii) :
+
+(i) Initialization via Structured Exploration and BFS Warm Start. The algorithm initializes the reservoir using the p-usequence pro-cedure, producing a diverse collection of feasible points in C ∩ Cs without relying on local optimality. This structured exploration mitigates sensitiv-ity to the initial point and provides broad coverage of the sparse feasible region. A BFS warm-start phase is then applied to refine feasibility and objective value before the main iterations. The integration of p-usequence 
+
+initialization with a BFS -based warm start is novel. 
+
+(ii) Coordinatewise Search. The method employs coordinatewise de-scent steps based on one-dimensional optimization along individual coor-dinates. These steps provide inexpensive and reliable local improvements while preserving sparse feasibility. They enforce partial coordinatewise sta-tionarity on both active and inactive coordinates when the support is not saturated. This component follows established partial simplex search and coordinate descent principles. 
+
+(iii) Support Swapping. When the support is full, the algorithm per-forms symmetry-aware single-index support swaps. Weak active coordinates are replaced by inactive coordinates exhibiting the strongest descent poten-tial. This mechanism allows the method to escape suboptimal supports that block coordinatewise descent. The swap strategy itself is standard, but its role within the unified RZCW-PSS framework is refined. 
+
+(iv) Randomized Exploration. Beyond coordinatewise and swap moves, the algorithm performs randomized exploration over low-dimensional sparse subspaces. These subspaces are constructed from a reservoir of previ-ously accepted feasible points; each basis direction is restricted to the current active support together with at most one inactive coordinate, while feasi-bility of general subspace trial points is restored by projection onto C ∩ Cs.Subspace optimization enables simultaneous multi-coordinate adjustments that cannot be captured by one-dimensional searches. This randomized sparse subspace mechanism is new. 
+
+(v) Global Refinements. When local mechanisms fail to produce im-provement after approximate stationarity, the algorithm activates a global refinement step based on p-usequence . A fresh collection of well-separated feasible points in C ∩ Cs is generated to reinitialize the reservoir and restart the search from a new basin of attraction. This refinement strategy pre-serves sparse feasibility and avoids blind random restarts. Such a controlled, projection-aware global refinement mechanism is novel. 
+
+(vi) ZCW-Aware Reservoir Injection. The algorithm includes a probabilistic reservoir enrichment mechanism designed to detect violations of ZCW stationarity in the saturated regime. Refined probe points are gen-erated by approximately solving restricted subproblems over ZCW super RESERVOIR ZCW PROJECTED SUBSPACE SEARCH 7
+
+supports and are inserted into the reservoir subject to diversity pruning. Un-der the uniform support-hitting condition used in the convergence analysis, the mechanism ensures that ZCW super supports associated with station-arity violations are sampled infinitely often along saturated subsequences with probability one. The resulting ZCW-aware reservoir injection is a new contribution linking randomized exploration to support-based stationarity detection. 
+
+(vii) Inexact Acceptance Rule and Support-Identification Safe-guard. The algorithm uses an inexact candidate-set acceptance rule that selects the next iterate from the finite set of generated feasible candi-dates up to a prescribed outer tolerance. This rule separates the outer candidate-selection error from the inner restricted-solver error used in the ZCW reservoir injection step. In addition, we introduce an optional support-identification safeguard in the last step of the RZCW-PSS algorithm. When activated, this safeguard filters the candidate set before acceptance: every admissible candidate must have full support and active components uni-formly bounded away from zero, and any candidate that changes the cur-rent support must produce a fixed objective decrease. This safeguard is not part of the ZCW stationarity definition; it is an algorithmic device used only in the local convergence analysis. It guarantees eventual full-support stabilization under full-support initialization, which allows the almost-sure ZCW stationarity result to extend from full-support accumulation points to all accumulation points in the safeguarded implementation. 
+
+Convergence. From a theoretical perspective, we establish basic con-vergence properties of the proposed method and prove that the ZCW-aware reservoir injection mechanism is sufficient to detect ZCW violations in the saturated regime. In particular, under mild regularity assumptions and a uniform support-hitting condition, every full-support accumulation point of the RZCW-PSS iterates is ZCW stationary almost surely. Moreover, when the support-identification safeguard is imposed together with full-support initialization, the generated sequence eventually remains on one fixed full support. Consequently, in the safeguarded implementation, every accumu-lation point is full-support and hence ZCW stationary almost surely. 
+
+Convergence Rates and Complexity. Global iteration complexity bounds are generally unavailable for cardinality-constrained optimization due to the nonconvex and combinatorial structure of the feasible set. In-stead, our analysis separates the stochastic support-exploration phase from the deterministic local refinement phase. For the exploration phase, we provide an expected hitting-time bound for a fixed violated ZCW super support under a uniform support-hitting probability condition. This result should not be interpreted as a global finite-time optimality. Under the support-identification safeguard and full-support initialization, the support stabilizes after finitely many iterations. Once the stabilized support enters the local neighborhood where restricted strong convexity, the restricted projected-gradient error bound, and the local candidate-richness condition hold, the refinement phase converges linearly, yielding the logarithmic local iteration complexity derived in Section 7 of [26]. This transition from stochastic support exploration to deterministic 8 MORTEZA KIMIAEI, SHIMA SHABANI, AND MICHAEL BREUSS 
+
+restricted refinement is a key feature of the proposed hybrid reservoir frame-work. 
+
+Numerical Results. From a numerical standpoint, the proposed 
+
+RZCW-PSS framework is designed to recover sparse solutions that are struc-turally meaningful relative to those obtained by existing methods, while achieving superior optimization quality; see, for example, Figures 3–8 in [26]. The reservoir mechanism enables the construction of informative low-dimensional search subspaces from sparse, reservoir-based directions, allow-ing randomized subspace searches to exploit nonlocal information while pre-serving compatibility with the cardinality constraint. Rather than targeting exact support recovery, the numerical goal is to attain high-quality sparse points with low objective values while maintaining substantial overlap with reference supports. Empirical results on a collection of synthetic sparse learning problems confirm that RZCW-PSS improves robustness and solution quality relative to classical methods such as ZCWS , without a substantial increase in per-iteration computational complexity. 2. Preliminaries 
+
+This section recalls the main notation, symmetry classes, and ZCW stationarity concept for cardinality-constrained optimization that are used throughout the paper. These notions are based primarily on the framework of Beck and Hallak [4]. We include them here to make the presentation self-contained and to clarify how the proposed RZCW-PSS method uses sparse projections, super supports, and stationarity conditions. 2.1. Symmetric Sets and Symmetry-Aware BFS Ranking. Let Sn
+
+denote the group of all permutations of the index set [n] = {1, . . . , n }. Given a vector x ∈ Rn and a permutation π ∈ Sn, we define the permuted vector 
+
+xπ ∈ Rn by rearranging the components of x according to π, namely (xπ)i := 
+
+xπ(i) for all i ∈ [n].Among all permutations, we distinguish those that reorder the compo-nents of a vector in nonincreasing order. For x ∈ Rn, let ˜S(x) denote the set of permutations π ∈ Sn satisfying xπ(1) ≥ xπ(2) ≥ · · · ≥ xπ(n). Any 
+
+π ∈ ˜S(x) is called a sorting permutation of x.We now describe several symmetry properties of convex sets. Let C ⊆
+
+Rn be closed and convex. The set C is called type-1 symmetric if it is invariant under arbitrary permutations of coordinates, that is, xπ ∈ C for all x ∈ C and all π ∈ Sn. It is called nonnegative if every vector in C
+
+has nonnegative components. Finally, C is said to be type-2 symmetric if it is type-1 symmetric and, in addition, invariant under componentwise sign changes, meaning that x ◦ y ∈ C for all x ∈ C and all sign vectors 
+
+y ∈ {− 1, 1}n, where (x ◦ y)i := xiyi.Throughout this work, we consider closed and convex sets C that are either nonnegative type-1 symmetric or type-2 symmetric. To unify notation in both cases, we use the mapping p : Rn → Rn defined by 
+
+p(x) = 
+
+> {
+
+x, C nonneg. type-1 ,
+
+|x|, C type-2 , (3) RESERVOIR ZCW PROJECTED SUBSPACE SEARCH 9
+
+where |x| denotes the vector of componentwise absolute values. Sorting permutations are then taken with respect to p(x), that is, π ∈ ˜S(p(x)) .
+
+Symmetry-aware BFS ranking. Let x ∈ Ω := C ∩ Cs and g(x) = 
+
+∇f (x). Inactive indices are ranked according to the score 
+
+σi(x) := pi(−g(x)) , i ∈ I0(x), (4) which measures the magnitude of first-order optimality violation in a manner consistent with the symmetry of C. It is easily obtained from (3) that, for nonnegative type-1 symmetric sets, σi(x) = −gi(x), while for type-2 symmetric sets, σi(x) = |gi(x)|. The BFS ranking orders inactive indices in decreasing order of σi(x), thereby selecting first the indices with the largest symmetry-aware descent score. Sampling from the ranked inactive set assigns strictly positive probability to each of the top-ranked indices. The scores are continuous in x whenever 
+
+f is continuously differentiable. They are symmetry-aware through the use of p(·), but they are not invariant under coordinate permutations or sign changes unless additional symmetry assumptions are imposed on f . The induced ranking may be set-valued in the presence of ties; ties are resolved by the prescribed randomized selection rule. 2.2. ZCW stationary point. In the introduction, coordinatewise station-arity is mentioned only informally to motivate the limitations of classi-cal coordinatewise sparse methods. Here, we focus exclusively on zero-coordinatewise stationarity, which is the optimality concept targeted by 
+
+RZCW-PSS and used in the convergence theory. Precise definitions of other stationarity notions and their relationships are deferred to the supplemental material [26]. Suppose that C ⊆ Rn is either nonnegative type-1 symmetric or type-2 symmetric. Let x∗ ∈ Ω be a basic feasible point, recall p(·) from (3) and define the set of least significant active indice by 
+
+Q(x∗) := argmin 
+
+> q∈I1(x∗)
+
+pq(x∗), (5) and define the indices 
+
+q∗ := q(x∗) ∈ argmin 
+
+> q∈Q(x∗)
+
+pq(−g(x∗)) and j∗ := j(x∗) ∈ argmin 
+
+> j∈I0(x∗)
+
+{− pj (−g(x∗)) } .
+
+(6) Moreover, let π ∈ ˜S(−p(−g(x∗))) and choose k ∈ [n] such that |T ∗| = s,where 
+
+T ∗ := 
+
+> (
+
+Sπ 
+
+> [k,n ]
+
+∪ I1(x∗) ∪ { j∗}
+
+> )
+
+\ { q∗}. (7) Then x∗ is called a ZCW point if f (x∗) ≤ min {f (y) : y ∈ C, I 1(y) ⊆ T ∗}.ZCW stationarity is a support-based condition. After the active and inactive indices are selected, a super support set T ∗ is constructed, and 
+
+x∗ is compared with all feasible points whose support is contained in T ∗.In contrast, the simple-CW criterion is based on a single coordinatewise exchange. Given an active index q and an inactive index j selected according to (6), the corresponding simple-CW candidate is obtained by replacing the active coordinate q with the inactive coordinate j in a manner consistent with the symmetry structure of the set C. The resulting candidate preserves 10 MORTEZA KIMIAEI, SHIMA SHABANI, AND MICHAEL BREUSS 
+
+both the sparsity level and the magnitude of the exchanged entry. Thus, ZCW (full-CW) is stronger than simple-CW because it tests optimality over an entire restricted sparse subproblem, rather than only over the simple swap candidates. 3. Our RZCW-PSS Method 
+
+In this section, we describe the general framework of RZCW-PSS , for solving (1). 3.1. Subspace Optimization over Sparse Manifolds. Reservoir-induced projected subspaces and reduced optimization. The pro-posed algorithm incorporates searches over low-dimensional projected sub-spaces constructed from a finite reservoir of feasible points. The reservoir 
+
+R ⊂ C ∩ Cs is initialized using the refined uniform sampling procedure based on p-usequence ; see Section 8 of [26]. This procedure generates well-separated feasible points according to a max-min distance criterion and projects them onto C ∩ Cs using the sparse projection operators for sym-metric convex sets described in Algorithms 1–4 of [4], see also Section 3 of [26]. The resulting reservoir provides a geometrically diverse set of feasible reference points and allows the subspace mechanism to generate nonlocal exploration directions that do not rely solely on local information at the current iterate. Given a current iterate x ∈ C ∩ Cs, let U(x; R) denote the collection of subspaces generated from R with respect to x. For each selected reservoir point rℓ ∈ R , a preliminary reservoir direction dℓ is obtained from the displacement rℓ − x by retaining the components indexed by I1(x) ∪ { jℓ},for some jℓ ∈ I0(x). Thus, using (2), 
+
+supp( dℓ) ⊆ I1(x) ∪ { jℓ}, ∀ℓ ∈ [m].
+
+Hence, each preliminary direction is associated with the current active sup-port together with at most one inactive coordinate, and is compatible with a single potential support exchange. The sparsity restriction is imposed on the preliminary directions dℓ, be-fore orthonormalization. Nonzero preliminary directions are normalized and assembled into a matrix, and an orthonormal basis is then extracted using a numerically stable orthonormalization procedure, such as modified Gram-Schmidt, QR factorization, or singular value decomposition. We denote the resulting basis by 
+
+U = [ u1, . . . , u m] ∈ Rn×m, (8) where m is the subspace dimension. The corresponding reservoir-induced subspace is 
+
+U = span( U ) = span {u1, . . . , u m}.
+
+The orthonormalized basis vectors uℓ span the same subspace generated by the sparse preliminary directions dℓ, but the notation uℓ is reserved for the normalized/orthonormalized basis used in the subspace search. A general vector in the subspace can be written as 
+
+u =
+
+> m∑
+> ℓ=1
+
+aℓuℓ ∈ U , aℓ ∈ R, ∀ℓ ∈ [m],RESERVOIR ZCW PROJECTED SUBSPACE SEARCH 11 
+
+or equivalently u = U a , where a = ( a1, . . . , a m)⊤ ∈ Rm. Such a vector may combine basis directions associated with different inactive coordinates. Hence, the subspace perturbation x + u need not itself be sparse feasible before projection. Given the orthonormal basis U , the method performs a reduced smooth optimization over the subspace rather than sequential one-dimensional line searches. Specifically, it considers the reduced model ϕ(α) := f (x + U α )
+
+with α ∈ Rm with exact reduced gradient ∇ϕ(α) = U ⊤g(x + U α ). The inner optimization is terminated at an approximate stationary point α∗ of the reduced model, or at a point that provides sufficient decrease in the projected trial objective. The resulting trial point is then projected onto the feasible set to restore both sparse and convex feasibility: 
+
+x+ := proj 
+
+> C∩Cs
+
+(x + U α ∗). (9) Thus, the subspace optimization step is a projected search mechanism: the reduced optimization is carried out in the ambient subspace, while feasibility is enforced at the trial-point level through projection onto Ω = C ∩ Cs.This subspace step enables simultaneous multi-coordinate adjustments and is used solely for continuous exploration. It is not identified with the coordinatewise, simple-CW, or ZCW optimality conditions. In particular, swap operations are applied only through the coordinatewise/simple-CW mechanism described below, and are not interpreted as random subspace moves. To prevent degeneration of the subspace exploration mechanism, the reservoir is updated dynamically using objective-based selection and aminimum-distance diversity criterion. This keeps the stored points both competitive in objective value and well separated in the decision space. The reservoir update rule, including diversity pruning, is described in Section 15 of [26]; it is the mechanism that keeps R informative and underlies the uniform probability bounds used in the complexity analysis of Section 7 of [26]. For active-coordinate refinement, for each i ∈ I1(xk), we define 
+
+f ki := min  
+
+> t∈R
+
+f (xk + te i). (10) Thus, f ki is the minimum objective value attainable by varying the ith coor-dinate. So, the index used for active-coordinate refinement and the refine-ment value are 
+
+ik 
+
+> 1
+
+∈ argmin  
+
+> i∈I1(xk)
+
+f ki and Dk 
+
+> 1
+
+:= f kik
+
+> 1
+
+. (11) When ∥xk∥0 = s, from (6), the simple-CW indices are reconsidered as 
+
+qk := q(xk), jk := j(xk), (12) and the simple-CW, +-swap, candidate is defined by 
+
+x qk →jk 
+
+> +
+
+:= xk − xqk eqk + xqk ejk . (13) For type-2 symmetric sets, the additional sign-symmetric candidate (called 
+
+−-swap) is 
+
+x qk →jk 
+
+> −
+
+:= xk − xqk eqk − xqk ejk . (14) 12 MORTEZA KIMIAEI, SHIMA SHABANI, AND MICHAEL BREUSS 
+
+Then, the swap candidates are defined at xk as 
+
+Sk 
+
+> CW
+
+:= SCW (xk) := 
+
+> {
+
+x qk →jk 
+
+> +
+
+, x qk →jk
+
+> −
+> }
+
+, C type-2 ,
+
+> {
+
+x qk →jk
+
+> +
+> }
+
+, C nonneg. type-1 .
+
+(15) So, the simple-CW swap value is 
+
+Dk 
+
+> 2
+
+:= min 
+
+> {
+
+f (y) : y ∈ S k
+
+> CW
+> }
+
+. (16) Therefore, the candidate yielding the smaller objective value is accepted, provided that it gives sufficient decrease. Specifically, if Dk 
+
+> 1
+
+< D k 
+
+> 2
+
+, then 
+
+xk+1 := xk + tk 
+
+> 1
+
+eik 
+
+> 1
+
+, (17) where 
+
+tk 
+
+> 1
+
+∈ argmin 
+
+> t∈R
+
+f (xk + te ik 
+
+> 1
+
+). (18) Otherwise, xk+1 is set to the best simple-CW swap candidate: 
+
+xk+1 ∈ argmin 
+
+> {
+
+f (y) : y ∈ S k
+
+> CW
+> }
+
+. (19) 
+
+ZCW-Aware Reservoir Injection Mechanism. To ensure that the reservoir remains sufficiently informative for generating ZCW-related support-exchange candidates, the algorithm incorporates a randomized ZCW-aware reservoir enrichment mechanism . Specifically, at every iteration k with ∥xk∥0 = s, the algorithm activates a ZCW-aware injection step with probability pk ∈ (0 , 1) satisfying 
+
+inf  
+
+> k≥1
+
+pk > 0, (20) and, in particular, 
+
+pk ≥ pinj > 0, (21) where pinj ∈ (0 , 1) is a user-specified tuning parameter. The condition pk ∈
+
+(0 , 1) excludes degenerate cases in which the injection step is either never activated ( pk = 0 ) or deterministically enforced ( pk = 1 ), while the uniform lower bound (20) guarantees infinitely many injection events almost surely. Each activation triggers a symmetry-aware BFS selection of active and in-active indices using the simple-CW index selection rule, followed by the con-struction of a ZCW super support. A restricted subproblem is then approx-imately solved by an appropriate inner solver. When the restricted model has additional structure, such as a composite convex form, a FISTA -type method [5] may be used; otherwise, the convergence analysis only requires the stated restricted-solver accuracy and does not rely on the convexity of the restricted objective. While condition (20) is primarily used to establish almost-sure detection of ZCW violations, it also implies a uniform lower bound on the probability of successful support-correcting injections, which underlies the expected hitting complexity analysis in Section 7 of [26]. The ZCW-aware reservoir injection mechanism consists of five components: sup-port selection, the probabilistic sampling model, the uniform exploration condition, restricted-subproblem solvability, and the restricted solve with reservoir update, described in (i)–(v) below. RESERVOIR ZCW PROJECTED SUBSPACE SEARCH 13 
+
+(i) BFS-Based Support Selection. Conditioned on the activation event, we recall Q(·) from (5), written as Q(xk) at xk. We select an active index qk and an inactive index jk according to (6). Let 
+
+πk ∈ ˜S
+
+> (
+
+−p(−g(xk)) 
+
+> )
+
+,
+
+and choose k0 ∈ [n] so that the resulting ZCW super support has cardinality 
+
+s. Then, using the construction in (7), define 
+
+T k := 
+
+> (
+
+Sπk 
+
+> [k0,n ]
+
+∪ I1(xk) ∪ { jk}
+
+> )
+
+\ { qk}. (22) Here, qk is selected among the least significant active components, with the gradient tie-breaker, while jk is selected among inactive indices according to the symmetry-aware score. 
+
+(ii) Probabilistic Model and Sampling Rule. We define a probabil-ity space (Ξ , F, Pr) , where Ξ is the sample space of all random outcomes generated by the algorithm, F is a σ-algebra of events, and Pr is the proba-bility measure. The randomness comes from the reservoir-injection decisions and from the randomized support-selection rule. Let (Fk)k≥0 denote the natural filtration of the algorithm. That is, each 
+
+Fk is a σ-algebra representing all information available after completion of iteration k and 
+
+F0 ⊆ F 1 ⊆ · · · ⊆ F k.
+
+A random object is said to be Fk-measurable if its value is fully determined by the information available up to iteration k.Equivalently, before the fresh random choices of iteration k+1 , the current iterate xk+1 is Fk-measurable. Thus, at iteration k, the conditioning σ-algebra Fk−1 contains the current iterate xk, while the new random choices of iteration k have not yet been made. We define the event 
+
+Ak := {ZCW-aware injection is activated at iteration k}. (23) Conditional on Fk−1, the activation event Ak is generated first. Conditional on (Fk−1, A k), the ZCW super support T k is then generated according to the support-selection distribution specified below. In particular, Ak, T k,and the event 
+
+Ak ∩ { T k = T }
+
+are Fk-measurable. This convention justifies the conditional probability factorization used in (40) in the proof of Theorem 3, below. 
+
+(iii) Uniform Exploration Guarantee. The activation probability 
+
+pk in (20) controls whether the ZCW-aware reservoir injection mechanism is performed at iteration k. Conditional on this activation, the inactive coordinate jk ∈ I0(xk) is selected according to a probability distribution 
+
+{pkj }j∈I0(xk ), where 
+
+pkj := Pr (jk = j | F k−1, A k).
+
+We assume that this distribution satisfies the coordinate-level lower bound 
+
+pkj ≥ cj
+
+|I0(xk)| , ∀j ∈ I0(xk), (24) 14 MORTEZA KIMIAEI, SHIMA SHABANI, AND MICHAEL BREUSS 
+
+for some constant cj ∈ (0 , 1] independent of k. This condition ensures that no inactive coordinate is systematically excluded once the ZCW-aware reservoir injection mechanism is activated. For the almost-sure ZCW convergence analysis, however, the required condition is the corresponding support-level exploration property. Namely, for every ZCW super support T that can be generated by the construction at xk, the ZCW-aware reservoir injection mechanism assigns probability 
+
+Pr( T k = T | F k−1, A k) ≥ c0, (25) for some constant c0 > 0 in the local neighborhood under consideration. This support-level lower bound can be enforced by adding a uniform explo-ration component over the admissible choices used to construct T k, including the inactive index, active index, sorting tie-breaks, and cutoff defining the ZCW super support. This is the condition used in the almost-sure ZCW convergence proof. 
+
+(iv) Restricted ZCW subproblem solvability. Following the ZCW framework, we assume that every restricted ZCW subproblem generated by the algorithm is solvable. That is, for every ZCW super support T generated by the support-construction rule (22), the problem 
+
+min {f (z) : z ∈ C, supp( z) ⊆ T }
+
+attains its minimum. This assumption is used only for the ZCW restricted solves. It is dis-tinct from the well-definedness of Euclidean projections, which follows from closedness, and uniqueness of convex projections. The assumption is auto-matic, for example, when the restricted feasible set is compact, as in simplex, box, and bounded ℓp-ball constraints. 
+
+(v) Restricted Subproblem and Reservoir Update. The ZCW-aware restricted solve is distinct from the randomized subspace optimization step described above. The projected subspace candidate x+ (defined by (9)) is generated from a reservoir-induced basis U . In contrast, the ZCW-injected candidate rk is generated by solving a restricted sparse subproblem over the ZCW super support T k, and it does not depend on the subspace basis U .Given the ZCW super support T k in (22), a refined probe point rk ∈ C∩Cs
+
+is obtained by approximately solving the restricted problem over T k using a suitable inner solver. Specifically, the computed point satisfies 
+
+f (rk) ≤ min 
+
+> {
+
+f (z) : z ∈ C, supp( z) ⊆ T k}
+
++ εkT , (26) where εkT ≥ 0 denotes the restricted subproblem optimization error. The sequence {εkT }k≥0 is controlled through the stopping criterion of the inner solver. The restricted solver is initialized from a warm-start point ˜xk. This point is obtained by preserving the components of xk on the generated support 
+
+T k, removing the selected departing active coordinate qk, and transferring its value to the selected incoming inactive coordinate jk. In particular, 
+
+˜xkjk = xkqk , ˜xkqk = 0 .RESERVOIR ZCW PROJECTED SUBSPACE SEARCH 15 
+
+Thus, the warm start mimics the simple support exchange qk → jk: the active component at qk is removed, while the inactive coordinate jk is acti-vated using the transferred value. The resulting point rk is inserted into the current candidate set and into the reservoir, subject to objective-based and distance-based pruning rules. Inserting rk into the current candidate set is essential: the convergence analysis uses the fact that an improvement found by the restricted ZCW subproblem, once generated, is immediately available for acceptance by the algorithm. The pruning rules ensure that the reservoir remains a diverse global memory of the search space, preventing it from becoming locally degenerate. 
+
+Acceptance rule and support-identification safeguard. At itera-tion k, all feasible candidates generated by the algorithm are collected in a finite candidate set Ωk ⊆ C ∩ Cs, with xk ∈ Ωk. Without the support-identification safeguard, the next iterate is selected to satisfy 
+
+f (xk+1 ) ≤ min  
+
+> z∈Ωk
+
+f (z) + ξk. (27) This rule allows the algorithm to choose any candidate whose objective value is within ξk ≥ 0 of the best generated candidate. When the optional support-identification safeguard is imposed, the can-didate set is filtered before the acceptance step. Only candidates belonging to ̂
+
+Ωk := 
+
+> 
+
+y ∈ Ωk : ∥y∥0 = s, min  
+
+> i∈I1(y)
+
+|yi| ≥ α, 
+
+and either I1(y) = I1(xk) or f (xk) − f (y) ≥ δsupp  
+
+> 
+
+(28) are admissible, where α > 0 and δsupp > 0 are prescribed constants. Thus, every admissible candidate must have full support and all its active compo-nents must be uniformly bounded away from zero. In addition, a candidate that changes the current support is admissible only if it produces a fixed ob-jective decrease of at least δsupp . Same-support candidates are not required to satisfy this fixed-decrease condition. The next iterate is then selected according to 
+
+f (xk+1 ) ≤ min 
+
+> z∈̂Ωk
+
+f (z) + ξk. (29) If ̂ Ωk = {xk}, then no admissible improving candidate has been found. Under full-support initialization with 
+
+∥x0∥0 = s, min  
+
+> i∈I1(x0)
+
+|x0 
+
+> i
+
+| ≥ α, (30) the safeguarded admissible set remains nonempty along the generated se-quence. This follows by induction and is proved in Lemma 6, below. Hence the safeguarded acceptance rule is well defined. The purpose of the safeguard is purely analytical. It is used to prove even-tual full-support stabilization. Since every support-changing accepted step must decrease the objective by at least δsupp , infinitely many support changes would force an unbounded total decrease, contradicting lower boundedness of f on the level set containing the iterates. Therefore, only finitely many support changes, Lemma 6, can occur under the safeguard. 16 MORTEZA KIMIAEI, SHIMA SHABANI, AND MICHAEL BREUSS 
+
+The safeguard is not part of the stationarity definition. It is an algorithmic device used only in the local convergence analysis. The tolerance ξk denotes the outer candidate-selection error, whereas εkT denotes the inner restricted-solver error. In the convergence analysis these errors are controlled so that the effective candidate-set inexactness satisfies Assumption 3 (below). For a fixed ZCW super support T generated by the selected active index, inactive index, sorting permutation, and cutoff index, the relevant optimality test is related to the restricted subproblem 
+
+min {f (y) : y ∈ C, I 1(y) ⊆ T }. (31) The current point passes this fixed-support ZCW test if 
+
+f (xk) ≤ min {f (y) : y ∈ C, I 1(y) ⊆ T }.
+
+Equivalently, the generated support T reveals a ZCW violation whenever this restricted subproblem admits a point with objective value strictly below 
+
+f (xk). Thus, the analysis does not rely on a gradient-score residual, it relies on whether the restricted ZCW subproblem over the generated support can produce a genuine objective decrease. Under the ZCW-aware reservoir injection mechanism, inactive coordi-nates and their associated ZCW super supports are sampled with uniformly positive probability along full-support subsequences. Consequently, if a full-support accumulation point violates ZCW stationarity, then a violat-ing super support is generated infinitely often almost surely. Provided that the restricted subproblems are solved with errors εkT → 0 and the outer candidate-selection errors satisfy Assumption 3, such violations cannot be overlooked indefinitely. This yields Theorem 3 in Section 4.1, which states that every full-support accumulation point generated by RZCW-PSS is ZCW stationary almost surely. 3.2. The RZCW-PSS Algorithm. Algorithm 1 is our new algorithm, called Reservoir ZCW Projected Subspace Search ( RZCW-PSS ). Algorithm 1 has the following steps. Candidate points generated by sampling and subspace exploration are projected onto Ω = C ∩ Cs whenever feasibility is not auto-matic. In contrast, the simple-CW and ZCW probes are constructed through symmetry-aware support modifications and restricted subproblems, and are not interpreted as projected coordinate perturbations. In Step S0 , the initial point is projected onto the feasible set C ∩ Cs.A collection of well-separated perturbation directions {dk}mk=1 is generated using the p-usequence procedure, and the candidate points 
+
+yk := proj 
+
+> C∩Cs
+
+(x0 + dk), ∀k ∈ [m],
+
+are formed. The reservoir R ⊂ C ∩ Cs is initialized with these projected perturbations using objective-based and distance-based pruning to enforce diversity. Finally, a BFS warm-start procedure is applied with 
+
+{uk}m+1  
+
+> k=1
+
+= {y1, . . . , y m, x 0}, ib := argmin {f (uk)}m+1  
+
+> k=1
+
+,
+
+and initialized at x := uib . The output of this warm start serves as the starting iterate for the main RZCW-PSS loop. RESERVOIR ZCW PROJECTED SUBSPACE SEARCH 17 
+
+In Step S1 , for k = 0 , 1, 2, . . . , the candidate set is initialized as Ωk := 
+
+{xk}. Steps S1a –S1f then generate feasible candidates, all of which are inserted into Ωk. The next iterate xk+1 is selected from Ωk by the acceptance rule in Step S1g .In Step S1a , when ∥xk∥0 < s , projected one-dimensional coordinate-expansion searches are performed along coordinate directions. For each generated scalar step, the trial point is projected onto Ω = C ∩ Cs, inserted into the current candidate set Ωk, and used to update the reservoir through the objective- and distance-based pruning rule. In Step S1b , when ∥xk∥0 < s after Step S1a , randomized sparse sub-space searches are constructed from the reservoir. The resulting projected subspace candidates are generated as in (9), with x = xk, inserted into Ωk,and used to update the reservoir. In Step S1c , when ∥xk∥0 = s, projected active-coordinate refinement candidates are generated for the active coordinates and the simple-CW swap candidates in Sk 
+
+> CW
+
+from (15) are generated. All generated candidates are inserted into Ωk. If the optional BFS polishing step is enabled, the best candidate currently available after this step is used as a seed for a short 
+
+BFS refinement, and the resulting polished point is inserted into Ωk as an additional candidate. It is not accepted immediately. In Step S1d , when ∥xk∥0 = s after Step S1c , randomized sparse sub-space searches are constructed from the reservoir. The resulting projected subspace candidates are generated as in (9), with x = xk, inserted into 
+
+Ωk, and used to update the reservoir. These subspace moves are used only as projected continuous exploration steps and are kept distinct from the support-exchange tests. In Step S1e , when ∥xk∥0 = s, the ZCW-aware reservoir injection is acti-vated with probability pk ∈ (0 , 1) satisfying (20). A randomized BFS reser-voir injection is then performed as described in Subsection 3.1. A ZCW super support T k is constructed using the symmetry-aware selection rules explained by (22). A refined point rk satisfying (26) is computed by a suit-able restricted inner solver initialized at a warm-start point. Here, {εkT }k≥1
+
+is the sequence of nonnegative inner restricted-solver errors. The point rk
+
+is inserted into the current candidate set and into the reservoir R using objective- and distance-based pruning. If the optional BFS polishing step is enabled, BFS is initialized at rk, and the polished point is inserted into 
+
+Ωk as an additional candidate. Neither rk nor its polished version is ac-cepted immediately. Inserting rk into the current candidate set ensures that any improvement found by the restricted ZCW subproblem is immediately available for acceptance by the algorithm. In Step S1f , if no sufficient decrease has been generated after Steps S1a –
+
+S1e , a refinement mechanism is activated. First, if enabled, an optional 
+
+BFS -refined candidate is generated by initializing BFS at the current iterate 
+
+xk. This candidate is inserted into Ωk, but is not accepted immediately. In addition, a global refinement mechanism based on a fresh projected uniform sampling procedure ( p-usequence ) may be activated. A new collection of well-separated feasible points in C ∩ Cs is generated, evaluated, inserted into Ωk, and used to update the reservoir through the same pruning rule. If 18 MORTEZA KIMIAEI, SHIMA SHABANI, AND MICHAEL BREUSS 
+
+no admissible improving candidate is selected in Step S1g after a bounded number of refinement attempts, the algorithm terminates. In Step S1g , after Steps S1a –S1f , the next iterate xk+1 is selected us-ing either the standard inexact candidate-set rule (27) over the generated candidate set Ωk, or, when the optional support-identification safeguard is used, the safeguarded rule (29) over the filtered admissible set ̂ Ωk defined in (28). The current iterate is always retained as a fallback candidate. A newly generated point is accepted only if it produces an actual objective decrease beyond the numerical acceptance tolerance; otherwise, the algorithm keeps 
+
+xk. The safeguarded variant is used only to enforce eventual full-support stabilization in the local convergence analysis. The optional BFS polishing steps described above are implementation en-hancements; they only add extra candidates to Ωk and are therefore not listed as separate algorithmic steps. 
+
+Algorithm 1 RZCW-PSS - Reservoir ZCW Projected Subspace Search [S0 ] Project x0 onto C ∩ Cs, initialize the reservoir R, and compute the warm-started initial iterate. 
+
+for k = 0 , 1, 2, . . . do 
+
+[S1 ] Initialize Ωk := {xk}, generate candidates through Steps 
+
+S1a –S1f , and select xk+1 in Step S1g .[S1a ] If ∥xk∥0 < s , generate coordinate-expansion candidates and insert them into Ωk.[S1b ] If ∥xk∥0 < s , generate reservoir-based projected subspace-expansion candidates and insert them into Ωk.[S1c ] If ∥xk∥0 = s, generate the active-coordinate refinement candidate and the simple-CW swap candidates, and insert them into Ωk.[S1d ] If ∥xk∥0 = s, generate reservoir-based projected subspace-refinement candidates and insert them into Ωk.[S1e ] If ∥xk∥0 = s, activate the ZCW-aware reservoir injection with probability pk, generate rk satisfying (26), and insert rk
+
+into Ωk and R.[S1f ] If no sufficient decrease is obtained, generate optional BFS -refined and global-refinement candidates, insert them into Ωk, and terminate if no admissible improving candidate is found after bounded attempts. [S1g ] Select xk+1 using either (27) over Ωk or (29) over ̂ Ωk.
+
+end for 
+
+Further implementation details, including tuning parameters, numerical solvers, subspace construction, and global refinement for RZCW-PSS , are pro-vided in [26, Sections 14 and 15]. 4. Convergence, Rates, and Complexity 
+
+This section provides a comprehensive theoretical analysis of the proposed 
+
+RZCW-PSS algorithm, covering convergence guarantees, local rate of conver-gence, and iteration complexity. The analysis is structured around four main results. First, Theorem 1 establishes that global minimizers satisfy ZCW RESERVOIR ZCW PROJECTED SUBSPACE SEARCH 19 
+
+stationarity, linking global optimality to the stationarity notion adopted in this work. Second, Theorem 3 proves that every full-support accumulation point of the algorithm is ZCW stationary almost surely. Finally, under the optional support-identification safeguard and full-support initialization, Corollary 1 strengthens this conclusion to all accumulation points. 
+
+Detection and acceptance of restricted descent subproblems. 
+
+The analysis relies on the fact that whenever a ZCW violation is present at a full-support accumulation point, there exists a ZCW super support T ∗
+
+whose restricted subproblem gives a strict objective decrease. The ZCW-aware reservoir injection mechanism is assumed to generate such violating super supports with uniformly positive probability near the accumulation point. Together with the restricted-solver accuracy εkT → 0 and the outer candidate-selection accuracy in Assumption 3, this prevents the algorithm from repeatedly overlooking valid restricted ZCW descent subproblems. We discuss complexity for the new algorithm in [26], in which Proposi-tion 2 quantifies the corresponding conditional local iteration complexity, yielding O(log (ϵ−1)) iterations after support stabilization. 4.1. Convergence Analysis. In this section, we establish basic conver-gence properties of the proposed RZCW-PSS algorithm and prove almost sure ZCW stationarity of full-support accumulation points. Under the optional support-identification safeguard, this conclusion extends to all accumulation points. The proof strategy is organized as follows. Assumptions 1 and 3 first provide boundedness of the iterates and sufficient descent through the candidate-set acceptance rule; in particular, the auxiliary descent result from [26, Lemma 1] yields convergence of the objective values and vanish-ing actual accepted decrease. The probabilistic framework then defines the events under which the ZCW-aware reservoir injection mechanism generates a prescribed ZCW super support. Lemma 1 is used to convert uniform con-ditional hitting probabilities into almost-sure infinitely-often generation of such supports. The deterministic part of the argument begins with Lemma 2, which shows that if a full-support point is not ZCW stationary, then some ZCW restricted subproblem gives a strict objective decrease. Lemma 3 ensures that the corresponding ZCW super support is sampled with uniformly posi-tive probability along subsequences converging to that point. Proposition 1, Lemma 4, and Theorem 2 provide the required local support stability near full-support accumulation points. Theorem 1 provides a consistency result for the ZCW stationarity concept by showing that every global minimizer over Ω is ZCW stationary. Lemma 5 then transfers the strict descent at the limit point to a uniform descent estimate in a neighborhood. Com-bining these ingredients, Theorem 3 proves that any non-ZCW full-support accumulation point would generate accepted decreases bounded away from zero infinitely often, contradicting the vanishing actual accepted decrease. Finally, Lemma 6 shows that the optional support-identification safeguard forces eventual full-support stabilization, and Corollary 1 upgrades the con-clusion from full-support accumulation points to all accumulation points. The logical dependence among these results is summarized in Figure 1. 20 MORTEZA KIMIAEI, SHIMA SHABANI, AND MICHAEL BREUSS     
+
+> Assumptions 1–3: boundedness + descent
+> Probabilistic framework events Ak, T k, E k
+> Lemma 1
+> ZCW violation
+> ⇒restricted descent Lemma 2 Lemma 3
+> Support stability Proposition 1 Lemma 4 Theorem 2
+> Uniform lo-cal descent Lemma 5
+> Almost-sure ZCW stationarity Theorem 3
+> Global minimizers
+> ⇒ZCW stationary Theorem 1
+> Safeguard upgrade Lemma 6 Corollary 1
+
+Figure 1. Logical roadmap of the convergence analysis. 
+
+> Fixed-support regime Step S1g + full support Lemma 6
+> Restricted regularity Assumptions 4, 5
+> Candidate and inexactness Assumption 6 Assumption 3(ii)
+> Inexact re-stricted descent Proposition 2
+> Local linear rate Theorem 4
+
+Figure 2. Logical roadmap of the local convergence-rate analysis. To clarify the logical structure of the local convergence-rate analysis, Fig-ure 2 summarizes the dependencies among the fixed-support regime, the re-stricted regularity assumptions, the candidate/inexactness conditions, and the descent estimate leading to Theorem 4. 4.1.1. Problem Setting and Basic Assumptions. 
+
+Assumption 1. Let Ω = C ∩ Cs. The sublevel set 
+
+L(x0) := {x ∈ Ω : f (x) ≤ f (x0)}
+
+is bounded. 
+
+Lower boundedness of the objective. Since f is continuous and Ω
+
+is closed, the sublevel set L(x0) is closed, together with boundedness from Assumption 1, it follows that L(x0) is compact. Therefore, f attains a finite minimum on L(x0), and in particular, f is bounded below on L(x0). As RESERVOIR ZCW PROJECTED SUBSPACE SEARCH 21 
+
+all iterates generated by RZCW-PSS belong to L(x0), the objective sequence 
+
+{f (xk)}k≥0 is bounded below. 
+
+Assumption 2. Assume that f is continuously differentiable and that g is Lipschitz continuous on bounded subsets of C.The assumptions imposed in this work are satisfied by a broad class of constraint sets commonly encountered in sparse optimization, including the nonnegative orthant, box-constrained sets, probability simplices, and ℓp-norm balls for p ≥ 1. These sets are closed and convex, and satisfy the symmetry properties described in Subsection 2.1. Moreover, the projection onto Ω = C ∩ Cs is well defined for these cases via the sparse projection operators of [4]. Therefore, the convergence analysis applies directly to the standard problem classes considered in both the literature and our numerical experiments. We emphasize that the symmetry assumption on C is essential for the theoretical analysis, as it enables explicit characterization of sparse projec-tions and stability of support selection, which are key components of the convergence proofs. While the proposed RZCW-PSS algorithm can be applied to more gen-eral convex constraint sets, the current convergence guarantees rely on this symmetric structure. In particular, for general convex sets with coupling constraints, sparse projections may not admit a tractable structure, neces-sitating additional analysis. Extending the theoretical results to broader classes of constraint sets without symmetry is an interesting direction for future work. 
+
+Assumption 3 (Subproblem accuracy) . Let Ωk ⊆ Ω be a candidate set satisfying xk ∈ Ωk, and define 
+
+δk := f (xk) − min  
+
+> z∈Ωk
+
+f (z) ≥ 0. (32) Assume that the next iterate xk+1 satisfies (27); that is, 
+
+f (xk+1 ) ≤ min  
+
+> z∈Ωk
+
+f (z) + ξk,
+
+where the error sequence {ξk} satisfies one of the following: (i) ∑∞ 
+
+> k=0
+
+ξk < ∞, or (ii) there exists η ∈ (0 , 1) such that ξk ≤ η δ k for all k.Under either condition (i) or (ii), it will follow from the descent analysis in Section 2 of [26] that δk → 0. Thus, in both cases, this further implies that ξk → 0.We define the actual decrease 
+
+∆k = f (xk) − f (xk+1 ). (33) The subproblem accuracy assumption in (32) ensures that approximate so-lutions in (27) preserve a sufficient descent condition 
+
+∆k ≥ δk − ξk, (34) which is central to the convergence analysis. 22 MORTEZA KIMIAEI, SHIMA SHABANI, AND MICHAEL BREUSS 
+
+4.1.2. Probabilistic Framework and Event Construction. Considering prob-abilistic model, described in Section 3.1, we introduce a family of events associated with a reference point x∗ ∈ Ω with ∥x∗∥0 = s. Let T ∗ denote a ZCW super support associated with a violation of ZCW stationarity at x∗.We define the sequence of events {Ek(x∗)}k≥1 by 
+
+Ek(x∗) := Ak ∩ { T k = T ∗}, (35) where Ak denotes the activation of the ZCW-aware reservoir injection mech-anism at iteration k, and T k is the ZCW super support generated by this injection mechanism. By construction, Ek(x∗) ∈ F k for all k ≥ 1. For notational simplicity, we write Ek := Ek(x∗) when the reference point x∗ is fixed. Equivalently, when the active index, inactive index, sorting permutation, and cutoff defining T k are sampled explicitly, the event may be written as 
+
+Ek(x∗) = Ak ∩ { qk = q∗} ∩ { jk = j∗} ∩ { T k = T ∗}.
+
+The following result is Lévy’s conditional Borel-Cantelli lemma [33, Sec-tion 12.15], which will be used in the sequel. Informally, it asserts that if the cumulative conditional probabilities of a sequence of events, given the past history, diverge almost surely (a.s.), then infinitely many of those events occur (i.o.), almost surely. 
+
+Lemma 1 (Lévy’s conditional Borel-Cantelli) . Let (Fk) be a filtration and 
+
+{Ek}k≥1 a sequence of events with Ek ∈ F k. If 
+
+> ∞∑
+> k=1
+
+Pr( Ek | F k−1) = ∞ a.s. ,
+
+then Pr( Ek i.o. ) = 1 .
+
+4.1.3. Detection of Stationarity Violations. This subsection establishes that violations of ZCW stationarity are detected with uniformly positive proba-bility. The key point is that ZCW stationarity is a support-based condition. Therefore, a violation is not encoded by a projected one-dimensional pertur-bation, but by the existence of a ZCW super support on which the restricted sparse subproblem attains a strictly smaller objective value. Consequently, the probabilistic event used in the convergence analysis must ensure that the ZCW-aware reservoir injection mechanism generates the relevant ZCW super support. Once this super support is generated, the restricted subproblem produces a candidate whose objective value is strictly below that of the current iterate, up to the prescribed inner accuracy. 
+
+Lemma 2 (Activation implies restricted ZCW descent) . Let C ⊆ Rn be closed, convex, and either nonnegative type-1 symmetric or type-2 symmet-ric. Moreover, let x∗ ∈ Ω = C ∩ Cs satisfying ∥x∗∥0 = s. Suppose that x∗
+
+violates ZCW stationarity. Let q∗, j∗, and T ∗ denote the indices and ZCW super support associated with this violation, where 
+
+T ∗ := 
+
+> (
+
+Sπ∗ 
+
+> [k∗,n ]
+
+∪ I1(x∗) ∪ { j∗}
+
+> )
+
+\ { q∗}RESERVOIR ZCW PROJECTED SUBSPACE SEARCH 23 
+
+for some π∗ ∈ ˜S (−p(−g(x∗))) and some k∗ ∈ [n] chosen so that |T ∗| = s.Then there exists δ > 0 such that 
+
+min  
+
+> z∈C
+> supp( z)⊆T∗
+
+f (z) ≤ f (x∗) − δ. (36) 
+
+Proof. Since x∗ violates ZCW stationarity, the restricted ZCW subproblem associated with the super support T ∗ strictly improves the objective value at x∗. Therefore, 
+
+min  
+
+> z∈C
+> supp( z)⊆T∗
+
+f (z) < f (x∗).
+
+Defining 
+
+γ := f (x∗) − min  
+
+> z∈C
+> supp( z)⊆T∗
+
+f (z) > 0
+
+and choosing δ := γ/ 2, we obtain 
+
+min  
+
+> z∈C
+> supp( z)⊆T∗
+
+f (z) = f (x∗) − γ = f (x∗) − 2δ ≤ f (x∗) − δ, 
+
+which proves (36). 
+
+□
+
+The preceding lemma is intentionally simple and a direct consequence of the definition of ZCW stationarity. Its role is to isolate the determin-istic descent gap created by a ZCW violation. The next lemma concerns the probabilistic mechanism that guarantees that the corresponding super support is sampled with uniformly positive probability. 
+
+Lemma 3 (Local support-hitting bound along convergent subsequences) .
+
+Let x∗ ∈ Ω satisfy ∥x∗∥0 = s, and suppose that x∗ violates ZCW sta-tionarity. Let T ∗ be a ZCW super support associated with this viola-tion. For each iteration k, let recall and reform Ak from (23) : Ak =
+
+{S1e is activated at iteration k}. Assume that there exist a neighborhood 
+
+N (x∗) of x∗ and a constant c0 > 0 such that, whenever xk ∈ N (x∗), the ZCW-aware reservoir injection mechanism satisfies supporting-hitting con-dition in (25) , namely, 
+
+Pr( T k = T ∗ | F k−1, A k) ≥ c0.
+
+Then, for any subsequence {xkℓ }kℓ≥0 such that xkℓ → x∗, we have, for all sufficiently large ℓ,
+
+Pr( T kℓ = T ∗ | F kℓ−1, A kℓ ) ≥ c0.
+
+Proof. Let {xkℓ }kℓ≥0 be any subsequence such that xkℓ → x∗. Since N (x∗)
+
+is a neighborhood of x∗, there exists ℓ0 ∈ N such that xkℓ ∈ N (x∗) for all 
+
+ℓ ≥ ℓ0. By the assumed uniform support-hitting condition, every iterate satisfying xk ∈ N (x∗) also satisfies 
+
+Pr( T k = T ∗ | F k−1, A k) ≥ c0.
+
+Applying this statement with k = kℓ, we obtain, for all ℓ ≥ ℓ0,
+
+Pr( T kℓ = T ∗ | F kℓ−1, A kℓ ) ≥ c0.
+
+This proves the claim. □24 MORTEZA KIMIAEI, SHIMA SHABANI, AND MICHAEL BREUSS 
+
+The assumption above is a local uniform exploration condition. It states that, near a nonzero-CW point x∗, the ZCW-aware reservoir injection mech-anism assigns positive probability to the ZCW super support T ∗ responsible for the violation. The lemma simply records that this local probability bound is inherited along every subsequence converging to x∗.4.1.4. Structural Properties of Accumulation Points. This subsection records structural properties of full-support accumulation points of the se-quence generated by RZCW-PSS . First, along any subsequence converging to a full-support point, the active components are eventually bounded away from zero. Second, under the symmetry assumptions on C, sparse projec-tions admit a locally stable support selection near such points. These facts are used only as local support-stability tools. These should not be confused with the ZCW condition, which is a support-based optimality condition in-volving restricted sparse subproblems. 
+
+Proposition 1 (Uniform support separation along a convergent subse-quence) . Let ˆx ∈ Ω be an accumulation point of {xk}k≥0 with ∥ˆx∥0 = s
+
+and support T ∗ = I1(ˆ x). Then for any subsequence {xkℓ }kℓ≥0 such that 
+
+xkℓ → ˆx, there exist ϵ > 0 and ℓ0 ∈ N, depending on the subsequence, such that min   
+
+> i∈T∗
+
+|xkℓ 
+
+> i
+
+| ≥ ϵ for all ℓ ≥ ℓ0.Proof. Since xkℓ → ˆx, for each i ∈ T ∗, we have xkℓ 
+
+> i
+
+→ ˆxi̸ = 0 . Hence, for each i ∈ T ∗, there exist ϵi > 0 and ℓi such that |xkℓ 
+
+> i
+
+| ≥ ϵi for all ℓ ≥ ℓi. Since 
+
+T ∗ is finite, by defining ϵ := min   
+
+> i∈T∗
+
+ϵi > 0 and ℓ0 := max   
+
+> i∈T∗
+
+ℓi, we obtain, for all 
+
+ℓ ≥ ℓ0, min   
+
+> i∈T∗
+
+|xkℓ 
+
+> i
+
+| ≥ ϵ.
+
+□
+
+The following result states that, near a fully sparse point ˆx, one may select a sparse projection whose super support is the fixed support T =
+
+I1(ˆ x). Locally, this selected projection is represented by a standard convex projection onto the restricted set CT , see [26, Section 3]. 
+
+Lemma 4 (Local stability of sparse projections under symmetric structure) .
+
+Let C ⊆ Rn be closed, convex, and either nonnegative type-1 symmetric or type-2 symmetric, let ˆx ∈ Ω = C ∩ Cs satisfy ∥ˆx∥0 = s, and denote its support by T = I1(ˆ x). Then there exists δ > 0 such that for all x ∈ Rn with 
+
+∥x − ˆx∥ < δ , there exists a projection z ∈ proj Ω(x) admitting T as a super support and satisfying 
+
+z = UT proj 
+
+> CT
+
+(xT ),
+
+where UT is the canonical embedding from Rs into Rn and 
+
+CT := {w ∈ Rs : UT w ∈ C}.
+
+Moreover, such a selection can be made so that z → ˆx as x → ˆx. In particular, for all x sufficiently close to ˆx, this selected projection satisfies 
+
+supp( z) = T .Proof. We have T = I1(ˆ x), with |T | = s.
+
+(i) Support separation. Since ˆxi̸ = 0 for all i ∈ T , we set ϵ = 
+
+> 12
+
+min i∈T |ˆxi| > 0. Then |ˆxi| ≥ 2ϵ for all i ∈ T and ˆxj = 0 for all j / ∈ T .RESERVOIR ZCW PROJECTED SUBSPACE SEARCH 25 
+
+(ii) Stability of the ordering. Let x ∈ Rn satisfy ∥x − ˆx∥∞ < ϵ . Then 
+
+|xi| ≥ ϵ ∀i ∈ T, |xj | < ϵ ∀j / ∈ T. 
+
+So, for x sufficiently close to ˆx, in the type-2 symmetric case, the indices in 
+
+T are precisely the indices of the s largest absolute components of x and in the nonnegative type-1 case the indices in T are precisely the indices of the 
+
+s largest components of x. Hence, in either symmetry class, T is selected by the corresponding ordering rule used in the sparse projection characteri-zation. Therefore, by the sparse projection structure for nonnegative type-1 and type-2 symmetric sets, there exists a projection z ∈ proj Ω(x) admitting 
+
+T as a super support and satisfying, see Section 3 of [26], 
+
+z = UT proj 
+
+> CT
+
+(xT ). (37) 
+
+(iii) Continuity of the selected projection. Since CT is closed and convex, the projection operator proj CT is nonexpansive and hence continu-ous. Therefore, 
+
+proj 
+
+> CT
+
+(xT ) → proj 
+
+> CT
+
+(ˆ xT ) as x → ˆx. 
+
+Because ˆx ∈ C and supp(ˆ x) = T , we have ˆxT ∈ CT , so that proj CT (ˆ xT ) = ˆxT . Thus, for the selected projection in (37), we obtain z → UT ˆxT = ˆ x.Since every component of ˆxT is nonzero and z → ˆx, it follows that, for all 
+
+x sufficiently close to ˆx, supp( z) = T . Finally, since ∥x − ˆx∥∞ ≤ ∥ x − ˆx∥,choosing δ > 0 sufficiently small gives the desired result. 
+
+□
+
+Remark 1 (Global selection vs. local stability) . The sparse projection results for symmetric sets provide a global characterization of admissible supports. Depending on the symmetry class, a projection can be constructed from supports determined by the ordering of x or |x|. In contrast, Lemma 4 establishes a local stability property. Around a point ˆx with full support 
+
+|I1(ˆ x)| = s, one may select a projection whose super support remains fixed and equal to I1(ˆ x) under sufficiently small perturbations of the input. More-over, this selected projection reduces locally to a standard convex projection onto CT .
+
+Theorem 1 (Global minimizers are zero-coordinatewise stationary) . Let 
+
+C ⊆ Rn be closed, convex, and either nonnegative type-1 symmetric or type-2 symmetric, and let Ω = C ∩ Cs. If ˆx ∈ Ω is a global minimizer of f over 
+
+Ω, then ˆx is a ZCW stationary point of (1) .Proof. Since ˆx is a global minimizer of f over Ω = C ∩ Cs, we have f (ˆ x) ≤
+
+f (y) for all y ∈ Ω. We first show that ˆx is a basic feasible point. Let L ⊆ [n]
+
+be any super support of ˆx, that is, I1(ˆ x) ⊆ L and |L| = s. Every point 
+
+y ∈ C satisfying I1(y) ⊆ L belongs to Ω, because |L| = s. Hence, 
+
+f (ˆ x) ≤ f (y), ∀y ∈ C with I1(y) ⊆ L .
+
+Since I1(ˆ x) ⊆ L , then ˆx = UL ˆxL, for a proper canonical embedding. There-fore, 
+
+f (UL ˆxL) ≤ f (ULw), ∀w ∈ CL.26 MORTEZA KIMIAEI, SHIMA SHABANI, AND MICHAEL BREUSS 
+
+Thus, ˆxL is a global minimizer of the restricted smooth problem 
+
+min {f (ULw) : w ∈ CL}.
+
+Since CL is closed and convex, the standard first-order necessary condition for smooth optimization over a convex set gives gL(ˆ x)⊤(w − ˆxL) ≥ 0 for all 
+
+w ∈ CL. Equivalently, for every L > 0, ˆxL = proj CL (ˆ xL − (1 /L )gL(ˆ x)) .Since L was arbitrary, ˆx is a basic feasible point, see [4] and [26, Section 4]. It remains to verify the ZCW condition. Let T be any ZCW super support generated by the ZCW construction at ˆx. Then every y ∈ C satisfying 
+
+I1(y) ⊆ T belongs to Ω, because |T | = s. Therefore, by global optimality of 
+
+ˆx,
+
+f (ˆ x) ≤ f (y), ∀y ∈ C with I1(y) ⊆ T. 
+
+Taking the minimum over this restricted feasible set gives 
+
+f (ˆ x) ≤ min {f (y) : y ∈ C, I 1(y) ⊆ T } .
+
+Thus, no ZCW restricted super support subproblem improves ˆx. Since ˆx is also basic feasible, ˆx is ZCW stationary. 
+
+□
+
+4.1.5. Global Convergence Analysis. Consistency between algorithm and analysis: The convergence analysis is built upon the sufficient descent property established in [26, Lemma 1], which is enforced through the accep-tance rule. At each iteration, the next iterate is selected from a finite candi-date set Ωk and achieves near-minimal objective value within this set. The candidate set Ωk is generated by the algorithmic components in Steps S1a –
+
+S1e . Projected subspace steps and coordinates provide algorithmic descent candidates, while the simple-CW and ZCW mechanisms are constructed ac-cording to the support-based conditions. In particular, Step S1e generates restricted sparse subproblems over ZCW super supports. The randomized reservoir injection step (Step S1e ) is essential for the convergence analysis. It assigns a uniformly positive probability to the gen-eration of every super support associated with a violation of ZCW stationar-ity. As a result, each corresponding restricted descent subproblem is selected infinitely often almost surely, by an application of L’evy’s conditional Borel-Cantelli lemma (Lemma 1). Moreover, the acceptance criterion ensures that whenever a sampled sub-problem admits a sufficiently improving solution, the resulting candidate point is accepted, up to the prescribed subproblem accuracy. Together, these properties guarantee that directions revealing violations of ZCW sta-tionarity cannot be neglected indefinitely. Additional implementation components, such as approximate subprob-lems, reservoir pruning, and warm-start strategies, only affect how candi-date points are generated and do not alter the admissible restricted descent subproblems. Therefore, they do not affect the validity of the convergence analysis. The following lemma shows that if a fixed support T is strictly subopti-mal at x∗ by a margin 2δ, then this suboptimality persists uniformly in a neighborhood of x∗, up to a loss of at most δ due to continuity. RESERVOIR ZCW PROJECTED SUBSPACE SEARCH 27 
+
+Lemma 5 (Uniform descent on a fixed support) . Let T ⊆ [n] and define 
+
+ϕ := min {f (z) : z ∈ C, I 1(z) ⊆ T }.
+
+Suppose that for some x∗ ∈ Ω, ϕ ≤ f (x∗) − 2δ for some δ > 0. Then there exists a neighborhood N of x∗ such that for all x ∈ N ∩ Ω, ϕ ≤ f (x) − δ.Proof. By continuity of f at x∗, for ε = δ there exists a neighborhood N
+
+of x∗ such that for all x ∈ N , |f (x) − f (x∗)| < δ , which implies f (x) ≥
+
+f (x∗) − δ. Combining this with the assumption ϕ ≤ f (x∗) − 2δ, we obtain 
+
+ϕ ≤ f (x∗) − 2δ ≤ f (x) − δ, which proves the claim. □
+
+Theorem 2 (Subsequential support stability) . Let {xk}k≥0 be the sequence generated by RZCW-PSS , and let x∗ be an accumulation point satisfying 
+
+∥x∗∥0 = s. If {xkℓ }kℓ≥0 is any subsequence such that xkℓ → x∗, then there exists ℓ0 ∈ N such that 
+
+I1(xkℓ ) = I1(x∗), ∀ℓ ≥ ℓ0. (38) 
+
+Proof. Let T ∗ := I1(x∗). Since ∥x∗∥0 = s, we have |T ∗| = s and x∗
+
+> i
+
+̸ = 0 for all i ∈ T ∗.By Proposition 1, there exist ϵ > 0 and ℓ0 ∈ N such that, for all ℓ ≥ ℓ0,
+
+min i∈T ∗ |xkℓ 
+
+> i
+
+| ≥ ϵ. Hence, T ∗ ⊆ I1(xkℓ ) for all ℓ ≥ ℓ0. Since each iterate satisfies ∥xkℓ ∥0 ≤ s and |T ∗| = s, it follows that I1(xkℓ ) = T ∗ = I1(x∗) for all ℓ ≥ ℓ0.
+
+□
+
+Theorem 3. (Almost sure ZCW stationarity of RZCW-PSS ). 
+
+Assume that Assumptions 1–3 hold. In particular, the iterates satisfy the inexactness condition (27) . Moreover, suppose that the RZCW-PSS algorithm is implemented so that, at every iteration k with ∥xk∥0 = s, the ZCW-aware reservoir injection mechanism S1e is activated with probability pk ∈ (0 , 1) 
+
+satisfying (20) , and (21) .Assume further that, for every full-support accumulation point x∗ that is not ZCW stationary, and for every ZCW super support T ∗ associated with a violation at x∗, the injection mechanism satisfies the uniform support-hitting condition 
+
+Pr( T k = T ∗ | F k−1, A k) ≥ c0
+
+for some constant c0 > 0, whenever xk is sufficiently close to x∗. Assume also that the restricted ZCW subproblem solvability condition stated in Sub-section 3.1 holds, and that the restricted ZCW subproblem errors in (26) 
+
+satisfy εkT → 0.Then every full-support accumulation point of the iterates generated by 
+
+RZCW-PSS is a ZCW stationary point almost surely. Proof. By construction, all RZCW-PSS iterates belong to the feasible set Ω = 
+
+C ∩ Cs.
+
+(i) Convergence of the objective and vanishing actual change. By [26, Lemma 1], the sequence {f (xk)}k≥0 converges and the actual change in (33) satisfies ∆k → 0. In particular, no update yielding a fixed positive decrease can occur infinitely often. 
+
+(ii) Boundedness and accumulation points. By the monotone ac-ceptance rule, f (xk) ≤ f (x0) for all k. Hence all accepted iterates remain 28 MORTEZA KIMIAEI, SHIMA SHABANI, AND MICHAEL BREUSS 
+
+in the initial sublevel set L(x0). Assumption 1 implies that the sequence 
+
+{xk}k≥0 is bounded. Hence, it admits accumulation points. Let Ξ0 denote the probability-one event on which the conclusions of [26, Lemma 1], mentioned in (i) , hold. In particular, for every sample path in 
+
+Ξ0, ∆k → 0. We fix an arbitrary sample path in Ξ0. The conditional Borel-Cantelli argument in Lemma 1 will be applied below, after the events F k
+
+have been defined and after the divergence of the corresponding conditional probability sum has been verified. Let x∗ be an arbitrary full-support accumulation point on this sample path, and let {xkℓ }kℓ≥0 be a subsequence such that xkℓ → x∗ with ∥x∗∥0 = s.By Theorem 2, after passing to the tail of the subsequence if necessary, we have I1(xkℓ ) = I1(x∗) for all sufficiently large ℓ. In particular, ∥xkℓ ∥0 = s
+
+for all sufficiently large ℓ.
+
+(iii) Contradiction hypothesis. Assume, by contradiction, that x∗ is not ZCW stationary. Then, by Lemma 2, there exists a ZCW super support 
+
+T ∗ and a constant δ0 > 0 such that 
+
+min  
+
+> z∈CI1(z)⊆T∗
+
+f (z) ≤ f (x∗) − 2δ0.
+
+Applying Lemma 5, there exists a neighborhood N of x∗ such that for all 
+
+x ∈ N ∩ Ω,
+
+min  
+
+> z∈CI1(z)⊆T∗
+
+f (z) ≤ f (x) − δ0. (39) Since xkℓ → x∗, there exists ℓ0 such that xkℓ ∈ N and ∥xkℓ ∥0 = s for all ℓ ≥ ℓ0. Thus, along the relevant subsequence, the ZCW-aware reservoir injection mechanism is eligible to be activated at all sufficiently large iterates. 
+
+(iv) Almost-sure detection of the violating super support. We use the convention that Fk−1 represents all information available immediately before the fresh random choices of iteration k are made. In particular, the current iterate xk has already been computed from the previous iterations, and hence xk is Fk−1-measurable. Thus, any event determined only by the current iterate is already known at time Fk−1. Therefore, for any Borel set 
+
+B ⊆ Rn,
+
+(xk)−1(B) = {ω : xk(ω) ∈ B} ∈ F k−1.
+
+Taking B = N , where N is a fixed neighborhood of x∗, yields 
+
+{xk ∈ N } = ( xk)−1(N ) ∈ F k−1.
+
+Similarly, since {x ∈ Rn : ∥x∥0 = s} is a Borel set, the following event is also Fk−1-measurable, 
+
+{∥ xk∥0 = s} = ( xk)−1({x ∈ Rn : ∥x∥0 = s}) ∈ F k−1.
+
+Hence the event {xk ∈ N } ∩ {∥ xk∥0 = s} is Fk−1-measurable. Define the neighborhood hit event 
+
+F k := {xk ∈ N } ∩ {∥ xk∥0 = s} ∩ Ak ∩ { T k = T ∗}.
+
+Let Bk := {xk ∈ N , ∥xk∥0 = s}. Since Bk ∈ F k−1, we have 
+
+Pr( F k | F k−1) = 1Bk Pr (Ak ∩ { T k = T ∗} | F k−1).RESERVOIR ZCW PROJECTED SUBSPACE SEARCH 29 
+
+By the conditional chain rule, the activation lower bound (21), and the uniform support-hitting condition (25), whenever xk ∈ N and ∥xk∥0 = s,
+
+Pr (Ak∩{ T k = T ∗} | F k−1) = Pr( Ak | F k−1) Pr( T k = T ∗ | F k−1, A k) ≥ pinj c0.
+
+Therefore, 
+
+Pr( F k | F k−1) ≥ 1Bk pinj c0. (40) Since x∗ is a full-support accumulation point and xkℓ → x∗, the event Bk
+
+occurs infinitely often along the chosen sample path. Hence, ∑∞ 
+
+> k=1
+
+1Bk = ∞.So, by (40), ∞∑
+
+> k=1
+
+Pr( F k | F k−1) ≥ pinj c0
+
+> ∞
+
+∑
+
+> k=1
+
+1Bk = ∞.
+
+By Lévy’s conditional Borel-Cantelli lemma, the events F k occur infinitely often almost surely for the event sequence associated with the fixed full-support accumulation point x∗ and its violating ZCW super support T ∗.
+
+(v) Contradiction with vanishing actual change. Whenever F k oc-curs, we have xk ∈ N , ∥xk∥0 = s, and T k = T ∗. Therefore, the ZCW-aware reservoir injection mechanism generates a probe candidate rk satisfying (26) with T ∗
+
+f (rk) ≤ min  
+
+> z∈CI1(z)⊆T∗
+
+f (z) + εkT .
+
+Since xk ∈ N , the uniform descent estimate in (39) gives f (rk) ≤ f (xk) −
+
+δ0 + εkT . The point rk belongs to the current candidate set Ωk. Hence, using the candidate-set acceptance condition in (27), we obtain 
+
+f (xk+1 ) ≤ f (rk) + ξk ≤ f (xk) − δ0 + εkT + ξk.
+
+Since ξk → 0 by [26, Lemma 1] and εkT → 0 by assumption, for all sufficiently large k such that F k occurs, εkT + ξk ≤ δ0/2. Therefore, f (xk+1 ) ≤ f (xk) −
+
+δ0/2. Equivalently by (33), ∆k ≥ δ0/2. Since the events F k occur infinitely often almost surely on the sample paths under consideration, this implies 
+
+lim sup k→∞ ∆k ≥ δ0/2 > 0, which contradicts ∆k → 0.Therefore, the contradiction hypothesis is false. Since x∗ was arbitrary among full-support accumulation points on the sample path under consid-eration, every full-support accumulation point is ZCW stationary almost surely. 
+
+□
+
+Lemma 6 (Eventual full-support stabilization under the safeguard) . As-sume that the iterates generated by RZCW-PSS remain in L(x0), that f is bounded below on L(x0), and that the accepted objective values are non-increasing. Suppose that the optional support-identification safeguard in Step S1g is used in the stronger form, and that the safeguarded acceptance rule in (28) selects xk+1 ∈̂ Ωk satisfying (29) .Assume also that the starting point of the main loop satisfies (30) , i.e., 
+
+∥x0∥0 = s, min  
+
+> i∈I1(x0)
+
+|x0 
+
+> i
+
+| ≥ α. 
+
+Then there exist K ≥ 0 and T ∗ ⊆ [n], with |T ∗| = s, such that 
+
+I1(xk) = T ∗, min   
+
+> i∈T∗
+
+|xki | ≥ α, ∀k ≥ K. 30 MORTEZA KIMIAEI, SHIMA SHABANI, AND MICHAEL BREUSS 
+
+Consequently, every accumulation point ¯x of the generated sequence satisfies 
+
+I1(¯ x) = T ∗, ∥¯x∥0 = s. 
+
+Proof. We first show that the safeguarded admissible set in (28) is nonempty at every iteration. By the initialization assumption (30), ∥x0∥0 = s and 
+
+min i∈I1(x0) |x0 
+
+> i
+
+| ≥ α. Since x0 ∈ Ω0, the candidate y = x0 satisfies the full-support and active-component lower-bound requirements in (28). Moreover, it satisfies the same-support alternative, because I1(y) = I1(x0). Therefore, 
+
+x0 ∈̂ Ω0.Assume inductively that the condition (29) holds at xk, i.e., ∥xk∥0 = s
+
+and min i∈I1(xk ) |xki | ≥ α. Since xk ∈ Ωk, the candidate y = xk satisfies the full-support and active-component lower-bound requirements in (28). It also satisfies the same-support alternative, because I1(y) = I1(xk). Hence, 
+
+xk ∈̂ Ωk, so ̂ Ωk̸ = ∅, and the safeguarded acceptance rule is well defined. Since xk+1 ∈̂ Ωk, the definition of ̂ Ωk gives the satisfaction of (29) at xk+1 ,i.e., ∥xk+1 ∥0 = s and min i∈I1(xk+1 ) |xk+1  
+
+> i
+
+| ≥ α. By induction, every iterate has full support and all active components are bounded below by α.Suppose, by contradiction, that infinitely many support changes oc-cur. Let {kℓ}ℓ≥0 be the strictly increasing sequence of indices such that 
+
+I1(xkℓ+1 )̸ = I1(xkℓ ). By the safeguard in (28), every accepted support-changing step satisfies 
+
+f (xkℓ ) − f (xkℓ+1 ) ≥ δsupp .
+
+Since the accepted objective values are nonincreasing, for every N ≥ 0,
+
+f (x0) − f (xkN +1 ) ≥
+
+> N
+
+∑
+
+> ℓ=0
+
+(f (xkℓ ) − f (xkℓ+1 )) ≥ (N + 1) δsupp .
+
+The left-hand side is bounded above because f is bounded below on L(x0),whereas the right-hand side tends to +∞. This is impossible. Hence only finitely many support changes occur. Therefore, there exist K ≥ 0 and 
+
+T ∗ ⊆ [n] such that I1(xk) = T ∗, for all k ≥ K. Since every iterate has full support and active components bounded below by α, we obtain |T ∗| = s,
+
+min i∈T ∗ |xki | ≥ α for all k ≥ K. Let ¯x be any accumulation point. Then there exists a subsequence xkℓ → ¯x. For all sufficiently large ℓ, I1(xkℓ ) = T ∗
+
+and min i∈T ∗ |xkℓ 
+
+> i
+
+| ≥ α. Passing to the limit yields |¯xi| ≥ α, for all i ∈ T ∗.Thus, T ∗ ⊆ I1(¯ x). Since ¯x ∈ C ∩ Cs and |T ∗| = s, we obtain I1(¯ x) = T ∗ and 
+
+∥¯x∥0 = s. □
+
+Corollary 1 (ZCW stationarity of all accumulation points under the safe-guard) . Assume that the hypotheses of Theorem 3 hold. Suppose also that the optional support-identification safeguard in Step S1g is imposed and that the starting point of the main loop satisfies (30) . Then every accumulation point of the sequence generated by RZCW-PSS is a ZCW stationary point al-most surely. Proof. By Lemma 6, every accumulation point has full support. Therefore every accumulation point is covered by Theorem 3. Hence every accumula-tion point is ZCW stationary almost surely. 
+
+□RESERVOIR ZCW PROJECTED SUBSPACE SEARCH 31 
+
+Remark 2 (Role of the support-identification safeguard) . Theorem 3 estab-lishes ZCW stationarity for all full-support accumulation points. The op-tional safeguard in Step S1g , together with full-support initialization, en-sures that all accumulation points are eventually reached along full-support iterates. Therefore, Corollary 1 upgrades the conclusion from full-support accumulation points to all accumulation points of the generated sequence. 4.2. Convergence Rate. While global linear convergence for cardinality-constrained problems is generally precluded by the combinatorial nature of support selection, we establish that RZCW-PSS enjoys a conditional local linear convergence rate once an active support has stabilized. For general cardinality-constrained optimization problems, global con-vergence rates are not available in the literature due to the nonconvex and combinatorial nature of the feasible set. Existing analyses typically establish convergence to stationary points without quantifying the rate. Convergence rates arise only locally, once the active support has been identified or under additional regularity assumptions. Lemma 6 shows that, under the support-identification safeguard in Step S1g and full-support initialization, the generated sequence eventually remains on one fixed full support. Hence, in the safeguarded implemen-tation, the support-stabilization hypothesis in the local-rate theorem is no longer an independent assumption. The only remaining local trajectory assumption is eventual containment in the neighborhood N where the re-stricted regularity assumptions hold. 4.2.1. Theoretical Assumptions. We analyze the local behavior of the algo-rithm in a neighborhood of a local minimizer x∗ ∈ Ω, where Ω = C ∩ Cs,under regularity conditions on a fixed active support 
+
+T ∗ := I1(x∗). (41) Define the restricted feasible set 
+
+CT ∗ := {w ∈ R|T ∗| : UT ∗ w ∈ C}. (42) For x satisfying I1(x) ⊆ T ∗, let xT ∗ denote the restriction of x to the index set T ∗. Then xT ∗ ∈ CT ∗ . Equivalently, we use the lifted fixed-support feasible set 
+
+MT ∗ := {x ∈ C : I1(x) ⊆ T ∗} = {UT ∗ w : w ∈ CT ∗ }. (43) Thus, CT ∗ is the restricted feasible set in the reduced coordinates w ∈ R|T ∗|,while MT ∗ is the corresponding feasible set in the original variable space 
+
+Rn. Consequently, 
+
+x ∈ M T ∗ ⇐⇒ x = UT ∗ xT ∗ and xT ∗ ∈ CT ∗ .
+
+Assumption 4 (Restricted Strong Convexity) . The objective function f is twice continuously differentiable. There exist constants 0 < μ ≤ L < ∞ and a neighborhood N of x∗ such that 
+
+μI ⪯ ∇ 2  
+
+> T∗
+
+f (x) ⪯ LI, ∀x ∈ N with I1(x) ⊆ T ∗.
+
+Assumption 4 is a local restricted regularity condition, not a global con-vexity assumption on the original cardinality-constrained problem. It is imposed only after the support has stabilized at T ∗, where the algorithm 32 MORTEZA KIMIAEI, SHIMA SHABANI, AND MICHAEL BREUSS 
+
+locally behaves like a method applied to the smooth constrained problem on CT ∗ . The lower Hessian bound provides local curvature, while the upper bound gives the Lipschitz constant needed for the projected-gradient descent estimate. 
+
+Assumption 5 (Restricted projected-gradient error bound) . With the same constant L as in Assumption 4, there exist μpg > 0 and a neighborhood N of 
+
+x∗ such that, for all x ∈ N with I1(x) ⊆ T ∗, the restricted projected-gradient mapping 
+
+GT ∗ 
+
+> L
+
+(x) := L
+
+> [
+
+xT ∗ − proj  
+
+> CT∗
+> (
+
+xT ∗ − 1
+
+L gT ∗ (x)
+
+> )]
+
+satisfies ∥GT ∗ 
+
+> L
+
+(x)∥2 ≥ 2μpg 
+
+> (
+
+f (x) − f (x∗)).Assumption 5 is the corresponding local error-bound condition for the re-stricted projected-gradient mapping. It connects the computable projected-gradient decrease on the fixed support to the objective gap f (x) − f (x∗). In this sense, it is a restricted fixed-support analogue of the projected-gradient error-bound conditions used in linear convergence analyses of projected and proximal-gradient methods; see, e.g., [30, Definition 5 and Theorems 6–7, Pages 12–13]. Without such an error-bound condition, or an equivalent quadratic-growth property, one may still obtain descent, but the descent need not be proportional to the current objective gap, and a linear rate cannot be concluded. 
+
+Assumption 6 (Local candidate richness) . Let T ∗ be the stabilized support and 
+
+˜xk := UT ∗ proj  
+
+> CT∗
+> (
+
+xkT ∗ − 1
+
+L gT ∗ (xk)
+
+> )
+
+(44) be the restricted projected-gradient trial point. We assume that, for all sufficiently large k, the candidate set Ωk contains a point ¯xk ∈ Ωk satisfying 
+
+f (¯ xk) ≤ f (˜ xk).Assumption 6 is a local candidate-set richness condition. Its role is anal-ogous to the sufficient decrease requirements used in trust-region methods, where an approximate subproblem solution is required to produce at least a fixed fraction of the decrease obtained by a reference step, such as the Cauchy step [14]. Indeed, the condition f (¯ xk) ≤ f (˜ xk) is equivalent to 
+
+f (xk) − f (¯ xk) ≥ f (xk) − f (˜ xk), so the candidate ¯xk provides at least the decrease of the reference restricted projected-gradient trial point ˜xk.4.2.2. Local Rate of Convergence. In this subsection, we analyze the local convergence behavior of the proposed RZCW-PSS algorithm after a fixed sup-port has been identified and maintained. Once this occurs, the problem reduces locally to a smooth constrained optimization problem over the re-stricted feasible set CT ∗ . We first establish a quantitative descent estimate under inexact subproblem solutions, showing that sufficient decrease is pre-served despite numerical errors. Building on this result and the restricted projected-gradient error bound, we then prove a linear rate for the objective values. RESERVOIR ZCW PROJECTED SUBSPACE SEARCH 33 
+
+The local convergence analysis relies only on Assumption 3(ii), which is standard in inexact descent methods. Assumption 3(i) is included to cover broader inexactness models in the global convergence analysis. 
+
+Proposition 2 (Descent under inexact subproblem solutions) . Suppose that Assumptions 3– 6 hold. Assume that the support-identification safeguard in Step S1g is imposed with full-support initialization, and that the stabilized support given by Lemma 6 is T ∗. Suppose further that, for all sufficiently large k, the iterates xk and the restricted projected-gradient trial points ˜xk
+
+defined in (44) belong to the neighborhood N . Assume also that, for all sufficiently large k, the candidate set Ωk contains a point ¯xk ∈ Ωk satisfying 
+
+f (¯ xk) ≤ f (˜ xk). Finally, suppose that the iterates satisfy (27) and that ξk ≤
+
+ηδ k for some η ∈ (0 , 1) (Assumption 3 (ii)). Then there exists k0 ∈ N such that, for all k ≥ k0, the actual decrease in (33) satisfies 
+
+∆k ≥ 1 − η
+
+2L
+
+∥∥∥GT ∗ 
+
+> L
+
+(xk)
+
+∥∥∥2
+
+.
+
+Proof. By Lemma 6, eventual containment in N and there exists k0 such that all required conditions hold for every k ≥ k0. In particular, after increasing k0 if necessary, the support is fixed at T ∗, the iterates belong to 
+
+N , and the candidate-richness condition (Assumption 6) holds. Hence, for all k ≥ k0, the iterates remain in MT ∗ defined in (43). Let wk := xkT ∗ and 
+
+gk := gT ∗ (xk). Consider the restricted projected-gradient step 
+
+˜wk := proj  
+
+> CT∗
+
+(
+
+wk − 1
+
+L gk
+
+)
+
+, ˜xk := UT ∗ ˜wk.
+
+Then ˜xk ∈ M T ∗ , where MT ∗ is from (43). By the candidate-richness as-sumption, there exists ¯xk ∈ Ωk such that f (¯ xk) ≤ f (˜ xk). Since the support is fixed at T ∗, the local analysis is carried out on the restricted feasible set 
+
+CT ∗ , which comes from (42). Define the restricted function 
+
+φ(w) := f (UT ∗ w), w ∈ CT ∗ .
+
+Since ∇2φ(w) = U ⊤  
+
+> T∗
+
+∇2f (UT ∗ w)UT ∗ = ∇2  
+
+> T∗
+
+f (UT ∗ w), Assumption 4 yields 
+
+μI ⪯ ∇ 2φ(w) ⪯ LI, 
+
+in the neighborhood under consideration. Hence φ is μ-strongly convex and its gradient is L-Lipschitz. So, the standard descent lemma (cf. [2, Lemma 4.22]) applied to φ gives 
+
+f (˜ xk) = φ( ˜ wk) ≤ φ(wk) + ⟨∇ φ(wk), ˜wk − wk⟩ + L
+
+2 ∥ ˜wk − wk∥2.
+
+Since ∇φ(wk) = gT ∗ (xk) = gk, this becomes 
+
+f (˜ xk) ≤ f (xk) + ⟨gk, ˜wk − wk⟩ + L
+
+2 ∥ ˜wk − wk∥2.
+
+Moreover, ˜wk is the projection of wk − 1 
+
+> L
+
+gk onto the closed convex set CT ∗ .So, the variational characterization of the projection, [1, Theorem 3.16], yields 〈
+
+wk − 1
+
+L gk − ˜wk, w − ˜wk
+
+〉
+
+≤ 0, ∀w ∈ CT ∗ .34 MORTEZA KIMIAEI, SHIMA SHABANI, AND MICHAEL BREUSS 
+
+Taking w = wk yields ⟨gk, ˜wk − wk⟩ ≤ − L∥ ˜wk − wk∥2. Therefore, 
+
+f (˜ xk) ≤ f (xk) − L
+
+2 ∥ ˜wk − wk∥2.
+
+Since GT ∗ 
+
+> L
+
+(xk) = L(wk − ˜wk), we obtain f (xk) − f (˜ xk) ≥ 12L
+
+∥∥∥GT ∗ 
+
+> L
+
+(xk)
+
+∥∥∥2
+
+.By Assumption 6, there exists ¯xk ∈ Ωk such that f (¯ xk) ≤ f (˜ xk). Hence, 
+
+min  
+
+> z∈Ωk
+
+f (z) ≤ f (¯ xk) ≤ f (˜ xk).
+
+Therefore, considering (32), 
+
+δk = f (xk) − min  
+
+> z∈Ωk
+
+f (z) ≥ f (xk) − f (˜ xk) ≥ 12L
+
+∥∥∥GT ∗ 
+
+> L
+
+(xk)
+
+∥∥∥2
+
+.
+
+By (34), ∆k ≥ δk − ξk. Using ξk ≤ ηδ k (Assumption 3 (ii)), we obtain 
+
+∆k ≥ (1 − η)δk ≥ 1 − η
+
+2L
+
+∥∥∥GT ∗ 
+
+> L
+
+(xk)
+
+∥∥∥2
+
+.
+
+This completes the proof. □
+
+Assumptions 4 and 5 are local regularity assumptions on the restricted problem associated with the limiting support. They do not, by themselves, imply convergence of the iterates into the neighborhood N . However, when the support-identification safeguard in Step S1g is imposed together with full-support initialization, Lemma 6 guarantees finite stabilization on a full support. Hence, in the safeguarded implementation, the only remaining trajectory condition for the local rate result is eventual containment in N .
+
+Theorem 4 (Conditional local linear convergence under the safeguard) . Let 
+
+x∗ ∈ Ω be a local minimizer of f on the restricted feasible set (42) associated with T ∗ in (41) . Suppose that Assumptions 4 and 5 hold in a neighborhood 
+
+N of x∗, chosen sufficiently small so that 
+
+f (x) ≥ f (x∗), ∀x ∈ N ∩ M T ∗ .
+
+Assume that the support-identification safeguard in Step S1g is imposed and that the starting point of the main loop satisfies ∥x0∥0 = s and 
+
+min i∈I1(x0) |x0 
+
+> i
+
+| ≥ α (see, (30) ). Suppose further that the stabilized support given by Lemma 6 is T ∗, and that the iterates eventually enter the neighbor-hood N ; that is, there exists k0 such that xk ∈ N , for all k ≥ k0. Assume also that the iterates satisfy the inexactness condition (27) with an error sequence {ξk}k≥0 satisfying Assumption 3; in particular, 
+
+ξk ≤ ηδ k for some η ∈ (0 , 1) .
+
+Moreover, assume that the local candidate-richness condition in Assump-tion 6 holds. Then there exists a constant ρlin ∈ (0 , 1) such that 
+
+f (xk+1 ) − f (x∗) ≤ (1 − ρlin )(f (xk) − f (x∗)), ∀k ≥ k0,
+
+where one may take 
+
+ρlin := min 
+
+{ 12 , (1 − η)μpg 
+
+L
+
+}
+
+. (45) RESERVOIR ZCW PROJECTED SUBSPACE SEARCH 35 
+
+Proof. By Lemma 6, the support is fixed at T ∗ for all sufficiently large k.Since the iterates eventually enter N , we may increase k0, if necessary, so that for all k ≥ k0,
+
+xk ∈ N ∩ M T ∗ .
+
+By the choice of N , we also have f (xk) − f (x∗) ≥ 0 for all k ≥ k0. By Proposition 2, for all k ≥ k0,
+
+∆k ≥ 1 − η
+
+2L
+
+∥∥∥GT ∗ 
+
+> L
+
+(xk)
+
+∥∥∥2
+
+.
+
+By the definition of the actual accepted decrease in (33), ∆k = f (xk) −
+
+f (xk+1 ). Therefore, 
+
+f (xk+1 ) = f (xk) − ∆k ≤ f (xk) − 1 − η
+
+2L
+
+∥∥∥GT ∗ 
+
+> L
+
+(xk)
+
+∥∥∥2
+
+.
+
+By Assumption 5, 
+
+∥∥∥GT ∗ 
+
+> L
+
+(xk)
+
+∥∥∥2
+
+≥ 2μpg 
+
+(f (xk) − f (x∗)).
+
+Combining the last two inequalities gives 
+
+f (xk+1 ) ≤ f (xk) − (1 − η)μpg 
+
+L
+
+(f (xk) − f (x∗)).
+
+Using (45) and since η ∈ (0 , 1) , μpg > 0, and L > 0, we obtain 
+
+0 < ρ lin < 1 and ρlin ≤ (1 − η)μpg 
+
+L .
+
+Since f (xk)−f (x∗) ≥ 0, it follows that f (xk+1 ) ≤ f (xk)−ρlin 
+
+(f (xk)−f (x∗)).Subtracting f (x∗) from both sides yields 
+
+f (xk+1 ) − f (x∗) ≤ (1 − ρlin )(f (xk) − f (x∗)).
+
+This proves the claimed local linear rate. 
+
+□
+
+Remark 3 (Two-phase convergence behavior) . Theorem 4 describes the lo-cal refinement phase of RZCW-PSS conditional on stabilization of the active support. The ZCW-aware reservoir injection mechanism (Step S1e ) is used in the global phase to generate ZCW super supports and the associated re-stricted subproblem candidates. Once the iterates remain on a fixed support, the algorithm transitions to a deterministic restricted refinement phase in which projected subspace optimization yields linear convergence under the assumptions above. We note that the practical implementation includes additional compo-nents (e.g., BFS ranking and restricted FISTA solves) that preserve feasi-bility and sufficient decrease. These modifications do not affect the local convergence analysis once the support has stabilized. 36 MORTEZA KIMIAEI, SHIMA SHABANI, AND MICHAEL BREUSS 
+
+5. Numerical Experiments 
+
+This section evaluates the practical performance of the proposed 
+
+RZCW-PSS algorithm on a diverse collection of randomly generated and data-driven, cardinality-constrained optimization problems. We compare four variants of RZCW-PSS with established methods, namely PSS , BFS , and ZCWS ,with respect to efficiency, robustness, objective quality, and structural sup-port similarity. The experiments are designed to assess whether the methods can obtain high-quality feasible sparse solutions within a prescribed compu-tational budget, rather than to report an exact numerical certificate of ZCW stationarity. A total of 50 test problems spanning a wide range of dimensions and sparsity regimes are considered; detailed descriptions of the benchmark generation procedure and problem classes are provided in Section 9 of [26]. 5.1. Efficiency and Robustness. The two efficiency measures considered are nf2g =nf +2 ng (where nf is the total number of function evaluations and ng is the gradient evaluations) and the computational time in seconds (sec ). A common motivation for adopting nf2g as a cost measure is its ability to reflect the disproportionate cost of gradient evaluations relative to function calls. Since, in many practical settings, computing gradients dominates the overall expense, emphasizing their contribution leads to a realistic assessment of computational effort. The performance profile ([26, Section 10]) indicates which solver is the most efficient , in terms of lowest cost according to these measures, as well as the most robust , measured by the largest number of problems successfully solved. 5.2. Stopping Criterion, Relaxed Support Recovery, and Solution Quality. The numerical experiments are designed to assess computational efficiency, robustness, objective quality, and the structural similarity of the sparse supports recovered by the different methods. Although the conver-gence analysis in Section 4.1 is stated in terms of zero-coordinatewise station-arity, exact numerical certification of this condition is generally expensive. Indeed, ZCW stationarity is defined through restricted sparse subproblems over ZCW super supports. Therefore, we do not use a cheap gradient-score test as a numerical stationarity residual. 
+
+Why exact ZCW certification is not used as a numerical stop-ping test, and what we do instead. The numerical experiments do not attempt to certify Beck-Hallak ZCW stationarity at every evaluated point. Exact certification would require checking whether the solution of any restricted sparse subproblem over the relevant ZCW super supports can improve the current point. In other words, for each generated or admissible ZCW super support T , one would need to solve, or accurately approximate (31), namely, 
+
+min {f (y) : y ∈ C, I 1(y) ⊆ T },
+
+and compare this value with f (x). Performing this test at every evaluated point would be computationally expensive and would obscure the practical comparison of the solvers. The algorithm may still use inexpensive first-order ranking information internally to guide coordinate selection and support-exchange candidates. This ranking is useful for generating trial points, but it is not used as a RESERVOIR ZCW PROJECTED SUBSPACE SEARCH 37 
+
+numerical certificate of ZCW stationarity. The absence of an improving candidate generated by this ranking rule should not be interpreted as proof that all ZCW restricted subproblems are non-improving. For this reason, the reported numerical evaluation is based on computational cost, final objective value, and relaxed support recovery. These quantities directly measure the practical efficiency of the method, the quality of the solutions obtained, and the structural similarity of the recovered sparse supports. 
+
+Objective-quality stopping criterion. For the performance profiles, a solver is declared successful on a problem if it attains a prescribed objective-quality tolerance before reaching the maximum allowed computational bud-get. The computational budgets are measured by nf2g and sec . The objective-quality measure is the convergence ratio 
+
+qsol := fs − fopt 
+
+f0 − fopt 
+
+,
+
+where fs denotes the best function value obtained by solver s, f0 is the objective value at the initial point, and fopt is the best-known objective value for the corresponding problem instance. In the numerical experiments, a run is counted as successful if 
+
+qsol ≤ ε, ε := 10 −4,
+
+before the maximum allowed nf2g or sec is reached. Lower values of qsol 
+
+indicate better objective quality. 
+
+Relaxed support recovery. Since cardinality-constrained problems are nonconvex, exact support recovery is not necessarily aligned with objective quality. Different supports may correspond to distinct local minima, and a solver may obtain a lower objective value using a support that is not identical to the support found by another method. Therefore, we use a relaxed support recovery measure to quantify structural similarity without requiring exact equality of supports. For a problem instance p and solver s, let x(p,s ) denote the solution re-turned by solver s, and define its support by 
+
+S(p,s ) := supp (x(p,s )).
+
+Given a reference solution x(p, ref) , with support S(p, ref) , the relaxed support recovery rate of solver s at threshold θ ∈ (0 , 1) is defined by 
+
+RSR θ(s) := 1
+
+P
+
+> P∑
+> p=1
+
+1
+
+> ∣∣∣
+
+S(p,s ) ∩ S (p, ref) ∣∣∣∣∣S(p, ref) ∣∣ ≥ θ 
+
+> 
+
+,
+
+where P is the number of test problems and 1{·} denotes the indicator function. Unless stated otherwise, we use θ = 0 .9.The relaxed support recovery rate is not an optimality certificate. Rather, it measures how similar the support identified by a solver is to a reference support. This is useful for distinguishing two effects: whether a method recovers structurally similar sparse patterns, and whether it also improves the objective value. In our experiments, the most informative comparison is therefore the joint behavior of relaxed support recovery and final objective value. A method that obtains a lower objective value with a different but 38 MORTEZA KIMIAEI, SHIMA SHABANI, AND MICHAEL BREUSS 
+
+substantially overlapping support is regarded as having found a better sparse solution, even if it does not exactly reproduce the reference support. Consequently, the figures in this section report final support size, matched objective values, and relaxed support recovery rates. We do not report a stationarity residual in the numerical evaluation, because exact ZCW cer-tification would require solving restricted sparse subproblems and is not computationally practical for the reported experiments. 5.3. Numerical Comparison. We begin by comparing four variants of the proposed RZCW-PSS algorithm, which differ only in the orthonormalization procedure used to construct the randomized subspace bases (see [26, Section 1]). Specifically, we consider RZCW-PSS-orth , RZCW-PSS-mgs , RZCW-PSS-qr ,and RZCW-PSS-svd , corresponding to the use of the built-in orth operator, the modified Gram-Schmidt method, QR factorization, and singular value decomposition, respectively. From Figure 11 of [26], RZCW-PSS-qr consistently achieves the best per-formance among all variants, exhibiting both the lowest computational cost (in terms of nf2g and CPU time sec ) and the highest number of solved in-stances under the objective-quality criterion qsol ≤ ε = 10 −4. Based on this observation, we select RZCW-PSS-qr as the representative implementation for all subsequent comparisons. We then compare RZCW-PSS-qr with ZCWS to evaluate efficiency, robust-ness, and objective quality. As shown in Figure 3, RZCW-PSS-qr is both significantly more efficient and more robust, requiring fewer evaluations and less computational time while solving a larger fraction of instances accord-ing to the objective-quality criterion. This improvement can be attributed to the combination of projected p-usequence initialization and randomized subspace exploration, which enables the method to escape poor sparse local structures and identify lower-objective feasible points. 10 0 10 1 10 2 10 3   
+
+> 00.2 0.4 0.6 0.8 1
+> = 10 -4
+> ZCWS
+> RZCW-PSS-qr 10 010 110 210 3
+> 00.2 0.4 0.6 0.8 1
+> = 10 -4
+> ZCWS
+> RZCW-PSS-qr
+
+Figure 3. Performance profiles {ρsi (τ )}2 
+
+> i=1
+
+of the solvers 
+
+{si}2 
+
+> i=1
+
+= {RZCW-PSS-qr , ZCWS } in terms of nf2g (left) and 
+
+sec (right), using the objective-quality criterion qsol ≤ ε =10 −4.A more detailed analysis of solution quality is provided in Figure 4, where we compare relaxed support recovery and objective value reduction for ZCWS RESERVOIR ZCW PROJECTED SUBSPACE SEARCH 39 
+
+and RZCW-PSS-qr . The purpose of this comparison is not to certify optimal-ity or stationarity, but to assess whether the sparse supports identified by different solvers are structurally related and whether this support similarity is accompanied by improved objective values. This distinction is important in nonconvex cardinality-constrained optimization, where exact support re-covery is often too restrictive and may not correlate with solution quality. The results show that RZCW-PSS-qr attains substantially lower objective values while maintaining meaningful relaxed support overlap with the ref-erence solutions. Thus, the method does not merely reproduce the same supports as ZCWS ; rather, it often identifies different but structurally related sparse supports lying in more favorable regions of the objective landscape. Consequently, the joint use of objective value reduction and relaxed support recovery provides a more informative assessment than exact support match-ing alone. These results support the conclusion that, for nonconvex sparse optimization, high-quality solutions should be evaluated by both their ob-jective values and their structural support similarity, rather than by exact combinatorial recovery. 
+
+Figure 4. Comparison of ZCWS and RZCW-PSS-qr under cardinality constraints. (Left) Final support size achieved by each method. (Middle) Matched-problem comparison of the final objective value versus support size, where each connected pair corresponds to the same problem instance; 
+
+RZCW-PSS-qr consistently attains lower objective values, of-ten with different but structurally related supports. (Right) Relaxed support recovery rate RSR θ, measured with respect to the reference support and the threshold θ = 0 .9.For completeness, additional comparisons with PSS and BFS are reported in [26, Sections 13 and 14], respectively, where RZCW-PSS-qr demonstrates similar gains in both efficiency and robustness under the same objective-quality criterion. The superior performance of RZCW-PSS-qr among the tested variants is mainly due to the numerical stability of QR factorization, which produces well-conditioned subspace bases in finite precision arithmetic. While alter-native orthonormalization methods generate equivalent subspaces in exact arithmetic, QR leads to more reliable behavior in practice. To further interpret the observed convergence behavior, we note that the plateau visible in some runs corresponds to phases where coordinatewise and swap-based moves fail to produce sufficient improvement. During these 40 MORTEZA KIMIAEI, SHIMA SHABANI, AND MICHAEL BREUSS 
+
+phases, progress depends on the ZCW-aware reservoir injection mechanism (Step S1e ), which explores directions involving inactive coordinates and al-ternative sparse supports. Once a useful direction is detected, the algorithm resumes descent, resulting in the observed improvement after the plateau. 6. Summary and Conclusion 
+
+We proposed the Reservoir ZCW Projected Subspace Search ( RZCW-PSS )algorithm for cardinality-constrained optimization, which strengthens clas-sical coordinatewise and swap-based methods through randomized low-dimensional sparse subspace exploration. A dynamically maintained reser-voir of feasible points, initialized by symmetry-aware uniform sampling and enriched through a ZCW-aware injection mechanism, enables the discov-ery of richer descent directions while preserving both convex and sparsity feasibility. We established that, under mild smoothness assumptions, every full-support accumulation point of the iterates generated by RZCW-PSS is a zero-coordinatewise stationary point almost surely. This result strengthens ex-isting guarantees for coordinatewise sparse methods, which typically ensure only partial coordinatewise or L-stationarity, and provides a theoretical ba-sis for the randomized support-exchange mechanism used in the algorithm. The numerical experiments were designed to assess efficiency, robustness, objective quality and structural similarity of the recovered sparse supports. The results show that RZCW-PSS consistently attains lower objective val-ues than competing methods while maintaining meaningful relaxed sup-port overlap with reference solutions. This confirms that, in nonconvex cardinality-constrained optimization, high-quality sparse solutions are not necessarily characterized by exact support recovery. Rather, practically useful solutions may have different but structurally related supports and significantly better objective values. The experiments also indicate that randomized sparse subspace explo-ration and reservoir-based injection help the method escape poor coordi-natewise or swap-based local structures. Thus, the practical advantage of 
+
+RZCW-PSS comes from its ability to combine feasible sparse exploration with objective value improvement, rather than from enforcing exact support re-covery or relying on a simple stationarity residual. Future work will investigate extensions to stochastic and structured spar-sity settings, adaptive strategies for randomized subspace construction, and more efficient approximate solvers for restricted sparse subproblems arising in exact ZCW certification. 
+
+Supplementary Information The online version contains supplemen-tary material available in [26]. 
+
+References     
+
+> [1] Heinz H. Bauschke and Patrick L. Combettes. Convex Analysis and Monotone Oper-ator Theory in Hilbert Spaces . Springer International Publishing (2017). [2] Amir Beck. Introduction to Nonlinear Optimization: Theory, Algorithms, and Ap-plications with MATLAB . MOS-SIAM Series on Optimization. Society for Industrial and Applied Mathematics, Philadelphia, PA (2014). RESERVOIR ZCW PROJECTED SUBSPACE SEARCH 41
+
+[3] Amir Beck and Yonina C. Eldar. Sparsity constrained nonlinear optimization: Opti-mality conditions and algorithms. SIAM Journal on Optimization 23 (January 2013), 1480–1509. [4] Amir Beck and Nadav Hallak. On the minimization over sparse symmetric sets: Pro-jections, optimality conditions, and algorithms. Mathematics of Operations Research 
+
+41 (February 2016), 196–223. [5] Amir Beck and Marc Teboulle. A fast iterative shrinkage-thresholding algorithm for linear inverse problems. SIAM journal on imaging sciences 2 (2009), 183–202. [6] Matteo Bergamaschi, Andrea Cristofari, Vyacheslav Kungurtsev, and Francesco Ri-naldi. Probabilistic iterative hard thresholding for sparse learning. Computational Optimization and Applications 93 (August 2025), 5783. [7] Dimitris Bertsimas, Angela King, and Rahul Mazumder. Best subset selection via a modern optimization lens. The Annals of Statistics 44 (April 2016). [8] Thomas Blumensath and Mike E. Davies. Iterative hard thresholding for compressed sensing. Applied and Computational Harmonic Analysis 27 (November 2009), 265– 274. [9] Oleg P. Burdakov, Christian Kanzow, and Alexandra Schwartz. Mathematical pro-grams with cardinality constraints: Reformulation by complementarity-type condi-tions and a regularization method. SIAM Journal on Optimization 26 (January 2016), 397–425. [10] Coralia Cartis and Lindon Roberts. Scalable subspace methods for derivative-free nonlinear least-squares optimization. Mathematical Programming 199 (June 2022), 461524. [11] Coralia Cartis and Lindon Roberts. Randomized subspace derivative-free opti-mization with quadratic models and second-order convergence. arXiv preprint arXiv:2412.14431 (2024). [12] Coralia Cartis, Zhen Shao, and Edward Tansley. Random subspace cubic-regularization methods, with applications to low-rank functions. arXiv preprint arXiv:2501.09734 (2025). [13] Scott Shaobing Chen, David L. Donoho, and Michael A. Saunders. Atomic decompo-sition by basis pursuit. SIAM Journal on Scientific Computing 20 (January 1998), 3361. [14] Andrew R. Conn, Nicholas I. M. Gould, and Philippe L. Toint. Trust Region Methods .MPS-SIAM Series on Optimization. SIAM (2000). [15] Aleksandar Cvetković and Vladimir Yu Protasov. The greedy strategy for optimizing the Perron eigenvalue. Mathematical Programming 193 (October 2022), 1–31. [16] Hamid Esmaeili, Shima Shabani, and Morteza Kimiaei. A new generalized shrinkage conjugate gradient method for sparse recovery. Calcolo 56 (December 2018). [17] Hussein Hazimeh, Rahul Mazumder, and Ali Saab. Sparse regression at scale: branch-and-bound rooted in first-order optimization. Mathematical Programming 196 (Oc-tober 2021), 347–388. [18] Yaohua Hu, Xinlin Hu, and Xiaoqi Yang. On convergence of iterative thresholding algorithms to approximate sparse solution for composite nonconvex optimization. 
+
+Mathematical Programming 211 (March 2025), 181–206. [19] Martin Jaggi. Revisiting Frank-Wolfe: Projection-free sparse convex optimization. In 
+
+Proceedings of the 30th International Conference on Machine Learning , Vol. 28 of 
+
+Proceedings of Machine Learning Research , pp. 427–435. PMLR (2013). [20] Christian Kanzow and Matteo Lapucci. Inexact penalty decomposition methods for optimization problems with geometric constraints. Computational Optimization and Applications 85 (March 2023), 937–971. [21] Jinhak Kim, Mohit Tawarmalani, and Jean-Philippe P. Richard. Convexification of permutation-invariant sets and an application to sparse principal component analysis. 
+
+Mathematics of Operations Research 47 (November 2022), 25472584. [22] Morteza Kimiaei and Arnold Neumaier. A new limited memory method for uncon-strained nonlinear least squares. Soft Computing 26 (2022), 465–490. 42 MORTEZA KIMIAEI, SHIMA SHABANI, AND MICHAEL BREUSS 
+
+[23] Morteza Kimiaei and Arnold Neumaier. MATRS: heuristic methods for noisy derivative-free bound-constrained mixed-integer optimization. Mathematical Pro-gramming Computation 17 (May 2025), 505546. [24] Morteza Kimiaei, Arnold Neumaier, and Behzad Azmi. LMBOPT: a limited memory method for bound-constrained optimization. Mathematical Programming Computa-tion 14 (January 2022), 271318. [25] Morteza Kimiaei, Arnold Neumaier, and Parvaneh Faramarzi. New subspace method for unconstrained derivative-free optimization. ACM Transactions on Mathematical Software 49 (2023), 1–28. [26] Morteza Kimiaei, Shima Shabani, and Michael Breuß. Supplementary Material: Reservoir zero-coordinatewise projected subspace search for minimization over sparse symmetric sets in machine learning. https://github.com/GS1400/RZCWPSS/ blob/main/suppMat.pdf (2026). [27] Matteo Lapucci, Tommaso Levato, and Marco Sciandrone. Convergent inexact penalty decomposition methods for cardinality-constrained problems. Journal of Op-timization Theory and Applications 188 (December 2020), 473–496. [28] Zhaosong Lu and Yong Zhang. Sparse approximation via penalty decomposition methods. SIAM Journal on Optimization 23 (January 2013), 2448–2478. [29] Ahmad Mousavi, Morteza Kimiaei, Saman Babaie-Kafaki, and Vyacheslav Kungurt-sev. An efficient penalty decomposition algorithm for minimization over sparse sym-metric sets (2026). [30] Ion Necoara, Yurii Nesterov, and François Glineur. Linear convergence of first or-der methods for non-strongly convex optimization. Mathematical Programming 175 
+
+(2019), 69–107. [31] Robert Tibshirani. Regression shrinkage and selection via the lasso. Journal of the Royal Statistical Society Series B: Statistical Methodology 58 (January 1996), 267288. [32] Jinming Wen, Changhao Li, Qianyu Shu, and Zhengchun Zhou. Randomized or-thogonal matching pursuit algorithm with adaptive partial selection for sparse signal recovery. SIAM Journal on Imaging Sciences 18 (April 2025), 1028–1057. [33] David Williams. Probability with Martingales . Cambridge University Press (February 1991). [34] Ya-xiang Yuan. A review on subspace methods for nonlinear optimization. In Pro-ceedings of the International Congress of Mathematics , pp. 807–827 (2014). [35] Yun–Bin Zhao. Optimal k-thresholding algorithms for sparse optimization problems. 
+
+SIAM Journal on Optimization 30 (January 2020), 31–55. 
+
+Fakultät für Mathematik, Universität Wien, Oskar-Morgenstern-Platz 1, A-1090 Wien, Austria 
+
+Email address : morteza.kimiaei@univie.ac.at 
+
+Institute for Mathematics, Brandenburg University of Technology, Platz der Deutschen Einheit 1, 03046 Cottbus, Germany 
+
+Email address : shima.shabani@b-tu.de 
+
+Institute for Mathematics, Brandenburg University of Technology, Platz der Deutschen Einheit 1, 03046 Cottbus, Germany 
+
+Email address : breuss@b-tu.de
