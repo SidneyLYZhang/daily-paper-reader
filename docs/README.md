@@ -6,56 +6,83 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-06-29
-- 运行时间：2026-06-29 22:15:45 UTC
+- 最新运行日期：2026-07-05
+- 运行时间：2026-07-05 21:44:26 UTC
 - 运行状态：成功
-- 本次总论文数：12
-- 精读区：5
-- 速读区：7
+- 本次总论文数：21
+- 精读区：8
+- 速读区：13
 
 ### 今日简报（AI）
-今日精读两篇高分论文：深入随机变量对的扩展函数与基于文本信念的世界模型表征学习。最值得关注的是互信息替代理论的突破性进展及结构化MDP中的策略镶嵌方法。建议优先研读精读论文，尤其是扩展函数部分对理解变量关联性的新视角。
-- 详情：[/202606/29/README](/202606/29/README)
+今日推荐21篇论文，两篇9分重磅聚焦事件叙事的信息几何与谱分解层次策略。最值得关注的是信息几何证明叙事复合一致性的理论与谱分解驱动的层级策略学习。建议优先精读这两篇，速读可从双流强化学习与零样本推理修正入手。
+- 详情：[/202607/05/README](/202607/05/README)
 
 ### 精读区论文标签
-1. [Beyond Mutual Information: Extension Profiles and Shape Functions of Random Variable Pairs](/202606/29/2606.23849v1-beyond-mutual-information-extension-profiles-and-shape-functions-of-random-variable-pairs)  
+1. [An Information-Geometric Justification for Composite Coherence in Event-Based Narrative Extraction](/202607/05/2606.29118v1-an-information-geometric-justification-for-composite-coherence-in-event-based-narrative-extraction)  
+   标签：评分：9.0/10、query:npl-bdl-saig
+   evidence：为复合连贯性度量提供了信息几何解读和公理表征
+2. [Hierarchical Policy Learning via Spectral Decomposition](/202607/05/2606.29570v1-hierarchical-policy-learning-via-spectral-decomposition)  
+   标签：评分：9.0/10、query:rl-semantic
+   evidence：机器人动作的语义分解为粗粒度和细粒度组件，用于强化学习策略学习
+3. [Adapting Generalist Robot Policies with Semantic Reinforcement Learning](/202607/05/2606.31958v1-adapting-generalist-robot-policies-with-semantic-reinforcement-learning)  
+   标签：评分：9.0/10、query:rl-semantic
+   evidence：使用语言提示作为语义空间进行强化学习适配
+4. [Task-Relevant Representation Decoupling for Visual Reinforcement Learning Generalization](/202607/05/2607.00796v1-task-relevant-representation-decoupling-for-visual-reinforcement-learning-generalization)  
+   标签：评分：9.0/10、query:rl-semantic
+   evidence：视觉强化学习中自监督的任务相关表示解耦
+5. [From Pixels to Temporal Correlations: Learning Informative Representations for Reinforcement Learning Pre-training](/202607/05/2607.00811v1-from-pixels-to-temporal-correlations-learning-informative-representations-for-reinforcement-learning-pre-training)  
+   标签：评分：9.0/10、query:rl-semantic
+   evidence：通过时间相关空间进行强化学习预训练的状态表示学习
+6. [I-BBS: Coordinate-Free Inference of Latent Sub-Manifolds Using Random Distance Matrix Theory](/202607/05/2606.29675v1-i-bbs-coordinate-free-inference-of-latent-sub-manifolds-using-random-distance-matrix-theory)  
+   标签：评分：8.0/10、query:ml-theory
+   evidence：利用随机距离矩阵理论推断潜在子流形
+7. [Transformer Architectures as Complete Bayes Processes: A Formal Proof in the Measure-Theoretic Kernel Framework](/202607/05/2606.30440v1-transformer-architectures-as-complete-bayes-processes-a-formal-proof-in-the-measure-theoretic-kernel-framework)  
    标签：评分：8.0/10、query:npl-bdl-saig
-   evidence：信息几何中扩展轮廓与形状函数的研究
-2. [Textual Belief States for World Models: Identifiable Representation Learning Under Strict Mediation](/202606/29/2606.27681v1-textual-belief-states-for-world-models-identifiable-representation-learning-under-strict-mediation)  
-   标签：评分：8.0/10、query:rl-semantic
-   evidence：强化学习世界模型中的状态表示学习
-3. [Reservoir Zero-Coordinatewise Projected Subspace Search for Minimization Over Sparse Symmetric Sets in Machine Learning](/202606/29/2606.28124v1-reservoir-zero-coordinatewise-projected-subspace-search-for-minimization-over-sparse-symmetric-sets-in-machine-learning)  
+   evidence：Transformer架构的贝叶斯深度学习形式化证明
+8. [The Geometry of Statistical Feature Learning in Mean-Field Langevin Dynamics](/202607/05/2606.31429v1-the-geometry-of-statistical-feature-learning-in-mean-field-langevin-dynamics)  
    标签：评分：8.0/10、query:ml-theory
-   evidence：非凸基数约束优化算法
-4. [A Fletcher's Augmented Lagrangian-Based Stochastic First-Order Method for Nonconvex Equality-Constrained Optimization](/202606/29/2606.28230v1-a-fletchers-augmented-lagrangian-based-stochastic-first-order-method-for-nonconvex-equality-constrained-optimization)  
-   标签：评分：8.0/10、query:ml-theory
-   evidence：面向深度学习训练的非凸优化方法
-5. [Second-Order KKT Guarantees for Bregman ADMM in Nonconvex and Non-Lipschitz Optimization](/202606/29/2606.28307v1-second-order-kkt-guarantees-for-bregman-admm-in-nonconvex-and-non-lipschitz-optimization)  
-   标签：评分：8.0/10、query:ml-theory
-   evidence：深度学习训练中的非凸优化
+   evidence：使用几何公式刻画均场Langevin动力学中的特征学习，与微分几何相关
 
 ### 速读区论文标签
-1. [Low-Complexity Policy Tessellations in Structured Markov Decision Processes](/202606/29/2606.25593v1-low-complexity-policy-tessellations-in-structured-markov-decision-processes)  
-   标签：评分：7.0/10、query:rl-semantic
-   evidence：策略分割作为隐式状态表示
-2. [The multiply iterated law of the iterated logarithm: game-theoretic foundations of sequential detection boundaries](/202606/29/2606.28324v1-the-multiply-iterated-law-of-the-iterated-logarithm-game-theoretic-foundations-of-sequential-detection-boundaries)  
+1. [Dual-Flow Reinforcement Learning with State-Aware Exploration](/202607/05/2606.29820v1-dual-flow-reinforcement-learning-with-state-aware-exploration)  
+   标签：评分：8.0/10、query:rl-semantic
+   evidence：具有状态感知探索的双流强化学习框架
+2. [LatentRevise: Learning from Zero-Hit Reasoning](/202607/05/2606.29938v1-latentrevise-learning-from-zero-hit-reasoning)  
+   标签：评分：8.0/10、query:rl-semantic
+   evidence：针对强化学习可验证奖励的潜在修正方法，在潜在空间中优化输入嵌入
+3. [VLM-AR3L: Vision-Language Models for Absolute and Relative Rewards in Reinforcement Learning](/202607/05/2607.00483v1-vlm-ar3l-vision-language-models-for-absolute-and-relative-rewards-in-reinforcement-learning)  
+   标签：评分：8.0/10、query:rl-semantic
+   evidence：强化学习用于潜在语义表示
+4. [Group-Equivariant Poincaré Convolutional Networks](/202607/05/2607.00556v1-group-equivariant-poincar-convolutional-networks)  
+   标签：评分：8.0/10、query:ml-theory
+   evidence：双曲空间中的群等变卷积，几何深度学习
+5. [Geometry-Aware R-Structured Kolmogorov-Arnold Networks](/202607/05/2607.01449v1-geometry-aware-r-structured-kolmogorov-arnold-networks)  
+   标签：评分：8.0/10、query:ml-theory
+   evidence：几何感知神经网络架构，融合几何约束
+6. [BaRA: Bayesian Adaptive Rank Allocation for Parameter-Efficient Fine-Tuning](/202607/05/2606.29184v1-bara-bayesian-adaptive-rank-allocation-for-parameter-efficient-fine-tuning)  
    标签：评分：7.0/10、query:npl-bdl-saig
-   evidence：序列检测边界的博弈理论基础
-3. [Escaping the Variance Trap: Jacobian-Free Dynamics for Root-Finding Bilevel Optimization](/202606/29/2606.22433v1-escaping-the-variance-trap-jacobian-free-dynamics-for-root-finding-bilevel-optimization)  
-   标签：评分：6.0/10、query:npl-bdl-saig
-   evidence：用于根查找双层优化的随机近似，与RL熵调整相关
-4. [Scalable Maximum Entropy Reinforcement Learning for Diffusion Policies via Adjoint Matching](/202606/29/2606.22630v1-scalable-maximum-entropy-reinforcement-learning-for-diffusion-policies-via-adjoint-matching)  
+   evidence：贝叶斯自适应秩分配参数高效微调
+7. [ECHO: Learning Epistemically Adaptive Language Agents with Turn-Level Credit](/202607/05/2606.29745v1-echo-learning-epistemically-adaptive-language-agents-with-turn-level-credit)  
+   标签：评分：7.0/10、query:rl-semantic
+   evidence：基于潜在任务变量的信念状态公式化
+8. [Consistency as Inductive Bias: Learning Cross-View Invariance for Robust Multimodal Reasoning](/202607/05/2606.29812v1-consistency-as-inductive-bias-learning-cross-view-invariance-for-robust-multimodal-reasoning)  
+   标签：评分：7.0/10、query:rl-semantic
+   evidence：在RLVR训练中引入跨视角一致性作为归纳偏置，学习不变表示
+9. [Convergence of Continual Learning in Homogeneous Deep Networks](/202607/05/2606.30559v1-convergence-of-continual-learning-in-homogeneous-deep-networks)  
+   标签：评分：7.0/10、query:ml-theory
+   evidence：利用非凸投影理论分析收敛性
+10. [CORE Planner: Contextual-memory Oriented Reinforcement-learning in Unknown Environments for Robot Navigation](/202607/05/2606.29222v1-core-planner-contextual-memory-oriented-reinforcement-learning-in-unknown-environments-for-robot-navigation)  
    标签：评分：6.0/10、query:rl-semantic
-   evidence：使用扩散策略的强化学习算法
-5. [Learning Process Rewards via Success Visitation Matching for Efficient RL](/202606/29/2606.23640v1-learning-process-rewards-via-success-visitation-matching-for-efficient-rl)  
+   evidence：面向上下文记忆的强化学习机器人导航
+11. [Why Struggle with Continuous Latents? Interpretable Discrete Latent Reasoning via Rendered Compression](/202607/05/2606.29712v1-why-struggle-with-continuous-latents-interpretable-discrete-latent-reasoning-via-rendered-compression)  
    标签：评分：6.0/10、query:rl-semantic
-   evidence：强化学习中的状态-动作访问匹配
-6. [MAPL: Multi-Objective Preference Learning for Robot Locomotion](/202606/29/2606.25398v1-mapl-multi-objective-preference-learning-for-robot-locomotion)  
+   evidence：提出离散潜在推理以解决连续潜在空间中的对齐问题，与强化学习中的潜在表示相关
+12. [KbSD: Knowledge Boundary aware Self-Distillation for Behavioral Calibration in Agentic Search](/202607/05/2606.29863v1-kbsd-knowledge-boundary-aware-self-distillation-for-behavioral-calibration-in-agentic-search)  
    标签：评分：6.0/10、query:rl-semantic
-   evidence：使用大语言模型按语义准则比较机器人运动轨迹以学习奖励
-7. [Learning Topology-Aware Representations via Test-Time Adaptation for Anomaly Segmentation](/202606/29/2606.28268v1-learning-topology-aware-representations-via-test-time-adaptation-for-anomaly-segmentation)  
-   标签：评分：6.0/10、query:ml-theory
-   evidence：拓扑数据分析用于深度学习表示
+   evidence：通过自蒸馏进行知识边界校准的强化学习方法
+13. [Domain Adaptation with Adaptive Imagination for Visual Reinforcement Learning under Limited Target Data](/202607/05/2606.30192v1-domain-adaptation-with-adaptive-imagination-for-visual-reinforcement-learning-under-limited-target-data)  
+   标签：评分：6.0/10、query:rl-semantic
+   evidence：用于视觉强化学习的自适应想象域适应
 
 
 <div class="dpr-home-promo-card">

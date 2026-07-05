@@ -1,0 +1,417 @@
+Title: Group-Equivariant Poincaré Convolutional Networks
+
+URL Source: https://arxiv.org/pdf/2607.00556v1
+
+Published Time: Thu, 02 Jul 2026 00:39:17 GMT
+
+Number of Pages: 19
+
+Markdown Content:
+# Group-Equivariant Poincaré Convolutional Networks 
+
+Aiden Durrant 1, Rahul Baburajan 2, and Georgios Leontidis 2 
+
+> 1
+
+School of Computing Sciences, University of East Anglia, NR4 7TJ, Norwich, UK 
+
+aiden.durrant@uea.ac.uk  
+
+> 2
+
+Department of Physics and Technology, UiT The Arctic University of Norway, NO-9037, Tromsø, Norway 
+
+rahul.baburajan@uit.no , georgios.leontidis@uit.no 
+
+Abstract. While recent advancements like the Poincaré ResNet have demonstrated the potential of learning visual representations directly in hyperbolic space, their optimisation remains hampered by the computa-tionally intensive nature of Riemannian gradients and the strict bound-aries of the manifold. Furthermore, standard hyperbolic networks treat spatial transformations of the same object as distinct hierarchical con-cepts, leading to redundant parameter usage and vanishing signals. We propose Equivariant Poincaré ResNets, combining hyperbolic geometry with discrete symmetry groups ( C4 and D4). We identify critical road-blocks in applying Euclidean equivariance to hyperbolic space and pro-pose geometrically safe tensor reshaping, left-regular permutations for hyperbolic group convolutions, and joint-orientation Poincaré Midpoint Batch normalisation. Empirically, embedding equivariance drastically re-duces the optimisation space, accelerating convergence while accelerating convergence while respecting the boundary constraints of the Poincaré ball and preserving spatial-group equivariance. 
+
+Keywords: Hyperbolic Learning · Equivariant Neural Networks 
+
+## 1 Introduction 
+
+Deep learning in hyperbolic space has demonstrated profound capabilities for em-bedding hierarchical visual data with minimal distortion [1, 20, 26]. The recent introduction of Poincaré residual networks has pushed this boundary further, enabling the learning of visual representations entirely within the Poincaré ball from the pixel level [42]. However, optimising deep convolutional networks on Riemannian manifolds introduces significant challenges. The parameter space is tightly constrained, and traversing the curvature requires computationally ex-pensive operations, such as exponential mappings and Fréchet mean estimations. A critical inefficiency in current hyperbolic visual networks is their inability to inherently recognise spatial symmetries. An object rotated by 90 degrees is treated by the network as an entirely new hierarchical concept, forcing the op-timiser to require expensive Riemannian gradient steps to learn redundant rep-resentations. In Euclidean space, one approach to solve this is through group-equivariant convolutional networks [9]. Such networks have been shown to be  
+
+> arXiv:2607.00556v1 [cs.LG] 1 Jul 2026 2A. Durrant et al.
+
+highly data-efficient [3], and thus we propose that the Hyperbolic networks com-putational overhead can be somewhat mitigated through use of symmetric priors. In this paper, we investigate how to embed C4(rotations) and D4 (rotations and reflections) spatial-group equivariance over Poincaré-valued feature fields di-rectly into the Poincaré ResNet architecture. Translating equivariance to hyper-bolic space is highly non-trivial due to the non-Euclidean nature of feature con-catenation and channel manipulation. We propose three primary contributions to enable the Equivariant Poincaré ResNets: (i) We introduce a geometrically safe β-scaling formulation for flattening and unflattening Poincaré tensors, allow-ing orientation channels to be decoupled without violating the expected norms of the manifold. (ii) We formulate hyperbolic lifting and group convolutions by projecting base tangent-space filters through discrete symmetry transformations and left-regular permutations. (iii) We extend Poincaré Midpoint Batch normal-isation to act jointly over group orientations, preventing the normalisation step from destroying the learned equivariance. 
+
+## 2 Background and Related Work 
+
+Hyperbolic Computer Vision. Hyperbolic spaces, characterised by constant negative curvature, possess an intrinsic capacity to embed complex, tree-like structures with arbitrarily low distortion [20, 29]. As such, representing hierar-chical relations in continuous spaces is naturally well fit for hyperbolic spaces. Hyperbolic representation learning has achieved significant success in modelling continuous hierarchies across natural language processing [13, 22, 39], graph net-works [6, 27], and recommender systems [43, 48]. The computer vision community has begun leveraging hyperbolic geometry more readily, establishing that both image data and labels contain latent hierar-chical structures. The introduction of hyperbolic image embeddings has thus im-proved uncertainty quantification and few-shot learning [20]. Subsequent works have successfully scaled hyperbolic methods to metric learning, zero-shot recogni-tion, video action recognition [24], and part-whole image segmentation [1,26,44]. However, a critical limitation persists: the vast majority of these methods restrict hyperbolic operations to the final embedding or classifier space. The visual rep-resentations themselves are still learned through standard Euclidean networks, discarding geometric benefits during early feature extraction [42]. While the re-cent introduction of the Poincaré ResNet [42] has paved the way for end-to-end hyperbolic visual learning directly from the pixel level, optimizing these deep networks remains challenging. They rely on computationally expensive opera-tions, such as Fréchet mean approximations [25], and they currently lack the structural inductive biases required to recognise spatial symmetries efficiently. Relevant hyperbolic prerequisites are given in Appendix A.1. 
+
+Equivariant Deep Learning. Equivariant machine learning fundamentally ex-ploits structural symmetries in data to constrain models with known priors. This geometric inductive bias consistently leads to improved generalisation [10, 30], Group-Equivariant Poincaré Convolutional Networks 3
+
+interpretability [4], and computational efficiency [3]. From a theoretical stand-point, enforcing these symmetries often involves parameter-sharing mechanisms. Works such as [32] have explored designing model parameters to reflect equiv-ariance over discrete group actions, while recent regularisation schemes directly encourage weight-sharing to induce symmetries in low-data regimes [35]. Beyond convolutions, this ground-up approach has been extended to Equivariant MLPs (EMLPs) by decomposing arbitrary discrete and Lie matrix groups into finite sets of generators [12]. Because designing ground-up equivariant architectures can be laborious and computationally expensive, alternative pipelines have sought to render group-agnostic universal approximators equivariant through techniques like frame-averaging [31], probabilistic symmetrisation [18], or learnable canonicalisation [15]. Additionally, real-world data often exhibits imperfect symmetries, prompt-ing research into symmetry breaking and relaxed equivariance. This includes modifying EMLP constraints to handle broken symmetries [16] or introducing relaxed group convolutions that blend spatial invariance with a linear combina-tion of basis filter banks [11, 45]. Despite these broad architectural advancements, in the visual domain, stan-dard Euclidean convolutional neural networks still predominantly rely on innate spatial translation equivariance. They lack robustness to other foundational ge-ometric symmetries, forcing networks to expend parameters learning redundant filters for objects appearing in different orientations. Group Equivariant Convo-lutional Networks (G-CNNs) [9, 19, 46] resolve this by formally extending equiv-ariance to discrete symmetry groups, such as the cyclic group C4 (discrete rota-tions) and the dihedral group D4 (rotations and reflections). By systematically transforming filters and routing feature maps through left-regular permutations, G-CNNs guarantee that a spatial geometric transformation of the input precisely correlates with a predictable shift in the feature space. However, embedding strict group equivariance into hyperbolic neural net-works remains a complex, unresolved challenge. As highlighted by [14], symmet-ric representations in hyperbolic space suffer from severe geometric distortions, making strict equivariance preservation critical. Unfortunately, existing architec-tures often inadvertently break these symmetries through unconstrained tangent space projections [14]. Furthermore, translating Euclidean group convolutions di-rectly to the Poincaré ball is impeded by the manifold’s rigid boundaries. Stan-dard Euclidean mechanisms for generating equivariant feature maps—such as unconstrained tensor concatenation, decoupling, and reshaping—artificially in-flate gyrovector magnitudes, inevitably pushing the resultant features outside the valid manifold. While recent theoretical frameworks have introduced structure-preserving operations like β-concatenation to stabilise basic hyperbolic feature aggregation [36], these mechanisms have not yet been adapted to handle the dis-crete algebraic routing required for symmetry preservation. Consequently, estab-lishing true equivariance in this domain requires a fundamental reconstruction of lifting layers, group convolutions, and batch normalisation to simultaneously satisfy both discrete group symmetries and non-Euclidean geometric constraints. 4 A. Durrant et al. 
+
+## 3 Group-Equivariant Poincaré Convolutions 
+
+A fundamental challenge in non-Euclidean image classification is achieving high sample efficiency without explicit structural priors for spatial symmetries. With-out these, hyperbolic networks redundantly learn semantic concepts across mul-tiple orientations, compounding their already high computational overhead [42]. We formalise strict group equivariance within hyperbolic neural networks as a foundational proof of concept, focusing on the cyclic ( C4) and dihedral ( D4)groups. These represent the natural symmetries of the square pixel grid, enabling perfect geometric transformations without interpolation artifacts [9]. In standard Euclidean residual networks, a weight layer is fundamentally composed of a spatial convolution followed by batch normalisation. To formu-late an Equivariant Poincaré block, we cannot apply these operations natively. Instead, we must reconstruct lifting convolutions, group convolutions, and batch normalisation techniques to simultaneously respect the algebraic structure of the symmetry group G and the geometric constraints of the Poincaré manifold Bnc .
+
+3.1 Geometrically Safe Tensor Unflattening ( β-Scaling) 
+
+In Euclidean equivariant networks, the generation of group-structured feature maps relies heavily on the unconstrained concatenation, reshaping, and decou-pling of tensors (e.g., transforming a flattened vector of size |G|× C back into |G|
+
+orientations of size C). However, applying these standard Euclidean reshaping operations directly to Poincaré vectors is geometrically invalid, as naive concate-nation artificially inflates the vector magnitude, inevitably pushing the resultant vector beyond the valid boundary of the manifold. To address this limitation, [36] introduced β-concatenation, a mechanism that dynamically shrinks vectors based on a Beta function ratio during the concate-nation phase, preserving the mathematical expectation of the Poincaré norm. To establish equivariance, it is necessary that we explicitly invert this scaling pro-cess. While a true isometric unflattening operation does not exist for hyperbolic concatenation, we propose a numerically stable inverse β-split. This allows us to separate spatial and group channels while preserving the expectation of the features semantic magnitudes. We define a geometrically safe unflattening operation for a concatenated Poincaré output vector yflat by first mapping the concatenated output back to the locally flat tangent space at the origin via the logarithmic map: 
+
+t = log c
+
+> 0
+
+(yflat )
+
+Once projected into the Euclidean tangent space, the geometric bounds are temporarily lifted, allowing us to safely decouple the dimensions from (B, |G| × 
+
+C, H, W ) to (B, |G|, C, H, W ).Because the initial forward operation natively applied β-scaling to merge the channels, the true lengths of these vectors remain artificially distorted. There-fore, we must restore the magnitude of the decoupled tangent vectors, tdecoupled ,Group-Equivariant Poincaré Convolutional Networks 5
+
+to accurately reflect their original semantic norm before spatial aggregation. Where βn is computed via the log-gamma function [36] to prevent floating-point underflow: 
+
+βn = B
+
+ n
+
+2 , 12
+
+
+
+= exp 
+
+
+
+log Γ
+
+ n
+
+2
+
+
+
++ log Γ (0 .5) − log Γ
+
+ n
+
+2 + 0 .5
+
+ 
+
+For a channel dimension C and a group size |G|, the structurally restored tangent tensor tgroup is computed as: 
+
+tgroup = tdecoupled · βC
+
+β|G|× C
+
+Finally, we transpose this tensor into the target layout (B, C, |G|, H, W ).The structured vectors are then projected back onto the Poincaré ball using the exponential map. 
+
+ygroup = exp c
+
+> 0
+
+(tgroup )
+
+This sequence ensures the discrete group orientations are explicitly separated. While not a strict geometric isometry, this stable inverse β-split bounds the magnitude restoration to preserve the mathematical expectation of the norms, preventing manifold boundary violations during deep forward passes. 
+
+3.2 Poincaré Lifting Convolutions 
+
+The initial layer of an equivariant network must perform a base-to-group map-ping, commonly formalised as a lifting convolution in Geometric Deep Learning, to project the input data from the standard spatial domain Z2 into the group-structured domain G. Applying rotations directly to Poincaré gyro-vectors re-quires complex and computationally expensive Möbius transformations, we con-struct our symmetric filter banks entirely within the tangent space. Formally, the input to our network can be viewed as a feature field f : Z2 →
+
+Bdc . Equivariance in this context is defined strictly as spatial-group equivari-ance: the group action g ∈ G transforms the spatial domain and dictates the left-regular permutation of the orientation channels, while the feature vectors themselves remain mathematically anchored as Poincaré-valued representations. We define a C4 or D4 Poincaré lifting convolution that maps an input feature map x ∈ BCin  
+
+> c
+
+to an expanded output space y ∈ B|G|× Cout  
+
+> c
+
+. We begin by initialis-ing a base spatial filter in the tangent space, w ∈ T0Bnc . To construct the required equivariant filter bank, we systematically apply the designated group transfor-mations directly to w in-line with [9]. For the D4 group ( |G| = 8 ), we generate the eight transformations representing all distinct rotations and horizontal flips: 
+
+wk = rot90 (w, k ) for k ∈ { 0, 1, 2, 3}
+
+wk+4 = rot90 (flip (w), k ) for k ∈ { 0, 1, 2, 3}6 A. Durrant et al. 
+
+These transformed tangent filters are subsequently stacked along the newly created group dimension resulting in a flat weight matrix wflat . Crucially, the parameter-sharing condition is strict, that the learnable weights exist solely as the single base filter w ∈ T0Bdc . The filter banks for all |G| orientations are gen-erated via deterministic spatial actions, guaranteeing that the parameter count remains entirely independent of the group size |G|. To perform the spatial con-volution natively on the manifold, we follow the aproach of [42] where we extract local spatial patches from the input feature map via a hyperbolic unfold opera-tion. The flat weight matrix then serves as the parameter Z within a standard Poincaré fully connected layer Fc, which is applied to the unfolded patches Xkl :
+
+hkl = Fc(β∥Xkl ; wflat , r )
+
+The resulting output is then processed through our geometrically safe unflat-tening (Section 3.1) to ultimately yield the lifted, group-equivariant representa-tion. 
+
+3.3 Poincaré Group Convolutions 
+
+Once the features have been successfully lifted into the group G, all subsequent convolutional layers must map from G → G. A standard hyperbolic convolution is insufficient for this task, as it would blindly aggregate spatial features while ignoring the cyclical and reflective relationships intrinsic to the group channels. For true equivariance, if an input image rotates, the feature map must correctly route its activations into the corresponding shifted orientation channel. How-ever, dynamically routing hyperbolic activations on the fly is computationally prohibitive. Instead, we encode this routing directly into the expanded tangent-space filters. For an input feature map x characterised by both spatial dimensions and 
+
+|G| orientation channels, we define the Poincaré Group Convolution. Because the input itself now has an explicit orientation axis, applying a transformation from the group G to the filter requires that we not only rotate or flip the spatial dimensions but also permute the orientation channels in strict accordance with the left-regular representation of the group. 
+
+Left-Regular Permutation. To encode this routing, we define a Cayley index matrix IG that dictates the required permutation mapping for each transforma-tion. For instance, rotating a C4 feature map by 90 ◦ cyclically shifts its orien-tation channels by one. Therefore, we pre-permute the orientation axis of the tangent-space weights in accordance with the inverse left-regular representation. 
+
+Aligned Application. For each transformation i ∈ { 1 . . . |G|} , the base filter 
+
+wspatial is geometrically transformed, and its internal orientation axis permuted: 
+
+w(i) 
+
+> aligned
+
+= w(i) 
+
+> transform
+
+[: , :, IG[i], :, :] Group-Equivariant Poincaré Convolutional Networks 7
+
+Safe Flattening. Crucially, prior to computing the hyperbolic inner product, the input tensor x must be safely flattened. We therefore merge the channel dimension and the group dimension |G| utilising the native β-concatenation al-gorithm. This flattening step is essential to prevent numerical instability and the propagation of NaN values during the forward pass. The unfolded flattened in-put is then multiplied by the stacked waligned matrices within the tangent space. As the aligned filters were stacked, maintaining a [Cout , |G|] layout, the result-ing flat features are reshaped into the correct orientation channels during the subsequent magnitude restoration phase. By associating the weights across all symmetries and utilising the left-regular permutation, a single Riemannian gradient update applied to the base filter w
+
+which simultaneously updates the representation for all four or eight orientations. 
+
+3.4 Joint-Orientation Midpoint Batch normalisation 
+
+Residual networks rely extensively on batch normalisation to stabilise deep fea-ture representations. While [25] proposed Fréchet mean normalisation for hyper-bolic spaces, Poincaré Midpoint normalisation offers a computationally efficient alternative [40, 42]. However, applying either of these normalisation techniques independently to the distinct group channels of an equivariant network intro-duces a catastrophic failure mode. If the 0◦ orientation detects a strong feature magnitude while the 90 ◦ orientation detects nothing, independent normalisation will centre and scale both to possess identical means and variances ( μ and σ2). This removes the relative magnitude between the channels, effectively stripping the network of its explicit knowledge of the object’s true orientation. To maintain strict equivariance the normalisation statistics must be com-puted jointly over the entire group dimension. We define the Joint-Orientation Poincaré Batch normalisation by first reshaping the input tensor x ∈ Bnc from its structural shape of (B, C, |G|, H, W ) to a merged spatial layout of (B, C, |G| × 
+
+H, W ).Because merging the discrete rotations into the spatial dimension rearranges the vectors without altering their underlying norms or manifold positions, we can safely compute a unified Poincaré midpoint over this expanded volume: 
+
+μjoint = 12 ⊗c
+
+P|G|× Hi=1 λcxi xi
+
+P|G|× Hi=1 (λcxi − 1) 
+
+After computing this shared midpoint μjoint and its corresponding variance 
+
+σ2
+
+> joint
+
+, the vectors are transported and scaled uniformly. Following normalisation, the tensor is reshaped back to its explicit group structure. By calculating the variance and Poincaré midpoint over the joint spatial and group dimensions, we enforce an explicit statistical condition: all orientation channels are shifted and scaled by the exact same manifold scalar. This condition guarantees that the relative magnitude differences between distinct C4 and D4 orientations are preserved, maintaining strict equivariance. 8 A. Durrant et al. 
+
+## 4 Experiments 
+
+All implementations of Hyperbolic layers, optimisation, and functions are han-dled by the Hypll library [38], which we extend using the same convention for our proposed layers. We evaluate our architectures primarily on the CIFAR-10 dataset [21]. We utilise a Poincaré ResNet-20 backbone. To maintain manage-able computation graphs and memory constraints inherent to Riemannian op-timisation, we employ narrow channel widths of (8, 16, 32). Following [37] all convolutional layers are initialised using an identity-based mapping to prevent vanishing signals over deep layers. All Poincaré models are trained using the Riemannian Adam optimiser, while Euclidean models use standard Adam with a fixed learning rate of 10 −3 and a weight decay of 10 −4. Unless otherwise speci-fied as a learnable parameter, the negative curvature of the Poincaré ball is fixed at c=0.1, which has been empirically shown to offer a stable Euclidean volume for floating-point representations during optimisation. Crucially, standard visual representation learning typically relies on exten-sive data augmentation pipelines to force networks to learn approximate spatial invariance. Because our Equivariant Poincaré ResNet enforces strict structural equivariance by design, it inherently recognises spatial transformations without this reliance. To isolate and evaluate this architectural inductive bias, we inten-tionally omit all spatial data augmentations from our training pipeline. While this strict setup accounts for the absolute performance discrepancy compared to baseline literature utilising standard augmentations [42], it ensures our evalua-tion provides a honest assessment of the network’s intrinsic geometric capabilities and sample efficiency. 
+
+4.1 Classification Performance                         
+
+> Table 1: Top-1 accuracy (%) on CIFAR-10 for ResNet-20. Results are compared across Euclidean and Poincaré manifolds with C4-and
+> D4-equivariant layers.
+> Manifold Group Top-1 %
+> Euclidean Standard 78.26
+> C486.08
+> D488.69 Poincaré Standard 76.87
+> C486.23
+> D488.77
+
+Introducing group equivariance directly into the Poincaré manifold yields a sub-stantial improvement in both convergence efficiency and absolute classification per-formance. As detailed in Table 1, we benchmarked standard, C4-equivariant, and D4-equivariant layers across both Eu-clidean and Poincaré manifolds. The stan-dard Poincaré ResNet-20 achieves a top-1 accuracy of 76.87%. By applying the 
+
+D4-equivariant lifting and group convo-lutions, the Poincaré ResNet-20 reaches 88.77% accuracy, a 11.9% absolute im-provement over the standard hyperbolic baseline, and outperforming the stan-dard Euclidean ResNet-20 (78.26%). By tying the tangent-space weights across all eight symmetries of the dihedral group, the optimisation space is drastically reduced. A single gradient update to the base filter updates the representation for all spatial orientations. Group-Equivariant Poincaré Convolutional Networks 91% 5% 10% 25% 50% 100% 
+
+> Training data
+> 30
+> 40
+> 50
+> 60
+> 70
+> 80
+> 90
+> Accuracy (%)
+> Poincaré C4
+> Poincaré D4
+> Poincaré
+
+Fig. 1: Data-Efficiency Curve. Top-1 test accuracy evaluated across discrete fractions of the training dataset. 0 20 40 60 80 100 
+
+> Epoch
+> 30
+> 40
+> 50
+> 60
+> 70
+> 80
+> 90
+> Accuracy (%)
+> Poincaré C4
+> Poincaré D4
+> Poincaré
+
+Fig. 2: Convergence Trajectories. 
+
+Top-1 test accuracies evaluated during training for standard and equivariant Poincaré models. 
+
+4.2 Sample Efficiency and Convergence 
+
+Embedding strict group equivariance significantly reduces the optimisation space, where without structural geometric priors, standard hyperbolic networks redun-dantly learn identical concepts across varying orientations. This redundancy re-quires larger datasets and training iterations generalise. To empirically validate that our architecture addresses these bottlenecks, we evaluate sample and con-vergence efficiency in a data-constrained setting. We partition CIFAR-10 into class-balanced subsets representing 1%, 5%, 10%, 25%, 50%, and 100% of the total data. To isolate the architectural inductive bias, we disable all spatial augmentations (e.g., cropping, rotations). Standard Euclidean, standard Poincaré, and D4-Equivariant Poincaré ResNet-20 models are then trained from scratch for 100 epochs per subset. Figure 1 illustrates the comparative data-efficiency curve. In extreme low-data regimes (1% and 5%), standard Poincaré architectures degrade severely (achieving only 26.92% and 33.79% accuracy). Because they treat spatial trans-formations as entirely distinct features, they rapidly overfit to the limited orien-tations in the dataset. Conversely, the D4-Equivariant Poincaré ResNet demon-strates vastly superior generalisation, maintaining 63.77% accuracy on just 10% of the data. Furthermore, this structural prior yields marked improvements in conver-gence efficiency (Figure 2). The proposed equivariant models converge to peak accuracy in fewer epochs than standard Poincaré networks, helping mitigate some of the significant computational overhead. These results confirm that hy-perbolic geometry with discrete symmetry groups preserves the hierarchical em-bedding benefits of the Poincaré ball while reducing both the sample complexity and the epochs required. 10 A. Durrant et al. 
+
+4.3 Out-of-Distribution Detection 
+
+Table 2: Out-of-distribution detection on CIFAR-10 against Places365, SVHN, and Tex-tures (DTD). Results are reported for ResNet-20 architectures using the energy score.                                              
+
+> Method FPR95 ↓AUROC ↑AUPR ↑
+> Places-365
+> Euclidean 74.00 78.32 94.27 Poincaré 75.60 80.70 95.14 Poincaré C475.32 81.09 95.28 Poincaré D475.15 81.52 95.48
+> SVHN
+> Euclidean 98.45 66.42 92.32 Poincaré 74.55 80.72 94.02 Poincaré C473.04 82.91 96.03 Poincaré D472.95 83.17 96.17
+> Textures
+> Euclidean 92.87 66.91 92.12 Poincaré 80.27 73.93 93.31 Poincaré C474.06 80.33 95.49 Poincaré D474.15 80.94 95.59
+
+To evaluate model robustness, we benchmarked our architec-tures ability to detect out-of-distribution (OOD) samples fol-lowing the setup described in [42]. Models trained on CIFAR-10 (in-distribution) were evaluated against three highly distinct OOD datasets: Places-365 [49], SVHN [28], and Textures (DTD) [8]. Fol-lowing standard evaluation proto-cols, we utilised the energy score [23] to distinguish between distri-butions, reporting the False Pos-itive Rate at 95% True Positive Rate (FPR95), Area Under the Receiver Operating Characteris-tic curve (AUROC), and Area Under the Precision-Recall curve (AUPR). As detailed in Table 2, standard hyperbolic networks inherently demonstrate strong OOD robustness compared to their Euclidean counterparts, a direct ben-efit of the boundary-aware, hierarchical structuring of the Poincaré ball. Cru-cially, the introduction of C4 and D4 equivariant layers maintains these strong OOD properties while simultaneously improving absolute representational per-formance. For instance, on the SVHN dataset, the D4-Equivariant Poincaré ResNet achieves an AUROC of 83.17 compared to the standard Poincaré model of 80.72, confirming that enforcing strict geometric symmetries does not com-promise the manifold’s natural capacity for outlier rejection. 
+
+4.4 Equivariant Analysis 
+
+To strictly verify that our proposed hyperbolic group convolutions preserve spa-tial symmetries without geometric degradation, we empirically measure the rel-ative equivariance error across our network layers. Importantly, we empirically measure the relative equivariance error at initialisation to ensure we are not learning the behaviour implicitly. While our architecture is theoretically equiv-ariant by design, the projection of vectors between the Euclidean tangent space 
+
+T0Bnc and the Poincaré manifold Bnc , combined with discrete tensor decoupling and floating-point approximations, necessitates empirical validation. We decouple this validation from the training process by evaluating the equiv-ariance error at initialisation. By passing randomly sampled hyperbolic tensors through untrained layers, we isolate the structural guarantees of the architecture from any learned, approximate symmetries. Group-Equivariant Poincaré Convolutional Networks 11    
+
+> (a) Standard convolution feature maps on the Poincaré manifold. The activations change un-predictably as the input rotates.
+> (b) C4lifting convolution feature maps. The activations rotate spatially and shift cyclically across the four channels.
+
+Fig. 3: Visualizing C4 equivariance. Standard convolutions (a) fail to preserve the geometric relationship of the rotated inputs, whereas C4-equivariant lifting layers (b) predictably rotate and permute the feature maps. Note, visualisations are projected onto the Euclidean plane. Features near the boundary appear distorted due to the Poincaré metric, yet the equivariant channel routing remains invariant to the distortion. 
+
+The Relative Equivariance Error Metric. For a given layer Φ, an input tensor x ∈ Bnc , and a spatial transformation g ∈ G, true equivariance dictates that transforming the input prior to the forward pass must yield the exact same result as applying the corresponding output transformation to the resultant fea-ture map. Because the standard Euclidean L2 distance is not a valid metric for com-paring points directly on the coordinates of the Poincaré disk, we project the layer outputs back to the origin’s tangent space via the logarithmic map log c
+
+> 0
+
+(·).We define the tangent-space Relative Equivariance Error ( ∆eq ) as: 
+
+∆eq = ∥ log c
+
+> 0
+
+(Φ(ρin (g)x)) − log c
+
+> 0
+
+(ρout (g)Φ(x)) ∥2
+
+∥ log c
+
+> 0
+
+(ρout (g)Φ(x)) ∥2
+
+where ∥ · ∥ 2 denotes the Frobenius norm, ρin represents the representation of the group action on the input space, and ρout represents the representation of the group action on the output feature space. 
+
+Input and Output Group Representations. The definition of the transfor-mation representations ρ depends strictly on the domain of the tensor. For the initial Lifting Convolution, the input lacks a group dimension. Thus, ρin (g) acts solely as a geometric spatial transformation (e.g., rotating the H and W dimen-sions by 90 ◦). For Group Convolutions where the input maps from G → G, the features possess both spatial dimensions and a discrete orientation axis. There-fore, ρout (g) must simultaneously apply the spatial geometric transformation and 12 A. Durrant et al. 
+
+permute the orientation channels according to the inverse left-regular represen-tation. For the cyclic group C4, this channel permutation is a simple cyclic shift. For the dihedral group D4, the permutation routes features across reflections and rotations utilizing a hardcoded Cayley index table mapping g−1h.We therefore evaluate ∆eq across both Euclidean ( En) and Poincaré ( Bnc )manifolds for 90 ◦ rotations ( C4, D 4) and horizontal reflections ( D4). 
+
+Table 3: Equivariance error (∆eq ) for various layer types across Euclidean and Poincaré manifolds.                                          
+
+> Manifold Type Group Transform ∆eq Error Euclidean Conv None Rot 90 9.262756e-01 Euclidean Lifting C4 Rot 90 1.280077e-07 Euclidean Group C4 Rot 90 2.967515e-07 Euclidean Lifting D4 rot90 1.277800e-07 Euclidean Lifting D4 fliph 1.162482e-07 Euclidean Group D4 rot90 3.782480e-07 Euclidean Group D4 fliph 4.742184e-07 Poincaré Conv None Rot 90 1.350711e+00 Poincaré Lifting C4 Rot 90 1.990071e-07 Poincaré Group C4 Rot 90 3.584960e-07 Poincaré Lifting D4 rot90 2.029714e-07 Poincaré Lifting D4 fliph 1.808202e-07 Poincaré Group D4 rot90 4.275676e-07 Poincaré Group D4 fliph 5.346042e-07
+
+Table 3 shows standard hyper-bolic convolutions fail the equivari-ance test entirely (∆eq ≈ 1.0), demonstrating an inability to struc-turally track rotational or reflective symmetries. Across all tested groups and manifolds, our proposed Lifting and Group convolutions yield a rel-ative error bounded strictly by 32-bit machine precision ( ∆eq ≈ 10 −7). These results mathematically con-firm that our left-regular permuta-tion logic and geometrically safe β-unscaling successfully preserve abso-lute non-commutative group symme-tries, independent of the underlying manifold’s curvature. 
+
+4.5 Ablations 
+
+To isolate the structural contributions of our architecture, we performed a com-binatorial ablation study on the Poincaré D4 ResNet-20, systematically dis-abling our three core components. Notably, unlike standard architectural ab-lations where removing a component merely degrades performance, ablating our proposed mechanisms often results in catastrophic geometric collapse (NaNs) or a complete loss of equivariance (10.0% random guessing), proving their mathe-matical necessity. The most critical dependency lies in the Joint-Orientation Batch Normalisa-tion . While residual networks rely heavily on normalisation for deep convergence, standard techniques compute statistics independently per channel. Ablating our joint-orientation midpoint computation in favour of independent channel nor-malisation leads to catastrophic training failure (yielding NaN values or 10.00% random guessing). Independent scaling aggressively centres and normalises each orientation on its own, which entirely erases the relative magnitudes between the D4 channels and strips the network of its explicit knowledge of object orien-tation. Similarly, the Left-Regular Permutation Routing is fundamental to the al-gebraic integrity of the group convolutions. When this routing is removed, the network blindly aggregates spatial features without respecting the cyclical re-lationships of the group channels. Consequently, the model cannot correctly Group-Equivariant Poincaré Convolutional Networks 13                    
+
+> Table 4: Combinatorial ablation study of the Poincaré D4lifting layer on CIFAR-10. A✓indicates the structural component is active, while a blank space indicates it was ablated. 10% refers to the case where training failed with NaN.
+> Model Components Top-1 (%)
+> β-Scaling Joint-Oriented BN Routing (Perm)
+> ✓✓✓88.77
+> ✓✓85.65
+> ✓✓10.00
+> ✓✓81.85
+> ✓10.00
+> ✓79.72
+> ✓10.00 10.00
+
+map shifted orientation channels as the input rotates, causing classification ac-curacy to degrade significantly to 81.85%. Finally, Geometrically Safe Magni-tude Restoration is essential for preserving the manifold’s boundaries. Standard Euclidean feature unflattening artificially inflates vector magnitudes; when our restoration step is ablated, the network attempts to map mathematically dis-torted tangent vectors back to the Poincaré ball. This introduces numerical in-stability and reduces performance to 85.65%. The necessity of these components is highlighted by their combined ablation where removing both the magnitude restoration and the left-regular routing compounds the geometric distortion, dropping accuracy even further to 79.72%. 
+
+Curvature. Finally, we investigated the effect of the manifold’s curvature con-straint. As shown in Figure 4, extremely tight curvatures (c=1.0) restrict the Euclidean volume of the Poincaré ball, making floating-point operations more unstable and resulting in suboptimal accuracy. However, our model remains generally robust to choice of curvature. Conversely, allowing the network to dynamically learn the curvature parameter per layer (Table 5) yields a top-1 ac-curacy of 88.77%, slightly outperforming a static curvature initialised at c=0.1 (86.07%). The learnable curvature allows the network to relax or tighten the geo-metric bounds dynamically in response to the hierarchical depth of the extracted equivariant features. 
+
+4.6 Limitations. 
+
+While Equivariant Poincaré ResNets offer significant structural advantages, they inherit the computational overhead and floating-point instability at the mani-fold boundaries common to deep hyperbolic networks. This necessitates narrow channel widths and rigorous numerical clipping, limiting immediate scalability to high-resolution datasets like ImageNet. Specific to our equivariant formula-tion, the architecture is strictly bounded to discrete symmetry groups ( C4 and 
+
+D4) and cannot natively generalize to continuous transformations (e.g., SO (2) )14 A. Durrant et al. 0 20 40 60 80 100 
+
+> epoch
+> 30
+> 40
+> 50
+> 60
+> 70
+> 80
+> Accuracy (%)
+> Curvature = 1.0
+> Curvature = 0.5
+> Curvature = 0.1
+> Curvature = 0.01
+> Curvature = 0.001
+
+Fig. 4: Effect of varying curvature mag-nitudes ( c ∈ { 0.001 , 0.01 , 0.1, 0.5, 1.0}) on CIFAR-10 performance within the Poincaré manifold. 
+
+Table 5: Comparison of learn-able vs. static curvature parameter initialisation on the Poincaré D4
+
+model. Curvature is initialised to 0.1. 
+
+Curvature Top-1 (%) 
+
+Learnable 88.77 Static 86.07 
+
+without inducing significant interpolation errors across the parameter space. Ad-ditionally, our empirical validation is currently restricted to CIFAR-10. While this allows for controlled, rigorous testing of the architectural inductive biases, it leaves open the question of how these methods scale to more complex and larger-scale datasets. Future work would validate these findings across a broader range of benchmarks and domains with naturally occurring hierarchical structure where hyperbolic embeddings are expected to provide the greatest benefit. 
+
+## 5 Conclusion 
+
+This work introduces Equivariant Poincaré Residual Networks, the first frame-work to embed strict discrete group equivariance ( C4 and D4) directly into hyper-bolic convolutional architectures. We developed a suite of structure-preserving operations: geometrically safe β-scaled tensor unflattening; left-regular permu-tation routing; and Joint-Orientation Poincaré Midpoint Batch Normalisation. These mechanisms collectively ensure that discrete spatial symmetries are ex-plicitly maintained without violating the geometric constraints of the Poincaré manifold. We mathematically validate this by an equivariance error bounded at machine precision ( ∆eq ≈ 10 −7). Empirical evaluations confirm that our approach drastically reduces the opti-misation space, leading to an 88.77% top-1 accuracy on CIFAR-10, which equates to a 12% improvement over standard hyperbolic baselines. Furthermore, the embedded geometric priors significantly accelerate convergence and yield vastly superior generalisation in data-constrained environments, maintaining 63.77% accuracy on just 10% of the training data. In Addition, we validate the preser-vation of robust out-of-distribution detection capabilities inherent to hyperbolic geometry. By successfully decoupling group orientations this work establishes a foundational step toward highly efficient, geometrically grounded hyperbolic visual models. Future research will explore extending these principles to continu-ous symmetry groups, such as SO (2) , investigating the application in Hyperbolic Graph Neural Networks, and scaling to high-resolution, large-scale datasets. Group-Equivariant Poincaré Convolutional Networks 15 
+
+## Acknowledgements 
+
+This work was funded, in part, by RCN (the Research Council of Norway) through Visual Intelligence, Centre for Research-based Innovation (grant no. 309439). The computations were performed, in part, on resources provided by Sigma2—the National Infrastructure for High-Performance Computing and Data Storage in Norway (Project NN8106K). In addition, part of the training and eval-uation was carried out on the High-Performance Computing Cluster supported by the Research and Specialist Computing Support service at the University of East Anglia and in part by the AMD University Program. 
+
+## References 
+
+1. Atigh, M.G., Schoep, J., Acar, E., Van Noord, N., Mettes, P.: Hyperbolic image segmentation. In: Proceedings of the IEEE/CVF conference on computer vision and pattern recognition. pp. 4453–4462 (2022) 2. Bardes, A., Ponce, J., LeCun, Y.: Vicreg: Variance-invariance-covariance regular-ization for self-supervised learning. arXiv preprint arXiv:2105.04906 (2021) 3. Bietti, A., Venturi, L., Bruna, J.: On the sample complexity of learning under geometric stability. Advances in neural information processing systems 34 , 18673– 18684 (2021) 4. Bogatskiy, A., Hoffman, T., Miller, D.W., Offermann, J.T., Liu, X.: Explainable equivariant neural networks for particle physics: Pelican. Journal of High Energy Physics 2024 (3), 1–66 (2024) 5. Cannon, J.W., Floyd, W.J., Kenyon, R., Parry, W.R., et al.: Hyperbolic geometry. Flavors of geometry 31 (59-115), 2 (1997) 6. Chami, I., Ying, Z., Ré, C., Leskovec, J.: Hyperbolic graph convolutional neural networks. Advances in neural information processing systems 32 (2019) 7. Chen, T., Kornblith, S., Norouzi, M., Hinton, G.: A simple framework for con-trastive learning of visual representations. In: International conference on machine learning. pp. 1597–1607. PMLR (2020) 8. Cimpoi, M., Maji, S., Kokkinos, I., Mohamed, S., Vedaldi, A.: Describing textures in the wild. In: Proceedings of the IEEE conference on computer vision and pattern recognition. pp. 3606–3613 (2014) 9. Cohen, T., Welling, M.: Group equivariant convolutional networks. In: Interna-tional conference on machine learning. pp. 2990–2999. PMLR (2016) 10. Elesedy, B., Zaidi, S.: Provably strict generalisation benefit for equivariant models. In: International conference on machine learning. pp. 2959–2969. PMLR (2021) 11. Elsayed, G., Ramachandran, P., Shlens, J., Kornblith, S.: Revisiting spatial invari-ance with low-rank local connectivity. In: International Conference on Machine Learning. pp. 2868–2879. PMLR (2020) 12. Finzi, M., Welling, M., Wilson, A.G.: A practical method for constructing equivari-ant multilayer perceptrons for arbitrary matrix groups. In: International conference on machine learning. pp. 3318–3328. PMLR (2021) 13. Ganea, O., Bécigneul, G., Hofmann, T.: Hyperbolic neural networks. Advances in neural information processing systems 31 (2018) 14. Huang, B., Yu, W., Xie, R., Luo, J., Xiao, J., Huang, J.: Lorentz equivariant model for knowledge-enhanced hyperbolic collaborative filtering. Knowledge-Based Systems 291 , 111590 (2024) 16 A. Durrant et al. 15. Kaba, S.O., Mondal, A.K., Zhang, Y., Bengio, Y., Ravanbakhsh, S.: Equivariance with learned canonicalization functions. In: International Conference on Machine Learning. pp. 15546–15566. PMLR (2023) 16. Kaba, S.O., Ravanbakhsh, S.: Symmetry breaking and equivariant neural networks. arXiv preprint arXiv:2312.09016 (2023) 17. Khrulkov, V., Mirvakhabova, L., Ustinova, E., Oseledets, I., Lempitsky, V.: Hyper-bolic image embeddings. In: Proceedings of the IEEE/CVF Conference on Com-puter Vision and Pattern Recognition. pp. 6418–6428 (2020) 18. Kim, J., Nguyen, D., Suleymanzade, A., An, H., Hong, S.: Learning probabilistic symmetrization for architecture agnostic equivariance. Advances in Neural Infor-mation Processing Systems 36 , 18582–18612 (2023) 19. Kondor, R., Trivedi, S.: On the generalization of equivariance and convolution in neural networks to the action of compact groups. In: International conference on machine learning. pp. 2747–2755. PMLR (2018) 20. Krioukov, D., Papadopoulos, F., Kitsak, M., Vahdat, A., Boguná, M.: Hyperbolic geometry of complex networks. Physical Review E—Statistical, Nonlinear, and Soft Matter Physics 82 (3), 036106 (2010) 21. Krizhevsky, A., Hinton, G., et al.: Learning multiple layers of features from tiny images. . (2009) 22. Le, M., Roller, S., Papaxanthos, L., Kiela, D., Nickel, M.: Inferring concept hier-archies from text corpora via hyperbolic embeddings. In: Proceedings of the 57th annual meeting of the association for computational linguistics. pp. 3231–3241 (2019) 23. Liu, W., Wang, X., Owens, J., Li, Y.: Energy-based out-of-distribution detection. Advances in neural information processing systems 33 , 21464–21475 (2020) 24. Long, T., Mettes, P., Shen, H.T., Snoek, C.G.: Searching for actions on the hyper-bole. In: Proceedings of the IEEE/CVF conference on computer vision and pattern recognition. pp. 1141–1150 (2020) 25. Lou, A., Katsman, I., Jiang, Q., Belongie, S., Lim, S.N., De Sa, C.: Differentiating through the fréchet mean. In: International conference on machine learning. pp. 6393–6403. PMLR (2020) 26. Mishra, S.S., van Spengler, M., Berkhout, E., Mettes, P.: Hyperbolic u-net for ro-bust medical image segmentation. In: Medical Imaging with Deep Learning (2026) 27. Naddeo, D., Linkerhägner, J., Toschi, N., Skenderi, G., Lachi, V.: Hyperbolic graph neural networks under the microscope: The role of geometry-task alignment. arXiv preprint arXiv:2602.01828 (2026) 28. Netzer, Y., Wang, T., Coates, A., Bissacco, A., Wu, B., Ng, A.Y., et al.: Reading digits in natural images with unsupervised feature learning. In: NIPS workshop on deep learning and unsupervised feature learning. vol. 2011, p. 4. Granada (2011) 29. Nickel, M., Kiela, D.: Poincaré embeddings for learning hierarchical representa-tions. Advances in neural information processing systems 30 (2017) 30. Petrache, M., Trivedi, S.: Approximation-generalization trade-offs under (approxi-mate) group equivariance. Advances in Neural Information Processing Systems 36 ,61936–61959 (2023) 31. Puny, O., Atzmon, M., Ben-Hamu, H., Misra, I., Grover, A., Smith, E.J., Lipman, Y.: Frame averaging for invariant and equivariant network design. arXiv preprint arXiv:2110.03336 (2021) 32. Ravanbakhsh, S., Schneider, J., Poczos, B.: Equivariance through parameter-sharing. In: International conference on machine learning. pp. 2892–2901. PMLR (2017) Group-Equivariant Poincaré Convolutional Networks 17 33. Richemond, P.H., Grill, J.B., Altché, F., Tallec, C., Strub, F., Brock, A., Smith, S., De, S., Pascanu, R., Piot, B., et al.: Byol works even without batch statistics. arXiv preprint arXiv:2010.10241 (2020) 34. Sarkar, R.: Low distortion delaunay embedding of trees in hyperbolic plane. In: International Symposium on Graph Drawing. pp. 355–366. Springer (2011) 35. Shakerinava, M., Sohrabi, M.M., Ravanbakhsh, S., Lacoste-Julien, S.: Weight-sharing regularization. In: International Conference on Artificial Intelligence and Statistics. pp. 4204–4212. PMLR (2024) 36. Shimizu, R., Mukuta, Y., Harada, T.: Hyperbolic neural networks++. arXiv preprint arXiv:2006.08210 (2020) 37. van Spengler, M., Berkhout, E., Mettes, P.: Poincar \’e resnet. arXiv preprint arXiv:2303.14027 (2023) 38. van Spengler, M., Wirth, P., Mettes, P.: Hypll: The hyperbolic learning library. In: Proceedings of the 31st ACM International Conference on Multimedia. pp. 9676–9679 (2023) 39. Tifrea, A., Bécigneul, G., Ganea, O.E.: Poincar \’e glove: Hyperbolic word embed-dings. arXiv preprint arXiv:1810.06546 (2018) 40. Ungar, A.: A gyrovector space approach to hyperbolic geometry. Springer Nature (2022) 41. Ungar, A.A.: A gyrovector space approach to hyperbolic geometry. Synthesis Lec-tures on Mathematics and Statistics 1(1), 1–194 (2008) 42. Van Spengler, M., Berkhout, E., Mettes, P.: Poincare resnet. In: Proceedings of the IEEE/CVF International Conference on Computer Vision. pp. 5419–5428 (2023) 43. Vinh, T.D.Q., Tay, Y., Zhang, S., Cong, G., Li, X.: Hyperbolic recommender sys-tems. CoRR abs/1809.01703 (2018), http://arxiv.org/abs/1809.01703 
+
+44. Vlasenko, M., Atigh, M.G., Mettes, P.: Hyperbolic part-whole image segmentation. In: The 29th International Conference on Artificial Intelligence and Statistics 45. Wang, R., Walters, R., Yu, R.: Approximately equivariant networks for imper-fectly symmetric dynamics. In: International Conference on Machine Learning. pp. 23078–23091. PMLR (2022) 46. Weiler, M., Hamprecht, F.A., Storath, M.: Learning steerable filters for rotation equivariant cnns. In: Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition. pp. 849–858 (2018) 47. Yan, J., Luo, L., Deng, C., Huang, H.: Unsupervised hyperbolic metric learning. In: Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition. pp. 12465–12474 (2021) 48. Zhang, Q., Wen, H., Yuan, W., Chen, C., Yang, M., Yiu, S.M., Yin, H.: Hmamba: Hyperbolic mamba for sequential recommendation. ACM Transactions on Infor-mation Systems 44 (5), 1–27 (2026) 49. Zhou, B., Lapedriza, A., Khosla, A., Oliva, A., Torralba, A.: Places: A 10 million image database for scene recognition. IEEE transactions on pattern analysis and machine intelligence 40 (6), 1452–1464 (2017) 18 A. Durrant et al. 
+
+## A Prerequisites 
+
+A.1 Hyperbolic Learning: The Poincaré Ball Model 
+
+Hyperbolic space Bn is the unique simply connected n-dimensional Rieman-nian manifold of constant negative curvature, where curvatures measure the deviation from flat Euclidean geometry. The constant negative curvature of the hyperbolic space, although analogous to the Euclidean sphere, presents some significant differences in geometric properties. As such hyperbolic space can-not be isometrically embedded into Euclidean space, yet there exist a number of conformal models of hyperbolic geometry [5] employing hyperbolic metrics providing a subset of Euclidean space. In this work, we employ the Poincaré ball model for hyperbolic geometry given its wide adoption in computer vision and unique properties ideal for embedding between Euclidean and hyperbolic representations. The Poincaré ball model (Bnc , g Bc ) is defined by the manifold 
+
+Bnc = {x ∈ Rn : c∥x∥2 < 1} with the Riemannian metric 
+
+gBc = ( λcx)2gE =
+
+ 21 − c∥x∥2
+
+2
+
+In (1) where gE = In is the Euclidean metric tensor and λcx = 21−c∥x∥2 is the conformal factor with c, a hyperparameter, controlling the curvature and radius of the ball. The conformal factor scales the local distances which approach infinity near the boundary of the ball, providing the unique property of space expansion. Such space expansion of hyperbolic spaces makes them continuous analogues of trees, given volumes of an object with diameter r scale exponentially with r. Thus, when referring to a tree with branching factor k, there are O(kl) nodes at level 
+
+l, where l serves as a discrete analogue of the radius. This is the fundamental property which the advocating work [13, 17, 47] and ours takes advantage of, allowing for the efficient embedding of natural hierarchies [34]. Our approach employs encoders that operate in Euclidean space, and as such, we need to define a bijection from Euclidean embeddings of the encoder to the Poincaré ball of hyperbolic space. To achieve this we apply an exponential map 
+
+exp cv (x) : Rn → Bnc on Euclidean vector x with some fixed base point v ∈ Bnc
+
+which we set to be the origin, simplifying the exponential map and measures of distance which will be defined later. The exponential map is as follows, 
+
+exp cv (x) = v⊕c
+
+
+
+tanh 
+
+√c λcv ∥x∥
+
+2
+
+ x
+
+√c∥x∥
+
+
+
+(2) with its inverse logarithm map given by 
+
+log cv (x) = 2
+
+√cλ cv
+
+arctanh  √c∥ − v⊕cx∥ −v⊕cx
+
+∥ − v⊕cx∥ (3) Given the change in geometry, hyperbolic spaces do not allow for standard vector space operations, as such we employ gyrovector formalism for standard opera-tions such as addition, subtraction, multiplication [13,41]. Therefore, from Eq. 2, Group-Equivariant Poincaré Convolutional Networks 19 
+
+⊕c is defined as the gyrovector or Möbius addition of a pair of points x, y ∈ Bnc
+
+v⊕cw = (1 + 2 c⟨v, w ⟩ + c∥w∥2)v + (1 − c∥v∥2)w
+
+1 + 2 c⟨v, w ⟩ + c2∥v∥2∥w∥2 (4) Leading from gyrovector formalism is the notion of distance, vital for self-supervised losses where typically the Euclidean cosine similarity and distance, are employed [2, 7, 33]. On the Poincaré ball of hyperbolic space we define the distance between x, y ∈ Bnc as follows: 
+
+dist B(x, y ) = 2
+
+√c arctanh  √c∥ − x ⊕c y∥ (5) which with c = 1 recovers the geodesic, a vital concept given cosine similarity is analogous to sphere geodesic distance, whereas c → 0 produces the Euclidean distance.
