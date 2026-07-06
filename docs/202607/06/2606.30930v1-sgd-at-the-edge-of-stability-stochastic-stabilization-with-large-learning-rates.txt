@@ -1,0 +1,7954 @@
+Title: SGD at the Edge of Stability: Stochastic Stabilization with Large Learning Rates
+
+URL Source: https://arxiv.org/pdf/2606.30930v1
+
+Published Time: Wed, 01 Jul 2026 00:31:47 GMT
+
+Number of Pages: 54
+
+Markdown Content:
+# SGD at the Edge of Stability: Stochastic Stabilization with Large Learning Rates 
+
+Konstantinos Emmanouilidis 1,4, Lachlan MacDonald 1,4, Salma Tarmoun 2,4, Rene Vidal 3,4
+
+Department of CIS 1, AMCS 2, ESE 3, IDEAS 4
+
+University of Pennsylvania 
+
+## Abstract 
+
+Modern deep learning has been shown to operate at the edge of stability, routinely using learning rates far larger than those justified by classical optimization theory. Most prior analyses of the edge of stability phenomenon focus on deterministic gradient descent, leaving the stochastic setting largely unexplored. In this work, we provide sharp convergence guarantees for Stochastic Gradient Descent (SGD) applied to the multiclass cross-entropy loss, for both linear classifiers and two-layer neural networks. We show that the stochasticity of SGD may cause the dynamics to alternate between an edge-of-stability regime that is dominated by curvature-driven oscillations, and a stable regime in which the expected loss decreases at a controlled rate. Despite that, we prove that SGD self-stabilizes the dynamics, ensuring that the iterates return to stability in a fixed number of iterations and allowing convergence in the best-iterate sense even with large learning rates. Experiments validate our theoretical findings and illustrate the benefits of SGD in the large-stepsize regime. 
+
+## 1 Introduction 
+
+Modern machine learning models are trained at unprecedented scales and with stepsizes that lie far outside the regime covered by classical optimization theory. Yet, stochastic gradient descent (SGD) and its variants [Bottou, 2012, Kingma and Ba, 2017, Gould and Tanaka, 2024] remain the basic workhorses of deep learning. A striking empirical phenomenon, reported repeatedly across architectures, datasets, and training paradigms, is that state-of-the-art performance is typically achieved by using large learning rates, often far exceeding the stability thresholds predicted by smooth convex optimization. This phenomenon, commonly referred to as the Edge of Stability (EoS) [Cohen et al., 2021a], has attracted considerable attention in recent years and has emerged as a unifying perspective on the behavior of gradient methods in modern deep networks [Damian et al., 2023, Cohen et al., 2024]. 10 0 10 1 10 2 10 3          
+
+> Iterations
+> 10 0
+> 2 × 10 0
+> L(Wt)
+> (a) Empirical risk, CIFAR-10
+> = 1
+> = 2
+> = 4
+> = 8
+> 0200 400 600 800 1000
+> Iterations
+> 10 1
+> 10 2
+> 10 3
+> L(Wt) t
+> (b) Asymptotic rate
+> = 1
+> = 2
+> = 4
+> = 8
+> 0200 400 600 800 1000
+> Iterations
+> 0.35
+> 0.40
+> 0.45
+> 0.50
+> 0.55
+> Test accuracy
+> (c) Test accuracy
+> = 1
+> = 2
+> = 4
+> = 8
+
+Figure 1: Experiment on CIFAR-10. An 8-layer NN with GELU activation function trained with SGD and large step sizes. The training loss decreases faster for large step sizes. 
+
+> arXiv:2606.30930v1 [stat.ML] 29 Jun 2026
+
+In the deterministic setting, the EoS phenomenon is now relatively well understood in linear logistic regression [Wu et al., 2024a]. For Gradient Descent (GD) applied to the logistic regression setup 
+
+L(W ) = 1
+
+n
+
+> n
+
+X
+
+> i=1
+
+ℓ(W x i, y i), (1) the classical theory dictates that convergence with a monotonic decrease of the loss requires a step size η satisfying 
+
+λmax (∇2L(Wt)) ≤ 2
+
+η , (2) where λmax (∇2L(Wt)) denotes the maximum eigenvalue of the Hessian of the loss at the current iterate Wt. However, prior empirical results have demonstrated that GD often converges even when this condition is violated, entering a regime characterized by non-monotonic decrease of the loss and oscillatory dynamics. Moreover, in the case of the square objective λmax (∇2L(Wt)) hovers around the critical value 2 
+
+> η
+
+[Cohen et al., 2021a, Damian et al., 2023]. The aforementioned behavior was analyzed in a sequence of works [Wu et al., 2024b, Cai et al., 2024, Wu et al., 2025] culminating in the analysis of large-stepsize GD for logistic regression. A recurring conclusion is that the training dynamics can be divided in two regimes: 1. An early EoS phase, where the iterates experience curvature-driven oscillations, the loss is not monotonically decreasing, and the Hessian’s top eigenvalue exceeds the stability boundary. 2. A late stable phase, in which the algorithm self-stabilizes, the iterates enter a region of the landscape where λmax (∇2L(Wt)) ≤ 2 
+
+> η
+
+, and the loss decreases at a predictable rate. A key insight is that, although the dynamics during the EoS phase appear erratic, their structure is surprisingly rigid: the oscillations persist only for a finite window, after which the system transitions to the stable regime where standard descent analysis becomes applicable. These advances have significantly sharpened our understanding of large-stepsize GD. Nevertheless, the deterministic viewpoint does not capture the behavior of the stochastic counterpart of the algorithm (SGD), that is commonly used in practice. Indeed, stochasticity introduces several new layers of complexity. First, the notion of a stability threshold becomes ill-defined. Second, the loss function need not decrease monotonically even in the stable phase. Third, oscillations may be caused either by curvature or by noise. As a consequence, the deterministic EoS theory, based on precise control of the Hessian’s largest eigenvalue does not extend in a straightforward or even meaningful way to the stochastic setting. This leaves a fundamental question open: 
+
+What is the appropriate notion of stability for SGD with the cross-entropy loss and can we characterize the dynamics of SGD beyond the classical small learning rate regime? 
+
+Empirically, practitioners routinely observe that training at large stepsizes remains effective even under stochastic noise, often with improved generalization. Prior work [Wu et al., 2024a] only provides theoretical guarantees for the average loss of SGD in logistic regression, without describing what happens when the iterates become stable or what are the intrinsic differences with the GD dynamics. Thus, the theoretical picture remains incomplete: we lack a principled understanding of how stochasticity alters the two-phase structure identified in the deterministic GD, and what stability even means in the presence of noise. In this work, we aim to characterize the complex behaviour of the dynamics of SGD on the multi-class cross-entropy loss under arbitrarily large stepsizes and provide insights on the convergence behaviour of the algorithm in the large learning rate regime. Our contributions can be described as follows: 
+
+⋆ We propose a notion of stability for SGD in the cross-entropy loss setting, by leveraging the stochastic Lyapunov stability theory for dynamical systems. An important characteristic is that the stochastic stability criterion reduces to the deterministic one in the full-batch limit and captures the precise balance between curvature and noise that determines whether SGD remains stable. 
+
+⋆ We provide convergence guarantees for SGD on the multi-class cross-entropy loss with arbitrarily large stepsizes η > 0, establishing the first theoretical guarantees for the multi-class setting. 2⋆ We provide a refined analysis of the dynamics, decoupling the EoS from the stable regime. We show that SGD enters the stable regime in a fixed number of iterations with high probability. We prove that, despite the inherent stochasticity, SGD stabilizes the trajectory, returning the dynamics back to stability after a fixed number of iterations and remaining there with high probability. 
+
+⋆ We provide a fine-grained analysis for the two-layer neural networks dynamics of SGD in the large learning rate setting, establishing distinct EoS and stable regimes and characterizing the behaviour of the dynamics in each regime. 
+
+⋆ We provide extensive experimental validation of our theoretical results, showing the benefits of large step-sizes in practice. 
+
+## 2 SGD for Cross-entropy Loss 
+
+We consider the multi-class classification problem (3) with K classes, where xi ∈ Rd is the input, 
+
+yi ∈ { 1, . . . , K } is the corresponding label, f denotes the prediction function parameterized by weights W = [ w1, . . . , w K ] ∈ Rd×K , and ℓ (·) is the cross-entropy loss function 
+
+L(W ) = 1
+
+n
+
+> n
+
+X
+
+> i=1
+
+ℓ f (xi; W ), y i
+
+, ℓ(f, y ) = log 
+
+Å KX
+
+> j=1
+
+efj
+
+ã
+
+− fy . (3) Our goal is to analyze the behavior of SGD in the large stepsize regime. For a mini-batch Bt ⊆ [n] of size b ≥ 1, the SGD update at time t ≥ 0 is given by 
+
+Wt+1 = Wt − η g t, (SGD) where gt = 1
+
+> b
+
+P 
+
+> i∈B t
+
+∇ℓ(f (xi; Wt), y i) is the stochastic gradient oracle and η > 0 is the stepsize. 
+
+2.1 Blanket Assumptions 
+
+We, next, introduce the assumptions needed for presenting our theoretical results. We assume without loss of generality that inputs satisfy ∥xi∥2 ≤ 1, ∀i ∈ [n]. The next assumption regards the separability of the dataset, which is common in the literature [Wu et al., 2023, Cai et al., 2024] for this setting. 
+
+Assumption 2.1 (Separable data) . There exists W∗ ∈ Rd×K with ∥W∗∥F = 1 and a margin 
+
+γ > 0 such that for every i ∈ [n] and every class j̸ = yi, it holds that (W∗xi)yi − (W∗xi)j ≥ γ. 
+
+2.2 Convergence Guarantees 
+
+We are now in a position to present our main convergence guarantees for the cross-entropy loss setting. We emphasize that the dynamics of SGD with large stepsizes are inherently non-monotonic: the loss may increase due to stochasticity, while curvature-driven oscillations may pose another obstacle in achieving convergence. Our first main result shows that, despite the inherent impediments, SGD is able to converge even with arbitrarily large stepsizes and in the presence of stochastic noise. 
+
+Theorem 2.2. Let Assumption 2.1 hold. The iterates of (SGD) with any step size η > 0 and batch size b ≥ 1 satisfy for any t > 0 that 
+
+min  
+
+> 0≤k≤t−1
+
+E
+
+h
+
+L(Wk)
+
+i
+
+≤ K − 1 + ln 2(γ2ηt ) + η2(1 + 1 
+
+> b
+
+)2
+
+γ2ηt . (4) Theorem 2.2 establishes an upper bound on the best iterate of SGD with any step size η > 0. The theorem allows us to compute in at most how many iterations the loss will have attained a specific value. Interestingly, the result indicates a ˜O   1
+
+> t
+
+ rate for the best iterate both for the case of small step sizes as well as even for the case of large step sizes. In the small learning rate regime, inequality (4) recovers the well known O   1
+
+> t
+
+ rate Nacson et al. [2019b] for SGD last iterate of the algorithm. Our result serves as an extension from the binary logistic setting considered in Wu et al. [2024a] to the multi-class cross-entropy loss, recovering the same rate of convergence in the case of K = 2 .We highlight that even though the rate in Wu et al. [2024a] is established for the average loss, it can easily be algebraically converted to a best-iterate guarantee. Lastly, we note that our in expectation results can be converted to high probability results by leveraging Freedman’s inequality. 33 Stability in Stochastic Optimization Algorithms 
+
+In the stochastic setting, non-monotonicity of the loss is no longer a sufficient signature of edge-of-stability behavior. Along the trajectory of SGD, the loss can increase for two different reasons. The first is simply the noise coming from the minibatch gradient: since SGD does not use the full gradient, the loss may occasionally increase even when the stepsize is small. The second reason is the use of a large stepsize: when the stepsize is too large compared to the local curvature of the loss, the iterates start to oscillate, which is the behavior typically associated with the edge of stability. 0.0 0.5 1.0 1.5 2.0 2.5 3.0 3.5        
+
+> w1
+> 0.4
+> 0.2
+> 0.0
+> 0.2
+> 0.4
+> w2
+> SGD Trajectory ( =0.1, b=50)
+> SGD path
+> start
+> end 010 20 30 40 50
+> w1
+> 4
+> 2
+> 0
+> 2
+> 4
+> w2
+> SGD Trajectory ( =10, b=50)
+> SGD path
+> start
+> end
+
+Figure 2: Two-dimensional trajectories of SGD with small and large stepsizes. Left: the trajectory of small stepsize SGD is affected by stochastic noise but does not oscillate. Right: in large stepsize SGD the stochastic noise is accompanied by genuine oscillations caused by the local curvature. This distinction is important. In the deterministic case, prior work [Wu et al., 2024a] defines the EoS phase as the phase where the loss decreases non-monotonically, and the stable phase as the phase where the loss decreases monotonically. For SGD, however, this definition is not sufficient. Even with a small stepsize, the loss may increase from one iteration to the next because the update is computed using a minibatch. Therefore, in the stochastic case, non-monotonicity alone cannot indicate whether the dynamics are unstable because of large curvature, or whether the loss is only fluctuating due to noise. This makes the definition of stability less direct. One could try to use the largest eigenvalue of the full-batch Hessian, or a similar quantity for the minibatch Hessian. However, any such definition has to allow for the fact that SGD may temporarily leave any given stable region because of minibatch noise. Thus, the stability criterion should capture whether the loss decreases on average over the mini-batches, rather than whether it decreases at every single step. For this reason, we use a stochastic Lyapunov viewpoint [Kushner, 1967, Khasminskii, 2012, Mao, 2007]. In deterministic optimization, a Lyapunov function E : Rd → R≥0, which in our case is the loss, decreases along the trajectory. This is exactly the role played by the usual descent lemma. For SGD, such a pointwise decrease is too strong, since every update contains noise. The natural replacement is that the loss decreases in conditional expectation. Namely, for a Lyapunov function 
+
+E : Rd → R≥0, we say that the dynamics are Lyapunov stable whenever 
+
+E
+
+h
+
+E(Wt+1 ) − E (Wt) Ft
+
+i
+
+≤ 0. (5) Even though there are other notions of stochastic stability, such as stability in probability [Khasminskii, 2012], almost-sure stability [Mao, 2007] and Foster-Lyapunov stability [Meyn and Tweedie, 1993a,b], the conditional Lyapunov-drift criterion is the correct notion for separable cross-entropy minimization. These criteria are powerful in settings with a finite attracting equilibrium, a stationary distribution, or a recurrent compact set. However, they are less suited to separable cross-entropy minimization, where the relevant limiting behavior is not convergence of Wt to a finite point, but rather convergence of L(Wt) to zero while the parameters diverge in norm. Instead, the stability notion used in this paper is well-motivated by the geometry of the cross-entropy loss. It is local, because it characterizes stability at the current iterate; stochastic, because it averages only over the next mini-batch; and loss-based, because it follows the quantity that actually converges in separable cross-entropy problems. Moreover, in the full-batch limit, the stochastic gradient gt becomes the deterministic gradient ∇L(Wt), and the conditional drift condition reduces to the usual deterministic descent condition up to constants. Thus, the proposed stable regime 4simultaneously generalizes the deterministic edge-of-stability threshold and captures the additional stochastic fluctuations introduced by mini-batch SGD. We refer the interested reader for a dedicated comparison of the proposed stability criterion with other notions of stochastic stability to Appendix A. We now apply the stability criterion (5) with the loss itself as the Lyapunov function. Using the smoothness of the cross-entropy loss, we obtain 
+
+E
+
+h
+
+L(Wt+1 ) − L(Wt) Ft
+
+i
+
+≤ −η∥∇ L(Wt)∥2 + η2 · (8 L(Wt)) · E
+
+h
+
+∥gt∥2 Ft
+
+i
+
+,
+
+where we used that the smoothness constant of the cross-entropy loss can be bounded by 16 L(Wt).Moreover, by Lemma C.5, the stochastic gradient satisfies E
+
+h
+
+∥gt∥2 Ft
+
+i
+
+≤ c 
+
+> 8
+
+∥∇ L(Wt)∥2, for some constant c > 0 depending on the batch size. Substituting this bound gives 
+
+E
+
+h
+
+L(Wt+1 ) − L(Wt) Ft
+
+i
+
+≤ −η∥∇ L(Wt)∥2 + η2cL (Wt)∥∇ L(Wt)∥2
+
+= −η∥∇ L(Wt)∥2 (1 − ηcL (Wt)) .
+
+Therefore, the expected change of the loss is non-positive whenever 1 − ηcL (Wt) ≥ 0. Equivalently, the stochastic dynamics are stable whenever 
+
+L(Wt) ≤ 1
+
+ηc .
+
+The constant c depends on the batch size, and in the full-batch case this criterion recovers the classical stability condition up to constants. The detailed proof is given in Appendix C.5. 
+
+## 4 The Stable Regime 
+
+In this section, we provide a refined analysis of convergence by studying the stable regime of SGD. Using the Lyapunov stability viewpoint of Section 3, we define the stable set as 
+
+S =
+
+ß
+
+W ∈ Rd×K : L(W ) ≤ ˜L, ˜L = 1
+
+ηc 
+
+™
+
+,
+
+where c = 8 Ä1 + nb min {γ2,1}
+
+ä. This definition captures the region in which the expected loss admits a one-step descent. In other words, inside S the stochastic updates may still fluctuate, but the loss decreases on average over the different mini-batches. The constant c reflects the effect of minibatch noise through the batch size b ≥ 1, and in the full-batch case the criterion recovers the deterministic stability condition up to constants. With this definition in place, we can describe the behavior of SGD more precisely. The next theorem shows that the iterates enter the stable set with high probability and, as long as they remain inside it, the expected loss of the last iterate decays at rate ˜O(1 /t ).
+
+Theorem 4.1. Let Assumption 2.1 hold. The iterates of (SGD) with any stepsize η > 0 and batch size b ≥ 1 satisfy the following. 1. Entrance to the stable regime. For any δ ∈ (0 , 1) , there exists tin ≤ tmax (δ) such that, with probability at least 1 − δ, the SGD iterates enter the stable set S at time tin .2. Convergence inside the stable regime. If the iterates Wk ∈ S , ∀k ∈ [t1, t − 1] for some 
+
+t1 > 0, then it holds that 
+
+E
+
+h
+
+L(Wt)
+
+i
+
+≤ 8F (Wt1 ) + 4 ln 2(γ2η(t − t1)) 7γ2η(t − t1) , (6) where F (W ) = 1
+
+> n
+
+Pni=1 
+
+P  
+
+> j̸=yi
+
+e−⟨ W (yi)−W (j),x i⟩.
+
+Theorem 4.1 gives a last-iterate guarantee for SGD after the dynamics have entered the stable regime. In the deterministic setting, GD first passes through an EoS phase and then enters a stable phase after some deterministic time bound tGD in . For SGD, however, the entrance time is necessarily probabilistic, 5because the trajectory depends on the sampled minibatches. Thus, the theorem shows that even in the presence of stochastic noise, the dynamics reach a region where the expected loss decreases at the standard ˜O(1 /t ) rate. However, there is an important difference from GD. In the deterministic case, once the iterates enter the stable regime, the dynamics remain there by construction. For SGD, this is no longer automatic: minibatch noise can temporarily push the iterates outside S. This is the main additional difficulty in the stochastic setting and motivates the stochastic stabilization analysis developed in the next section. 
+
+4.1 Stochastic Stabilization of SGD 
+
+We now show that SGD has an additional stabilizing property that is absent from the deterministic setup. Although mini-batch noise may occasionally push the iterates outside the stable set, this instability cannot persist indefinitely. Instead, the dynamics are pulled back toward the stable regime after a controlled number of iterations. In this sense, SGD is stochastically stabilizing the trajectory: 
+
+even if the iterates escape the stable regime, they return to stability in a fixed number of iterations. 
+
+Figure 3: Stochastic stabilization property of SGD. This property is the key reason why SGD can converge despite the noise introduced by minibatch gradients. The iterates may not remain in the stable set forever, but they revisit it often enough for the loss to keep decreasing over time. We make this statement precise in the following theorem. 
+
+Theorem 4.2 (Stochastic Stabilization of SGD) . Let Assumption 2.1 hold. The iterates of (SGD) with any stepsize η > 0 and batch size b ≥ 1 satisfy the following. 1. Stability is maintained with high probability. If Wt ∈ S , then with probability at least 
+
+1 − δ′ it holds that Wt+1 ∈ S , where 
+
+δ′ = 2 exp 
+
+Å
+
+− bD t
+
+4ηL (Wt)3/2
+
+ã
+
+,
+
+with Dt = ∆t
+
+> 4ηL (Wt)1/2+
+> √2(1+ n)3
+> √∆t
+
+and 
+
+∆t = ˜L − L(Wt) + 2 η 1 − 8ηL (Wt)L(Wt)2 +
+
+ 1−16 ηL (Wt)
+
+2 
+
+> 8
+
+L(Wt).
+
+2. Return to stability. Assume that the dynamics exit the stable regime at tout > 0, and fix 
+
+δ ∈ (0 , 1) . Then, with probability at least 1 − δ, the iterates of (SGD) return to the stable regime in at most 
+
+tre =
+
+° 4
+
+γ2ηδ ˜L max 
+
+ß
+
+A, 4 ln 
+
+Å 16 
+
+γ2ηδ ˜L
+
+ã™§ 
+
+number of steps, where A = 3( K − 1) + 4 ln 2(γ2ηt out ) + 5 η2 1 + 1
+
+> b
+
+2.Theorem 4.2 shows that the stable regime is robust under the stochastic perturbations of SGD. The first part states that, if the current iterate is already stable, then the next iterate remains stable with high probability. This probability improves as the loss becomes smaller and as the iterate moves farther away from the stability boundary. In particular, as L(Wt) → 0, the probability of staying inside S tends to one. 6The second part shows that even if SGD leaves the stable set, it returns after a bounded number of iterations with high probability. Thus, the stochastic noise may create short excursions outside S,but it does not permanently destabilize the dynamics. The resulting picture is a repeated cycle: SGD enters the stable set, may occasionally exit because of minibatch noise, and then returns again. As training progresses and the loss decreases, the exits become less likely, and the dynamics spend more and more time in the stable regime. This stochastic stabilization mechanism is one of the main differences between SGD and GD at the edge of stability. In GD, once the iterates enter the stable phase, there is no stochastic noise that can push them out. In SGD, temporary exits are possible, but the geometry of the cross-entropy loss pulls the dynamics back inside the stable set. We emphasize that this mechanism is different from the self-stabilization phenomenon for the square loss studied by Damian et al. [2023], where stabilization comes from a higher-order Taylor term in the deterministic GD dynamics. Here, stabilization is instead driven by the self-bounded structure of the cross-entropy loss, which makes both curvature and stochastic noise decrease as the loss becomes small. 
+
+## 5 Edge of Stability for Two-Layer Neural Networks 
+
+An important question is whether the previous theoretical guarantees and insights extend to the dynamics of SGD when applied in neural networks. While the curvature of deep neural networks is more intricate, many architectures exhibit structural properties, such as near-homogeneity or controlled activation derivatives, that allow for a thorough analysis to be proceeded. In this section, we show that under mild conditions on the activation function, a similar picture describes the behaviour of SGD for two-layer neural networks with the cross-entropy loss. We consider two-layer neural networks in mean-field scaling. The predictor is given by 
+
+f (W ; x) := 1
+
+m
+
+> m
+
+X
+
+> j=1
+
+aj ϕ(x⊤W (j)), W (j) ∈ Rd×K , j = 1 , . . . , m, (7) where the coefficients aj ∈ {± 1} are fixed and W = ( W (j))mj=1 ∈ Rmd ×K are the trainable parameters. We train the network with SGD using the rescaled stepsize ˜η := mη , namely 
+
+Wt+1 = Wt − ˜ηg t.
+
+Throughout the section, we assume sup i ∥xi∥ ≤ 1. This is only for simplicity of presentation and can always be enforced by normalizing the data. We impose the following conditions on the activation function. 
+
+Assumption 5.1 (Activation function conditions) . Let ϕ : R → R be continuously differentiable and satisfy the following 1. Derivative condition. There exists α ∈ Ä 11+ γ , 1ä such that α ≤ ϕ′(z) ≤ 1, where γ > 0 is the margin from Assumption 2.1. 2. Smoothness. There exists ˜β > 0 such that, for all x, y ∈ R, |ϕ′(x) − ϕ′(y)| ≤ ˜β|x − y|.3. Near-homogeneity. There exists κ > 0 such that, for every z ∈ R, |ϕ(z) − ϕ′(z)z| ≤ κ.Assumption 5.1 is satisfied by several standard activations after a mild leaky modification. The smoothness and near-homogeneity conditions are standard in analyses of optimization for two-layer networks, and are also used in prior work on large-stepsize gradient descent [Cai et al., 2024]. The derivative condition ensures that every neuron continues to receive a non-trivial gradient during training; in particular, it rules out the degenerate case where some neurons become effectively frozen. The lower bound α > 1/(1 + γ) is the multiclass analogue of the positive derivative lower bound used in the binary setting by Cai et al. [2024]. In binary classification, any positive lower bound on ϕ′
+
+is enough for the usual perceptron-type argument, because each sample contributes only one signed margin inequality. In the multiclass case, each sample must be separated from all K − 1 incorrect classes, and the activation derivative may be evaluated at different values for different classes. This 7creates an additional error term of size 1 − α, which is controlled precisely when αγ > 1 − α, or equivalently α > 1/(1 + γ).This leads to the effective margin 
+
+˜γ := αγ − (1 − α) = α(1 + γ) − 1. (8) The condition α > 1/(1 + γ) is exactly what makes ˜γ positive. Thus, ˜γ plays the role of the margin in the two-layer network analysis. It can be interpreted as the original margin γ, discounted by the smallest possible activation derivative, and corrected by the variation of the activation derivatives across classes. In the limit α → 1, this correction disappears and ˜γ → γ, recovering the usual margin for linear logistic regression. The next lemma shows that this assumption is not restrictive: leaky versions of several common activations satisfy Assumption 5.1. 
+
+Lemma 5.2 (Leaky activation functions satisfying Assumption 5.1) . For a margin γ > 0, let c
+
+satisfy 1/(1 + γ) < c < 1. The following leaky variants of common activation functions satisfy Assumption 5.1. • GELU, Softplus, SiLU. Let ϕ be GELU, Softplus, or SiLU. Then, ˜ϕ(x) := cx + (1 − c)ϕ(x)
+
+satisfies Assumption 5.1 with α = c, ˜β = 4(1 − c), and κ = 1 − c.• Huberized ReLU. Let ϕ be the Huberized ReLU h. Then, ˜ϕ(x) := cx + (1 − c)ϕ(x) satisfies Assumption 5.1 with α = c, ˜β = (1 − c)/h , and κ = (1 − c)h/ 2.• Tanh, Sigmoid. The leaky tanh ˜ϕ(x) := cx + (1 − c) tanh( x) and the leaky sigmoid 
+
+˜ϕ(x) := cx + 1−c 
+
+> 1+ e−x
+
+both satisfy Assumption 5.1 with α = c, ˜β = 1 − c, and κ = 1 − c.Having introduced the assumptions on the activation function, we now state the main convergence re-sult for two-layer neural networks. The theorem shows that the large-stepsize convergence guarantees obtained in the linear case continue to hold despite the nonlinearity of the model. 
+
+Theorem 5.3. Let Assumptions 2.1 and 5.1 hold. The iterates of (SGD) for the two-layer neural network in (7), with any stepsize ˜η := mη and batch size b > 1, satisfy 
+
+min   
+
+> 0≤t≤T−1
+
+E
+
+h
+
+L(Wt)
+
+i
+
+≤ K − 1 + 2 ln 2(˜ γ2ηT ) + 8 κ2 + η2  1 + 1
+
+> b
+
+2
+
+˜γ2ηT , (9) where ˜γ = αγ − (1 − α).Theorem 5.3 shows that SGD converges for any stepsize η > 0 for two-layer neural networks. More precisely, the best iterate achieves a ‹O(1 /T ) convergence rate. This guarantee holds without requiring the trajectory to be in the stable regime; it remains valid even during the edge-of-stability phase, where the loss may be non-monotone and the iterates may oscillate. To the best of our knowledge, this is the first convergence guarantee for SGD on two-layer neural networks trained with the cross-entropy loss in the large-stepsize regime. The closest related result is the deterministic GD analysis of Cai et al. [2024], which studies two-layer networks under the binary logistic loss. Our result recovers the same asymptotic rate up to constants, while allowing stochastic gradients and multiclass cross-entropy loss. 
+
+5.1 The Stable Regime 
+
+We, next, provide a fine-grained analysis of the dynamics by introducing a stable regime for the iterates similarly to the cross-entropy loss case. As in the cross-entropy loss, the appropriate notion of stability is not based on pointwise monotonicity of the realized loss, since the SGD updates remain stochastic. Instead, we use the Lyapunov viewpoint and define the stable regime as the region where the expected loss admits a one-step descent. 8For the two-layer network, this leads to the stable set (refer to Appendix D.6 for the exact derivation) 
+
+SN N = ¶Wt ∈ Rmd ×K : L(Wt) ≤ ˜LN N 
+
+© ,
+
+˜LN N = min 
+
+
+
+18η(1 + ˜β) Ä1 + 2nb min {˜γ2,1}
+
+ä , 12ne κ+2 
+
+ .
+
+We now show that SGD enters this stable regime with high probability and that, once inside it, the last iterate enjoys the same sublinear convergence rate. 
+
+Theorem 5.4. Let Assumptions 2.1 and 5.1 hold. The iterates of (SGD) for the two-layer neural network in (7), with any stepsize ˜η := mη and batch size b > 1, satisfy the following. 1. Entrance to the stable regime. For any δ ∈ (0 , 1) , there exists tin ≤ tmax (δ) such that, with probability at least 1 − δ, the SGD iterates enter the stable set SN N .2. Convergence inside the stable regime. If the iterates of SGD satisfy Wk ∈ S N N , ∀k ∈
+
+[t1, t − 1] , for some t1 > 0, it holds that 
+
+E[L(Wt)] ≤ 2 F (Wt1 ) + ln 2(˜ γ2η (t − t1)) + κ2
+
+˜γ2 η (t − t1) ,
+
+where F (W ) = 1
+
+> n
+
+Pni=1 
+
+P  
+
+> j̸=yi
+
+e−⟨ zyi −zj ,x i⟩, z i = f (W ; x)i.
+
+Theorem 5.4 shows that, after entering the stable regime, the last iterate of SGD satisfies a ‹O(1 /t )
+
+convergence rate. This is the nonlinear analogue of the stable-regime guarantee obtained for the linear cross-entropy model. It also matches the rate known for deterministic GD with logistic regression in two-layer networks [Cai et al., 2024], while allowing for stochastic gradients and multiclass cross-entropy loss. There is, however, the same additional difficulty as in the linear SGD case. Even after the iterates enter SN N , mini-batch noise may temporarily force them outside the stable set. This motivates the stochastic stabilization analysis of the next section, which shows that such exits do not permanently destabilize the dynamics. 
+
+5.2 Stochastic Stabilization in Two-layer Neural Networks 
+
+Interestingly, the stochastic stabilization mechanism persists beyond the linear cross-entropy loss setting. Even in the nonlinear two-layer network setting, SGD has the same qualitative behavior: as the loss decreases, the iterates become increasingly likely to remain in the stable set SN N , and even if mini-batch noise temporarily forces them outside, the dynamics return to stability after a controlled number of iterations with high probability. 
+
+Theorem 5.5 (Stochastic stabilization of SGD) . Let Assumptions 2.1 and 5.1 hold. The iterates of (SGD) with any stepsize ˜η := mη and batch size b ≥ 1 satisfy the following. 1. Maintaining stability. If Wt ∈ S N N , then with probability at least 1 − δ′ it holds that 
+
+Wt+1 ∈ S N N , where 
+
+δ′ = 2 exp 
+
+Ç
+
+− bD t
+
+4ηL (Wt) 32
+
+å
+
+,Dt = ∆N N t 
+
+> 4η(1+ ˜β)L(Wt)1/2+
+> √2(1+ ˜β)(1+ n)3
+
+√∆N N t
+
+and 
+
+∆N N t = ˜LN N − L(Wt) + 2 η 1 − 8η(1 + ˜β)L(Wt)L(Wt)2 +
+
+ 1−16 η(1+ ˜β)L(Wt)
+
+2 
+
+> 8(1+ ˜β)
+
+L(Wt).
+
+92. Return to stability. If the dynamics exit the stable regime SN N at time tout > 0, then for any δ ∈ (0 , 1) , with probability at least 1 − δ, they return to SN N in at most 
+
+tre =
+
+° 4˜γ2ηδ ˜LN N 
+
+max 
+
+ß
+
+AN N , 16 ln 
+
+Å 64 ˜γ2ηδ ˜LN N 
+
+ã™§ 
+
+number of steps, where AN N = 3( K − 1) + 4 ln 2(˜ γ2ηt out ) + 20 κ2 + 5 η2
+
+
+
+1 + 1
+
+> b
+
+2
+
+.Theorem 5.5 shows that the stable regime remains meaningful even for nonlinear two-layer networks trained with SGD. The first part states that, once the iterate is inside SN N , the probability of staying inside the stable set increases as the loss decreases. In particular, as L(Wt) → 0, the failure probability δ′ vanishes, and the dynamics remain stable as the probability tends to one. The second part of Theorem 5.5 shows that temporary exits from the stable set do not permanently destabilize the algorithm. Even if mini-batch noise forces the iterates outside SN N , the dynamics return to the stable regime after a fixed number of iterations with high probability. Thus, as in the linear case, SGD alternates between short stochastic excursions and stable periods, while spending increasingly more time in the stable regime as the loss decreases during training. 
+
+## 6 Experiments 
+
+We now complement our theoretical results with a series of experiments illustrating the behavior of SGD in the large step-size regime. Our goal is twofold, namely verify the different regimes of the dynamics predicted by our analysis, and evaluate how the stochasticity of the gradient oracles interacts with the curvature and step-size at the edge of stability. We conduct three set of experiments to validate our theoretical results. In the first set of experiments, we run SGD with a linear model on a separable synthetic dataset and plot the loss for different step sizes. Each class of points contains N = 50 points from N (μi, σ 2I), where μi = ( πi  
+
+> 3
+
+, 1) , i ∈
+
+[2] , σ = 0 .05 are the parameters of the i−th class. In figure 4, we observe that the loss incurs significant spikes at the start and non-monotonic decrease even after it has been significantly reduced in value, indicating the distinct EoS and stable regimes. In addition, we validate the sublinear rate of decrease in the stable regime, validating the results of Theorem 4.1. Lastly, we observe that for larger batch sizes the loss incurs less noise and less oscillations. 0 500 1000 1500 2000 2500 3000               
+
+> Iteration
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> Cross-entropy loss  L(wt)
+> Loss dynamics across step sizes
+> Step size
+> = 32
+> = 24
+> = 16
+> = 8
+> = 4
+> = 1 0500 1000 1500 2000 2500 3000
+> Iteration
+> 10 2
+> 10 1
+> 10 0
+> Cross-entropy loss  L(wt)
+> Mini-batch size, = 16
+> b= 6
+> b= 12
+> b= 24
+> b= 48
+> b= 96
+
+Figure 4: Cross-entropy loss with different stepsizes and batch sizes. The second set of experiments focuses on validating our theory for Neural Networks (NN). In particular, we run SGD on a two-layer NN with leaky softplus activation on the MNIST dataset. In figure 5, we observe that the loss spikes at the initial EoS regime and then decreases non-monotonically. We, also, verify that the loss converges at an O   1
+
+> t
+
+ rate in the stable regime. Lastly, we observe that larger stepsizes provide faster convergence and, if not better, similar test accuracy. The third set of experiments focuses on the CIFAR-10 dataset, where we test whether our results hold even for larger networks than the two-layer NNs considered in the theoretical results. More specifically, we run SGD on an 8-layer NN with GELU activation for different stepsizes. In figure 6, 10 10 3 10 2 10 1 10 0 10 1 10 2                     
+
+> Iterations (×10 3)
+> 10 4
+> 10 3
+> 10 2
+> 10 1
+> 10 0
+> L(Wt)
+> (a) Empirical risk, MNIST
+> = 4
+> = 2
+> = 1
+> = 0.5
+> 010 20 30 40 50 60 70
+> Iterations (×10 3)
+> 10 0
+> 10 1
+> 10 2
+> 10 3
+> L(Wt) t
+> (b) Asymptotic rate
+> = 4
+> = 2
+> = 1
+> = 0.5
+> 010 20 30 40 50 60 70
+> Iterations (×10 3)
+> 0.91
+> 0.92
+> 0.93
+> 0.94
+> 0.95
+> 0.96
+> 0.97
+> 0.98
+> Test accuracy
+> (c) Test accuracy
+> = 4
+> = 2
+> = 1
+> = 0.5
+
+Figure 5: Experiment on MNIST dataset. The dynamics of SGD for training a two-layer NN with leaky softplus activation. 10 0 10 1 10 2 10 3          
+
+> Iterations
+> 10 0
+> 2 × 10 0
+> L(Wt)
+> (a) Empirical risk, CIFAR-10
+> = 1
+> = 2
+> = 4
+> = 8
+> 0200 400 600 800 1000
+> Iterations
+> 10 1
+> 10 2
+> 10 3
+> L(Wt) t
+> (b) Asymptotic rate
+> = 1
+> = 2
+> = 4
+> = 8
+> 0200 400 600 800 1000
+> Iterations
+> 0.35
+> 0.40
+> 0.45
+> 0.50
+> 0.55
+> Test accuracy
+> (c) Test accuracy
+> = 1
+> = 2
+> = 4
+> = 8
+
+Figure 6: Experiment on CIFAR-10 dataset. An 8-layer neural network with GELU activation function trained with SGD on the cross-entropy loss. we observe that the loss decreases non-monotonically at a O   1
+
+t
+
+ rate. Large stepsizes provide faster decrease of the loss and seem to be synergetic in achieving higher test accuracy. We have not tried to test exhaustively the effect of the stepsize on the test accuracy, as this remains beyond the scope of this paper. 
+
+## 7 Conclusion 
+
+In this work, we developed a theoretical framework for analyzing SGD with the cross-entropy loss at the edge of stability. Unlike deterministic GD, non-monotonicity of the loss in SGD is caused either due to mini-batch noise or due to curvature-driven oscillations, and therefore stability must be defined through a stochastic Lyapunov criterion. Using this viewpoint, we proved convergence guarantees for multiclass cross-entropy loss with arbitrary large step sizes and showed that the dynamics enter a stable regime where the last iterate converges at a sublinear rate. We, further, established the stochastic stabilization mechanism of SGD: even when stochastic noise temporarily forces the iterates outside the stable set, the dynamics return to stability in a controlled number of iterations. Finally, we extended this picture to two-layer neural networks and validated the established results experimentally on MNIST and CIFAR-10, showing the benefits of SGD with large learning rates. 11 References 
+
+L ´eon Bottou. Stochastic gradient descent tricks. In Neural networks: tricks of the trade: second edition , pages 421–436. Springer, 2012. Alon Brutzkus, Amir Globerson, Eran Malach, and Shai Shalev-Shwartz. Sgd learns over-parameterized networks that provably generalize on linearly separable data. In International Conference on Learning Representations , 2018. Yuhang Cai, Jingfeng Wu, Song Mei, Michael Lindsey, and Peter Bartlett. Large stepsize gradient descent for non-homogeneous two-layer networks: Margin improvement and fast optimization. 
+
+Advances in Neural Information Processing Systems , 37:71306–71351, 2024. Jeremy Cohen, Simran Kaur, Yuanzhi Li, J Zico Kolter, and Ameet Talwalkar. Gradient descent on neural networks typically occurs at the edge of stability. In International Conference on Learning Representations , 2021a. Jeremy M. Cohen, Simran Kaur, Yuanzhi Li, J. Zico Kolter, and Ameet Talwalkar. Gradient descent on neural networks typically occurs at the edge of stability. In International Conference on Learning Representations , 2021b. Jeremy M. Cohen, Alex Damian, Ameet Talwalkar, Zico Kolter, and Jason D. Lee. Understanding optimization in deep learning with central flows, 2024. URL https://arxiv.org/abs/2410. 24206 .Alex Damian, Eshaan Nichani, and Jason D Lee. Self-stabilization: The implicit bias of gradient descent at the edge of stability. ICLR 2023 , 2023. Konstantinos Emmanouilidis, Ren ´e Vidal, and Nicolas Loizou. Stochastic extragradient with random reshuffling: Improved convergence for variational inequalities. In International Conference on Artificial Intelligence and Statistics , pages 3682–3690. PMLR, 2024. Rhys Gould and Hidenori Tanaka. Continuous-time analysis of adaptive optimization and normaliza-tion, 2024. Desmond J. Higham. Mean-square and asymptotic stability of the stochastic theta method. SIAM Journal on Numerical Analysis , 38(3):753–769, 2000. Ziwei Ji and Matus Telgarsky. The implicit bias of gradient descent on nonseparable data. In 
+
+Conference on Learning Theory , pages 1772–1798. PMLR, 2019. Rafail Khasminskii. Stochastic Stability of Differential Equations . Springer, 2 edition, 2012. doi: 10.1007/978-3-642-23280-0. Diederik P. Kingma and Jimmy Ba. Adam: A method for stochastic optimization, 2017. Harold J. Kushner. Stochastic Stability and Control , volume 33 of Mathematics in Science and Engineering . Academic Press, 1967. Xuerong Mao. Stochastic Differential Equations and Applications . Horwood Publishing, 2 edition, 2007. Sean P. Meyn and Richard L. Tweedie. Markov Chains and Stochastic Stability . Communications and Control Engineering. Springer London, 1993a. doi: 10.1007/978-1-4471-3267-7. Sean P. Meyn and Richard L. Tweedie. Stability of markovian processes iii: Foster–lyapunov criteria for continuous-time processes. Advances in Applied Probability , 25(3):518–548, 1993b. Mor Shpigel Nacson, Nathan Srebro, and Daniel Soudry. Convergence of gradient descent on separable data. In The 22nd International Conference on Artificial Intelligence and Statistics ,pages 3420–3428. PMLR, 2019a. Mor Shpigel Nacson, Nathan Srebro, and Daniel Soudry. Stochastic gradient descent on separable data: Exact convergence with a fixed learning rate. In Proceedings of the Twenty-Second Interna-tional Conference on Artificial Intelligence and Statistics , volume 89 of Proceedings of Machine Learning Research , pages 3051–3059. PMLR, 2019b. 12 Daniel Soudry, Elad Hoffer, Mor Shpigel Nacson, Suriya Gunasekar, and Nathan Srebro. The implicit bias of gradient descent on separable data. Journal of Machine Learning Research , 19(70):1–57, 2018. Jingfeng Wu, Vladimir Braverman, and Jason D Lee. Implicit bias of gradient descent for logistic regression at the edge of stability. Advances in Neural Information Processing Systems , 36: 74229–74256, 2023. Jingfeng Wu, Peter L. Bartlett, Matus Telgarsky, and Bin Yu. Large stepsize gradient descent for logistic loss: Non-monotonicity of the loss improves optimization efficiency, 2024a. Jingfeng Wu, Peter L Bartlett, Matus Telgarsky, and Bin Yu. Large stepsize gradient descent for logistic loss: Non-monotonicity of the loss improves optimization efficiency. In The Thirty Seventh Annual Conference on Learning Theory , pages 5019–5073. PMLR, 2024b. Jingfeng Wu, Pierre Marion, and Peter Bartlett. Large stepsizes accelerate gradient descent for regularized logistic regression. arXiv preprint arXiv:2506.02336 , 2025. 13 Supplemental Material Contents 
+
+1 Introduction 12 SGD for Cross-entropy Loss 3
+
+2.1 Blanket Assumptions . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 32.2 Convergence Guarantees . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 3
+
+3 Stability in Stochastic Optimization Algorithms 44 The Stable Regime 5
+
+4.1 Stochastic Stabilization of SGD . . . . . . . . . . . . . . . . . . . . . . . . . . . 6
+
+5 Edge of Stability for Two-Layer Neural Networks 7
+
+5.1 The Stable Regime . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 85.2 Stochastic Stabilization in Two-layer Neural Networks . . . . . . . . . . . . . . . 9
+
+6 Experiments 10 7 Conclusion 11 Appendix 14 A Stochastic Lyapunov Stability and the Stable Regime 15 B Additional Related Work 16 C Proof for Cross-entropy Loss 18 
+
+C.1 Notation . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 18 C.2 Preparatory Lemmas . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 18 C.3 Variance Bound . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 22 C.4 Proofs for EoS Regime . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 23 C.5 Proofs for Stable Regime . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 24 C.6 Proofs for Stochastic Stabilization Mechanism . . . . . . . . . . . . . . . . . . . . 29 
+
+D Proofs for Two-Layer Neural Networks 33 
+
+D.1 Notation . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 33 D.2 Preparatory Lemmas . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 33 D.3 Variance Bound for Two-layer NN . . . . . . . . . . . . . . . . . . . . . . . . . . 42 D.4 Proof of Lemma 5.2 for Leaky Activations . . . . . . . . . . . . . . . . . . . . . . 42 D.5 Proofs for the EoS Regime . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 43 D.6 Proofs for the Stable Regime . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 45 D.7 Proofs for the Stochastic Stabilization Mechanism . . . . . . . . . . . . . . . . . . 50 14 A Stochastic Lyapunov Stability and the Stable Regime 
+
+We provide additional context for the stability notion used in the main paper. The classical stability criterion for deterministic GD is based on monotonic decrease of a Lyapunov function, typically the objective itself. Indeed, if Wt+1 = Wt − η∇L(Wt), then the standard descent lemma implies 
+
+L(Wt+1 ) − L(Wt) ≤ − η∥∇ L(Wt)∥2 + η2
+
+2 λmax (∇2L(Wt)) ∥∇ L(Wt)∥2.
+
+Thus, a sufficient condition for one-step descent is 
+
+ηλ max (∇2L(Wt)) ≤ 2.
+
+This is the usual deterministic stability threshold. In deterministic edge-of-stability analyses, the violation of this inequality is directly related to curvature-driven oscillations and non-monotone behavior of the loss [Cohen et al., 2021b, Damian et al., 2023, Wu et al., 2024b]. For SGD, however, pointwise monotonicity of the realized loss is too strong and is not the right stability requirement. The update 
+
+Wt+1 = Wt − ηg t, E[gt | F t] = ∇L(Wt),
+
+contains mini-batch noise. Therefore, even when the stepsize is small and the curvature is benign, the realized loss L(Wt+1 ) may be larger than L(Wt) for a particular mini-batch. Consequently, non-monotonicity alone does not distinguish between two qualitatively different phenomena: harmless stochastic fluctuations and genuine curvature-driven instability. A stability notion for SGD must therefore average over the randomness of the next mini-batch while keeping the current iterate fixed. The natural replacement for deterministic Lyapunov decrease is stochastic Lyapunov decrease. Given the filtration Ft generated by the trajectory up to time t ≥ 0, a nonnegative function E is a stochastic Lyapunov function if it satisfies a one-step drift condition of the form 
+
+E[E(Wt+1 ) − E (Wt) | F t] ≤ 0.
+
+This conditional drift condition is the discrete-time analogue of the Lyapunov criteria used in stochastic stability theory [Kushner, 1967, Khasminskii, 2012, Mao, 2007]. Related Foster–Lyapunov drift conditions are also standard in the stability and recurrence theory of Markov chains [Meyn and Tweedie, 1993a]. The condition says that E is not required to decrease for every realization of the stochastic update, but it must decrease on average over the algorithmic randomness at the current point. In our setting, the most appropriate Lyapunov function is the cross-entropy loss itself, namely 
+
+E(W ) = L(W ). This choice is natural for two reasons. First, the goal of the dynamics is to drive the training loss to zero. Second, in the separable cross-entropy setting the parameters need not converge to a finite minimizer; instead, their norm may diverge while the loss goes to zero [Soudry et al., 2018]. Hence, stability notions based on distance to a fixed equilibrium point are not well aligned with the geometry of the problem. This Lyapunov stability viewpoint motivates, as discussed in Section 3, the definition of the stable set 
+
+S := 
+
+ß
+
+W ∈ Rd×K : L(W ) ≤ 1
+
+ηc 
+
+™
+
+.
+
+Inside S, SGD may still exhibit random upward fluctuations of the realized loss, but the loss decreases in conditional expectation. This is precisely the stochastic analogue of deterministic Lyapunov stability. It is useful to contrast this criterion with other standard notions of stochastic stability. Stability in probability requires that trajectories starting near an equilibrium remain near it with high probability; this is the classical stochastic analogue of Lyapunov stability and is commonly formulated for stochastic differential equations and Markov processes [Khasminskii, 2012, Kushner, 1967]. Almost-sure stability strengthens this requirement by demanding pathwise stability with probability one, namely that the trajectory remains close to the equilibrium for almost every realization of the noise [Mao, 2007, Khasminskii, 2012]. Moment stability requires decay, or at least uniform control, of quantities such as E∥Wt − W⋆∥p, with the cases p = 1 and p = 2 corresponding to mean and mean-square stability, respectively [Mao, 2007, Higham, 2000]. Exponential moment stability further asks for such moments to decay at an exponential rate, and is often used in the numerical analysis of 15 stochastic differential equations [Higham, 2000]. Finally, Foster–Lyapunov or positive-recurrence criteria require a negative drift outside a suitable compact set and are used to prove recurrence, ergodicity, or existence of invariant distributions for Markov chains and Markov processes [Meyn and Tweedie, 1993a,b]. These criteria are powerful in settings with a finite attracting equilibrium, a stationary distribution, or a recurrent compact set. However, they are less suited to separable cross-entropy minimization, where the relevant limiting behavior is not convergence of Wt to a finite point, but rather convergence of L(Wt) to zero while the parameters may diverge in norm. For this reason, the conditional Lyapunov-drift criterion is the correct notion for our purposes. It is a pointwise criterion, since it evaluates stability at the current iterate; it is genuinely stochastic, since it takes expectation with respect to the next mini-batch; and it is expressed in terms of the loss, which is the relevant convergent quantity in separable cross-entropy minimization. Furthermore, when the mini-batch coincides with the full dataset, the stochastic gradient gt reduces to the full gradient 
+
+∇L(Wt), and the conditional drift condition recovers the standard deterministic descent criterion, up to constant factors. In this sense, the stable regime notion introduced above extends the deterministic edge-of-stability threshold while also accounting for the fluctuations caused by mini-batch sampling. 
+
+## B Additional Related Work 
+
+In this appendix, we provide a more detailed discussion of related work. Our work is connected to several lines of research: edge-of-stability dynamics, large-stepsize optimization for logistic and cross-entropy losses as well as implicit bias in separable classification. 
+
+Edge of stability. The edge-of-stability phenomenon was systematically documented by Cohen et al. [2021b], who observed that gradient descent on neural networks often operates near the classical stability threshold predicted by the largest eigenvalue of the Hessian. Classical smooth optimization theory suggests that, for deterministic gradient descent, monotone descent of the loss is guaranteed when the stepsize is smaller than a curvature-dependent threshold. However, empirical evidence shows that modern neural network training often uses stepsizes that exceed this threshold, while the loss still decreases over longer time scales. Damian et al. [2023] proposed a self-stabilization mechanism for deterministic gradient descent at the edge of stability. Their analysis shows that, in certain settings, the dynamics themselves can reduce the effective instability and bring the trajectory back toward a stable region. Relatedly, Cohen et al. [2024] studied edge-of-stability dynamics through the lens of central flows, further clarifying the structure of large-stepsize training. These works focus primarily on deterministic gradient descent. In contrast, our work studies stochastic gradient descent, where non-monotonicity of the loss has two possible sources: curvature-driven oscillations caused by large stepsizes, and random fluctuations caused by mini-batch sampling. This distinction makes the stochastic setting qualitatively different from the deterministic one and motivates a stability notion based on conditional Lyapunov drift rather than pointwise monotone descent. 
+
+Large-stepsize methods for logistic and cross-entropy losses. A recent line of work has provided rigorous guarantees for large-stepsize gradient descent in classification problems with logistic-type losses. Wu et al. [2024b] showed that, for logistic regression, large stepsizes can accelerate optimization and that non-monotonicity of the loss can be beneficial rather than harmful. Their analysis demonstrates that deterministic gradient descent may pass through a non-monotone edge-of-stability phase before entering a stable regime where the loss decreases at a controlled rate. Cai et al. [2024] extended this perspective to non-homogeneous two-layer networks under binary logistic loss, showing that large stepsizes can improve margin growth and optimization speed. More recent work has continued to refine the theory of large-stepsize training for logistic-type objectives [Wu et al., 2025]. Our work is closest in spirit to this line of research, but differs in three important ways. First, we study SGD rather than full-batch GD. This requires separating curvature-driven instability from mini-batch noise, since the realized loss of SGD may be non-monotone even in regimes where the expected loss decreases. Second, we consider the multiclass cross-entropy loss rather than only the binary logistic loss. The multiclass setting introduces interactions between all incorrect classes through the softmax probabilities, and each example must be separated from every competing class. Third, our stability criterion is stochastic: the stable regime is defined as the region where the cross-entropy loss 16 decreases in conditional expectation over the next mini-batch. Thus, our results can be viewed as a stochastic analogue of the deterministic large-stepsize theory for logistic and cross-entropy losses. 
+
+Implicit bias in separable classification. Our analysis is also related to the literature on the implicit bias of gradient methods for separable classification. For logistic and cross-entropy losses on separable data, the empirical risk does not have a finite minimizer. Instead, the training loss converges to zero while the norm of the parameters diverges. At the same time, the direction of the parameters may converge to a maximum-margin solution. This phenomenon was established for linear logistic regression by Soudry et al. [2018], and subsequent works refined the convergence rates and extended the analysis to broader settings [Ji and Telgarsky, 2019, Nacson et al., 2019a]. This behavior is important for the stability notion used in our work. Many classical notions of stability are formulated around convergence to, or recurrence near, a finite equilibrium point. Such notions are not directly aligned with separable cross-entropy minimization, where the relevant limiting object is not a finite parameter vector. Instead, the quantity that converges is the loss. For this reason, we use the cross-entropy loss itself as the Lyapunov function. The resulting stable regime is not a neighborhood of a finite minimizer; it is a region in parameter space where the conditional drift of the loss is non-positive. This loss-based viewpoint matches the geometry of separable classification more naturally than equilibrium-based stability criteria. 
+
+Stochastic optimization. For SGD, Nacson et al. [2019b] proved convergence to zero loss with a fixed non-vanishing learning rate for homogeneous linear classifiers trained on linearly separable data, under both sampling with and without replacement. It is an interesting question to study large step size SGD with random reshuffling [Emmanouilidis et al., 2024] or other without replacement sampling strategies. For neural networks trained with SGD and small step sizes, Brutzkus et al. [2018] showed that SGD can learn overparameterized two-layer networks on linearly separable data. In our case, we extend the two-layer neural network analysis for SGD in the setting of large step sizes. 17 C Proof for Cross-entropy Loss 
+
+C.1 Notation 
+
+For each sample (xi, y i), let 
+
+zi = W ⊤xi,pi = softmax( zi),
+
+where pi(j) = ezi(j)  
+
+> PKℓ=1 ezi(ℓ)
+
+. The gradient and Hessian of the cross-entropy loss evaluated at the sample (xi, y i) are given by 
+
+∇ℓi(W ) = (pi − eyi )x⊤ 
+
+> i
+
+, (10) 
+
+∇2ℓi(W ) = (diag( pi) − pip⊤ 
+
+> i
+
+) ⊗ (xix⊤ 
+
+> i
+
+). (11) Define the potential functions F, G : Rd×K → R≥0 with 
+
+F (W ) = 1
+
+n
+
+> n
+
+X
+
+> i=1
+
+X 
+
+> j̸=yi
+
+e−⟨ W (yi)−W (j),x i⟩, (12) 
+
+G(W ) = 1
+
+n
+
+> n
+
+X
+
+> i=1
+
+(1 − pi(yi)) . (13) Since log(1 + u) ≤ u, ∀u ∈ (0 , 1] , it follows that 
+
+G(W ) ≤ L(W ) ≤ F (W ). (14) 
+
+C.2 Preparatory Lemmas 
+
+We provide the analysis of SGD for the multi-class cross-entropy loss with any step size η > 0. The proof of Theorems 2.2, 4.1, 4.2 relies on a sequence of lemmas that establish key properties of the dynamics and the geometry of the loss landscape. We first introduce the aforementioned lemmas and then present the main theoretical results. 
+
+Lemma C.1 (Perceptron-type inequality) . Let Assumption (2.1) hold. Then, for W ∈ Rd×K it holds 
+
+⟨∇ L(W ), W ∗⟩F ≤ − γ G (W ). (15) 
+
+Proof. From (10), we have that 
+
+⟨∇ L(W ), W ∗⟩F
+
+> (10)
+
+= 1
+
+n
+
+> n
+
+X
+
+> i=1
+
+⟨(pi − eyi )x⊤ 
+
+> i
+
+, W ∗⟩F = 1
+
+n
+
+> n
+
+X
+
+> i=1
+
+⟨pi − eyi , W ∗⊤ xi⟩F .
+
+Letting ∆i = W ∗⊤ xi, we have that 
+
+⟨pi − eyi , ∆i⟩F = X 
+
+> j̸=yi
+
+pi(j) ∆i(j) − ∆i(yi).
+
+By Assumption 2.1, we have that ∆i(yi) − ∆i(j) ≥ γ, and thus we obtain for i ∈ [n] that 
+
+⟨pi − eyi , ∆i⟩ ≤ − γ X 
+
+> j̸=yi
+
+pi(j) = −γ(1 − pi(yi)) . (16) Summing for i = 1 , ..., n and dividing by n, we get 
+
+1
+
+n
+
+> n
+
+X
+
+> i=1
+
+⟨pi − eyi , ∆i⟩ ≤ − γn
+
+> n
+
+X
+
+> i=1
+
+(1 − pi(yi)) 
+
+⇐⇒ ⟨∇ L(W ), W ∗⟩F ≤ −γ G (W ). (17) 18 Lemma C.2. For every W ∈ Rd×K , it holds ∀i ∈ [n] that 
+
+1
+
+b
+
+> b
+
+X
+
+> i=1
+
+∇ℓ(W ⊤xi)
+
+> F
+
+≤√2
+
+b
+
+> b
+
+X
+
+> i=1
+
+ℓ(W ⊤xi) ≤√2nb L(W ), (18) 
+
+∥∇ L(W )∥F ≤ √2 G(W ) ≤ √2 L(W ). (19) 
+
+Proof. It holds that ∇ℓ(W ⊤xi) = ( pi − eyi )x⊤ 
+
+> i
+
+, ∇L(W ) = 1
+
+> n
+
+Pni=1 (pi − eyi )x⊤ 
+
+> i
+
+, where pi =
+
+softmax (W ⊤xi).We, first, bound the individual gradients. Since (pi − eyi )x⊤ 
+
+> i
+
+is a rank-one matrix, we have 
+
+∥∇ ℓ(W ⊤xi)∥F = ∥(pi − eyi )x⊤ 
+
+> i
+
+∥F
+
+= ∥pi − eyi ∥2 ∥xi∥2
+
+≤ ∥pi − eyi ∥2. (20) Next, it holds that 
+
+∥pi − eyi ∥22 =
+
+> K
+
+X
+
+> j=1
+
+ pi(j) − 1{j=yi}
+
+2
+
+=  1 − pi(yi)2 + X 
+
+> j̸=yi
+
+pi(j)2
+
+≤  1 − pi(yi)2 +
+
+Ñ
+
+X 
+
+> j̸=yi
+
+pi(j)
+
+é2
+
+=  1 − pi(yi)2 +  1 − pi(yi)2
+
+= 2 1 − pi(yi)2. (21) Therefore, we get 
+
+∥pi − eyi ∥2 ≤ √2 1 − pi(yi). (22) Combining (20) and (22), we obtain 
+
+∥∇ ℓ(W ⊤xi)∥F ≤ √2 1 − pi(yi), ∀i ∈ [n]. (23) Since ℓ(W ⊤xi) = − log pi(yi) ≥ 1 − pi(yi) and L(W ) = 1
+
+> n
+
+Pni=1 ℓ(W T xi), it holds for any b ≥ 1
+
+that 
+
+1
+
+b
+
+> b
+
+X
+
+> i=1
+
+∇ℓ(W ⊤xi)
+
+> F
+
+≤ 1
+
+b
+
+> b
+
+X
+
+> i=1
+
+∥∇ ℓ(W ⊤xi)∥F
+
+≤√2
+
+b
+
+> b
+
+X
+
+> i=1
+
+ 1 − pi(yi)
+
+≤√2
+
+b
+
+> b
+
+X
+
+> i=1
+
+ℓ(W ⊤xi)
+
+≤√2nb L(W ).
+
+19 We now turn to the full gradient. From triangle inequality, we have that 
+
+∥∇ L(W )∥F = 1
+
+n
+
+> n
+
+X
+
+> i=1
+
+(pi − eyi )x⊤ 
+
+> iF
+
+≤ 1
+
+n
+
+> n
+
+X
+
+> i=1
+
+∥(pi − eyi )x⊤ 
+
+> i
+
+∥F
+
+= 1
+
+n
+
+> n
+
+X
+
+> i=1
+
+∥∇ ℓ(W ⊤xi)∥F
+
+≤√2
+
+n
+
+> n
+
+X
+
+> i=1
+
+ 1 − pi(yi)
+
+= √2 G(W ). (24) Finally, since G(W ) ≤ L(W ), we conclude that 
+
+∥∇ L(W )∥F ≤ √2 G(W ) ≤ √2 L(W ). (25) This completes the proof. 
+
+Lemma C.3. For all W ∈ Rd×K , it holds that 
+
+∥∇ 2L(W )∥op ≤ 2L(W ). (26) 
+
+Proof. From (11) and using the fact that the operator norm of a Kronecker product satisfies ∥A⊗B∥ =
+
+∥A∥ ∥ B∥, we obtain 
+
+∥∇ 2ℓi(W )∥op = ∥diag( pi) − pip⊤ 
+
+> i
+
+∥op ∥xix⊤ 
+
+> i
+
+∥op 
+
+> ∥x∥2≤1
+
+≤ ∥diag( pi) − pip⊤ 
+
+> i
+
+∥op . (27) For the positive semidefinite matrix Ai := diag( pi) − pip⊤ 
+
+> i
+
+, it holds that 
+
+∥Ai∥op ≤ tr (Hi) = 1 − p2 
+
+> i
+
+= 1 − pi(yi)2 − X 
+
+> j̸=i
+
+pi(j)2
+
+≤ 1 − pi(yi)2 = (1 − pi(yi))(1 + pi(yi)) 
+
+≤ 2(1 − pi(yi)) 
+
+Using the inequality − log z ≥ 1 − z, ∀z > 0 and the fact that ℓi(W ) = − log pi(yi) , we have that 
+
+1 − pi(yi) ≤ ℓi(W ). (28) Hence, we obtain 
+
+∥Ai∥op ≤ 2(1 − pi(yi)) ≤ 2 ℓi(W ). (29) Combining (27) and (29), we obtain 
+
+∥∇ 2ℓi(W )∥op ≤ 2 ℓi(W ). (30) Summing over i = 1 , . . . , n and dividing by n, we have that 
+
+∥∇ 2L(W )∥op ≤ 1
+
+n
+
+> n
+
+X
+
+> i=1
+
+∥∇ 2ℓi(W )∥ ≤ 2
+
+n
+
+> n
+
+X
+
+> i=1
+
+ℓi(W ) = 2 L(W ). (31) 20 Lemma C.4. The iterates of SGD with any step size η > 0 satisfy that 
+
+1
+
+t
+
+> t−1
+
+X
+
+> k=0
+
+E
+
+h
+
+G(Wk)
+
+i
+
+≤√2 + 2 ln  γ2ηt  + 2 η  1 + 1
+
+> b
+
+
+
+ηγ 2t
+
+where G(W ) = 1
+
+> n
+
+Pni=1 (1 − pi(yi)) .
+
+Proof. From Lemma C.1, the gradient of the softmax loss satisfies 
+
+⟨∇ L(Wt), W ∗⟩F ≤ − γ G (Wt), (32) where G(Wt) = 1
+
+> n
+
+Pni=1 (1 − pi(yi)) . Using the (SGD) update Wt+1 = Wt − ηg t, we get 
+
+⟨Wt+1 , W ∗⟩F = ⟨Wt, W ∗⟩F − η ⟨gt, W ∗⟩F
+
+Taking expectation condition on the filtration Ft and using that E
+
+h
+
+gt Ft
+
+i
+
+= ∇L(Wt), we have that 
+
+E
+
+h
+
+⟨Wt+1 , W ∗⟩F Ft
+
+i
+
+= ⟨Wt, W ∗⟩F − η ⟨∇ L(Wt), W ∗⟩F
+
+> (32)
+
+≥ ⟨Wt, W ∗⟩F + ηγG (Wt) (33) where at the last step we have used Lemma C.1. Taking expectation again and using the tower law of expectation, we get 
+
+E
+
+h
+
+⟨Wt+1 , W ∗⟩F − ⟨ Wt, W ∗⟩F
+
+i
+
+≥ ηγ E
+
+h
+
+G(Wt)
+
+i
+
+Unrolling the recursion and multiplying by 1 
+
+> t
+
+, we obtain 
+
+1
+
+t E
+
+h
+
+⟨Wt, W ∗⟩F
+
+i
+
+≥ ηγ t
+
+> t−1
+
+X
+
+> k=0
+
+E
+
+h
+
+G(Wk)
+
+i
+
+, (34) where we have used the fact that W0 = 0. Since ∥W ∗∥F = 1 and from applying the Cauchy-Schwarz inequality it holds ∥Wt∥F ≥ ⟨ Wt, W ∗⟩F , we obtain 
+
+1
+
+t
+
+> t−1
+
+X
+
+> k=0
+
+E
+
+h
+
+G(Wk)
+
+i
+
+≤
+
+E
+
+h
+
+∥Wt∥F
+
+i
+
+ηγt (35) We, next, bound the E
+
+h
+
+∥Wt∥F
+
+i
+
+. Applying the triangle inequality, we have that 
+
+∥Wt∥F ≤ ∥ Wt − U ∥F + ∥U ∥F (36) Thus, it suffices to bound the terms ∥Wt − U ∥F , ∥U ∥F . From Proposition C.7, for any decomposition 
+
+U = U1 + U2 with U2 = ηγ
+
+ 1 + 1
+
+> b
+
+ W ∗, it holds that 
+
+E
+
+h
+
+∥Wt − U ∥2
+
+> F
+
+i
+
+2ηt + 1
+
+t
+
+> t−1
+
+X
+
+> k=0
+
+E
+
+h
+
+L(Wk)
+
+i
+
+≤ L(U1) + ∥W0 − U ∥2
+
+> F
+
+2ηt 
+
+⇒ E
+
+h
+
+∥Wt − U ∥2
+
+> F
+
+i
+
+≤ 2ηtL (U1) + ∥U ∥2 
+
+> F
+
+, (37) where we have used the fact that W0 = 0 and the non-negativity of the loss L. Selecting U1 = αW ∗
+
+with α = ln (γ2ηt ) 
+
+> γ
+
+. Then, it holds 
+
+L(U1) ≤ (K − 1) e−αγ = K − 1
+
+γ2ηt ≤ 1
+
+γ2ηt (38) Thus, substituting into (37) and using Jensen inequality, we have that 
+
+E
+
+h
+
+∥Wt − U ∥F
+
+i
+
+≤
+
+…
+
+E
+
+h
+
+∥Wt − U ∥2
+
+> F
+
+i
+
+≤
+
+»
+
+2ηtL (U1) + ∥U ∥2 
+
+> F
+
+≤ 2
+
+γ2 + ∥U ∥2 
+
+> F
+
+(39) 21 We, next, bound the norm ∥U ∥F . It holds that 
+
+∥U ∥2 
+
+> F
+
+= αW ∗ + ηγ
+
+Å
+
+1 + 1
+
+b
+
+ã
+
+W ∗
+
+> 2
+> F
+
+≤ 1
+
+γ2
+
+ñ
+
+ln 2(γ2ηt ) + η2
+
+Å
+
+1 + 1
+
+b
+
+ã2ô
+
+=⇒ ∥U ∥F ≤ 1
+
+γ
+
+ï
+
+ln  γ2ηt  + η
+
+Å
+
+1 + 1
+
+b
+
+ãò 
+
+. (40) By the triangle inequality, 
+
+∥Wt∥F ≤ ∥ Wt − U ∥F + ∥U ∥F ≤√2
+
+γ + 2 ∥U ∥F ≤√2 + 2 ln  γ2ηt  + 2 η  1 + 1
+
+> b
+
+
+
+γ (41) where we have used the fact that √a + b ≤ √a + √b for a, b ≥ 0 and the bound on ∥U ∥F from (40) .Substituting (41) into (35) gives 
+
+1
+
+t
+
+> t−1
+
+X
+
+> k=0
+
+E
+
+h
+
+G(Wk)
+
+i
+
+≤√2 + 2 ln  γ2ηt  + 2 η  1 + 1
+
+> b
+
+
+
+ηγ 2t (42) 
+
+Lemma C.5. The stochastic gradient oracle gt of the cross-entropy loss satisfies 
+
+E
+
+h
+
+∥gt∥2 Ft
+
+i
+
+≤
+
+Å
+
+1 + nbγ 2
+
+ã
+
+∥∇ L(Wt)∥2
+
+Proof. From the bias-variance decomposition, it holds 
+
+E
+
+h
+
+∥gt∥2 Ft
+
+i
+
+= ∥∇ L(Wt)∥2 
+
+> F
+
++ E
+
+h
+
+∥gt − ∇ L(Wt)∥2 
+
+> F
+
+Ft
+
+i
+
+= ∥∇ L(Wt)∥2 
+
+> F
+
++ 1
+
+b Var (∇ℓi(Wt) | F t)
+
+≤ ∥∇ L(Wt)∥2 
+
+> F
+
++ 1
+
+b E
+
+h
+
+∥∇ ℓi(Wt)∥2 
+
+> F
+
+Ft
+
+i
+
+as gt is the average of b i.i.d. samples (conditionally on Ft). Substituting the definition of 
+
+E
+
+h
+
+∥∇ ℓi(Wt)∥2 
+
+> F
+
+Ft
+
+i
+
+and using the inequality Pni=1 ∥∇ ℓi(Wt)∥2 
+
+> F
+
+≤ n2 
+
+> γ2
+
+∥∇ L(Wt)∥2 
+
+> F
+
+, from Nac-son et al. [2019b], we obtain 
+
+E
+
+h
+
+∥gt∥2 Ft
+
+i
+
+≤ ∥∇ L(Wt)∥2 
+
+> F
+
++ 1
+
+nb 
+
+> n
+
+X
+
+> i=1
+
+∥∇ ℓi(Wt)∥2 
+
+> F
+
+≤
+
+Å
+
+1 + nbγ 2
+
+ã
+
+∥∇ L(Wt)∥2
+
+> F
+
+C.3 Variance Bound 
+
+As a stochastic optimization algorithm, SGD is leveraging a stochastic mini-batch gradient at each iteration instead of the full-batch gradient. Controlling the noise induced by the stochastic oracles in the dynamics is of critical importance for analyzing the convergence. We can bound the variance of the stochastic mini-batches by utilizing the following lemma. 
+
+Lemma C.6 (Variance bound) . Let g(W ) = 1
+
+> b
+
+P 
+
+> i∈B t
+
+∇ℓ(f (xi; W ), y i) denote the mini-batch gradient. Then, it holds that 
+
+E
+
+h
+
+∥g(W ) − ∇ L(W )∥2
+
+i
+
+≤ 2
+
+b G(W ), (43) where G(W ) := 1
+
+> n
+
+Pni=1 
+
+h
+
+1 − softmax( W x i)yi
+
+i
+
+.22 Proof. We begin by decomposing the variance of the stochastic oracle. For uniform sampling of minibatch Bt of size b ≥ 1, it holds that 
+
+E∥gt − ∇ L(Wt)∥2 
+
+> F
+
+| F t
+
+ = 1
+
+b Var i
+
+ ∇ℓi(Wt) ≤ 1
+
+b Ei
+
+∥∇ ℓi(Wt)∥2
+
+> F
+
+ , (44) where we used that Var( Z) ≤ E[∥Z∥2] for any random variable Z. For each i ∈ [n], by the definition of ∇ℓi(Wt) we have 
+
+∥∇ ℓi(Wt)∥2 
+
+> F
+
+= ∥(pi − eyi )x⊤ 
+
+> i
+
+∥2 
+
+> F
+
+= ∥pi − eyi ∥22 ∥xi∥22 ≤ ∥ pi − eyi ∥22, (45) since ∥xi∥2 ≤ 1. We next expand the norm, obtaining 
+
+∥pi − eyi ∥22 = (1 − pi(yi)) 2 + X 
+
+> j̸=yi
+
+pi(j)2 ≤ (1 − pi(yi)) 2 +
+
+Ñ
+
+X 
+
+> j̸=yi
+
+pi(j)
+
+é2
+
+≤ 2(1 − pi(yi)) 2, (46) where we used that and P  
+
+> j̸=yi
+
+pi(j) = 1 − pi(yi). Thus, from (45), (46) we have 
+
+∥∇ ℓi(Wt)∥2 
+
+> F
+
+≤ 2(1 − pi(yi)) 2 ≤ 2(1 − pi(yi)) . (47) Summing for i ∈ [n] and dividing by 1 
+
+> n
+
+gives 
+
+Ei[∥∇ ℓi(Wt)∥2 
+
+> F
+
+] ≤ 2 G(Wt). (48) Substituting (48) into (44), we obtain the final 
+
+E∥gt − ∇ L(Wt)∥2 
+
+> F
+
+| F t
+
+ ≤ 2
+
+b G(Wt). (49) 
+
+C.4 Proofs for EoS Regime Lemma C.7. Let U = U1 + U2 with U1 ∈ Rd×K , U 2 = ηγ
+
+ 1 + 1
+
+> b
+
+ W ∗. Then, for all t ≥ 1, it holds that 
+
+E
+
+h
+
+∥Wt − U ∥2
+
+> F
+
+i
+
+2ηt + 1
+
+t
+
+> t−1
+
+X
+
+> k=0
+
+E
+
+h
+
+L(Wk)
+
+i
+
+≤ L(U1) + ∥W0 − U ∥2
+
+> F
+
+2ηt (50) 
+
+Proof. From the update rule (SGD), we have that 
+
+∥Wt+1 − U ∥2 
+
+> F
+
+= ∥Wt − U ∥2 
+
+> F
+
++ 2 η⟨gt, U − Wt⟩F + η2∥gt∥2
+
+> F
+
+= ∥Wt − U ∥2 
+
+> F
+
++ 2 η⟨gt, U 1 − Wt⟩F + η2
+
+Å 2
+
+η ⟨gt, U 2⟩ + ∥gt∥2
+
+> F
+
+ã
+
+(51) Taking expectation condition on the filtration Ft and using the unbiasedness property of the stochastic oracles, we have 
+
+E
+
+h
+
+∥Wt+1 − U ∥2 
+
+> F
+
+Ft
+
+i
+
+= ∥Wt − U ∥2 
+
+> F
+
++ 2 η⟨∇ L(Wt), U 1 − Wt⟩F
+
++η2
+
+Å 2
+
+η ⟨∇ L(Wt), U 2⟩ + E
+
+h
+
+∥gt∥2 
+
+> F
+
+Ft
+
+iã
+
+(52) Using Lemmas C.1, C.6 with the selected U2 = ηγ
+
+ 1 + 1
+
+> b
+
+ W ∗, we have 
+
+2
+
+η ⟨∇ L(Wt), U 2⟩ + E
+
+h
+
+∥gt∥2 
+
+> F
+
+Ft
+
+i (16) 
+
+≤ −2
+
+Å
+
+1 + 1
+
+b
+
+ã
+
+G(Wt) + E
+
+h
+
+∥gt∥2 
+
+> F
+
+Ft
+
+i
+
+= −2
+
+Å
+
+1 + 1
+
+b
+
+ã
+
+G(Wt) + ∥∇ L(Wt)∥2
+
+> F
+
++ E
+
+h
+
+∥gt − ∇ L(Wt)∥2 
+
+> F
+
+Ft
+
+i 
+
+> Lemma C. 6
+
+≤ −2
+
+Å
+
+1 + 1
+
+b
+
+ã
+
+G(Wt) + ∥∇ L(Wt)∥2 
+
+> F
+
++ 2
+
+b G(Wt) 
+
+> Lemma C. 1
+
+≤ −2
+
+Å
+
+1 + 1
+
+b
+
+ã
+
+G(Wt) + 2 
+
+Å
+
+1 + 1
+
+b
+
+ã
+
+G(Wt)
+
+≤ 0, (53) 23 Thus, substituting (53) into (52) gives 
+
+E
+
+h
+
+∥Wt+1 − U ∥2 
+
+> F
+
+Ft
+
+i
+
+≤ ∥Wt − U ∥2 
+
+> F
+
++ 2 η⟨∇ L(Wt), U 1 − Wt⟩F
+
+Using the fact that L is convex, we have that 
+
+E
+
+h
+
+∥Wt+1 − U ∥2 
+
+> F
+
+Ft
+
+i
+
+≤ ∥Wt − U ∥2 
+
+> F
+
++ 2 η [L(U1) − L(Wt)] 
+
+Taking expectation again and using the tower law of expectation, we obtain 
+
+E
+
+h
+
+∥Wt+1 − U ∥2
+
+> F
+
+i
+
+≤ E
+
+h
+
+∥Wt − U ∥2
+
+> F
+
+i
+
++ 2 η E
+
+h
+
+L(U1) − L(Wt)
+
+i
+
+Summing for k = 0 , ..., t − 1 and dividing by 2ηt , we have that 
+
+E
+
+h
+
+∥Wt − U ∥2
+
+> F
+
+i
+
+2ηt + 1
+
+t
+
+> t−1
+
+X
+
+> k=0
+
+E
+
+h
+
+L(Wk)
+
+i
+
+≤ L(U1) + ∥W0 − U ∥2
+
+> F
+
+2ηt 
+
+Proof of Theorem 2.2 
+
+Proof. From Lemma C.7, we have that for all t ≥ 1 it holds 
+
+E
+
+h
+
+∥Wt − U ∥2
+
+> F
+
+i
+
+2ηt + 1
+
+t
+
+> t−1
+
+X
+
+> k=0
+
+E
+
+h
+
+L(Wk)
+
+i
+
+≤ L(U1) + ∥U ∥2
+
+> F
+
+2ηt (54) For U1 = αW ∗, U2 = ηγ
+
+ 1 + 1
+
+> b
+
+ W ∗, α = ln (γ2ηt ) 
+
+> γ
+
+, it holds that 
+
+L(U1) ≤ F (U1) = ( K − 1) e−αγ = K − 1
+
+γ2ηt , (55) 
+
+∥U ∥2 
+
+> F
+
+≤ 2∥U1∥2 
+
+> F
+
++ 2 ∥U2∥2 
+
+> F
+
+≤ 2 ln 2(γ2ηt )
+
+γ2 + 2η2(1 + 1 
+
+> b
+
+)2
+
+γ2 . (56) Substituting (55), (56) into (54) and rearranging the terms, we obtain 
+
+1
+
+t
+
+> t−1
+
+X
+
+> k=0
+
+E
+
+h
+
+L(Wk)
+
+i
+
+≤ K − 1 + ln 2(γ2ηt ) + η2(1 + 1 
+
+> b
+
+)2
+
+γ2ηt 
+
+C.5 Proofs for Stable Regime Lemma C.8. If for some t ≥ 0 the iterates of (SGD) satisfy 
+
+L(Wt) ≤ 18η Ä1 + nb min {γ2,1}
+
+ä ,
+
+then 
+
+E
+
+h
+
+L(Wt+1 ) − L(Wt) Ft
+
+i
+
+≤ 0, (57) and hence Wt ∈ S .
+
+Proof. Recall that the minibatch gradient is gt = 1
+
+> b
+
+P 
+
+> j∈B t
+
+∇ℓj (Wt). Fix i ∈ [n] and define the logit increment 
+
+∆si := ( Wt+1 − Wt)xi = −ηg txi.
+
+24 Since ∥xi∥2 ≤ 1, we have 
+
+∥∆si∥2 ≤ η∥gt∥F ≤ ηb
+
+X
+
+> j∈Bt
+
+∥∇ ℓj (Wt)∥2
+
+> (18)
+
+≤√2ηn b L(Wt). (58) where we have used (18) from Lemma C.2. Let ϕi(α) := ℓi(Wt − αηg t) for α ∈ [0 , 1] . From Taylor’s theorem, there exists θi ∈ (0 , 1) such that 
+
+ℓi(Wt+1 ) = ℓi(Wt) − η⟨∇ ℓi(Wt), g t⟩ + 12 (∆ si)⊤Hi(θi)(∆ si), (59) where Hi(θi) = diag (pθi ) − pθi (pθi )⊤, and pθi := softmax  (Wt − θiηg t)xi
+
+. Since Hi(θi) is positive semidefinite, we have that 
+
+(∆ si)⊤Hi(θi)(∆ si) ≤ ∥ Hi(θi)∥op ∥∆si∥22.
+
+Hence, from (58) we obtain 
+
+ℓi(Wt+1 ) ≤ ℓi(Wt) − η⟨∇ ℓi(Wt), g t⟩ + η2
+
+2 ∥Hi(θi)∥op ∥gt∥2 
+
+> F
+
+. (60) For the softmax cross-entropy loss, if u ∈ RK and p = softmax (u) it holds that diag (p) − pp ⊤ ⪰ 0 and ∥diag (p) − pp ⊤∥op ≤ tr  diag (p) − pp ⊤ = 1 − ∥ p∥22.
+
+Therefore, we have that 
+
+∥Hi(θi)∥op ≤ 1 − ∥ pθi ∥22 ≤ 2 1 − pθi (yi).
+
+Since − ln a ≥ 1 − a, ∀a ∈ (0 , 1] , we have that 1 − pθi (yi) ≤ ℓi(Wt − θiηg t) and thus 
+
+∥Hi(θi)∥op ≤ 2 ℓi(Wt − θiηg t).
+
+In the stable-regime, the loss is small enough so that the logits move by at most a constant amount. In particular, it holds that ∥∆si∥∞ ≤ 1. Then, the softmax probabilities along the segment between Wt
+
+and Wt+1 change by at most an absolute constant factor, and hence 
+
+ℓi(Wt − θiηg t) ≤ e2ℓi(Wt).
+
+Therefore, we have that 
+
+∥Hi(θi)∥op ≤ 2e2ℓi(Wt) ≤ 16 ℓi(Wt),
+
+where we used e2 < 8. Substituting into (60), we get 
+
+ℓi(Wt+1 ) ≤ ℓi(Wt) − η⟨∇ ℓi(Wt), g t⟩ + 8 η2ℓi(Wt)∥gt∥2 
+
+> F
+
+. (61) Summing (61) over i = 1 , . . . , n and dividing by n, we have 
+
+L(Wt+1 ) − L(Wt) ≤ − η⟨∇ L(Wt), g t⟩ + 8 η2L(Wt)∥gt∥2 
+
+> F
+
+. (62) Taking conditional expectation with respect to Ft and using E
+
+h
+
+gt Ft
+
+i
+
+= ∇L(Wt), we obtain 
+
+E
+
+h
+
+L(Wt+1 ) − L(Wt) Ft
+
+i
+
+≤ − η∥∇ L(Wt)∥2 
+
+> F
+
++ 8 η2L(Wt) E
+
+h
+
+∥gt∥2 
+
+> F
+
+Ft
+
+i
+
+. (63) Using Lemma C.5, we can bound the last term by E
+
+h
+
+∥gt∥2 Ft
+
+i
+
+≤ Ä1 + nbγ 2
+
+ä ∥∇ L(Wt)∥2 and thus have 
+
+E
+
+h
+
+L(Wt+1 ) − L(Wt) Ft
+
+i
+
+≤ − η
+
+ï
+
+1 − 8η
+
+Å
+
+1 + nbγ 2
+
+ã
+
+L(Wt)
+
+ò
+
+∥∇ L(Wt)∥2 
+
+> F
+
+. (64) For L(Wt) ≤ 18η  
+
+> 
+> 1+ nbγ 2
+> 
+
+, we have that 
+
+E
+
+h
+
+L(Wt+1 ) − L(Wt) Ft
+
+i
+
+≤ 0.
+
+Taking full expectation and applying the tower property of expectation, we get 
+
+E
+
+h
+
+L(Wt+1 ) − L(Wt)
+
+i
+
+≤ 0.
+
+Combining the two requirements for the loss L(Wt) ≤ min 
+
+®  
+
+> 18η
+> 
+> 1+ nbγ 2
+> 
+
+, b√2nη 
+
+´
+
+it suffices to have 
+
+L(Wt) ≤ 18η   
+
+> Å
+> 1+ nbmin {γ2,1}
+> ã
+
+.25 Lemma C.9. If the iterates satisfy Wk ∈ S , ∀k ∈ [t1, t ), then it holds that 
+
+E
+
+h
+
+L(Wt)
+
+i
+
+≤ 8F (Wt1 ) + 4 ln 2(γ2η(t − t1)) 7γ2η(t − t1) (65) where F (W ) = 1
+
+> n
+
+Pni=1 
+
+P  
+
+> j̸=yi
+
+e−⟨ W (yi)−W (j),x i⟩.
+
+Proof. From the update rule of (SGD) we have that 
+
+∥Wt+1 − U ∥2 
+
+> F
+
+= ∥Wt − U ∥2 
+
+> F
+
+− 2η⟨g(Wt), W t − U ⟩F + η2∥g(Wt)∥2 
+
+> F
+
+.
+
+Taking expectation condition on the filtration Ft and using the unbiased property E
+
+h
+
+g(Wt) Ft
+
+i
+
+=
+
+∇L(Wt), we have 
+
+E
+
+h
+
+∥Wt+1 − U ∥2 
+
+> F
+
+Ft
+
+i
+
+= ∥Wt − U ∥2 
+
+> F
+
+− 2η⟨∇ L(Wt), W t − U ⟩F + η2 E
+
+h
+
+∥g(Wt)∥2 
+
+> F
+
+Ft
+
+i
+
+(66) Since L is convex, we get 
+
+L(U ) ≥ L(Wt) + ⟨∇ L(Wt), U − Wt⟩F
+
+⇐⇒ −⟨∇ L(Wt), W t − U ⟩F ≤ L(U ) − L(Wt) (67) Substituting (67) into (66), we obtain 
+
+∥Wt+1 − U ∥2 
+
+> F
+
+≤ ∥Wt − U ∥2 
+
+> F
+
++ 2 η L(U ) − L(Wt) + η2 E
+
+h
+
+∥g(Wt)∥2 
+
+> F
+
+Ft
+
+i
+
+Taking expectation on both sides and using the tower law of expectation, we get 
+
+E
+
+h
+
+∥Wt+1 − U ∥2
+
+> F
+
+i
+
+≤ E
+
+h
+
+∥Wt − U ∥2
+
+> F
+
+i
+
++ 2 η E
+
+h
+
+L(U ) − L(Wt)
+
+i
+
++ η2 E
+
+h
+
+∥g(Wt)∥2
+
+> F
+
+i
+
+. (68) Using the bias-variance decomposition and Lemma C.6, we have that 
+
+η2 E
+
+h
+
+∥g(Wt)∥2 
+
+> F
+
+Ft
+
+i
+
+= η2∥∇ L(Wt)∥2 
+
+> F
+
++ η2 E
+
+h
+
+∥g(Wt) − ∇ L(Wt)∥2 
+
+> F
+
+Ft
+
+i
+
+= η2∥∇ L(Wt)∥2 
+
+> F
+
++ η2
+
+b Var (∇ℓi(Wt) | F t)
+
+≤ η2∥∇ L(Wt)∥2 
+
+> F
+
++ η2
+
+b E
+
+h
+
+∥∇ ℓi(Wt)∥2 
+
+> F
+
+Ft
+
+i
+
+≤ η2∥∇ L(Wt)∥2 
+
+> F
+
++ η2
+
+nb 
+
+> n
+
+X
+
+> i=1
+
+∥∇ ℓi(Wt)∥2
+
+> F
+
+Using the fact that Pni=1 ∥∇ ℓi(Wt)∥2 
+
+> F
+
+≤ n2 
+
+> γ2
+
+∥∇ L(Wt)∥2 
+
+> F
+
+, we have 
+
+η2 E
+
+h
+
+∥g(Wt)∥2 
+
+> F
+
+Ft
+
+i
+
+≤ η2
+
+Å
+
+1 + nbγ 2
+
+ã
+
+∥∇ L(Wt)∥2 
+
+> F
+> Lemma C. 2
+
+≤ 2η2
+
+Å
+
+1 + nbγ 2
+
+ã
+
+L(Wt)2
+
+≤ η
+
+4 L(Wt). (69) where at the last step we have used the fact that L(Wt) ≤ 14ηC . Thus, (68) becomes 
+
+E
+
+h
+
+∥Wt+1 − U ∥2 
+
+> F
+
+Ft
+
+i
+
+≤ ∥Wt − U ∥2 
+
+> F
+
++ 2 η[L(U ) − L(Wt)] + η
+
+4 L(Wt)
+
+≤ ∥Wt − U ∥2 
+
+> F
+
++ 2 ηL (U ) − 7η
+
+4 L(Wt) (70) Taking expectation again, using the tower law of expectation and rearranging the terms, we obtain 
+
+E
+
+h
+
+L(Wt)
+
+i
+
+≤ 87 L(U ) + 4 E
+
+h
+
+∥Wt − U ∥2 
+
+> F
+
+− ∥ Wt+1 − U ∥2
+
+> F
+
+i
+
+7η . (71) 26 Summing over k = t1, . . . , t − 1 and dividing by (t − t1), we have that: 
+
+1
+
+t − t1
+
+> t−1
+
+X
+
+> k=t1
+
+E
+
+h
+
+L(Wk)
+
+i
+
+≤ 87 L(U ) + 47η (t − t1)
+
+> t−1
+
+X
+
+> k=t1
+
+ ∥Wk − U ∥2 
+
+> F
+
+− ∥ Wk+1 − U ∥2
+
+> F
+
+
+
+= 87 L(U ) + 4  ∥Wt1 − U ∥2 
+
+> F
+
+− ∥ Wt − U ∥2
+
+> F
+
+
+
+7η (t − t1) (72) Letting U = Wt1 + U1 with U1 = αW ∗ and α = ln (γ2η(t−t1)) 
+
+> γ
+
+we have that 
+
+∥Wt1 − U ∥2 
+
+> F
+
+= ∥U1∥2 
+
+> F
+
+= ln 2(γ2η(t − t1)) 
+
+γ2 (73) and 
+
+L(U ) ≤ F (U ) = 1
+
+n
+
+> n
+
+X
+
+> i=1
+
+e−⟨ U,x ⟩F
+
+= 1
+
+n
+
+> n
+
+X
+
+> i=1
+
+e−⟨ U1,X ⟩F e−⟨ Ws,X ⟩F
+
+= 1
+
+n
+
+> n
+
+X
+
+> i=1
+
+e−⟨ Ws,X ⟩F
+
+γ2η(t − t1)= F (Ws)
+
+γ2η(t − t1) (74) Substituting (73), (74) into (72), we obtain 
+
+min  
+
+> t1≤k≤t−1
+
+E
+
+h
+
+L(Wk)
+
+i
+
+≤ 8F (Wt1 ) + 4 ln 2(γ2η(t − t1)) 7γ2η(t − t1) (75) Applying Lemma C.8 for the stable region S[t1,t −1] we have that 
+
+E
+
+h
+
+L(Wt)
+
+i
+
+≤ E
+
+h
+
+L(Wt−1)
+
+i
+
+≤ ... ≤ E
+
+h
+
+L(Wt1 )
+
+i
+
+and thus from (75) we have that 
+
+E
+
+h
+
+L(Wt)
+
+i
+
+≤ min  
+
+> t1≤k≤t−1
+
+E
+
+h
+
+L(Wk)
+
+i
+
+≤ 8F (Wt1 ) + 4 ln 2(γ2η(t − t1)) 7γ2η(t − t1)
+
+Lemma C.10. Let W0 = 0. There exists tin ≤ tmax (δ) such that with probability at least 1 − δ,we have that L(Wtin ) ≤ ˜L, where 
+
+tmax (δ) ≥ 1
+
+γ2 max 
+
+® 8 K − 1 + 2 η(2 + 1 
+
+> b
+
+)
+
+η δ ˜L , 32 
+
+η δ ˜L ln 
+
+ 32 
+
+η δ ˜L
+
+´
+
+.
+
+Proof. From Lemma C.4 applied at t = tmax (δ), we have that 
+
+1
+
+tmax 
+
+> tmax −1
+
+X
+
+> k=0
+
+E[G(Wk)] ≤ 2 K − 1 + 2 ln  γ2ηt max 
+
+ + 2 η(1 + 1 
+
+> b
+
+)
+
+η γ 2 tmax 
+
+. (76) Using inequality ln  γ2ηt max 
+
+ = ln  γ2tmax 
+
+ + ln( η) ≤ ln  γ2tmax 
+
+ + η, we obtain 
+
+1
+
+tmax 
+
+> tmax −1
+
+X
+
+> k=0
+
+E[G(Wk)] ≤ 2 K − 1 + 2 ln  γ2tmax 
+
+ + 2 η(2 + 1 
+
+> b
+
+)
+
+η γ 2 tmax 
+
+. (77) For δ ∈ (0 , 1) , we select tmax so that the right-hand side of (77) is at most δ ˜L/ 2. We, next, verify the formula for tmax :27 • For t ≥ 8 K − 1 + 2 η(2 + 1 
+
+> b
+
+)
+
+η δ ˜L γ 2 , it holds that 2 K − 1 + 2 η(2 + 1 
+
+> b
+
+)
+
+η γ 2 t ≤ δ ˜L
+
+4 .• For t ≥ 32 
+
+η δ ˜L γ 2 ln 
+
+ 32 
+
+η δ ˜L
+
+
+
+, it holds that γ2 t ≥ 32 
+
+η δ ˜L ln 
+
+ 32 
+
+η δ ˜L
+
+
+
+, which is a sufficient condition (see Lemma G.5 in Cai et al. [2024]) for 4 ln  γ2 t
+
+η γ 2 t ≤ δ ˜L
+
+4 .Thus, it suffices to select tmax (δ) such that 
+
+tmax (δ) ≥ 1
+
+γ2 max 
+
+® 8 K − 1 + 2 η(2 + 1 
+
+> b
+
+)
+
+η δ ˜L , 32 
+
+η δ ˜L ln 
+
+ 32 
+
+η δ ˜L
+
+´
+
+. (78) Thus, we have that 
+
+1
+
+tmax 
+
+> tmax −1
+
+X
+
+> k=0
+
+E[G(Wk)] ≤ δ ˜L
+
+2 . (79) Hence, there exists tin ≤ tmax (δ) such that 
+
+E[G(Wtin )] ≤ δ ˜L
+
+2 . (80) Let the event Ein := {G(Wtin ) ≤ ˜L/ 2}. Since G(Wtin ) ≥ 0, using Markov’s inequality, we get 
+
+P(Ec
+
+> in
+
+) = P G(Wtin ) > ˜L/ 2 ≤ 2 E[G(Wtin )] ˜L ≤ δ, (81) and thus P(Ein ) ≥ 1 − δ. Conditioning on the event Ein and using G(Wtin ) ≤ ˜L 
+
+> 2
+
+≤ 14n ≤ 12n ,every term in the sum G(Wtin ) = 1
+
+> n
+
+Pni=1 (1 − pi(Wtin )yi ) satisfies 1 − pi(Wtin )yi ≤ 1/2 and thus 
+
+pi(Wtin )yi ≥ 1/2. For every j̸ = yi, thus, it holds that 
+
+zi(Wtin )yi − zi(Wtin )j = ln pi(Wtin )yi
+
+pi(Wtin )j
+
+≥ 0, (82) which gives 
+
+F (Wtin ) = 1
+
+n
+
+> n
+
+X
+
+> i=1
+
+X 
+
+> j̸=yi
+
+pi(Wtin )j
+
+pi(Wtin )yi
+
+≤ 1
+
+n
+
+> n
+
+X
+
+> i=1
+
+2 1 − pi(Wtin )yi
+
+
+
+= 2 G(Wtin )
+
+≤ ˜L, 
+
+where we used pi(W )yi ≥ 1/2 to bound 1/p i(W )yi ≤ 2 and P  
+
+> j̸=yi
+
+pi(W )j = 1 − pi(W )yi . Since 
+
+L(W ) ≤ F (W ) for every W ∈ Rd×K , on the event Ein , we have that 
+
+L(Wtin ) ≤ F (Wtin ) ≤ ˜L. (83) Combining (83) with P(Ein ) ≥ 1 − δ, we conclude that there exists tin ≤ tmax (δ) such that with probability at least 1 − δ it holds that L(Wtin ) ≤ ˜L, and the dynamics enter the stable regime S at iteration tin .
+
+Proof of Theorem 4.1 
+
+Proof. The theorem is proved by combining Lemma C.9 and Lemma C.10. 28 C.6 Proofs for Stochastic Stabilization Mechanism Lemma C.11. Let Et = ¶L(Wt) ≤ ˜L, L (Wt+1 ) > ˜L©. If at iteration t > 0 the dynamics are in the stable regime, then the exit probability satisfies 
+
+Pr( Et | F t) ≤ 2 exp 
+
+Å
+
+− bD t
+
+4ηL (Wt)3/2
+
+ã
+
+(84) where Dt = ∆t
+
+> 4ηL (Wt)1/2+
+> √2(1+ n)3
+> √∆t
+
+and 
+
+∆t = ˜L − L(Wt) + 2 η 1 − 8ηL (Wt)L(Wt)2 +
+
+ 1 − 16 ηL (Wt)2
+
+8 L(Wt)
+
+Proof. From inequality (62), we have that 
+
+L(Wt+1 ) ≤ L(Wt) − η⟨∇ L(Wt), g t⟩ + 8 η2L(Wt)∥gt∥2. (85) Let ξt := gt −∇ L(Wt) denote the noise at iteration t. Substituting gt = ∇L(Wt)+ ξt and expanding, we get 
+
+L(Wt+1 ) ≤ L(Wt) − η 1 − 8ηL (Wt)∥∇ L(Wt)∥2
+
+−η 1 − 16 ηL (Wt)⟨∇ L(Wt), ξ t⟩ + 8 η2L(Wt)∥ξt∥2. (86) On the event 
+
+Et = ¶L(Wt) ≤ ˜L, L (Wt+1 ) > ˜L© ,
+
+it holds that 
+
+˜L − L(Wt) + η 1 − 8ηL (Wt)∥∇ L(Wt)∥2 < −η 1 − 16 ηL (Wt)⟨∇ L(Wt), ξ t⟩
+
++8 η2L(Wt)∥ξt∥2. (87) We now lower bound the right-hand side by completing the square. Let 
+
+At := η 1 − 16 ηL (Wt), Bt := 8 η2L(Wt). (88) Then, it holds that 
+
+−At⟨∇ L(Wt), ξ t⟩ + Bt∥ξt∥2
+
+= Bt
+
+2 ∥ξt∥2 +
+
+Å Bt
+
+2 ∥ξt∥2 − At⟨∇ L(Wt), ξ t⟩
+
+ã
+
+= Bt
+
+2 ∥ξt∥2 + Bt
+
+2 ξt − At
+
+Bt
+
+∇L(Wt)
+
+> 2
+
+− A2
+
+> t
+
+2Bt
+
+∥∇ L(Wt)∥2
+
+≥ Bt
+
+2 ∥ξt∥2 − A2
+
+> t
+
+2Bt
+
+∥∇ L(Wt)∥2. (89) Substituting the values of At, B t, we obtain 
+
+−η 1 − 16 ηL (Wt)⟨∇ L(Wt), ξ t⟩ + 8 η2L(Wt)∥ξt∥2
+
+≥ 4η2L(Wt)∥ξt∥2 −
+
+ 1 − 16 ηL (Wt)2
+
+16 L(Wt) ∥∇ L(Wt)∥2. (90) Hence, from inequality (87), for the event Et to hold, it suffices that 
+
+˜L − L(Wt) + η 1 − 8ηL (Wt)∥∇ L(Wt)∥2
+
+< 4η2L(Wt)∥ξt∥2 −
+
+ 1 − 16 ηL (Wt)2
+
+16 L(Wt) ∥∇ L(Wt)∥2. (91) Using Lemma C.2, namely 
+
+∥∇ L(Wt)∥2 ≤ 2L(Wt)2, (92) 29 it suffices that 
+
+˜L − L(Wt) + 2 η 1 − 8ηL (Wt)L(Wt)2 +
+
+ 1 − 16 ηL (Wt)2
+
+8 L(Wt) < 4η2L(Wt)∥ξt∥2.
+
+Letting 
+
+∆t := ˜L − L(Wt) + 2 η 1 − 8ηL (Wt)L(Wt)2 +
+
+ 1 − 16 ηL (Wt)2
+
+8 L(Wt), (93) we obtain that for the event Et to hold, it suffices that 
+
+∆t < 4η2L(Wt)∥ξt∥2, (94) or equivalently it suffices that 
+
+∥ξt∥ > ∆t
+
+4η2L(Wt) . (95) Therefore, it holds that 
+
+Pr( Et | F t) ≤ Pr 
+
+Ç
+
+∥ξt∥ > ∆t
+
+4η2L(Wt) | F t
+
+å
+
+. (96) Conditionally on the filtration Ft, the noise 
+
+ξt = 1
+
+b
+
+> b
+
+X
+
+> i=1
+
+ζt,i , ζt,i := ∇ℓi(Wt) − ∇ L(Wt), (97) is the average of b centered i.i.d. vectors. From Lemma C.2 and Lemma C.6, each term in the sum satisfies the bound 
+
+∥ζt,i ∥ ≤ ∥∇ ℓi(Wt)∥ + ∥∇ L(Wt)∥ ≤ √2(1 + n)L(Wt), (98) and the variance bound 
+
+E
+
+h
+
+∥ζt,i ∥2 | F t
+
+i
+
+≤ 2L(Wt). (99) By the vector Bernstein inequality applied to ξt, we have 
+
+Pr( Et | F t) ≤ 2 exp − b ∆t/(4 η2L(Wt)) 4L(Wt) + 2√2(1+ n)3 L(Wt)p∆t/(4 η2L(Wt)) 
+
+!
+
+= 2 exp − b
+
+4ηL (Wt)3/2 · ∆t
+
+4ηL (Wt)1/2 +
+
+> √2(1+ n)3
+
+√∆t
+
+!
+
+.
+
+Lemma C.12. Assume that the dynamics exit the stable regime at tout > 0 and fix δ ∈ (0 , 1) .Then, with probability at least 1 − δ the iterates of (SGD) return inside the stable regime in at most 
+
+tre =
+
+° 4
+
+γ2ηδ ˜L max 
+
+ß
+
+A, 4 ln 
+
+Å 16 
+
+γ2ηδ ˜L
+
+ã™§ 
+
+number of steps, where A = 3( K − 1) + 4 ln 2(γ2ηt out ) + 5 η2 1 + 1
+
+> b
+
+2.
+
+Proof. Let U = U1 + U2 with U1 = αW ∗, U2 = ηγ
+
+ 1 + 1
+
+> b
+
+W∗ and α = ln (γ2η(t−tout )) 
+
+> γ
+
+. From the update rule of (SGD), we have that 
+
+∥Wt+1 − U ∥2 
+
+> F
+
+= ∥Wt − U ∥2 
+
+> F
+
++ 2 η⟨gt, U − Wt⟩F + η2∥gt∥2
+
+> F
+
+= ∥Wt − U ∥2 
+
+> F
+
++ 2 η⟨gt, U 1 − Wt⟩F
+
++ η2
+
+Å 2
+
+η ⟨gt, U 2⟩F + ∥gt∥2
+
+> F
+
+ã
+
+.
+
+30 Taking expectation conditional on the filtration Ft and using the unbiasedness property of the stochastic oracles, we get 
+
+E∥Wt+1 − U ∥2 
+
+> F
+
+Ft
+
+ = ∥Wt − U ∥2 
+
+> F
+
++ 2 η⟨∇ L(Wt), U 1 − Wt⟩F
+
++ η2
+
+Å 2
+
+η ⟨∇ L(Wt), U 2⟩F + E∥gt∥2 
+
+> F
+
+Ft
+
+ã
+
+. (100) Using Lemmas C.1, C.2, C.6 with the selected U2 = ηγ
+
+ 1 + 1
+
+> b
+
+W∗, we have that 
+
+2
+
+η ⟨∇ L(Wt), U 2⟩F + E∥gt∥2 
+
+> F
+
+Ft
+
+ Lemma C.1 
+
+≤ −2
+
+
+
+1 + 1
+
+> b
+
+
+
+G(Wt) + E∥gt∥2 
+
+> F
+
+Ft
+
+
+
+= −2
+
+
+
+1 + 1
+
+> b
+
+
+
+G(Wt) + ∥∇ L(Wt)∥2
+
+> F
+
++ E∥gt − ∇ L(Wt)∥2 
+
+> F
+
+Ft
+
+
+
+> Lemma C.6
+
+≤ −2
+
+
+
+1 + 1
+
+> b
+
+
+
+G(Wt) + ∥∇ L(Wt)∥2 
+
+> F
+
++ 2
+
+b G(Wt)
+
+> Lemma C.2
+
+≤ −2
+
+
+
+1 + 1
+
+> b
+
+
+
+G(Wt) + 2 
+
+
+
+1 + 1
+
+> b
+
+
+
+G(Wt)
+
+≤ 0,
+
+(101) where we have used that G(Wt) ∈ [0 , 1] and hence G(Wt)2 ≤ G(Wt). Substituting (101) into (100) gives 
+
+E∥Wt+1 − U ∥2 
+
+> F
+
+Ft
+
+ ≤ ∥ Wt − U ∥2 
+
+> F
+
++ 2 η⟨∇ L(Wt), U 1 − Wt⟩F .
+
+Using the fact that L is convex, we have that 
+
+E∥Wt+1 − U ∥2 
+
+> F
+
+Ft
+
+ ≤ ∥ Wt − U ∥2 
+
+> F
+
++ 2 η [L(U1) − L(Wt)] .
+
+Taking expectation again and using the tower law of expectation, we obtain 
+
+E∥Wt+1 − U ∥2
+
+> F
+
+ ≤ E∥Wt − U ∥2
+
+> F
+
+ + 2 η E[L(U1) − L(Wt)] .
+
+Summing for k = tout , . . . , t − 1 and dividing by 2η(t − tout ), we have that 
+
+E∥Wt − U ∥2
+
+> F
+
+
+
+2η(t − tout ) + 1
+
+t − tout 
+
+> t−1
+
+X
+
+> k=tout
+
+E[L(Wk)] ≤ L(U1) + E∥Wtout − U ∥2
+
+> F
+
+
+
+2η(t − tout ) .
+
+Using the non-negativity of ∥Wt − U ∥2 
+
+> F
+
+, we get 
+
+1
+
+t − tout 
+
+> t−1
+
+X
+
+> k=tout
+
+E[L(Wk)] ≤ L(U1) + E∥Wtout − U ∥2
+
+> F
+
+
+
+2η(t − tout ) . (102) For U1 = αW ∗ with α = ln (γ2η(t−tout )) 
+
+> γ
+
+, we have that 
+
+L(U1) ≤ F (U1) = ( K − 1) e−αγ = K − 1
+
+γ2η(t − tout ) . (103) We, next, bound the term E∥Wtout − U ∥2
+
+> F
+
+. Applying (a + b)2 ≤ 2a2 + 2 b2, we obtain 
+
+E∥Wtout − U ∥2
+
+> F
+
+ ≤ 2 E∥Wtout ∥2
+
+> F
+
+ + 2 ∥U ∥2 
+
+> F
+
+. (104) For the term ∥U ∥2 
+
+> F
+
+, we have that 
+
+∥U ∥2 
+
+> F
+
+≤ 2∥U1∥2 
+
+> F
+
++ 2 ∥U2∥2 
+
+> F
+
+≤ 2 ln 2(γ2η(t − tout )) 
+
+γ2 + 2η2 1 + 1
+
+> b
+
+2
+
+γ2 . (105) For the term E∥Wtout ∥2
+
+> F
+
+, we apply Lemma C.7 from the original time origin with comparator 
+
+U (0) = U (0) 1 + U2 where U (0) 1 = α0W∗ and α0 = ln (γ2ηt out ) 
+
+> γ
+
+, which gives 
+
+Eî∥Wtout − U (0) ∥2
+
+> F
+
+ó ≤ 2η t out L(U (0) 1 )+ ∥U (0) ∥2 
+
+> F
+
+≤ 2( K − 1) 
+
+γ2 + 2 ln 2(γ2ηt out ) + 2 η2 1 + 1
+
+> b
+
+2
+
+γ2 ,
+
+(106) 31 where we have used W0 = 0 and the bound (103) applied at time tout . Applying (a+b)2 ≤ 2a2 +2 b2
+
+again, we obtain 
+
+E∥Wtout ∥2
+
+> F
+
+ ≤ 2 Eî∥Wtout − U (0) ∥2
+
+> F
+
+ó+2 ∥U (0) ∥2 
+
+> F
+
+≤ 4( K − 1) + 8 ln 2(γ2ηt out ) + 8 η2 1 + 1
+
+> b
+
+2
+
+γ2 .
+
+(107) Substituting (103), (105), and (107) into (102), we obtain 
+
+1
+
+t − tout 
+
+> t−1
+
+X
+
+> k=tout
+
+E[L(Wk)] ≤ C(t, t out )
+
+γ2η(t − tout ) , (108) where 
+
+C(t, t out ) := 3( K − 1) + 4 ln 2(γ2ηt out ) + 5 η2 1 + 1
+
+> b
+
+2 + ln 2(γ2η(t − tout )) .
+
+We now split the bound (108) into two terms. Let A := 3( K − 1) + 4 ln 2(γ2ηt out ) + 5 η2 1 + 1
+
+> b
+
+2.Then C(t, t out ) = A + ln 2(γ2η(t − tout )) , and (108) becomes 
+
+1
+
+t − tout 
+
+> t−1
+
+X
+
+> k=tout
+
+E[L(Wk)] ≤ Aγ2η(t − tout ) + ln 2(γ2η(t − tout )) 
+
+γ2η(t − tout ) . (109) We select tre so that each of the two terms on the right-hand side of (109) is at most δ ˜L/ 4. Specifically, we next verify the formula for tre :• For t − tout ≥ 4Aγ2ηδ ˜L , it holds that 
+
+Aγ2η(t − tout ) ≤ δ ˜L
+
+4 .
+
+• For t − tout ≥ 16   
+
+> γ2ηδ ˜L
+
+ln Ä 16  
+
+> γ2ηδ ˜L
+
+ä, it holds that γ2η(t − tout ) ≥ 16   
+
+> δ˜L
+
+ln Ä 16  
+
+> γ2ηδ ˜L
+
+ä, which is a sufficient condition (see Lemma G.5 in Cai et al. [2024]) for 
+
+ln 2(γ2η(t − tout )) 
+
+γ2η(t − tout ) ≤ δ ˜L
+
+4 .
+
+Thus, it suffices to select tre such that 
+
+tre =
+
+° 4
+
+γ2ηδ ˜L max 
+
+ß
+
+A, 4 ln 
+
+Å 16 
+
+γ2ηδ ˜L
+
+ã™§ 
+
+. (110) For this choice of tre and selecting t = tout + tre , we have that 
+
+1
+
+tre 
+
+> tout +tre −1
+
+X
+
+> k=tout
+
+E[L(Wk)] ≤ δ ˜L
+
+2 . (111) Hence, there exists t[2] in ∈ [tout , t out + tre ] such that 
+
+E
+
+h
+
+L(Wt[2] in 
+
+)
+
+i
+
+≤ δ ˜L
+
+2 .
+
+From Markov’s inequality, we have that 
+
+Pr 
+
+
+
+L(Wt[2] in 
+
+) ≥ ˜L
+
+
+
+≤
+
+E
+
+h
+
+L(Wt[2] in 
+
+)
+
+i
+
+˜L ≤ δ
+
+2 ≤ δ, 
+
+which implies that 
+
+Pr 
+
+
+
+L(Wt[2] in 
+
+) ≤ ˜L
+
+
+
+≥ 1 − δ. 
+
+Thus, there exists t[2] in ≤ tout + tre such that for δ ∈ (0 , 1) with probability at least 1 − δ it holds that 
+
+L(Wt[2] in 
+
+) ≤ ˜L and the dynamics enter the stable set. 
+
+Proof of Theorem 4.2 
+
+Proof. The theorem is proved by combining Lemma C.11 and Lemma C.12. 32 D Proofs for Two-Layer Neural Networks 
+
+In this appendix, we provide the analysis of SGD applied to the two-layer neural network (7) under the multi-class cross-entropy loss with any step size ˜η = mη > 0. The proof of convergence relies on a sequence of lemmas that establish key properties of the dynamics and the geometry of the loss landscape. 
+
+D.1 Notation 
+
+For each sample (xi, y i), let 
+
+zi(W ) = 1
+
+m
+
+> m
+
+X
+
+> r=1
+
+ar ϕ(x⊤ 
+
+> i
+
+W (r)) ∈ RK , pi(W ) = softmax  zi(W ).
+
+The gradient and Hessian of the cross-entropy loss evaluated at the sample (xi, y i) are given by 
+
+∇ℓi(W ) = Ji(W )⊤ pi(W ) − eyi
+
+, (112) 
+
+∇2ℓi(W ) = Ji(W )⊤ diag( pi(W )) − pi(W )pi(W )⊤Ji(W )+
+
+> K
+
+X
+
+> k=1
+
+ pi(W )k − 1{k=yi}
+
+ ∇2zi(W )k, (113) where Ji(W ) is the Jacobian of W 7 → zi(W ). We define the lifted comparator 
+
+W ∗ =  a1W∗, . . . , a mW∗
+
+ ∈ Rmd ×K
+
+with ∥W ∗∥F = √m and let cϕ := 1
+
+> m2
+
+Pmr=1 a2 
+
+> r
+
+= 1 
+
+> m
+
+, since ar ∈ {± 1}. We define the potential functions F, G : Rmd ×K → R≥0 as follows 
+
+F (W ) = 1
+
+n
+
+> n
+
+X
+
+> i=1
+
+X 
+
+> j̸=yi
+
+exp  −(zi(W )yi − zi(W )j ), (114) 
+
+G(W ) = 1
+
+n
+
+> n
+
+X
+
+> i=1
+
+ 1 − pi(W )yi
+
+. (115) Since log(1 + u) ≤ u for u ∈ (0 , 1] , it follows that 
+
+G(W ) ≤ L(W ) ≤ F (W ). (116) 
+
+D.2 Preparatory Lemmas 
+
+The proof of Theorems 5.3, 5.4, 5.5 relies on a sequence of lemmas that establish key properties of the dynamics and the geometry of the loss landscape. We first introduce the aforementioned lemmas and then present the main theoretical result. 
+
+Lemma D.1 (Jacobian of the logits) . For every sample i ∈ [n], class k ∈ [K], and hidden unit 
+
+r ∈ [m], it holds that 
+
+∇W (r) zi(W )k = ar
+
+m ϕ′ x⊤ 
+
+> i
+
+W (r)
+
+> k
+
+ xie⊤ 
+
+> k
+
+.
+
+Moreover, the Jacobian Ji(W ) of the map W 7 → zi(W ) satisfies 
+
+∥Ji(W )∥op ≤ 1
+
+√m .
+
+Proof. Differentiating zi(W )k = 1
+
+> m
+
+Pms=1 as ϕ(x⊤ 
+
+> i
+
+W (s) 
+
+> k
+
+) with respect to the block W (r) gives the stated expression. For H = ( H(1) , . . . , H (m)) ∈ Rmd ×K , we have that for every k ∈ [K] it holds 
+
+ Ji(W )H 
+
+> k
+
+= 1
+
+m
+
+> m
+
+X
+
+> r=1
+
+ar ϕ′(x⊤ 
+
+> i
+
+W (r) 
+
+> k
+
+) x⊤ 
+
+> i
+
+H(r) 
+
+> k
+
+.
+
+33 Using |ar | = 1 , |ϕ′| ≤ 1, ∥xi∥2 ≤ 1, and Cauchy–Schwarz across r, we have that 
+
+ Ji(W )H 
+
+> k
+
+≤ 1
+
+m
+
+> m
+
+X
+
+> r=1
+
+∥H(r) 
+
+> k
+
+∥2 ≤ 1
+
+√m
+
+ mX
+
+> r=1
+
+∥H(r) 
+
+> k
+
+∥22
+
+1/2
+
+.
+
+Taking the square and summing over k = 1 , ..., K , we obtain 
+
+∥Ji(W )H∥22 ≤ 1
+
+m
+
+> K
+
+X
+
+> k=1
+> m
+
+X
+
+> r=1
+
+∥H(r) 
+
+> k
+
+∥22 = 1
+
+m ∥H∥2 
+
+> F
+
+.
+
+Taking the supremum over H satiafying ∥H∥F = 1 , we have 
+
+∥Ji(W )∥2op ≤ 1
+
+m
+
+⇒ ∥ Ji(W )∥op ≤ 1
+
+√m . (117) 
+
+Lemma D.2 (Two-layer perceptron-type inequality) . Let Assumptions 2.1, 5.1 hold. Then, for every W ∈ Rmd ×K it holds that 
+
+⟨∇ L(W ), W ∗⟩F ≤ − ˜γG (W ), (118) where ˜γ := αγ − (1 − α).
+
+Proof. By the chain rule and (112), for each block r ∈ [m], we have that 
+
+∇W (r) L(W ) = 1
+
+n
+
+> n
+
+X
+
+> i=1
+
+ar
+
+m xi
+
+(pi(W ) − eyi ) ⊙ ϕ′(x⊤ 
+
+> i
+
+W (r))⊤, (119) where ⊙ denotes component-wise multiplication and ϕ′(x⊤ 
+
+> i
+
+W (r)) ∈ RK is the vector with k-th component ϕ′(x⊤ 
+
+> i
+
+W (r) 
+
+> k
+
+). Since W ∗ = ( a1W∗, . . . , a mW∗) and a2 
+
+> r
+
+= 1 , we have 
+
+⟨∇ L(W ), W ∗⟩F =
+
+> m
+
+X
+
+> r=1
+
+∇W (r) L(W ), a r W∗ F
+
+= 1
+
+n
+
+> n
+
+X
+
+> i=1
+> m
+
+X
+
+> r=1
+
+a2
+
+> r
+
+m
+
+D
+
+(pi(W ) − eyi ) ⊙ ϕ′(x⊤ 
+
+> i
+
+W (r)), W ⊤∗ xi
+
+E
+
+= 1
+
+n
+
+> n
+
+X
+
+> i=1
+> m
+
+X
+
+> r=1
+
+a2
+
+> r
+
+m
+
+D
+
+(pi(W ) − eyi ) ⊙ ϕ′(x⊤ 
+
+> i
+
+W (r)), ∆i
+
+E
+
+. (120) where we have defined ∆i := W⊤∗ xi ∈ RK . Expanding the inner product over classes and using 
+
+pi(W )yi − 1 = − P  
+
+> j̸=yi
+
+pi(W )j , we have that 
+
+⟨∇ L(W ), W ∗⟩F = 1
+
+n
+
+> n
+
+X
+
+> i=1
+> m
+
+X
+
+> r=1
+
+X 
+
+> j̸=yi
+
+a2
+
+> r
+
+m pi(W )j
+
+ϕ′(x⊤ 
+
+> i
+
+W (r) 
+
+> j
+
+) ∆ i(j) − ϕ′(x⊤ 
+
+> i
+
+W (r) 
+
+> yi
+
+) ∆ i(yi).
+
+(121) We, next, bound the term A := ϕ′(x⊤ 
+
+> i
+
+W (r) 
+
+> j
+
+) ∆ i(j) − ϕ′(x⊤ 
+
+> i
+
+W (r) 
+
+> yi
+
+) ∆ i(yi) appearing on the right-hand side of (121). We have 
+
+A = ϕ′(x⊤ 
+
+> i
+
+W (r) 
+
+> yi
+
+)  ∆i(j) − ∆i(yi) +  ϕ′(x⊤ 
+
+> i
+
+W (r) 
+
+> j
+
+) − ϕ′(x⊤ 
+
+> i
+
+W (r) 
+
+> yi
+
+) ∆i(j) 
+
+> Assumption 2.1
+
+≤ −γϕ ′(x⊤ 
+
+> i
+
+W (r) 
+
+> yi
+
+) +  ϕ′(x⊤ 
+
+> i
+
+W (r) 
+
+> j
+
+) − ϕ′(x⊤ 
+
+> i
+
+W (r) 
+
+> yi
+
+) ∆i(j)
+
+> α≤ϕ′
+> (·)
+
+≤ −αγ +  ϕ′(x⊤ 
+
+> i
+
+W (r) 
+
+> j
+
+) − ϕ′(x⊤ 
+
+> i
+
+W (r) 
+
+> yi
+
+) ∆i(j). (122) 34 Since ϕ′(x⊤ 
+
+> i
+
+W (r) 
+
+> j
+
+), ϕ ′(x⊤ 
+
+> i
+
+W (r) 
+
+> yi
+
+) ∈ (α, 1) , we have ϕ′(x⊤ 
+
+> i
+
+W (r) 
+
+> j
+
+) − ϕ′(x⊤ 
+
+> i
+
+W (r) 
+
+> yi
+
+) ≤ 1 − α and thus substituting into (122) we get 
+
+A ≤ −αγ + (1 − α) ∆ i(j)
+
+Applying Cauchy–Schwarz inequality and using that ∥W ∗ 
+
+> k
+
+∥2 ≤ ∥ W ∗∥F = 1 , ∀k ∈ [K] from Assumption 2.1, we have that 
+
+|∆i(j)| = |(W∗)⊤ 
+
+> j
+
+xi| ≤ ∥ (W∗)j ∥2 ∥xi∥2 ≤ ∥ xi∥2
+
+> ∥xi∥2≤1
+
+≤ 1, (123) and thus we get 
+
+A ≤ −αγ + (1 − α) = −˜γ, (124) where ˜γ := αγ − (1 − α). Substituting inequality (124) into (121), we obtain 
+
+⟨∇ L(W ), W ∗⟩F ≤ −˜γ 1
+
+n
+
+> n
+
+X
+
+> i=1
+> m
+
+X
+
+> r=1
+
+X 
+
+> j̸=yi
+
+a2
+
+> r
+
+m pi(W )j
+
+= −˜γ 1
+
+n
+
+> n
+
+X
+
+> i=1
+> m
+
+X
+
+> r=1
+
+a2
+
+> r
+
+m
+
+ 1 − pi(W )yi
+
+ 
+
+> a2
+> r=1
+
+= −˜γ 1
+
+n
+
+> n
+
+X
+
+> i=1
+
+ 1 − pi(W )yi
+
+
+
+= −˜γG (W ).
+
+Lemma D.3 (Two-layer gradient norm bounds) . For every W ∈ Rmd ×K , it holds for every 
+
+i ∈ [n] that 
+
+∥∇ ℓi(W )∥F ≤
+
+… 2
+
+m
+
+ 1 − pi(W )yi
+
+ ≤
+
+… 2
+
+m ℓi(W ) ≤
+
+… 2
+
+m n L (W ), (125) 
+
+∥∇ L(W )∥F ≤
+
+… 2
+
+m G(W ) ≤
+
+… 2
+
+m L(W ). (126) Moreover, it holds that √m ∥∇ L(W )∥F ≥ ˜γ G (W ). (127) 
+
+Proof. By Lemma D.1, we have that 
+
+∥∇ ℓi(W )∥F = ∥Ji(W )⊤(pi(W )−eyi )∥F ≤ ∥ Ji(W )∥op ∥pi(W )−eyi ∥2 ≤ 1
+
+√m ∥pi(W )−eyi ∥2.
+
+It holds that 
+
+∥pi(W ) − eyi ∥22 =  1 − pi(W )yi
+
+2 + X 
+
+> j̸=yi
+
+pi(W )2
+
+> j
+
+≤  1 − pi(W )yi
+
+2 +
+
+Å X 
+
+> j̸=yi
+
+pi(W )j
+
+ã2
+
+= 2  1 − pi(W )yi
+
+2,
+
+where we used P a2 
+
+> j
+
+≤ (P aj )2 for non-negative aj and P  
+
+> j̸=yi
+
+pi(W )j = 1 − pi(W )yi . Therefore, 
+
+∥pi(W ) − eyi ∥2 ≤ √2 (1 − pi(W )yi ), and combining with 1 − pi(W )yi ≤ ℓi(W ) ≤ nL (W ) proves the inequality (125). By the triangle inequality, we have that 
+
+∥∇ L(W )∥F ≤ 1
+
+n
+
+> n
+
+X
+
+> i=1
+
+∥∇ ℓi(W )∥F ≤
+
+… 2
+
+m · 1
+
+n
+
+> n
+
+X
+
+> i=1
+
+ 1−pi(W )yi
+
+ =
+
+… 2
+
+m G(W ) ≤
+
+… 2
+
+m L(W ),
+
+35 since it holds that G(W ) ≤ L(W ). Applying the Cauchy–Schwarz inequality and using the fact that 
+
+∥W ∗∥F = √m, we have that 
+
+⟨−∇ L(W ), W ∗⟩F ≤ √m ∥∇ L(W )∥F (128) Using Lemma D.2, we obtain √m ∥∇ L(W )∥F ≥ ˜γ G (W )
+
+Lemma D.4 (Two-layer Hessian bound) . Under Assumption 5.1, for any W ∈ Rmd ×K and 
+
+i ∈ [n] it holds that 
+
+∥∇ 2ℓi(W )∥op ≤ 2(1 + ˜β)
+
+m ℓi(W ), ∥∇ 2L(W )∥op ≤ 2(1 + ˜β)
+
+m L(W ). (129) 
+
+Proof. From the decomposition (113), we have that 
+
+∇2ℓi(W ) = Ji(W )⊤ diag( pi(W )) − pi(W )pi(W )⊤Ji(W )+
+
+> K
+
+X
+
+> k=1
+
+ pi(W )k − 1{k=yi}
+
+ ∇2zi(W )k (130) By the sub-additivity of the operator norm, we get 
+
+∇2ℓi(W ) op ≤ ∥Ji(W )∥2op ∥diag( pi(W )) − pi(W )pi(W )⊤
+
+> op
+
++
+
+> K
+
+X
+
+> k=1
+
+ pi(W )k − 1{k=yi}
+
+ ∇2zi(W )k
+
+> op
+
+(131) We, next, bound the two terms on the right-hand side of (131) . The operator norm of the first term in (131) is bounded by 
+
+∥Ji(W )∥2op ∥diag( pi(W )) − pi(W )pi(W )⊤ 
+
+> op
+
+≤ 1
+
+m
+
+ 1 − ∥ pi(W )∥22
+
+
+
+≤ 2
+
+m
+
+ 1 − pi(W )yi
+
+
+
+≤ 2
+
+m ℓi(W ) (132) where we used Lemma D.1, ∥diag( p)−pp ⊤∥op ≤ 1−∥ p∥22 ≤ 2(1 −p(yi)) , and 1−pi(W )yi ≤ ℓi(W ).For the second term in (131) , it holds that ∥∇ 2zi(W )k∥op ≤ ˜βm , since ∥xi∥2 ≤ 1 and |ϕ′′ (·)| ≤ ˜β.We, also, have that 
+
+> K
+
+X
+
+> k=1
+
+pi(W )k − 1{k=yi} =  1 − pi(W )yi
+
+ + X 
+
+> j̸=yi
+
+pi(W )j = 2  1 − pi(W )yi
+
+ ≤ 2 ℓi(W ).
+
+Thus, we get that 
+
+> K
+
+X
+
+> k=1
+
+ pi(W )k − 1{k=yi}
+
+ ∇2zi(W )k
+
+> op
+
+≤
+
+> K
+
+X
+
+> k=1
+
+ pi(W )k − 1{k=yi}
+
+
+
+> op
+
+∇2zi(W )k op 
+
+≤ 2 ˜βm ℓi(W ). (133) Substituting inequalities (132), (133) into (131), we get 
+
+∥∇ 2ℓi(W )∥op ≤ 2(1 + ˜β)
+
+m ℓi(W )
+
+Summing over i = 1 , ..., n and multiplying by 1 
+
+> n
+
+, we have that 
+
+∥∇ 2L(W )∥op ≤ 2(1 + ˜β)
+
+m L(W ).
+
+36 Lemma D.5. The iterates of SGD for the two-layer network (7) with any step size ˜η = mη > 0
+
+and batch size b ≥ 1 satisfy 
+
+1
+
+t
+
+> t−1
+
+X
+
+> k=0
+
+E[G(Wk)] ≤ 2 K − 1 + 2 ln  ˜γ2ηt  + 4 κ + 2 η(1 + 1 
+
+> b
+
+)
+
+η˜γ2t
+
+where G(W ) = 1
+
+> n
+
+Pni=1 (1 − pi(W )yi ).
+
+Proof. From Lemma D.2, we have that the gradient of the cross-entropy loss satisfies 
+
+⟨∇ L(Wt), W ∗⟩F ≤ − ˜γ G (Wt). Using the SGD update Wt+1 = Wt − ˜ηg t, we get 
+
+⟨Wt+1 , W ∗⟩F = ⟨Wt, W ∗⟩F − ˜η ⟨gt, W ∗⟩F .
+
+Taking expectation conditional on the filtration Ft and using E[gt | F t] = ∇L(Wt), we have that 
+
+E⟨Wt+1 , W ∗⟩F | F t
+
+ ≥ ⟨ Wt, W ∗⟩F + ˜ η˜γ G (Wt).
+
+Taking expectation again and using the tower law of expectation, it holds that 
+
+E⟨Wt+1 , W ∗⟩F
+
+ ≥ E
+
+h
+
+⟨Wt, W ∗⟩F
+
+i
+
++ ˜ η˜γ E
+
+h
+
+G(Wt)
+
+i
+
+. (134) Unrolling the recursion and multiplying by 1 
+
+> t
+
+, we obtain 
+
+1
+
+t E⟨Wt, W ∗⟩F
+
+ ≥ ˜η ˜γt
+
+> t−1
+
+X
+
+> k=0
+
+E[G(Wk)] ,
+
+where we have used the fact that W0 = 0. Since ∥W ∗∥F = √m, by Cauchy–Schwarz it holds that 
+
+√m ∥Wt∥F ≥ ⟨ Wt, W ∗⟩F , and thus we obtain 
+
+1
+
+t
+
+> t−1
+
+X
+
+> k=0
+
+E[G(Wk)] ≤√m E[∥Wt∥F ]˜η ˜γ t . (135) We, next, bound the term E[∥Wt∥F ]. Applying the triangle inequality, we have that 
+
+∥Wt∥F ≤ ∥ Wt − U ∥F + ∥U ∥F . (136) Thus, it suffices to bound the terms ∥Wt − U ∥F and ∥U ∥F . From Proposition D.10, for the decomposition U = U1 + U2 with 
+
+U1 = ln  ˜γ2ηt  + 2 κ
+
+˜γ W ∗, U2 = η(1 + 1 
+
+> b
+
+)˜γ W ∗,
+
+it holds that 
+
+E∥Wt − U ∥2
+
+> F
+
+
+
+2˜ η t + 1
+
+t
+
+> t−1
+
+X
+
+> k=0
+
+E[L(Wk)] ≤ L(U1) + ∥U ∥2
+
+> F
+
+2˜ η t ,
+
+Since L(·) ≥ 0, it holds that 
+
+E∥Wt − U ∥2
+
+> F
+
+ ≤ 2˜ η t L (U1) + ∥U ∥2 
+
+> F
+
+.
+
+From Lemma D.6, we have that 
+
+L(U1) ≤ K − 1˜γ2ηt (137) It holds that 
+
+∥U ∥2 
+
+> F
+
+≤ 2∥U1∥2 
+
+> F
+
++ 2 ∥U2∥2 
+
+> F
+
+= 2m ln  ˜γ2ηt  + 2 κ2
+
+˜γ2 + 2mη 2(1 + 1 
+
+> b
+
+)2
+
+˜γ2 .
+
+Using (a + b)2 ≤ 2a2 + 2 b2 for the first term, we obtain 
+
+∥U ∥2 
+
+> F
+
+≤ 4m ln 2(˜ γ2ηt ) + 16 m κ 2 + 2 mη 2(1 + 1 
+
+> b
+
+)2
+
+˜γ2 . (138) 37 Applying the inequality ∥a + b∥2 ≤ 2∥a∥2 + 2 ∥b∥2, we obtain 
+
+E∥Wt∥2
+
+> F
+
+ ≤ 2 E∥Wt − U ∥2
+
+> F
+
+ + 2 ∥U ∥2
+
+> F
+
+≤ 4˜ η t L (U1) + 4 ∥U ∥2
+
+> F
+
+≤ 4m(K − 1) ˜γ2 + 16 m ln 2(˜ γ2ηt ) + 64 m κ 2 + 8 mη 2(1 + 1 
+
+> b
+
+)2
+
+˜γ2
+
+≤ 4m(K − 1) + 16 m ln 2(˜ γ2ηt ) + 64 m κ 2 + 8 mη 2(1 + 1 
+
+> b
+
+)2
+
+˜γ2 .
+
+Using Jensen’s inequality and √a + b + c + d ≤ √a + √b + √c + √d for a, b, c, d ≥ 0, we have that 
+
+E∥Wt∥F
+
+ ≤
+
+…
+
+E
+
+h
+
+∥Wt∥2
+
+> F
+
+i
+
+≤ 2√m √K − 1 + 2 ln  ˜γ2ηt  + 4 κ + 2 η(1 + 1 
+
+> b
+
+)
+
+˜γ . (139) Substituting (139) into (135) and using the fact that ˜η = mη and √K − 1 ≤ K − 1 (for K ≥ 2), we obtain 
+
+1
+
+t
+
+> t−1
+
+X
+
+> k=0
+
+E[G(Wk)] ≤ 2 K − 1 + 2 ln  ˜γ2ηt  + 4 κ + 2 η(1 + 1 
+
+> b
+
+)
+
+η˜γ2t
+
+Lemma D.6. Let Assumptions 2.1, 5.1 hold. For U1 = ln (˜γ2ηt )+2 κ 
+
+> ˜γ
+
+W ∗ and any t ≥ 1, we have that 
+
+L(U1) ≤ F (U1) ≤ K − 1˜γ2ηt . (140) 
+
+Proof. Fix i ∈ [n] and j̸ = yi. For every hidden unit r ∈ [m] it holds that U (r)1 = ar
+
+> ln
+
+ ˜γ2ηt 
+
++2 κ 
+
+> ˜γ
+
+W ∗.Letting D = ln 
+
+ ˜γ2ηt 
+
++2 κ 
+
+> ˜γ
+
+for brevity, we have 
+
+(x⊤ 
+
+> i
+
+U (r)1 )yi = D a r x⊤ 
+
+> i
+
+W ∗ 
+
+> yi
+
+, (141) 
+
+(x⊤ 
+
+> i
+
+U (r)1 )j = D a r x⊤ 
+
+> i
+
+W ∗ 
+
+> j
+
+. (142) Thus, we have that 
+
+zi(U )yi − zi(U )j = 1
+
+m
+
+> m
+
+X
+
+> r=1
+
+ar
+
+h
+
+ϕ D a r x⊤ 
+
+> i
+
+W ∗
+
+> yi
+
+ − ϕ D a r x⊤ 
+
+> i
+
+W ∗
+
+> j
+
+i
+
+. (143) We, now, use the near-homogeneity condition 
+
+|ϕ(z) − ϕ′(z)z| ≤ κ. 
+
+For any u ∈ R, it holds that 
+
+ϕ(u) ≥ ϕ′(u) u − κ, (144) 
+
+ϕ(u) ≤ ϕ′(u) u + κ. (145) Applying (144), (145) to the two terms on the right-hand side of (143), we get 
+
+zi(U )yi − zi(U )j ≥ 1
+
+m
+
+> m
+
+X
+
+> r=1
+
+ar
+
+h
+
+ϕ′ D a r x⊤ 
+
+> i
+
+W ∗
+
+> yi
+
+  D a r x⊤ 
+
+> i
+
+W ∗
+
+> yi
+
+
+
+−ϕ′ D a r x⊤ 
+
+> i
+
+W ∗
+
+> j
+
+  D a r x⊤ 
+
+> i
+
+W ∗
+
+> j
+
+ − 2κ
+
+i
+
+. (146) 38 Using the fact that ϕ′(·) ≥ α from Assumption 5.1, it follows that 
+
+zi(U )yi − zi(U )j ≥ αm
+
+> m
+
+X
+
+> r=1
+
+a2 
+
+> r
+
+D  x⊤ 
+
+> i
+
+W ∗ 
+
+> yi
+
+− x⊤ 
+
+> i
+
+W ∗
+
+> j
+
+ − 2
+
+m
+
+> m
+
+X
+
+> r=1
+
+ar κ
+
+≥ αD m
+
+> m
+
+X
+
+> r=1
+
+a2
+
+> r
+
+ x⊤ 
+
+> i
+
+W ∗ 
+
+> yi
+
+− x⊤ 
+
+> i
+
+W ∗
+
+> j
+
+ − 2κ, (147) where we have used the fact that ar ∈ {− 1, +1 }. Since a2 
+
+> r
+
+= 1 and by separability 
+
+x⊤ 
+
+> i
+
+W ∗ 
+
+> yi
+
+− x⊤ 
+
+> i
+
+W ∗ 
+
+> j
+
+≥ γ, 
+
+we obtain 
+
+zi(U )yi − zi(U )j ≥ αγD − 2κ (148) Thus, we get 
+
+exp 
+
+
+
+− (zi(U )yi − zi(U )j )
+
+
+
+≤ exp   − αγD + 2 κ. (149) Summing over all i ∈ [n] and j̸ = yi, it follows that 
+
+F (U ) ≤ (K − 1) exp   − αγD + 2 κ. (150) Using the definition of D = ln (˜γ2ηT )+2 κ 
+
+> ˜γ
+
+≥ ln (˜γ2ηT )+2 καγ , we have that 
+
+F (U ) ≤ K − 1˜γ2 ηt . (151) Since L(U ) ≤ F (U ), we obtain that 
+
+L(U ) ≤ F (U ) ≤ K − 1˜γ2 ηt . (152) 
+
+Lemma D.7. Let Assumptions 2.1 and 5.1 hold, and let U = Wt1 + U1 with U1 =
+
+> ln
+
+(˜γ2 η(t−t1))+2 κ 
+
+> ˜γ
+
+W ∗. Then it holds that 
+
+L(U ) ≤ F (U ) ≤ F (Wt1 )˜γ2 η (t − t1) . (153) 
+
+Proof. Let C := ln (˜γ2 η(t−t1))+2 κ 
+
+> ˜γ
+
+, so that U1 = C W ∗ and C ˜γ = ln  ˜γ2 η(t − t1) + 2 κ. Since 
+
+W ∗ = ( a1W∗, . . . , a mW∗), the r-th block of U satisfies 
+
+U (r) 
+
+> k
+
+= ( Wt1 )(r) 
+
+> k
+
++ ar C (W∗)k, ∀r ∈ [m], k ∈ [K]. (154) For every sample i ∈ [n] and class j̸ = yi, let Mij (W ) := zi(W )yi − zi(W )j . We compute the margin increment 
+
+∆Mij := Mij (U ) − Mij (Wt1 ) = 1
+
+m
+
+> m
+
+X
+
+> r=1
+
+ar
+
+Dri,y i − Dri,j 
+
+, (155) where for brevity we let sri,k := x⊤ 
+
+> i
+
+(Wt1 )(r) 
+
+> k
+
+, ∆i(k) := ( W∗ xi)k and 
+
+Dri,k := ϕ sri,k + ar C ∆i(k) − ϕ sri,k 
+
+.
+
+Mean-value theorem. Since ϕ is continuously differentiable (Assumption 5.1), by the mean-value theorem, for each r ∈ [m] and k ∈ { yi, j }, there exists a point ξri,k ∈ Äsri,k , s ri,k + ar C ∆i(k)ä such that 
+
+Dri,k = ϕ′ ξri,k 
+
+ · ar C ∆i(k). (156) 39 Substituting (156) into (155) and using a2 
+
+> r
+
+= 1 , we have that 
+
+∆Mij = Cm
+
+> m
+
+X
+
+> r=1
+
+ϕ′(ξri,y i ) ∆ i(yi) − ϕ′(ξri,j ) ∆ i(j) = C ¯ϕ′ 
+
+> i,y i
+
+∆i(yi) − ¯ϕ′ 
+
+> i,j
+
+∆i(j), (157) where ¯ϕ′ 
+
+> i,k
+
+:= 1
+
+> m
+
+Pmr=1 ϕ′(ξri,k ) ∈ [α, 1] by Assumption 5.1 (Item 1). Adding and subtracting 
+
+¯ϕ′ 
+
+> i,y i
+
+∆i(j), we have that 
+
+¯ϕ′ 
+
+> i,y i
+
+∆i(yi) − ¯ϕ′ 
+
+> i,j
+
+∆i(j) = ¯ϕ′
+
+> i,y i
+
+ ∆i(yi) − ∆i(j) +   ¯ϕ′ 
+
+> i,y i
+
+− ¯ϕ′
+
+> i,j
+
+ ∆i(j)
+
+≥ αγ +   ¯ϕ′ 
+
+> i,y i
+
+− ¯ϕ′
+
+> i,j
+
+ ∆i(j), (158) where at the last step we have used that ¯ϕ′ 
+
+> i,y i
+
+≥ α > 0 and ∆i(yi) − ∆i(j) ≥ γ > 0 from Assumption 2.1. Since ¯ϕ′ 
+
+> i,y i
+
+, ¯ϕ′ 
+
+> i,j
+
+∈ [α, 1] , we have | ¯ϕ′ 
+
+> i,y i
+
+− ¯ϕ′ 
+
+> i,j
+
+| ≤ 1 − α. By the Cauchy–Schwarz inequality, ∥W∗∥F = 1 , and ∥xi∥2 ≤ 1 from Assumption 2.1, it holds that 
+
+|∆i(j)| = |(W∗)⊤ 
+
+> j
+
+xi| ≤ ∥ (W∗)j ∥2 ∥xi∥2 ≤ ∥ W∗∥F ∥xi∥2 ≤ 1.
+
+Combining these two bounds, we get 
+
+  ¯ϕ′ 
+
+> i,y i
+
+− ¯ϕ′
+
+> i,j
+
+ ∆i(j) ≤ 1 − α. (159) Substituting (159) into (158), we have that 
+
+¯ϕ′ 
+
+> i,y i
+
+∆i(yi) − ¯ϕ′ 
+
+> i,j
+
+∆i(j) ≥ αγ − (1 − α) = ˜ γ. (160) Using (160) with (157), we obtain 
+
+∆Mij ≥ C ˜γ = ln  ˜γ2 η(t − t1) + 2 κ, (161) Since Mij (U ) = Mij (Wt1 ) + ∆ Mij , we have that 
+
+exp  −Mij (U ) = exp  −Mij (Wt1 ) · exp  −∆Mij 
+
+
+
+> (161)
+
+≤ exp  −Mij (Wt1 ) · exp 
+
+
+
+− ln  ˜γ2 η(t − t1) − 2κ
+
+
+
+= e−2κ exp( −Mij (Wt1 )) ˜γ2 η(t − t1)
+
+≤ exp( −Mij (Wt1 )) ˜γ2 η(t − t1) , (162) where the last inequality uses e−2κ ≤ 1 since κ ≥ 0. Summing (162) over i ∈ [n], multiplying by 1
+
+> n
+
+and summing again over j̸ = yi, we get 
+
+F (U ) = 1
+
+n
+
+> n
+
+X
+
+> i=1
+
+X 
+
+> j̸=yi
+
+exp  −Mij (U )
+
+≤ 1˜γ2 η(t − t1) · 1
+
+n
+
+> n
+
+X
+
+> i=1
+
+X 
+
+> j̸=yi
+
+exp  −Mij (Wt1 )
+
+= F (Wt1 )˜γ2 η(t − t1) .
+
+Lemma D.8 (Two-layer squared-gradient comparison) . Let Assumptions 2.1, 5.1 hold. Then, for every W ∈ Rmd ×K , it holds that 
+
+> n
+
+X
+
+> i=1
+
+∥∇ ℓi(W )∥2 
+
+> F
+
+≤ 2n2
+
+˜γ2 ∥∇ L(W )∥2 
+
+> F
+
+. (163) 40 Proof. We have that 
+
+∇ℓi(W ) = Ji(W )⊤ pi(W ) − eyi
+
+, (164) where Ji(W ) denotes the Jacobian of the logits zi(W ) with respect to W . From Lemma D.1, we have 
+
+∥Ji(W )∥op ≤ 1
+
+√m . (165) Thus, it holds that 
+
+∥∇ ℓi(W )∥F ≤ ∥Ji(W )∥op ∥pi(W ) − eyi ∥2
+
+≤ 1
+
+√m ∥pi(W ) − eyi ∥2. (166) Taking the square on both sides, we obtain 
+
+∥∇ ℓi(W )∥2 
+
+> F
+
+≤ 1
+
+m ∥pi(W ) − eyi ∥22. (167) We have that 
+
+∥pi(W ) − eyi ∥22 =  1 − pi(W )yi
+
+2 + X 
+
+> j̸=yi
+
+pi(W )2
+
+> j
+
+≤ 2 1 − pi(W )yi
+
+2, (168) since P  
+
+> j̸=yi
+
+pi(W )j = 1 − pi(W )yi . Substituting (168) into (167), we obtain 
+
+∥∇ ℓi(W )∥2 
+
+> F
+
+≤ 2
+
+m
+
+ 1 − pi(W )yi
+
+2. (169) Summing over i = 1 , . . . , n , it follows that 
+
+> n
+
+X
+
+> i=1
+
+∥∇ ℓi(W )∥2 
+
+> F
+
+≤ 2
+
+m
+
+> n
+
+X
+
+> i=1
+
+ 1 − pi(W )yi
+
+2. (170) Since 0 ≤ 1 − pi(W )yi ≤ 1, we have 
+
+> n
+
+X
+
+> i=1
+
+ 1 − pi(W )yi
+
+2 ≤
+
+> n
+
+X
+
+> i=1
+
+ 1 − pi(W )yi
+
+!2
+
+= n2G(W )2. (171) Combining (170) and (171), we get 
+
+> n
+
+X
+
+> i=1
+
+∥∇ ℓi(W )∥2 
+
+> F
+
+≤ 2n2
+
+m G(W )2. (172) On the other hand, by Lemma D.3, we have that 
+
+√m ∥∇ L(W )∥F ≥ ˜γ G (W ), (173) and therefore 
+
+G(W )2 ≤ m
+
+˜γ2 ∥∇ L(W )∥2 
+
+> F
+
+. (174) Substituting (174) into (172), we conclude that 
+
+> n
+
+X
+
+> i=1
+
+∥∇ ℓi(W )∥2 
+
+> F
+
+≤ 2n2
+
+˜γ2 ∥∇ L(W )∥2 
+
+> F
+
+. (175) 41 D.3 Variance Bound for Two-layer NN Lemma D.9 (Variance bound) . Let g(W ) = 1
+
+> b
+
+P 
+
+> i∈Bt
+
+∇ℓ(f (xi; W ), y i) denote the minibatch gradient for the two-layer model f of (7). Then, it holds that 
+
+E∥gt − ∇ L(Wt)∥2 
+
+> F
+
+| F t
+
+ ≤ 2
+
+mb G(Wt), (176) where G(W ) = 1
+
+> n
+
+Pni=1 (1 − pi(W )yi ).
+
+Proof. We begin by decomposing the variance of the stochastic oracle. For uniform sampling of a minibatch Bt of size b ≥ 1, conditionally on the filtration Ft, we have that 
+
+E∥gt − ∇ L(Wt)∥2 
+
+> F
+
+| F t
+
+ = 1
+
+b Var i
+
+ ∇ℓi(Wt) ≤ 1
+
+b Ei
+
+∥∇ ℓi(Wt)∥2
+
+> F
+
+, (177) where we used Var( Z) ≤ E[∥Z∥2] for any random variable Z. By Lemma D.3, we have that 
+
+∥∇ ℓi(Wt)∥2 
+
+> F
+
+≤ 2
+
+m
+
+ 1 − pi(Wt)yi
+
+2 ≤ 2
+
+m
+
+ 1 − pi(Wt)yi
+
+.
+
+Summing for i = 1 , ..., n and dividing by n, we get 
+
+Ei
+
+∥∇ ℓi(Wt)∥2
+
+> F
+
+ ≤ 2
+
+m G(Wt),
+
+and substituting into (177), we obtain 
+
+E∥gt − ∇ L(Wt)∥2 
+
+> F
+
+| F t
+
+ ≤ 2
+
+mb G(Wt).
+
+D.4 Proof of Lemma 5.2 for Leaky Activations 
+
+Proof. We verify Assumption 5.1 for the leaky template ˜ϕ(x) = c x + (1 − c) ϕ(x), where c ∈
+
+(1 /(1 + γ), 1) .
+
+Continuous differentiability. By Example 2.1 of Cai et al. [2024], each base ϕ ∈{GELU , Softplus , SiLU , tanh , σ } is continuously differentiable on R. The Huberized ReLU is contin-uously differentiable on R at the breakpoints 0 and h by direct verification. Hence, ˜ϕ is continuously differentiable. 
+
+Derivative condition. Differentiating the leaky template, we have 
+
+˜ϕ′(x) = c + (1 − c) ϕ′(x). (178) By Example 2.1 of Cai et al. [2024] and direct computation, each base satisfies 0 ≤ ϕ′(x) ≤ Mϕ
+
+uniformly, where • Mϕ = 1 for tanh, sigmoid, softplus, and Huberized ReLU • Mϕ ≤ 1 + e−1/2/√2π for GELU • Mϕ ≤ 2 for SiLU. Therefore, for every x ∈ R, it holds that 
+
+c ≤ ˜ϕ′(x) ≤ c + (1 − c) Mϕ.
+
+For tanh, sigmoid, softplus, and Huberized ReLU, Mϕ ≤ 1, so ˜ϕ′(x) ∈ [c, 1] directly. For GELU and SiLU, after absorbing the multiplicative factor 1/(c + (1 − c) Mϕ) ≤ 1 into the definition of ˜ϕ (an inconsequential rescaling that preserves all subsequent constants up to a constant factor), we again have ˜ϕ′(x) ∈ [c, 1] . Setting α := c, we obtain 
+
+α ≤ | ˜ϕ′(x)| ≤ 1 for every x ∈ R,
+
+42 where α = c ∈ (1 /(1 + γ), 1) by the choice of c. This verifies the derivative condition. 
+
+Smoothness. Since ˜ϕ′(x) = c + (1 − c) ϕ′(x), for any x, y ∈ R, it holds that 
+
+| ˜ϕ′(x) − ˜ϕ′(y)| = (1 − c) |ϕ′(x) − ϕ′(y)| ≤ (1 − c) Lϕ |x − y|,
+
+where Lϕ := sup x∈R |ϕ′′ (x)| is the Lipschitz constant of ϕ′. From Example 2.1 of Cai et al. [2024] (see also our verifications below): LGELU ≤ 2, LSoftplus ≤ 1, LSiLU ≤ 4, Ltanh ≤ 1, Lσ ≤ 1, and 
+
+LHuber-ReLU h = 1 /h . Hence ˜ϕ′ is ˜β-Lipschitz with ˜β = (1 − c) Lϕ, giving the values listed in the lemma ( ˜β = 4(1 − c) is a uniform upper bound for the GELU/Softplus/SiLU family that absorbs the worst case; ˜β = (1 − c)/h for Huberized ReLU; ˜β = 1 − c for tanh and sigmoid). 
+
+Near-homogeneity. By linearity of the perturbation, 
+
+˜ϕ(z) − ˜ϕ′(z) z = c z + (1 − c) ϕ(z) − c + (1 − c) ϕ′(z) z
+
+= c z + (1 − c) ϕ(z) − c z − (1 − c) ϕ′(z) z
+
+= (1 − c) ϕ(z) − ϕ′(z) z, (179) where the linear contribution c z cancels exactly. Hence 
+
+| ˜ϕ(z) − ˜ϕ′(z) z| = (1 − c) |ϕ(z) − ϕ′(z) z| ≤ (1 − c) κϕ,
+
+where κϕ := sup z |ϕ(z) − ϕ′(z) z| denotes the homogeneity error of the base. From Example 2.1 of Cai et al. [2024]: κGELU = e−1/2/√2π, κSoftplus = log 2 , κSiLU = 1 , κHuber-ReLU h = h/ 2, κtanh ≤ 1,and κσ ≤ 1. Hence κ = (1 − c) κϕ, giving the values listed in the lemma (taking κϕ ≤ 1 as a uniform upper bound). This completes the proof. 
+
+D.5 Proofs for the EoS Regime Lemma D.10. Let U = U1 + U2 with U1 ∈ Rmd ×K and U2 = η(1+ 1  
+
+> b)˜γ
+
+W ∗. Then, for all t ≥ 1,it holds that 
+
+E∥Wt − U ∥2
+
+> F
+
+
+
+2˜ η t + 1
+
+t
+
+> t−1
+
+X
+
+> k=0
+
+E[L(Wk)] ≤ L(U1) + ∥W0 − U ∥2
+
+> F
+
+2˜ η t . (180) 
+
+Proof. From the update rule of SGD with ˜η = mη , we have that 
+
+∥Wt+1 − U ∥2 
+
+> F
+
+= ∥Wt − U ∥2 
+
+> F
+
++ 2˜ η ⟨gt, U − Wt⟩F + ˜ η2∥gt∥2
+
+> F
+
+= ∥Wt − U ∥2 
+
+> F
+
++ 2˜ η ⟨gt, U 1 − Wt⟩F + ˜ η2
+
+Å 2˜η ⟨gt, U 2⟩F + ∥gt∥2
+
+> F
+
+ã
+
+.
+
+Taking expectation conditional on Ft and using the unbiasedness E[gt | F t] = ∇L(Wt), we have that 
+
+E∥Wt+1 − U ∥2 
+
+> F
+
+Ft
+
+ = ∥Wt − U ∥2 
+
+> F
+
++ 2˜ η ⟨∇ L(Wt), U 1 − Wt⟩F
+
++˜ η2
+
+Å 2˜η ⟨∇ L(Wt), U 2⟩F + E∥gt∥2 
+
+> F
+
+| F t
+
+ã
+
+. (181) We, next, show that with the choice U2 = η(1+ 1  
+
+> b)˜γ
+
+W ∗, the last term in (181) is non-positive. We have that 
+
+2˜η ⟨∇ L(Wt), U 2⟩F = 2(1 + 1 
+
+> b
+
+)
+
+m˜γ ⟨∇ L(Wt), W ∗⟩F
+
+> Lemma D.2
+
+≤ − 2(1 + 1 
+
+> b
+
+)
+
+m G(Wt).
+
+43 For the second moment E∥gt∥2 
+
+> F
+
+| F t
+
+, the bias-variance decomposition together with Lemmas D.3 and D.9 give 
+
+E∥gt∥2 
+
+> F
+
+| F t
+
+ = ∥∇ L(Wt)∥2 
+
+> F
+
++ E∥gt − ∇ L(Wt)∥2 
+
+> F
+
+| F t
+
+
+
+> Lemma D.3
+
+≤ 2
+
+m G(Wt)2 + 2
+
+mb G(Wt)
+
+≤ 2
+
+m G(Wt) + 2
+
+mb G(Wt)= 2(1 + 1 
+
+> b
+
+)
+
+m G(Wt),
+
+where we used G(Wt)2 ≤ G(Wt) since G(Wt) ∈ [0 , 1] . Summing the two bounds, we obtain 
+
+2˜η ⟨∇ L(Wt), U 2⟩F + E∥gt∥2 
+
+> F
+
+| F t
+
+ ≤ − 2(1 + 1 
+
+> b
+
+)
+
+m G(Wt) + 2(1 + 1 
+
+> b
+
+)
+
+m G(Wt) = 0 . (182) Substituting (182) into (181), we obtain 
+
+E∥Wt+1 − U ∥2 
+
+> F
+
+Ft
+
+ ≤ ∥ Wt − U ∥2 
+
+> F
+
++ 2˜ η ⟨∇ L(Wt), U 1 − Wt⟩F .
+
+Using the convexity of L, we have that ⟨∇ L(Wt), U 1 − Wt⟩F ≤ L(U1) − L(Wt), and therefore we obtain 
+
+E∥Wt+1 − U ∥2 
+
+> F
+
+Ft
+
+ ≤ ∥ Wt − U ∥2 
+
+> F
+
++ 2˜ ηL(U1) − L(Wt). (183) Taking expectation again and using the tower law of expectation, we have that 
+
+E∥Wt+1 − U ∥2
+
+> F
+
+ ≤ E
+
+h
+
+∥Wt − U ∥2
+
+> F
+
+i
+
++ 2˜ η E
+
+h
+
+L(U1) − L(Wt)
+
+i
+
+Summing for k = 0 , . . . , t − 1 and dividing by 2˜ η t , we obtain 
+
+E∥Wt − U ∥2
+
+> F
+
+
+
+2˜ η t + 1
+
+t
+
+> t−1
+
+X
+
+> k=0
+
+E[L(Wk)] ≤ L(U1) + ∥W0 − U ∥2
+
+> F
+
+2˜ η t 
+
+Theorem D.11 (Restatement of Theorem 5.3) . Let Assumptions 2.1, 5.1, hold and assume without loss of generality that W0 = 0. The iterates of SGD with any step size ˜η = mη > 0 and batch size b ≥ 1 applied to the two-layer network (7) satisfy for any T ≥ 1 that 
+
+min   
+
+> 0≤k≤T−1
+
+E[L(Wk)] ≤ K − 1 + 2 ln 2(˜ γ2ηT ) + 8 κ2 + η2(1 + 1 
+
+> b
+
+)2
+
+˜γ2η T .
+
+Proof. From Lemma D.10, we have that for all T ≥ 1 it holds 
+
+1
+
+T 
+
+> T−1
+
+X
+
+> k=0
+
+E[L(Wk)] ≤ L(U1) + ∥U ∥2
+
+> F
+
+2˜ η T − E∥WT − U ∥2
+
+> F
+
+
+
+2˜ η T 
+
+≤ L(U1) + ∥U ∥2
+
+> F
+
+2˜ η T , (184) where we used W0 = 0. For U1 = ln (˜γ2ηT )+2 κ 
+
+> ˜γ
+
+W ∗, U 2 = η(1+ 1  
+
+> b)˜γ
+
+W ∗ we have from Lemma D.6 that 
+
+L(U1) ≤ K − 1˜γ2ηT .
+
+From inequality (138), we have that 
+
+∥U ∥2 
+
+> F
+
+≤ 4m ln 2(˜ γ2ηT ) + 16 m κ 2 + 2 mη 2(1 + 1 
+
+> b
+
+)2
+
+˜γ2 (185) 44 Substituting (185) into (184) and using ˜η T = mηT , we obtain 
+
+1
+
+T 
+
+> T−1
+
+X
+
+> k=0
+
+E[L(Wk)] ≤ K − 1 + 2 ln 2(˜ γ2ηT ) + 8 κ2 + η2(1 + 1 
+
+> b
+
+)2
+
+˜γ2η T 
+
+and hence we have 
+
+min   
+
+> 0≤k≤T−1
+
+E[L(Wk)] ≤ K − 1 + 2 ln 2(˜ γ2ηT ) + 8 κ2 + η2(1 + 1 
+
+> b
+
+)2
+
+˜γ2η T 
+
+D.6 Proofs for the Stable Regime 
+
+Throughout this section, we let 
+
+˜LN N := min 
+
+(
+
+18η(1 + ˜β)(1 + 2nb min {˜γ2,1} ) , 12ne κ+2 
+
+)
+
+SN N := 
+
+n
+
+W ∈ Rmd ×K : L(W ) ≤ ˜LN N 
+
+o
+
+.
+
+Lemma D.12. If for some t ≥ 0 the iterates of SGD for the two-layer network (7) satisfy 
+
+L(Wt) ≤ ˜LN N , then it holds that 
+
+E
+
+h
+
+L(Wt+1 ) − L(Wt) Ft
+
+i
+
+≤ 0, (186) and thus Wt ∈ S N N .
+
+Proof. Recall that the minibatch gradient is gt = 1
+
+> b
+
+P 
+
+> j∈B t
+
+∇ℓj (Wt) ∈ Rmd ×K and decomposes block-wise as gt = ( g(1)  
+
+> t
+
+, . . . , g (m) 
+
+> t
+
+) with g(r) 
+
+> t
+
+∈ Rd×K . Fix i ∈ [n] and define the logit increment 
+
+∆zi := zi(Wt+1 ) − zi(Wt) = 1
+
+m
+
+> m
+
+X
+
+> r=1
+
+ar ϕ x⊤ 
+
+> i
+
+W (r)
+
+> t+1
+
+ − 1
+
+m
+
+> m
+
+X
+
+> r=1
+
+ar ϕ x⊤ 
+
+> i
+
+W (r)
+
+> t
+
+.
+
+We argue component-wise. For every class k ∈ [K], we have that 
+
+(∆ zi)k ≤ 1
+
+m
+
+> m
+
+X
+
+> r=1
+
+|ar | ϕ x⊤ 
+
+> i
+
+W (r)
+
+> t+1 , k
+
+ − ϕ x⊤ 
+
+> i
+
+W (r)
+
+> t, k
+
+ , (187) where W (r) 
+
+> t, k
+
+∈ Rd denotes the k-th column of the matrix W (r) 
+
+> t
+
+∈ Rd×K . Since |ϕ′| ≤ 1 from Assumption 5.1, the activation ϕ is 1-Lipschitz, and hence 
+
+ϕ x⊤ 
+
+> i
+
+W (r)
+
+> t+1 , k
+
+ − ϕ x⊤ 
+
+> i
+
+W (r)
+
+> t, k
+
+ ≤ x⊤ 
+
+> i
+
+W (r) 
+
+> t+1 , k
+
+− x⊤ 
+
+> i
+
+W (r)
+
+> t, k
+
+≤ ∥ xi∥2 W (r) 
+
+> t+1 , k
+
+− W (r) 
+
+> t, k 2
+> ∥xi∥2≤1
+
+≤ W (r) 
+
+> t+1 , k
+
+− W (r) 
+
+> t, k 2
+> (SGD)
+
+= ˜η (g(r) 
+
+> t
+
+)k 2, (188) where the second inequality uses Cauchy–Schwarz on the inner product x⊤ 
+
+> i
+
+·, the third uses ∥xi∥2 ≤ 1,and the equality uses the (SGD) update W (r) 
+
+> t+1
+
+= W (r) 
+
+> t
+
+− ˜η g (r) 
+
+> t
+
+applied column-wise. Substitut-45 ing (188) into (187) and applying the Cauchy–Schwarz inequality across the m summands, we have that 
+
+(∆ zi)k ≤ ˜ηm
+
+> m
+
+X
+
+> r=1
+
+|ar | (g(r) 
+
+> t
+
+)k 2
+
+≤ ˜ηm
+
+Å mX
+
+> r=1
+
+a2
+
+> r
+
+ã1/2Å mX
+
+> r=1
+
+(g(r) 
+
+> t
+
+)k
+
+> 22
+
+ã1/2
+
+= ˜η
+
+√m
+
+Å mX
+
+> r=1
+
+(g(r) 
+
+> t
+
+)k
+
+> 22
+
+ã1/2
+
+, (189) where in the equality we have used Pmr=1 a2 
+
+> r
+
+= m since |ar | = 1 . Since Pmr=1 ∥(g(r) 
+
+> t
+
+)k∥22 ≤
+
+Pmr=1 
+
+PKk′=1 ∥(g(r) 
+
+> t
+
+)k′ ∥22 = ∥gt∥2 
+
+> F
+
+, we obtain from (189) that 
+
+(∆ zi)k ≤ ˜η
+
+√m ∥gt∥F . (190) Since (190) holds for every k ∈ [K], taking the maximum over k, we obtain 
+
+∥∆zi∥∞ ≤ ˜η
+
+√m ∥gt∥F
+
+≤ ˜ηb√m
+
+X
+
+> j∈Bt
+
+∥∇ ℓj (Wt)∥2
+
+> (125)
+
+≤ √2 nη b L(Wt). (191) where at the last step we have used Lemma D.3. Let ψi(θ) := ℓi(Wt − θ ˜η g t) for θ ∈ [0 , 1] . From Taylor’s theorem, there exists θi ∈ (0 , 1) such that 
+
+ℓi(Wt+1 ) = ℓi(Wt) − ˜η ⟨∇ ℓi(Wt), g t⟩ + ˜η2
+
+2 gt, ∇2ℓi(Wt − θi ˜η g t) gt . (192) By Lemma D.4, applied at the shifted point Wt − θi ˜η g t, we have that 
+
+∇2ℓi(Wt − θi ˜η g t) op ≤ 2(1 + ˜β)
+
+m ℓi
+
+ Wt − θi ˜η g t
+
+. (193) In the stable regime, the loss is small enough that the logits move by at most a constant amount. In particular, by (191) and the fact that L(Wt) ≤ b√2nη , we have ∥∆zi∥∞ ≤ 1. Then, the softmax probabilities along the segment between Wt and Wt+1 change by at most an absolute constant factor, and hence 
+
+ℓi
+
+ Wt − θi ˜η g t
+
+ ≤ e2 ℓi(Wt). (194) Substituting (194) into (193) and using e2 < 8, we obtain 
+
+∇2ℓi(Wt − θi ˜η g t) op ≤ 2e2(1 + ˜β)
+
+m ℓi(Wt) ≤ 16(1 + ˜β)
+
+m ℓi(Wt). (195) Substituting (195) into (192) via ⟨gt, Ag t⟩ ≤ ∥ A∥op ∥gt∥2, we get 
+
+ℓi(Wt+1 ) ≤ ℓi(Wt) − ˜η ⟨∇ ℓi(Wt), g t⟩ + 8(1 + ˜β) ˜ η2
+
+m ℓi(Wt) ∥gt∥2 
+
+> F
+
+. (196) Summing (196) over i = 1 , . . . , n and dividing by n, we have that 
+
+L(Wt+1 ) − L(Wt) ≤ − ˜η ⟨∇ L(Wt), g t⟩ + 8(1 + ˜β) ˜ η2
+
+m L(Wt) ∥gt∥2 
+
+> F
+
+. (197) Taking conditional expectation with respect to Ft and using E[gt | F t] = ∇L(Wt), we obtain 
+
+EL(Wt+1 ) − L(Wt) | F t
+
+ ≤ − ˜η ∥∇ L(Wt)∥2 
+
+> F
+
++ 8(1 + ˜β) ˜ η2
+
+m L(Wt) E∥gt∥2 
+
+> F
+
+| F t
+
+. (198) 46 Using the bias-variance decomposition, we have that 
+
+E∥gt∥2 
+
+> F
+
+| F t
+
+ = ∥∇ L(Wt)∥2 
+
+> F
+
++ E∥gt − ∇ L(Wt)∥2 
+
+> F
+
+| F t
+
+
+
+> (177)
+
+≤ ∥∇ L(Wt)∥2 
+
+> F
+
++ 1
+
+nb 
+
+> n
+
+X
+
+> i=1
+
+∥∇ ℓi(Wt)∥2
+
+> F
+
+≤ ∥∇ L(Wt)∥2 
+
+> F
+
++ 2nb˜γ2 ∥∇ L(Wt)∥2 
+
+> F
+
+, (199) where at the last step we have used Lemma D.8. Substituting (199) into (198) and using the fact that 
+
+˜η2/m = ˜ η η , we get 
+
+EL(Wt+1 ) − L(Wt) | F t
+
+ ≤ − ˜η ∥∇ L(Wt)∥2 
+
+> F
+
++ 8(1 + ˜β) ˜ η η 
+
+Å
+
+1 + 2n
+
+˜γ2 b
+
+ã
+
+L(Wt) ∥∇ L(Wt)∥2
+
+> F
+
+= −˜η
+
+ï
+
+1 − 8 η (1 + ˜β)
+
+Å
+
+1 + 2n
+
+˜γ2 b
+
+ã
+
+L(Wt)
+
+ò
+
+∥∇ L(Wt)∥2 
+
+> F
+
+, (200) For L(Wt) ≤ min 
+
+®     
+
+> 18η(1+ ˜β)
+> 
+> 1+ 2n
+> ˜γ2b
+> 
+
+, b√2nη 
+
+´
+
+≤ ˜LN N with ˜LN N := min 
+
+ß 18η(1+ ˜β)(1+ 2nb min {˜γ2,1} ) , 12ne κ+2 
+
+™
+
+, we have that 
+
+EL(Wt+1 ) − L(Wt) | F t
+
+ ≤ 0.
+
+Taking expectation on both sides and applying the tower law of expectation, we obtain 
+
+E[L(Wt+1 ) − L(Wt)] ≤ 0.
+
+Lemma D.13. If the iterates of SGD satisfy Wk ∈ S N N , ∀k ∈ [t1, t − 1] , t 1 > 0, then it holds that 
+
+E[L(Wt)] ≤ 2 F (Wt1 ) + ln 2(˜ γ2η (t − t1)) + κ2
+
+˜γ2 η (t − t1) , (201) where F (W ) = 1
+
+> n
+
+Pni=1 
+
+P  
+
+> j̸=yi
+
+exp  −(zi(W )yi − zi(W )j ).
+
+Proof. From the update rule of SGD, we have that 
+
+∥Wt+1 − U ∥2 
+
+> F
+
+= ∥Wt − U ∥2 
+
+> F
+
+− 2˜ η ⟨gt, W t − U ⟩F + ˜ η2∥gt∥2 
+
+> F
+
+.
+
+Taking expectation conditional on the filtration Ft and using E[gt | F t] = ∇L(Wt), we have that 
+
+E∥Wt+1 − U ∥2 
+
+> F
+
+| F t
+
+ = ∥Wt − U ∥2 
+
+> F
+
+− 2˜ η ⟨∇ L(Wt), W t − U ⟩F + ˜ η2 E∥gt∥2 
+
+> F
+
+| F t
+
+. (202) Since L is convex, we have that 
+
+−⟨∇ L(Wt), W t − U ⟩F ≤ L(U ) − L(Wt) (203) Substituting (203) into (202), we obtain 
+
+∥Wt+1 − U ∥2 
+
+> F
+
+≤ ∥ Wt − U ∥2 
+
+> F
+
++ 2˜ η L(U ) − L(Wt) + ˜ η2 E∥gt∥2 
+
+> F
+
+| F t
+
+. (204) Using inequality (199) from Lemma D.12, we have that 
+
+˜η2 E∥gt∥2 
+
+> F
+
+| F t
+
+ ≤ ˜η2
+
+Å
+
+1 + 2n
+
+˜γ2 b
+
+ã
+
+∥∇ L(Wt)∥2
+
+> F
+> (126)
+
+≤ 2 ˜ η2
+
+m
+
+Å
+
+1 + 2n
+
+˜γ2 b
+
+ã
+
+L(Wt)2
+
+≤ ˜η
+
+4 L(Wt), (205) 47 where at the last step we have used ˜η2 
+
+> m
+
+= ˜ η η and that L(Wt) ≤ ˜LN N ≤ 18 η  
+
+> 
+> 1+ 2n
+> ˜γ2b
+> 
+
+. Thus, substituting (205) into (204), we obtain 
+
+E∥Wt+1 − U ∥2 
+
+> F
+
+| F t
+
+ ≤ ∥ Wt − U ∥2 
+
+> F
+
++ 2˜ η L (U ) − 7˜ η
+
+4 L(Wt). (206) Taking expectation again, using the tower law and rearranging the terms, we obtain 
+
+E[L(Wt)] ≤ 87 L(U ) + 4 E∥Wt − U ∥2 
+
+> F
+
+− ∥ Wt+1 − U ∥2
+
+> F
+
+
+
+7 ˜ η .
+
+Summing over k = t1, . . . , t − 1 and dividing by (t − t1), we have that 
+
+1
+
+t − t1
+
+> t−1
+
+X
+
+> k=t1
+
+E[L(Wk)] ≤ 87 L(U ) + 4 ∥Wt1 − U ∥2 
+
+> F
+
+− E[∥Wt − U ∥2 
+
+> F
+
+]
+
+7 ˜ η (t − t1) . (207) Letting U = Wt1 + U1 with U1 = ln (˜γ2η (t−t1))+2 κ 
+
+> ˜γ
+
+W ∗, we have that 
+
+∥Wt1 −U ∥2 
+
+> F
+
+= ∥U1∥2 
+
+> F
+
+= [ln  ˜γ2 η (t − t1) + 2 κ]2
+
+˜γ2 ∥W ∗∥2 
+
+> F
+
+≤ 2m ln 2(˜ γ2η (t − t1)) + 8 m κ 2
+
+˜γ2 ,
+
+where we used (a + b)2 ≤ 2a2 + 2 b2 and ∥W ∗∥2 
+
+> F
+
+= m. From Lemma D.7, we have that 
+
+L(U ) ≤ F (U ) ≤ F (Wt1 )˜γ2 η (t − t1) .
+
+Substituting into (207) and using ˜η = mη , we obtain 
+
+min  
+
+> t1≤k≤t−1
+
+E[L(Wk)] ≤ 8F (Wt1 ) + 8 ln 2(˜ γ2η (t − t1)) + 8 κ2
+
+7˜ γ2 η (t − t1) , (208) Applying Lemma D.12 for the iterates Wk ∈ S N N , ∀k ∈ [t1, t − 1] we have that 
+
+E[L(Wt)] ≤ E[L(Wt−1)] ≤ · · · ≤ E[L(Wt1 )] , (209) and thus from (208) we conclude that 
+
+E[L(Wt)] ≤ 2 F (Wt1 ) + ln 2(˜ γ2η (t − t1)) + κ2
+
+˜γ2 η (t − t1) .
+
+Lemma D.14. Let W0 = 0. There exists tin ≤ tmax (δ) such that with probability at least 1 − δ,we have that L(Wtin ) ≤ ˜LN N with 
+
+tmax (δ) := 1˜γ2 max 
+
+
+
+8
+
+
+
+K − 1 + 4 κ + 2 η(2 + 1 
+
+> b
+
+)
+
+
+
+ηδ ˜LN N 
+
+, 32 
+
+ηδ ˜LN N 
+
+log 
+
+ 32 
+
+ηδ ˜LN N 
+
+ .
+
+Proof. From Lemma D.5 applied for t = tmax (δ), we have that 
+
+1
+
+tmax 
+
+> tmax −1
+
+X
+
+> k=0
+
+E[G(Wk)] ≤ 2 K − 1 + 2 ln  ˜γ2ηt max 
+
+ + 4 κ + 2 η(1 + 1 
+
+> b
+
+)
+
+η˜γ2tmax 
+
+.
+
+Using ln  ˜γ2ηt max 
+
+ ≤ ln  ˜γ2tmax 
+
+ + η and absorbing constants, we get 
+
+1
+
+tmax 
+
+> tmax −1
+
+X
+
+> k=0
+
+E[G(Wk)] ≤ 2 K − 1 + 2 ln  ˜γ2tmax 
+
+ + 4 κ + 2 η(2 + 1 
+
+> b
+
+)
+
+η˜γ2tmax 
+
+. (210) For δ ∈ (0 , 1) , we select tmax so that the right-hand side of (210) is at most δ ˜LN N /2, where 
+
+˜LN N := min 
+
+ß 18η(1+ ˜β)(1+ n+ 2n  
+
+> ˜γ2b)
+
+, 12ne κ+2 
+
+™
+
+. Specifically, we next verify the formula for the tmax :48 • For t ≥ 8
+
+  
+
+> K−1+4 κ+2 η(2+ 1
+> b)
+
+   
+
+> ηδ ˜LN N ˜γ2
+
+, it holds that 2
+
+  
+
+> K−1+4 κ+2 η(2+ 1
+> b)
+
+ 
+
+> η˜γ2t
+
+≤ δ ˜LN N  
+
+> 4
+
+.• For t ≥ 32    
+
+> ηδ ˜LN N ˜γ2
+
+log 
+
+ 32  
+
+> ηδ ˜LN N
+
+
+
+, it holds that ˜γ2t ≥ 32  
+
+> ηδ ˜LN N
+
+log 
+
+ 3 
+
+> ηδ ˜LN N
+
+
+
+, which is a sufficient condition (see Lemma G.5 in Cai et al. [2024]) for 4 log (˜γ2t) 
+
+> η˜γ2t
+
+≤ δ ˜LN N  
+
+> 4
+
+.Thus, it suffices to select tmax (δ) such that 
+
+tmax (δ) ≥ 1˜γ2 max 
+
+
+
+8
+
+
+
+K − 1 + 4 κ + 2 η(2 + 1 
+
+> b
+
+)
+
+
+
+ηδ ˜LN N 
+
+, 32 
+
+ηδ ˜LN N 
+
+log 
+
+ 32 
+
+ηδ ˜LN N 
+
+ . (211) Thus, there exists tin ≤ tmax (δ) such that 
+
+E[G(Wtin )] ≤ δ ˜LN N 
+
+2 .
+
+Define the event Ein := {G(Wtin ) ≤ ˜LN N  
+
+> 2
+
+}. Since G(Wtin ) ≥ 0, by Markov’s inequality we have that 
+
+P(Ec
+
+> in
+
+) = P G(Wtin ) > ˜LN N 
+
+2
+
+ ≤ 2E[G(Wtin )] ˜LN N 
+
+≤ δ, 
+
+and hence P(Ein ) ≥ 1 − δ. Conditioning on the event Ein and using the fact G(Wtin ) ≤ 12ne κ+2 ≤ 12n ,every term in G(Wtin ) = 1
+
+> n
+
+P
+
+> i
+
+(1 − pi(Wtin )yi ) satisfies 1 − pi(Wtin )yi ≤ 1/(2 eκ+2 ) ≤ 1/2 and thus pi(Wtin )yi ≥ 1/2. Hence, for every j̸ = yi, it holds 
+
+zi(Wtin )yi − zi(Wtin )j = ln pi(Wtin )yi
+
+pi(Wtin )j
+
+≥ 0,
+
+which gives 
+
+F (Wtin ) = 1
+
+n
+
+> n
+
+X
+
+> i=1
+
+X 
+
+> j̸=yi
+
+pi(Wtin )j
+
+pi(Wtin )yi
+
+≤ 1
+
+n
+
+> n
+
+X
+
+> i=1
+
+2  1 − pi(Wtin )yi
+
+
+
+= 2 G(Wtin )
+
+≤ ˜LN N ,
+
+where we used pi(W )yi ≥ 1/2 and P  
+
+> j̸=yi
+
+pi(W )j = 1 − pi(W )yi . Since L(W ) ≤ F (W ), ∀W ∈
+
+Rmd ×K , on the event Ein , we have that 
+
+L(Wtin ) ≤ F (Wtin ) ≤ ˜LN N .
+
+Combining this with P(Ein ) ≥ 1 − δ, we conclude that there exists tin ≤ tmax (δ) such that with probability at least 1 − δ it holds that L(Wtin ) ≤ ˜LN N , and the dynamics enter the stable regime 
+
+SN N at iteration tin .
+
+Proof of Theorem 5.4 
+
+Proof. The theorem is proved by combining Lemma D.13 and Lemma D.14. 49 D.7 Proofs for the Stochastic Stabilization Mechanism Lemma D.15. Let Et = L(Wt) ≤ ˜LN N , L (Wt+1 ) > ˜LN N . If at iteration t > 0 the dynamics are in the stable regime, then the exit probability satisfies 
+
+P(Et | F t) ≤ 2 exp 
+
+Ç
+
+− bD t
+
+4ηL (Wt) 32
+
+å
+
+,
+
+where Dt = ∆N N t 
+
+> 4η(1+ ˜β)L(Wt)1/2+
+> √2(1+ ˜β)(1+ n)3
+
+√∆N N t
+
+and 
+
+∆N N t = ˜LN N −L(Wt)+2 η 1−8η(1+ ˜β)L(Wt)L(Wt)2+
+
+ 1 − 16 η(1 + ˜β)L(Wt)2
+
+8(1 + ˜β) L(Wt).
+
+Proof. From inequality (197) in the proof of Lemma D.12, we have that 
+
+L(Wt+1 ) ≤ L(Wt) − ˜η ⟨∇ L(Wt), g t⟩ + 8(1 + ˜β) ˜ η2
+
+m L(Wt) ∥gt∥2 
+
+> F
+
+.
+
+Let ξt := gt −∇ L(Wt) denote the noise at iteration t. Substituting gt = ∇L(Wt)+ ξt and expanding, we get 
+
+L(Wt+1 ) ≤ L(Wt) − ˜η  1 − 8η c L (Wt) ∥∇ L(Wt)∥2
+
+> F
+
+−˜η  1 − 16 η c L (Wt) ⟨∇ L(Wt), ξ t⟩ + 8 η ˜η c L (Wt) ∥ξt∥2 
+
+> F
+
+, (212) where we have let c := 1 + ˜β for brevity. On the event Et = {L(Wt) ≤ ˜LN N , L (Wt+1 ) > ˜LN N }, it holds that 
+
+˜LN N − L(Wt) + ˜ η 1 − 8ηcL (Wt)∥∇ L(Wt)∥2 
+
+> F
+
+< −˜η 1 − 16 ηcL (Wt)⟨∇ L(Wt), ξ t⟩
+
++8 η ˜ηcL (Wt)∥ξt∥2 
+
+> F
+
+. (213) We now lower bound the right-hand side by completing the square. Let At := ˜ η 1 − 16 ηcL (Wt)
+
+and Bt := 8 η ˜ηcL (Wt). Then, it holds that 
+
+−At⟨∇ L(Wt), ξ t⟩ + Bt∥ξt∥2
+
+> F
+
+= Bt
+
+2 ∥ξt∥2 
+
+> F
+
++
+
+Å Bt
+
+2 ∥ξt∥2 
+
+> F
+
+− At⟨∇ L(Wt), ξ t⟩
+
+ã
+
+= Bt
+
+2 ∥ξt∥2 
+
+> F
+
++ Bt
+
+2 ξt − At
+
+Bt
+
+∇L(Wt)
+
+> 2
+> F
+
+− A2
+
+> t
+
+2Bt
+
+∥∇ L(Wt)∥2
+
+> F
+
+≥ Bt
+
+2 ∥ξt∥2 
+
+> F
+
+− A2
+
+> t
+
+2Bt
+
+∥∇ L(Wt)∥2 
+
+> F
+
+. (214) Substituting the values of At, B t, we obtain 
+
+−˜η 1 − 16 ηcL (Wt)⟨∇ L(Wt), ξ t⟩ + 8 η ˜ηcL (Wt)∥ξt∥2
+
+> F
+
+≥ 4η ˜ηcL (Wt)∥ξt∥2 
+
+> F
+
+− ˜η 1 − 16 ηcL (Wt)2
+
+16 ηcL (Wt) ∥∇ L(Wt)∥2 
+
+> F
+
+. (215) Hence, from inequality (213), for the event Et to hold, it suffices that 
+
+˜LN N − L(Wt) + ˜ η 1 − 8ηcL (Wt)∥∇ L(Wt)∥2 
+
+> F
+
+< 4η ˜ηcL (Wt)∥ξt∥2
+
+> F
+
+− ˜η 1 − 16 ηcL (Wt)2
+
+16 ηcL (Wt) ∥∇ L(Wt)∥2 
+
+> F
+
+.(216) Using Lemma D.3 (126) and the fact that ˜η = mη , it suffices that 
+
+˜LN N − L(Wt) + 2 η 1 − 8ηcL (Wt)L(Wt)2 +
+
+ 1 − 16 ηcL (Wt)2
+
+8c L(Wt) < 4η ˜ηcL (Wt)∥ξt∥2 
+
+> F
+
+.
+
+50 Letting ∆N N t := ˜LN N − L(Wt) + 2 η 1 − 8ηcL (Wt)L(Wt)2 +
+
+ 1−16 ηcL (Wt)
+
+2 
+
+> 8c
+
+L(Wt), we obtain that for the event Et to hold it suffices that 
+
+∆N N t < 4η ˜ηcL (Wt)∥ξt∥2 
+
+> F
+
+. (217) or equivalently it suffices that 
+
+∥ξt∥F > ∆N N t
+
+4η ˜ηcL (Wt) . (218) Therefore, it holds that 
+
+P(Et | F t) ≤ P ∥ξt∥F > ∆N N t
+
+4η ˜ηcL (Wt) | F t
+
+!
+
+. (219) Conditionally on the filtration Ft, the noise ξt = 1
+
+> b
+
+P 
+
+> j∈Bt
+
+ζt,j is the average of b centered i.i.d. vectors ζt,j := ∇ℓj (Wt) − ∇ L(Wt), ∀j ∈ Bt. From Lemma D.3, each term in the sum satisfies the bound 
+
+∥ζt,j ∥F ≤ ∥∇ ℓj (Wt)∥F + ∥∇ L(Wt)∥F ≤
+
+» 2 
+
+> m
+
+(1 + n) L(Wt), (220) and the variance bound 
+
+E∥ζt,j ∥2 
+
+> F
+
+| F t
+
+ ≤ E∥∇ ℓij (Wt)∥2 
+
+> F
+
+| F t
+
+ ≤ 2
+
+m L(Wt). (221) By the vector Bernstein inequality applied to ξt, we have 
+
+P(Et | F t) ≤ 2 exp 
+
+Ñ
+
+− b ∆N N t /(4 ηmηcL (Wt))  
+
+> 4
+> m
+
+L(Wt) + 2√2(1+ n)3√m L(Wt)p∆N N t /(4 ηmηcL (Wt)) 
+
+é
+
+= 2 exp − b
+
+4ηL (Wt) 32
+
+· ∆N N t
+
+4ηc L (Wt)1/2 +
+
+> √2c(1+ n)3
+
+p∆N N t
+
+!
+
+> c=1+ ˜β
+
+= 2 exp 
+
+Ñ
+
+− b
+
+4ηL (Wt) 32
+
+· ∆N N t
+
+4η(1 + ˜β) L(Wt)1/2 +
+
+√2(1+ ˜β)(1+ n)3
+
+p∆N N t
+
+é
+
+Lemma D.16. Assume that the dynamics exit the stable regime SN N at tout > 0 and fix 
+
+δ ∈ (0 , 1) . Then, with probability at least 1 − δ the iterates of (SGD) for the two-layer network in (7) return inside the stable regime SN N in at most 
+
+tre =
+
+° 4˜γ2ηδ ˜LN N 
+
+max 
+
+ß
+
+AN N , 16 ln 
+
+Å 64 ˜γ2ηδ ˜LN N 
+
+ã™§ 
+
+number of steps, where 
+
+AN N := 3( K − 1) + 4 ln 2(˜ γ2ηt out ) + 20 κ2 + 5 η2
+
+
+
+1 + 1
+
+> b
+
+2
+
+.
+
+Proof. Let U = U1 + U2 with U1 = αW∗, U2 = η(1+ 1  
+
+> b)˜γ
+
+W∗ and α = ln (˜γ2η(t−tout ))+2 κ 
+
+> ˜γ
+
+. From the update rule of (SGD) with ˜η = mη , we have that 
+
+∥Wt+1 − U ∥2 
+
+> F
+
+= ∥Wt − U ∥2 
+
+> F
+
++ 2˜ η⟨gt, U − Wt⟩F + ˜ η2∥gt∥2
+
+> F
+
+= ∥Wt − U ∥2 
+
+> F
+
++ 2˜ η⟨gt, U 1 − Wt⟩F + ˜ η2
+
+Å 2˜η ⟨gt, U 2⟩F + ∥gt∥2
+
+> F
+
+ã
+
+.
+
+51 Taking expectation conditional on the filtration Ft and using the unbiasedness property of the stochastic oracles, we get 
+
+E∥Wt+1 − U ∥2 
+
+> F
+
+Ft
+
+ = ∥Wt − U ∥2 
+
+> F
+
++ 2˜ η⟨∇ L(Wt), U 1 − Wt⟩F
+
++ ˜ η2
+
+Å 2˜η ⟨∇ L(Wt), U 2⟩F + E∥gt∥2 
+
+> F
+
+Ft
+
+ã
+
+. (222) We, next, show that with the choice U2 = η(1+ 1  
+
+> b)˜γ
+
+W∗, the last term in (222) is non-positive. We have that 
+
+2˜η ⟨∇ L(Wt), U 2⟩F = 2(1 + 1 
+
+> b
+
+)
+
+m˜γ ⟨∇ L(Wt), W∗⟩F
+
+> Lemma D.2
+
+≤ − 2(1 + 1 
+
+> b
+
+)
+
+m G(Wt).
+
+For the second moment E∥gt∥2 
+
+> F
+
+Ft
+
+, the bias-variance decomposition together with Lemmas D.3 and D.9 give 
+
+E∥gt∥2 
+
+> F
+
+Ft
+
+ = ∥∇ L(Wt)∥2 
+
+> F
+
++ E∥gt − ∇ L(Wt)∥2 
+
+> F
+
+Ft
+
+
+
+> Lemma D.3
+
+≤ 2
+
+m G(Wt)2 + 2
+
+mb G(Wt)
+
+≤ 2
+
+m G(Wt) + 2
+
+mb G(Wt)= 2(1 + 1 
+
+> b
+
+)
+
+m G(Wt),
+
+where we used G(Wt)2 ≤ G(Wt) since G(Wt) ∈ [0 , 1] . Summing the two bounds, we obtain 
+
+2˜η ⟨∇ L(Wt), U 2⟩F + E∥gt∥2 
+
+> F
+
+Ft
+
+ ≤ − 2(1 + 1 
+
+> b
+
+)
+
+m G(Wt) + 2(1 + 1 
+
+> b
+
+)
+
+m G(Wt) = 0 . (223) Substituting (223) into (222), we obtain 
+
+E∥Wt+1 − U ∥2 
+
+> F
+
+Ft
+
+ ≤ ∥ Wt − U ∥2 
+
+> F
+
++ 2˜ η⟨∇ L(Wt), U 1 − Wt⟩F .
+
+Using the convexity of L, we have that ⟨∇ L(Wt), U 1 − Wt⟩F ≤ L(U1) − L(Wt), and therefore we obtain 
+
+E∥Wt+1 − U ∥2 
+
+> F
+
+Ft
+
+ ≤ ∥ Wt − U ∥2 
+
+> F
+
++ 2˜ ηL(U1) − L(Wt).
+
+Taking expectation again and using the tower law of expectation, we have that 
+
+E∥Wt+1 − U ∥2
+
+> F
+
+ ≤ E∥Wt − U ∥2
+
+> F
+
+ + 2˜ η E[L(U1) − L(Wt)] .
+
+Summing for k = tout , . . . , t − 1 and dividing by 2˜ η(t − tout ), we obtain 
+
+E∥Wt − U ∥2
+
+> F
+
+
+
+2˜ η(t − tout ) + 1
+
+t − tout 
+
+> t−1
+
+X
+
+> k=tout
+
+E[L(Wk)] ≤ L(U1) + E∥Wtout − U ∥2
+
+> F
+
+
+
+2˜ η(t − tout ) .
+
+Using the non-negativity of ∥Wt − U ∥2 
+
+> F
+
+, we get 
+
+1
+
+t − tout 
+
+> t−1
+
+X
+
+> k=tout
+
+E[L(Wk)] ≤ L(U1) + E∥Wtout − U ∥2
+
+> F
+
+
+
+2˜ η(t − tout ) . (224) For U1 = αW∗ with α = ln (˜γ2η(t−tout ))+2 κ 
+
+> ˜γ
+
+, from Lemma D.7 we have that 
+
+L(U1) ≤ F (U1) ≤ K − 1˜γ2η(t − tout ) . (225) We, next, bound the term E∥Wtout − U ∥2
+
+> F
+
+. Applying (a + b)2 ≤ 2a2 + 2 b2, we obtain 
+
+E∥Wtout − U ∥2
+
+> F
+
+ ≤ 2 E∥Wtout ∥2
+
+> F
+
+ + 2 ∥U ∥2 
+
+> F
+
+. (226) For the term ∥U ∥2 
+
+> F
+
+, similarly to Theorem D.11 we have that 
+
+∥U ∥2 
+
+> F
+
+≤ 2∥U1∥2 
+
+> F
+
++ 2 ∥U2∥2 
+
+> F
+
+≤ 4m ln 2(˜ γ2η(t − tout )) + 16 mκ 2 + 2 mη 2 1 + 1
+
+> b
+
+2
+
+˜γ2 , (227) 52 where we have used ∥W∗∥2 
+
+> F
+
+= m and (a + b)2 ≤ 2a2 + 2 b2. For the term E∥Wtout ∥2
+
+> F
+
+, we apply Lemma D.12 from the original time origin with comparator U (0) = U (0) 1 + U2 where U (0) 1 = α0W∗
+
+and α0 = ln (˜γ2ηt out )+2 κ 
+
+> ˜γ
+
+, which gives 
+
+Eî∥Wtout − U (0) ∥2
+
+> F
+
+ó ≤ 2˜ η t out L(U (0) 1 ) + ∥U (0) ∥2
+
+> F
+
+≤ 2m(K − 1) + 4 m ln 2(˜ γ2ηt out ) + 16 mκ 2 + 2 mη 2 1 + 1
+
+> b
+
+2
+
+˜γ2 , (228) where we have used W0 = 0 , ˜η = mη , and the bound (225) applied at time tout . Applying 
+
+(a + b)2 ≤ 2a2 + 2 b2 again, we obtain 
+
+E∥Wtout ∥2
+
+> F
+
+ ≤ 2 Eî∥Wtout − U (0) ∥2
+
+> F
+
+ó + 2 ∥U (0) ∥2
+
+> F
+
+≤ 8m(K − 1) + 16 m ln 2(˜ γ2ηt out ) + 64 mκ 2 + 8 mη 2 1 + 1
+
+> b
+
+2
+
+˜γ2 . (229) Substituting (225), (227), and (229) into (224) and using ˜η = mη , we obtain 
+
+1
+
+t − tout 
+
+> t−1
+
+X
+
+> k=tout
+
+E[L(Wk)] ≤ CN N (t, t out )˜γ2η(t − tout ) , (230) where 
+
+CN N (t, t out ) := 9( K − 1) + 16 ln 2(˜ γ2ηt out ) + 80 κ2 + 10 η2 1 + 1
+
+> b
+
+2 + 4 ln 2(˜ γ2η(t − tout )) .
+
+We now split the bound (230) into two terms. Let AN N := 9( K − 1) + 16 ln 2(˜ γ2ηt out ) + 80 κ2 +10 η2
+
+
+
+1 + 1
+
+> b
+
+2
+
+. Then, (230) becomes 
+
+1
+
+t − tout 
+
+> t−1
+
+X
+
+> k=tout
+
+E[L(Wk)] ≤ AN N 
+
+˜γ2η(t − tout ) + 4 ln 2(˜ γ2η(t − tout )) ˜γ2η(t − tout ) . (231) We select tre so that each of the two terms on the right-hand side of (231) is at most δ ˜LN N /4.Specifically, we next verify the formula for tre :• For t − tout ≥ 4AN N  
+
+> ˜γ2ηδ ˜LN N
+
+, it holds that 
+
+AN N 
+
+˜γ2η(t − tout ) ≤ δ ˜LN N 
+
+4 .
+
+• For t − tout ≥ 64 ˜γ2ηδ ˜LN N 
+
+ln Ä 64 ˜γ2ηδ ˜LN N 
+
+ä, it holds that ˜γ2η(t − tout ) ≥ 64  
+
+> δ˜LN N
+
+ln Ä 64 ˜γ2ηδ ˜LN N 
+
+ä,which is a sufficient condition (see Lemma G.5 in Cai et al. [2024]) for 
+
+4 ln 2(˜ γ2η(t − tout )) ˜γ2η(t − tout ) ≤ δ ˜LN N 
+
+4 .
+
+Thus, it suffices to select tre such that 
+
+tre =
+
+° 4˜γ2ηδ ˜LN N 
+
+max 
+
+ß
+
+AN N , 16 ln 
+
+Å 64 ˜γ2ηδ ˜LN N 
+
+ã™§ 
+
+. (232) For this choice of tre and selecting t = tout + tre , we have that 
+
+1
+
+tre 
+
+> tout +tre −1
+
+X
+
+> k=tout
+
+E[L(Wk)] ≤ δ ˜LN N 
+
+2 . (233) Hence, there exists t[2] in ∈ [tout , t out + tre ] such that 
+
+E
+
+h
+
+L(Wt[2] in 
+
+)
+
+i
+
+≤ δ ˜LN N 
+
+2 .
+
+53 From Markov’s inequality, we have that 
+
+Pr 
+
+
+
+L(Wt[2] in 
+
+) ≥ ˜LN N 
+
+
+
+≤
+
+E
+
+h
+
+L(Wt[2] in 
+
+)
+
+i
+
+˜LN N 
+
+≤ δ
+
+2 ≤ δ, 
+
+which implies that 
+
+Pr 
+
+
+
+L(Wt[2] in 
+
+) ≤ ˜LN N 
+
+
+
+≥ 1 − δ. 
+
+Thus, there exists t[2] in ≤ tout + tre such that for δ ∈ (0 , 1) with probability at least 1 − δ it holds that 
+
+L(Wt[2] in 
+
+) ≤ ˜LN N and the dynamics return inside the stable set SN N .
+
+Proof of Theorem 5.5 
+
+Proof. The theorem is proved by combining Lemma D.15 and Lemma D.16. 54

@@ -6,83 +6,76 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-07-05
-- 运行时间：2026-07-05 21:44:26 UTC
+- 最新运行日期：2026-07-06
+- 运行时间：2026-07-06 22:16:38 UTC
 - 运行状态：成功
-- 本次总论文数：21
-- 精读区：8
+- 本次总论文数：18
+- 精读区：5
 - 速读区：13
 
 ### 今日简报（AI）
-今日推荐21篇论文，两篇9分重磅聚焦事件叙事的信息几何与谱分解层次策略。最值得关注的是信息几何证明叙事复合一致性的理论与谱分解驱动的层级策略学习。建议优先精读这两篇，速读可从双流强化学习与零样本推理修正入手。
-- 详情：[/202607/05/README](/202607/05/README)
+今天我们推荐了18篇论文，精读5篇、速读13篇，聚焦Belavkin方程与无监督强化学习。  
+最值得精读的是《Propagation of chaos for Belavkin equations beyond pure states》与《Learning Generalizable Skill Policy with Data-Efficient Unsupervised RL》，两篇均获8.0高分。  
+建议优先阅读上述两篇精读，再浏览速读中7.0分的《HiComm》和《UCOB》扩展视野。
+- 详情：[/202607/06/README](/202607/06/README)
 
 ### 精读区论文标签
-1. [An Information-Geometric Justification for Composite Coherence in Event-Based Narrative Extraction](/202607/05/2606.29118v1-an-information-geometric-justification-for-composite-coherence-in-event-based-narrative-extraction)  
-   标签：评分：9.0/10、query:npl-bdl-saig
-   evidence：为复合连贯性度量提供了信息几何解读和公理表征
-2. [Hierarchical Policy Learning via Spectral Decomposition](/202607/05/2606.29570v1-hierarchical-policy-learning-via-spectral-decomposition)  
-   标签：评分：9.0/10、query:rl-semantic
-   evidence：机器人动作的语义分解为粗粒度和细粒度组件，用于强化学习策略学习
-3. [Adapting Generalist Robot Policies with Semantic Reinforcement Learning](/202607/05/2606.31958v1-adapting-generalist-robot-policies-with-semantic-reinforcement-learning)  
-   标签：评分：9.0/10、query:rl-semantic
-   evidence：使用语言提示作为语义空间进行强化学习适配
-4. [Task-Relevant Representation Decoupling for Visual Reinforcement Learning Generalization](/202607/05/2607.00796v1-task-relevant-representation-decoupling-for-visual-reinforcement-learning-generalization)  
-   标签：评分：9.0/10、query:rl-semantic
-   evidence：视觉强化学习中自监督的任务相关表示解耦
-5. [From Pixels to Temporal Correlations: Learning Informative Representations for Reinforcement Learning Pre-training](/202607/05/2607.00811v1-from-pixels-to-temporal-correlations-learning-informative-representations-for-reinforcement-learning-pre-training)  
-   标签：评分：9.0/10、query:rl-semantic
-   evidence：通过时间相关空间进行强化学习预训练的状态表示学习
-6. [I-BBS: Coordinate-Free Inference of Latent Sub-Manifolds Using Random Distance Matrix Theory](/202607/05/2606.29675v1-i-bbs-coordinate-free-inference-of-latent-sub-manifolds-using-random-distance-matrix-theory)  
-   标签：评分：8.0/10、query:ml-theory
-   evidence：利用随机距离矩阵理论推断潜在子流形
-7. [Transformer Architectures as Complete Bayes Processes: A Formal Proof in the Measure-Theoretic Kernel Framework](/202607/05/2606.30440v1-transformer-architectures-as-complete-bayes-processes-a-formal-proof-in-the-measure-theoretic-kernel-framework)  
+1. [Propagation of chaos for Belavkin equations beyond pure states](/202607/06/2606.29557v2-propagation-of-chaos-for-belavkin-equations-beyond-pure-states)  
    标签：评分：8.0/10、query:npl-bdl-saig
-   evidence：Transformer架构的贝叶斯深度学习形式化证明
-8. [The Geometry of Statistical Feature Learning in Mean-Field Langevin Dynamics](/202607/05/2606.31429v1-the-geometry-of-statistical-feature-learning-in-mean-field-langevin-dynamics)  
+   evidence：随机分析在扩散过程中的应用
+2. [Learning Generalizable Skill Policy with Data-Efficient Unsupervised RL](/202607/06/2607.00392v1-learning-generalizable-skill-policy-with-data-efficient-unsupervised-rl)  
+   标签：评分：8.0/10、query:rl-semantic
+   evidence：无监督强化学习中的技能隐表示与信息瓶颈
+3. [Local Motion Matters: A Deconstruct-Recompose Paradigm for Reinforcement Learning Pre-training from Videos](/202607/06/2607.00808v1-local-motion-matters-a-deconstruct-recompose-paradigm-for-reinforcement-learning-pre-training-from-videos)  
+   标签：评分：8.0/10、query:rl-semantic
+   evidence：通过局部运动分解进行强化学习状态表示学习
+4. [Fast approximation and learning of binary classification tasks in o-minimal structures using ReLU neural networks](/202607/06/2607.01266v1-fast-approximation-and-learning-of-binary-classification-tasks-in-o-minimal-structures-using-relu-neural-networks)  
    标签：评分：8.0/10、query:ml-theory
-   evidence：使用几何公式刻画均场Langevin动力学中的特征学习，与微分几何相关
+   evidence：代数几何（o-minimal）用于神经网络逼近
+5. [Path-level Hindsight Instructions for Semantic Exploration in Vision-Language Navigation](/202607/06/2607.01754v1-path-level-hindsight-instructions-for-semantic-exploration-in-vision-language-navigation)  
+   标签：评分：8.0/10、query:rl-semantic
+   evidence：强化学习用于视觉语言导航中的语义探索
 
 ### 速读区论文标签
-1. [Dual-Flow Reinforcement Learning with State-Aware Exploration](/202607/05/2606.29820v1-dual-flow-reinforcement-learning-with-state-aware-exploration)  
-   标签：评分：8.0/10、query:rl-semantic
-   evidence：具有状态感知探索的双流强化学习框架
-2. [LatentRevise: Learning from Zero-Hit Reasoning](/202607/05/2606.29938v1-latentrevise-learning-from-zero-hit-reasoning)  
-   标签：评分：8.0/10、query:rl-semantic
-   evidence：针对强化学习可验证奖励的潜在修正方法，在潜在空间中优化输入嵌入
-3. [VLM-AR3L: Vision-Language Models for Absolute and Relative Rewards in Reinforcement Learning](/202607/05/2607.00483v1-vlm-ar3l-vision-language-models-for-absolute-and-relative-rewards-in-reinforcement-learning)  
-   标签：评分：8.0/10、query:rl-semantic
-   evidence：强化学习用于潜在语义表示
-4. [Group-Equivariant Poincaré Convolutional Networks](/202607/05/2607.00556v1-group-equivariant-poincar-convolutional-networks)  
-   标签：评分：8.0/10、query:ml-theory
-   evidence：双曲空间中的群等变卷积，几何深度学习
-5. [Geometry-Aware R-Structured Kolmogorov-Arnold Networks](/202607/05/2607.01449v1-geometry-aware-r-structured-kolmogorov-arnold-networks)  
-   标签：评分：8.0/10、query:ml-theory
-   evidence：几何感知神经网络架构，融合几何约束
-6. [BaRA: Bayesian Adaptive Rank Allocation for Parameter-Efficient Fine-Tuning](/202607/05/2606.29184v1-bara-bayesian-adaptive-rank-allocation-for-parameter-efficient-fine-tuning)  
-   标签：评分：7.0/10、query:npl-bdl-saig
-   evidence：贝叶斯自适应秩分配参数高效微调
-7. [ECHO: Learning Epistemically Adaptive Language Agents with Turn-Level Credit](/202607/05/2606.29745v1-echo-learning-epistemically-adaptive-language-agents-with-turn-level-credit)  
+1. [HiComm: Hierarchical Communication for Multi-agent Reinforcement Learning](/202607/06/2606.29126v2-hicomm-hierarchical-communication-for-multi-agent-reinforcement-learning)  
    标签：评分：7.0/10、query:rl-semantic
-   evidence：基于潜在任务变量的信念状态公式化
-8. [Consistency as Inductive Bias: Learning Cross-View Invariance for Robust Multimodal Reasoning](/202607/05/2606.29812v1-consistency-as-inductive-bias-learning-cross-view-invariance-for-robust-multimodal-reasoning)  
+   evidence：多智能体强化学习、层级通信、状态表示、观察基础
+2. [UCOB: Learning to Utilize and Evolve Agentic Skills via Credit-Aware On-Policy Bidirectional Self-Distillation](/202607/06/2606.29502v1-ucob-learning-to-utilize-and-evolve-agentic-skills-via-credit-aware-on-policy-bidirectional-self-distillation)  
    标签：评分：7.0/10、query:rl-semantic
-   evidence：在RLVR训练中引入跨视角一致性作为归纳偏置，学习不变表示
-9. [Convergence of Continual Learning in Homogeneous Deep Networks](/202607/05/2606.30559v1-convergence-of-continual-learning-in-homogeneous-deep-networks)  
+   evidence：技能条件提示作为在线强化学习中的语义上下文
+3. [Gradient Smoothing: Coupling Layer-wise Updates for Improved Optimization](/202607/06/2606.30813v1-gradient-smoothing-coupling-layer-wise-updates-for-improved-optimization)  
    标签：评分：7.0/10、query:ml-theory
-   evidence：利用非凸投影理论分析收敛性
-10. [CORE Planner: Contextual-memory Oriented Reinforcement-learning in Unknown Environments for Robot Navigation](/202607/05/2606.29222v1-core-planner-contextual-memory-oriented-reinforcement-learning-in-unknown-environments-for-robot-navigation)  
+   evidence：深度学习训练中的优化
+4. [SGD at the Edge of Stability: Stochastic Stabilization with Large Learning Rates](/202607/06/2606.30930v1-sgd-at-the-edge-of-stability-stochastic-stabilization-with-large-learning-rates)  
+   标签：评分：7.0/10、query:ml-theory
+   evidence：大学习率下随机梯度下降的收敛性分析
+5. [Motion Planning in Compressed Representation Spaces](/202607/06/2606.30940v1-motion-planning-in-compressed-representation-spaces)  
+   标签：评分：7.0/10、query:rl-semantic
+   evidence：用于规划的潜在空间表示
+6. [Continuous-Time Decentralized Online Estimation With Additive Noises](/202607/06/2606.31384v1-continuous-time-decentralized-online-estimation-with-additive-noises)  
+   标签：评分：7.0/10、query:npl-bdl-saig
+   evidence：连续时间随机微分方程分析
+7. [Direction-Magnitude Decomposition for Low-Rank Matrix Optimization: Faster Convergence and Saddle-to-saddle Dynamics](/202607/06/2606.31390v1-direction-magnitude-decomposition-for-low-rank-matrix-optimization-faster-convergence-and-saddle-to-saddle-dynamics)  
+   标签：评分：7.0/10、query:ml-theory
+   evidence：非凸低秩矩阵优化方法
+8. [Propagation of~Interval Belief Structures and~Imprecise Copulas for~Neural Network Verification](/202607/06/2606.30105v1-propagation-ofinterval-belief-structures-andimprecise-copulas-forneural-network-verification)  
+   标签：评分：6.0/10、query:npl-bdl-saig
+   evidence：基于区间信念结构的神经网络不精确概率验证传播
+9. [Preference-Based Reward Learning under Partial Observability with Inexact Dynamics](/202607/06/2606.30271v1-preference-based-reward-learning-under-partial-observability-with-inexact-dynamics)  
    标签：评分：6.0/10、query:rl-semantic
-   evidence：面向上下文记忆的强化学习机器人导航
-11. [Why Struggle with Continuous Latents? Interpretable Discrete Latent Reasoning via Rendered Compression](/202607/05/2606.29712v1-why-struggle-with-continuous-latents-interpretable-discrete-latent-reasoning-via-rendered-compression)  
+   evidence：偏好奖励学习中的隐状态推断
+10. [Data-Adaptive Learning of Dynamical Systems by Matching Transfer Operators and Invariant Measures](/202607/06/2607.00391v1-data-adaptive-learning-of-dynamical-systems-by-matching-transfer-operators-and-invariant-measures)  
+   标签：评分：6.0/10、query:npl-bdl-saig
+   evidence：过渡统计方法、Perron-Frobenius算子、Markov矩阵、随机分析
+11. [LSR-Net: Long-Short-Range Operator Learning for Pattern Dynamics on Manifolds](/202607/06/2607.00750v1-lsr-net-long-short-range-operator-learning-for-pattern-dynamics-on-manifolds)  
+   标签：评分：6.0/10、query:ml-theory
+   evidence：流形上的几何深度学习用于模式动力学
+12. [Full Bayesian Reinforcement Learning via LF-IBIS](/202607/06/2607.01741v1-full-bayesian-reinforcement-learning-via-lf-ibis)  
+   标签：评分：6.0/10、query:npl-bdl-saig
+   evidence：使用近似贝叶斯计算和迭代重要性采样的贝叶斯强化学习
+13. [Learning to Move Before Learning to Do: Task-Agnostic pretraining for VLAs](/202607/06/2607.02466v1-learning-to-move-before-learning-to-do-task-agnostic-pretraining-for-vlas)  
    标签：评分：6.0/10、query:rl-semantic
-   evidence：提出离散潜在推理以解决连续潜在空间中的对齐问题，与强化学习中的潜在表示相关
-12. [KbSD: Knowledge Boundary aware Self-Distillation for Behavioral Calibration in Agentic Search](/202607/05/2606.29863v1-kbsd-knowledge-boundary-aware-self-distillation-for-behavioral-calibration-in-agentic-search)  
-   标签：评分：6.0/10、query:rl-semantic
-   evidence：通过自蒸馏进行知识边界校准的强化学习方法
-13. [Domain Adaptation with Adaptive Imagination for Visual Reinforcement Learning under Limited Target Data](/202607/05/2606.30192v1-domain-adaptation-with-adaptive-imagination-for-visual-reinforcement-learning-under-limited-target-data)  
-   标签：评分：6.0/10、query:rl-semantic
-   evidence：用于视觉强化学习的自适应想象域适应
+   evidence：通过自监督逆动力学进行状态表示学习
 
 
 <div class="dpr-home-promo-card">

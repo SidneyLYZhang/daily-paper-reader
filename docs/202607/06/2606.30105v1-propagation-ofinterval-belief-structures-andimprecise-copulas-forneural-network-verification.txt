@@ -1,0 +1,658 @@
+Title: Propagation of Interval Belief Structures and Imprecise Copulas for Neural Network Verification
+
+URL Source: https://arxiv.org/pdf/2606.30105v1
+
+Published Time: Tue, 30 Jun 2026 02:04:32 GMT
+
+Number of Pages: 14
+
+Markdown Content:
+# Propagation of interval belief structures and imprecise copulas for neural network verification 
+
+Francesc Pifarre-Esquerda ˚, Eric Goubault ˚, and Sylvie Putot ˚
+
+* LIX, CNRS, École polytechnique, Institut Polytechnique de Paris, Palaiseau, France 
+
+Abstract. Quantitative verification of neural networks requires reason-ing about probabilities under substantial uncertainty in both input dis-tributions and their dependence structure. In realistic settings, this in-formation is often only partially specified, and assuming precise proba-bilistic models can lead to unreliable results. We propose a sound framework for quantitative verification under im-precise probabilistic information, combining interval belief structures to represent marginal uncertainty with imprecise copulas to model uncer-tain dependence. We develop a propagation method for imprecisely cou-pled interval belief structures through feed-forward neural networks. Us-ing mixed imprecise copula volumes, we derive sound push-forward con-structions through affine transformations and activation functions. The resulting output can provide guaranteed lower and upper bounds on probabilistic safety properties, valid for all probability models compati-ble with the specified imprecise inputs. 
+
+Keywords: Imprecise probability · Neural networks · Interval belief structures · Imprecise copulas · Verification. 
+
+## 1 Introduction 
+
+Neural networks (NNs) are increasingly deployed in safety-critical and high-risk domains, making the verification of their behaviour a central concern. Over the past years, significant progress has been made in the qualitative verification of NNs, where one seeks to determine whether a given safety specification is satisfied or violated for all admissible inputs. Sound and scalable techniques based on abstract interpretation have been developed [19, 22, 12]. By contrast, quantitative or probabilistic verification of neural networks tak-ing probabilistic elements of the inputs into account remains comparatively un-derdeveloped. A central challenge in these quantitative approaches to neural network analysis is to represent both marginal uncertainty of each input fea-ture and uncertainty about the dependence structure between features while still enabling sound forward propagation through affine layers and non-linear activations. However, in realistic applications, input uncertainty is rarely known precisely as marginal distributions may be only partially specified, and assump-tions about dependence can be heuristic or unjustified. Collapsing epistemic uncertainty into a single precise probabilistic model can lead to a false sense  
+
+> arXiv:2606.30105v1 [cs.AI] 29 Jun 2026 2F. Pifarre-Esquerda et al.
+
+of confidence [6, 1] and remains a key obstacle to deploying trustworthy and interpretable NN models [20]. This challenge is particularly relevant for probabilistic verification of NNs, where the objective is to bound the probability that a safety property holds under uncertain inputs. Existing approaches often rely on sampling-based methods [25, 2, 17], and therefore cannot provide guaranteed bounds. Recent guaranteed methods include probability stars [21], branch-and-bound algorithms [4], and Dempster-Shafer structures [8]. Imprecise probability theory provides a principled mathematical framework to address these issues by explicitly representing both aleatoric uncertainty (in-trinsic randomness) and epistemic uncertainty (lack of knowledge). Rather than committing to a single probability distribution, uncertainty is modelled by credal sets consistent with available information. This approach has proved valuable in a variety of fields, including engineering analysis [3] or dynamical systems [9]. The central contribution of this work is the application of imprecise probabil-ity tools to the verification of NNs. We develop a sound propagation method for marginal interval belief structures joined by an imprecise copula through feed-forward neural networks. The propagation relies on imprecise copula volumes evaluated on conservative/optimistic quantile rectangles, yielding computable lower and upper bounds on the probability mass assigned to each input cell. We then derive push-forward constructions through affine transformations and activation functions to obtain both output marginal IBSs and an output impre-cise copula that captures both the specified dependencies between inputs and dependencies induced by the network itself. This enables sound evaluation of probabilistic safety properties at the network output. 
+
+## 2 Imprecise model: marginal interval belief structures and imprecise copulas 
+
+2.1 Interval belief structures 
+
+We use as basic imprecise probability structure the probability box [7], usually referred to as p-box in short. P-boxes represent the credal sets (sets of proba-bility distributions) that lie between a pair of bounding or envelope CDFs. The probability distributions within the credal set capture the aleatoric element of uncertainty while the set itself represents the lack of full epistemic knowledge. Performing operations on p-boxes can be done through convolutions [26], but analytical solutions to these are not generally available. To facilitate operations on p-boxes, Interval Dempster-Shafer structures (DSIs) are commonly used [27, 7]. DSIs offer discrete outer approximations of p-boxes and provide a way to perform sound approximations of arithmetic operations on them. They have also been applied to NN contexts in [8]. Interval Belief Structures (IBSs) further generalize these classical interval Dempster-Shafer structures by allowing the basic probability masses attached to focal sets to be imprecise and given in terms of intervals. They were introduced Propagation of IBSs and imprecise copulas for NN verification 3
+
+simultaneously as generalization of DSIs in [27] and focusing on their induced belief functions in [5]. IBSs have previously been successfully applied both to general evidential reasoning [24] and to domain specific tasks such as diabetes diagnostics [18]. In our propagation through neural networks, IBSs will be used as the basic unit of computation for marginal distributions. 
+
+Definition 1 (Interval belief structure). Let F “ t F1, . . . , F N u be a family of non-empty subsets of X , referred to as focal sets. An interval belief structure on X is specified by a collection of intervals 
+
+I “ tx Fi, rmi, m isy | i “ 1, . . . , N u,
+
+with 0 ď mi ď mi ď 1 for all i, together with the requirement that there exists at least one basic probability assignment m such that 
+
+mpFiq P r mi, m is, i “ 1, . . . , N, 
+
+> N
+
+ÿ
+
+> i“1
+
+mpFiq “ 1,
+
+which means that the IBS is not empty. The set of all probability assignments compatible with the IBS I is the credal set of beliefs 
+
+MpIq “ ␣m | mpFiq P r mi, m is,
+
+> N
+
+ÿ
+
+> i“1
+
+mpFiq “ 1(.
+
+For an IBS to be well-defined, it needs to be non-empty in the credal set sense, meaning that its bounds must allow for at least one valid distribution. This non-emptiness property can be characterized as follows: 
+
+Proposition 1 (Non-emptiness of IBS). A necessary and sufficient condi-tion for the existence of at least one compatible m (non-emptiness of MpIq) is 
+
+řNi“1 mi ď 1 ď řNi“1 mi as given in Proposition 1 of [5]. 
+
+Moreover, the idea of the normalization of IBS is also relevant. This relates to the tightness of the mass bounds with respect to their associated credal set. If an IBS is normalized, the mass bounds can be realized by a particular mass as-signment or DSI within the credal set. We will aim to work with normalized IBSs for increased tightness and well-defined quantile grids in relevant calculations. 
+
+Definition 2 (Normalized interval belief structure). Let I “ tx Fi, rmi, m isy | 
+
+i “ 1, . . . , N u be an interval belief structure with 0 ď mi ď mi ď 1 for all i, and assume it is non-empty so that MpIq ‰ H .We say that I is a normalized interval belief structure (in the sense of Wang and Elhag [23, 18]) if: 
+
+> N
+
+ÿ
+
+> j“1
+
+mj ´ p mi ´ miq ě 1 and 
+
+> N
+
+ÿ
+
+> j“1
+
+mj ` p mi ´ miq ď 1, @i P t 1, . . . , n u.4 F. Pifarre-Esquerda et al. 
+
+Equivalently, for every i the whole interval rmi, m is consists of admissible values 
+
+mpFiq for some m P MpIq. In this sense normalized interval belief structures form a tight representation of their associated credal set. This condition is also equivalent to: mi “ inf mPMpIq mpFiq and mi “ sup mPMpIq mpFiq.
+
+Proposition 2 (IBS normalization). Let I “ tx Fi, rmi, m isy | i “ 1, . . . , N u
+
+be an IBS. It can be normalized by retaking the mass bounds at each focal element 
+
+i such that the bounds are given by: 
+
+max 
+
+«
+
+mi, 1 ´ ÿ
+
+> j‰i
+
+mj
+
+ff 
+
+ď mpFiq ď min 
+
+«
+
+mi, 1 ´ ÿ
+
+> j‰i
+
+mj
+
+ff 
+
+, i “ 1, . . . , N. 
+
+This construction has been adapted from Section 4 of [23]. 
+
+In the semantics of probability distributions, IBSs induce belief functions on their elements. We restrict ourselves here to the unidimensional case where 
+
+X “ R and all focal sets Fi are intervals. IBSs represent univariate distributions and their associated uncertainty. IBSs become DSIs in the "degenerate" or limit case where the upper and lower mass bounds coincide. A p-box can be recovered from an IBS by taking the broadest envelopes possible. By doing so, a lot of extra information contained by the IBS on the internal structure of the resulting p-box credal set is lost, but the p-box credal set is an outer approximation of the original IBS. 
+
+Definition 3 (IBS belief, plausibility, and induced p-box). Let I be an IBS with credal set MpIq. For any m P MpIq and A Ď X, we define Bel mpAq “ ř 
+
+> FiĎA
+
+mpFiq, Pl mpAq “ ř 
+
+> FiXA‰H
+
+mpFiq which induce bounds: Bel pAq “ inf  
+
+> mPMpIq
+
+Bel mpAq, Pl pAq “ sup 
+
+> mPMpIq
+
+Pl mpAq.
+
+These define the IBS’s CDF envelopes: 
+
+F pxq :“ Bel pp´8 , x sq , F pxq :“ Pl pp´8 , x sq .
+
+It holds that F ď F , both are non-decreasing, and rF , F s is a p-box representing all distributions compatible with I.
+
+To relate IBSs to copulas, we will use the quantile levels. These lie in the CDF codomain as the accumulated probability in each focal element. For IBSs, these quantile levels are imprecise and given only within intervals. 
+
+Proposition 3 (Quantile levels for IBS). Let I be a normalized IBS. We define its quantile levels as given by its lower belief and upper plausibility: 
+
+αi “ max 
+
+# iÿ
+
+> k“1
+
+mk , 1 ´
+
+> N
+
+ÿ
+
+> k“i`1
+
+mk
+
++
+
+αi “ min 
+
+# iÿ
+
+> k“1
+
+mk , 1 ´
+
+> N
+
+ÿ
+
+> k“i`1
+
+mk
+
++
+
+.Propagation of IBSs and imprecise copulas for NN verification 5
+
+We use the boundary conventions α0 “ α0 “ 0 and αN “ αN “ 1.Since the upper and lower masses need not add to 1, the second argument on the min/max assigns the minimum mass to the first i elements, unless the maximum/minimum mass of the remaining elements is not enough/too much to reach 1 for the last quantile level. This construction follows Definition 3 of [23]. 
+
+We refer to the interval quantile bounds rαi, α is jointly as αi. For quan-tile levels and IBSs indices to be well-defined we require a total order between the focal elements. By convention when working with p-boxes, we will take the lexicographical order on the pair given by the focal interval bounds [7]. 
+
+2.2 Imprecise copulas 
+
+The same arguments that justify the employment of imprecise probability struc-tures to model marginal distributions can also be raised for imprecise dependence structures. Copulas allow to separate the information in the joint dependence of random variables and their marginal distribution through Sklar’s seminal theorem [13]. Imprecise copulas allow us to do the same while accounting for uncertainty in their dependence. The main result justifying our decision to employ IBS marginals joined by an imprecise copula, which we will refer to jointly as (imprecisely) coupled IBSs, is the extension of Sklar’s theorem to the imprecise domain. Coherent imprecise copulas allow to relate imprecise marginals to imprecise multivariate distribu-tions with results following from Sklar’s seminal theorem for "precise" copulas [11, 15, 16]. In what follows, when we speak of coupled IBSs we mean a multi-variate distribution such that each marginal basic probability assignment lies in the IBSs marginal credal sets and the dependence is described by some unknown copula C lying between the quasi-copula envelopes Q ď C ď Q.This section introduces necessary structures and results to justify this mod-elling decision, and lays down the groundwork to later define the propagation of coupled IBSs through a NN. The basic building blocks of imprecise copulas are not properly copulas, but a relaxed version of them called quasi-copulas. 
+
+Definition 4 (Quasi-copulas). For any point pu1, . . . , u j´1, u j`1, . . . , u nq P 
+
+In´1 and any t P I (respectively I). A n-dimensional quasi-copula Q is a function 
+
+Q : In Ñ I that satisfies the following conditions: (i) For every j “ 1, . . . , n we have Qp1, . . . , 1, u j , 1, . . . , 1q “ uj .(ii) Q is increasing in each of its variables, i.e., for every j “ 1, . . . , n and for every point pu1, . . . , u nq P In the value Qpuq is non-decreasing as any uj
+
+increases with the rest remaining fixed. (iii) Q is Lipschitz, i.e., if u, v P In, then |Qpvq ´ Qpuq| ď řnj“1 |vj ´ uj |.(iv) for every j “ 1, . . . , n and for every point pu1, . . . , u j´1, u j`1, . . . , u nq P In´1
+
+we have Qpu1, . . . , u j´1, 0, u j`1, . . . , u nq “ 0.
+
+Quasi-copulas give the envelopes of the credal set which defines an imprecise copula. To have an imprecise copula, however, care is needed to ensure that they 6 F. Pifarre-Esquerda et al. 
+
+are well-defined. This refers to issues of non-emptiness and coherence, which remained open for some time after the original introduction of imprecise copulas in [11]. In essence, the original characterization of imprecise copulas given in [11] was shown to be flawed in that it allowed for imprecise copulas which had no copula within (counterexample given in [14]). Therefore we follow the tighter characterization of a well-defined imprecise copula of [14] and its generalization by the same authors to higher-dimensional cases in [16]. 
+
+Definition 5 (Avoiding sure loss or non-emptiness). We consider a pair of quasi-copulas pQ, Q q to avoid sure loss (or to be non-empty in the credal set sense) if there exists a proper copula C with Q ď C ď Q.
+
+Definition 6 (Coherent imprecise copulas). We will call a pair rQ, Q s of 
+
+n-variate quasi-copulas a coherent imprecise copula if they are non-empty (avoid sure loss) and: Q “ inf tC | Q ď C ď Qu, and Q “ sup tC | Q ď C ď Qu.The infimum and supremum are taken pointwise with respect to the product order. This definition follows the characterization of multivariate imprecise cop-ulas introduced after Th. 16 of [16]. We will call the quasi-copulas the bounds or envelopes of the imprecise copula. 
+
+We point out the similarity of the notion of a coherent imprecise copula to the normalization of an IBS: both require the envelopes describing the credal sets (either masses on IBS or quasi-copulas in the imprecise copula) to be tight. The volumes of imprecise copula, which will be used for propagation, generalize the precise copula volumes which are the measure induced by copulas on rectangles. For an imprecise copula, we can derive two dual induced volumes: 
+
+Definition 7 (Mixed imprecise copula volume). Let rQ, Q s be an imprecise copula and let 
+
+P “ r p1, p 1s ˆ ¨ ¨ ¨ ˆ r pn, p ns Ď r 0, 1sn
+
+be a rectangle. We will refer to as the lower and upper mixed imprecise volumes of P , denoted V rQ,Q spP q and V rQ,Q spP q as: 
+
+V rQ,Q spP q “ ÿ 
+
+> pPvertices pPq
+> sign ppqą 0
+
+sign ppq Qppq ` ÿ 
+
+> pPvertices pPq
+> sign ppqă 0
+
+sign ppq Qppq
+
+V rQ,Q spP q “ ÿ 
+
+> pPvertices pPq
+> sign ppqą 0
+
+sign ppq Qppq ` ÿ 
+
+> pPvertices pPq
+> sign ppqă 0
+
+sign ppq Qppq
+
+where the sum is over all vertices p “ p p1, . . . , p nq with pi P t pi, p iu, and 
+
+sign ppq “ 
+
+#`1, if p has an even number of lower bounds pi,
+
+´1, if p has an odd number of lower bounds pi.Propagation of IBSs and imprecise copulas for NN verification 7
+
+These mixed volumes are based on the L operator of [14], which corresponds to our V rQ,Q s, and V rQ,Q s is constructed as its dual counterpart. As Q “ Q “ C,we have a precise copula (if the more restrictive copula axioms are satisfied for 
+
+C). Then V rQ,Q spP q “ V rQ,Q spP q “ VC pP q gives the standard copula volume. For quasi-copula bounds, V rQ,Q spP q may be negative as quasi-copulas need not be n-increasing. Also note that while the usual copula volume is a measure and additive with respect to disjoint unions of rectangles, the mixed imprecise copula volumes are not. Neither of the mixed volumes is a proper measure and V rQ,Q s
+
+is only super-additive while V rQ,Q s is sub-additive. Mixed volumes will be key in our arithmetic to propagate coupled IBSs, but are also useful in the characterizations of the non-emptiness, and therefore the coherence, of an imprecise copula, by Theorem 1. 
+
+Proposition 4 (Mixed volumes order). Let rQ, Q s be an imprecise copula and C P r Q, Q s. For any rectangle R: V rQ,Q spRq ď VC pRq ď V rQ,Q spRq.
+
+Theorem 1 (Characterization of non-emptiness). Let Q ď Q be (discrete) quasi-copulas defined on D Ď In. Then, there exists a copula C defined on D with 
+
+Q ď C ď Q if and only if V rQ,Q s ě 0 for all R P RD (set of all finite disjoint unions of rectangles with vertices on D). This result corresponds to Theorem 15 of [16] adapted to our notation. 
+
+## 3 Propagation through neural networks 
+
+In this section, we propagate IBSs and imprecise copulas through feed-forward neural networks in such a way that they over-approximate the distributions of the random variables in each layer. Two operations are composed to define an arbitrary feed-forward neural network: affine steps and activation functions. 
+
+Definition 8 (Feed-forward Neural Network). We consider an L´layer fully-connected feed-forward neural network, for L P N and h0, . . . , h L P N the layer widths, specified by tp W k, b k, σ kqu L´1 
+
+> k“0
+
+, where for each layer k “ 0, . . . , L ´
+
+1, W k P Rhk`1ˆhk , and σk : Rhk`1 Ñ Rhk`1 is an activation map applied coordinate-wise: σkpsq “ `σk 
+
+> 1
+
+ps1q, . . . , σ khk`1 pshk`1 q˘ for s P Rhk`1 .Given an input x “ x0 P Rh0 , the network output fθ pxq P RhL is defined recursively as: sk`1 “ W kxk ` bk, xk`1 “ σkpsk`1q, for k “ 0, . . . , L ´ 1, and 
+
+fθ pxq :“ xL. We denote the corresponding random vectors in the propagation as: 
+
+X0 :“ X, Sk`1 :“ W kXk ` bk, Xk`1 :“ σkpSk`1q.
+
+First, we will define how to soundly apply the operation, affine or activation, on our marginal distributions represented by the IBSs. Secondly, we develop push-forward constructions to propagate the imprecise copulas through the same operations. We refer to this propagation method as a push-forward as the con-structions propagate the quasi-copula envelopes through their induced volume on select rectangles defined on the IBS’s quantile levels. 8 F. Pifarre-Esquerda et al. 
+
+3.1 Affine step 
+
+Let pXiqni“1 be represented by normalized IBSs IXi “ t xiji , miji u, where ji will be used as a running index iterating over the focal elements of the different marginals Xi. Also let pXiqni“1 be coupled by the multivariate imprecise copula with envelopes rQ, Q s and with associated quantile levels “αiji , α iji
+
+‰. We define two possible rectangles upon which we will calculate the mixed copula volume: a lower and upper one: 
+
+Rj1,...,j n “
+
+> n
+
+ą
+
+> i“2
+
+rαiji´1, α iji s and Rj1,...,j n “
+
+> n
+
+ą
+
+> i“2
+
+rαiji´1, α iji s
+
+Note that Rj 1, . . . , j n uses the highest possible previous quantile ( αiji´1)and the lowest possible current quantile ( αiji ), creating the smallest possible quantile rectangle (empty if αiji´1 ą αiji ) that could represent this focal element’s probability mass in the copula space. This ensures we never overestimate the lower bound. Analogously, Rj1,...,j n uses the lowest possible previous quantile (αiji´1) and the highest possible current quantile ( αiji ) to get the largest possible quantile rectangle so that we never underestimate the upper bound. 
+
+Proposition 5 (Addition of imprecisely coupled IBSs). Let Z “ řni“1 Xi.Then IZ “ tx zj1,...,j n , rj1,...,j n yu such that for all ji “ 1, . . . , N i for i “ 1, . . . , n 
+
+we have 
+
+zj1,...,j n “ x1 
+
+> j1
+
+`¨ ¨ ¨` xnjn and rj1,...,j n “
+
+”
+
+V rQ,Q spRj1,...,j n q, V rQ,Q spRj1,...,j n q
+
+ı
+
+.
+
+For the focal elements, we use traditional interval arithmetic. For the upper bound, if the imprecise copula is coherent (or only non-empty), the upper mixed volume is guaranteed to be non-negative (Th. 1). We also note that the number of focal elements explodes after the affine transformation, with a new element for each input-cell combination pj1, . . . , j nq.This IBS sum construction gives an outer approximation of the operation on its credal set. This quality holds as for Rj1,...,j n Ă R Ă Rj1,...,j n a rectangle and 
+
+C P r Q, Q s a copula we have the inequalities VC pRq ď VC pRq ď V rQ,Q spRq.Note that, however, the resulting IBSs may not be tight, as the proposed affine propagation does not preserve normalization. For further propagation, since we will need quantile levels which are only well-defined for normalized IBSs (Prop. 3) the IBS is normalized by applying Proposition 2. We also need to propagate the imprecise copula through the affine operation to obtain the dependence between the new variables created by the affine layer. Let S “ p S1, . . . , S mq be the output variables defined by the linear sums Sk “ř 
+
+> iPIk
+
+aiXi with ai scalars. The input space is discretized by the focal elements of X. For every multi-index J “ p j1, . . . , j nq, we determine the mass interval 
+
+rmJ, m Js associated with the input cell RJ. The focal elements and their mass bounds are computed using the mixed volumes of the input imprecise copula on the conservative and optimistic quantile rectangles RJ, R J as given in Prop. 5. Propagation of IBSs and imprecise copulas for NN verification 9
+
+Let ISk be the resulting marginal IBS for each sum variable Sk, consisting of focal intervals tskℓ u obtained by applying Proposition 5 and normalized by Prop. 2, and their associated quantile levels given by 
+
+!
+
+tγkjk uNk 
+
+> jk“1
+
+)mk“1
+
+. There exists a deterministic index mapping Laff pJq “ p Laff  
+
+> 1
+
+pJq, . . . , L aff  
+
+> m
+
+pJqq defined by the affine transformation such that the image of any input rectangle under T is strictly contained within a specific output cell by tracking which focal elements of the original IBSs are added to form a new focal element on the output IBSs. The Laff memory map is defined such that the indices of the focal elements of the variable resulting from the affine transform IZ “ tx zk, rkyu are in correspon-dence with the indices of the intervals of the input Xi that yielded each focal element by interval arithmetic. I.e., if interval zk was obtained by the interval sum of x1 
+
+> j1
+
+` ¨ ¨ ¨ ` xnjn then Laff pj1, . . . , j nq “ k. This alignment ensures that probability mass assigned to an input multi-index J can be pushed-forward to the output index Laff pJq.
+
+Proposition 6 (Push-forward of an imprecise multivariate copula through IBS addition). Let u˚ “ p γ1 
+
+> ℓ1
+
+, . . . , γ mℓm q be a target grid point on the output dis-crete quasi-copula domain and define the index set 
+
+Ipu˚q :“
+
+!
+
+J
+
+ˇˇˇ Laff  
+
+> k
+
+pJq ď ℓk for all k “ 1, . . . , m 
+
+)
+
+.
+
+The value of the output imprecise copula at u˚ is obtained by: 
+
+QSpu˚q “ max 
+
+¨˝ ÿ
+
+> JPIpu˚q
+
+mJ, 1 ´ ÿ
+
+> JRIpu˚q
+
+mJ
+
+˛‚,QSpu˚q “ min 
+
+¨˝ ÿ
+
+> JPIpu˚q
+
+mJ, 1 ´ ÿ
+
+> JRIpu˚q
+
+mJ
+
+˛‚.
+
+These are discrete quasi-copulas defining a coherent discrete imprecise copula. Remark 1. The propagation is exact at the grid nodes of the focal intervals because they align perfectly with the output focal elements via the affine map. This method implicitly constructs a stepwise constant function. The discrete quasi-copula envelopes could be extended to full quasi-copulas via patchwork methods [10]. While the constructed imprecise copula is coherent in the discrete sense, the coherence of an extension on the continuous sense would need to be considered. 
+
+3.2 Activation functions 
+
+We distinguish two cases of activation functions: first univariate, monotone, in-jective activations, such as sigmoids, hyperbolic tangent, leaky ReLU. Secondly, we consider the particular case of ReLU, still monotone but not injective. IBS propagation is the same in both cases: 10 F. Pifarre-Esquerda et al. 
+
+Proposition 7 (Monotone activation of an IBS). Let X be a variable rep-resented by a normalized IBS IX “ ␣xxj , rmj , m j sy | j “ 1, . . . , N (, where the focal sets xj “ r xj , x j s Ă R are intervals ordered in increasing order. Let σ : R Ñ R be a monotone (non-decreasing) measurable function and define Z “ σpXq. For each focal element xj , define its image zj :“ σpxj q :“rσpxj q, σ pxj qs and construct the IBS IZ :“ ␣xzj , rmj , m j sy : j “ 1, . . . , N ( which is a sound outer approximation of the credal set under the activation. 
+
+The lack of injectivity in ReLU is a source of difficulties. The first one relates to the appearance of a mass atom in the quasi-copula envelopes below which they become ill-defined. The second relates to the identification of where this mass atom appears. In our imprecise setting, this identification is not possible, so we develop a sound way to approximate it. Let X “ p X1, . . . , X nq be variables described by normalized IBS IXi and dependent according to a coherent imprecise copula rQX, Q Xs. Let IZi be the ReLUed IBSs of IXi obtained by applying Proposition 7 with Zi “ ReLU pXiq.For each i, let wi “ Bel Xi pp´8 , 0sq and wi “ Pl Xi pp´8 , 0sq denote the lower and upper probability bounds of the event tXi ă 0u induced by the IBS IXk (con-servatively taken on the broadest p-box sense given by Prop. 3). These bounds satisfy 0 ď wi ď wi ď 1 and represent the minimal and maximal probability mass that will collapse to the atom t0u after ReLU. We then split the copula domain r0, 1sn into two regions: U ` “
+
+!
+
+u “pu1, . . . , u nq P r 0, 1sn | ui ą wi
+
+)
+
+and U ´ “ r 0, 1snzU `. For every u P U ´,the ReLU transform may collapse a non-trivial probability mass to t0u on at least one coordinate k, creating additional uncertainty about the joint alloca-tion of that mass. To restrict all future evaluations to the well-defined domain beyond the de-generate mass atoms, we selectively merge focal elements of the marginal IBSs which collapse to 0 after the ReLU. This choice ensures that all quasi-copula envelope evaluations only take place in its well-defined domain, therefore implic-itly becoming quasi-sub-copulas on the quantile domain above the degenerate probability atom. This approach to handling dependencies after ReLU comes at the cost of a conservative outer-approximation. 
+
+Proposition 8 (ReLU-aware merger of IBS focal elements). Let X be a real-valued random variable represented by a normalized interval belief structure 
+
+IX “ ␣xxj , rmj , m j sy | j “ 1, . . . , N (. Let σ “ ReLU and define Z “ σpXq “ 
+
+max p0, X q. We define 
+
+j0 :“ max tj P t 0, . . . , N u | xj ď 0u,
+
+with the convention j0 “ 0 if x1 ą 0.We construct the merged focal intervals z1 :“ r 0, max 1ďjďj0 max p0, x j qs . For 
+
+ℓ “ 2, . . . , N ´ j0 ` 1, we then have: 
+
+zℓ :“ r xj0`ℓ´1, x j0`ℓ´1s.Propagation of IBSs and imprecise copulas for NN verification 11 
+
+Therefore the strictly positive focal intervals are left unchanged under ReLU. The resulting merged IBS is then given by Im 
+
+> Z
+
+:“ ␣xzℓ, rnℓ, n ℓsy | ℓ “ 1, . . . , N ´j0 `1(,with mass bounds 
+
+n1 :“ Bel X pp´8 , 0sq , n1 :“ Pl X pp´8 , 0sq ,
+
+and for ℓ ě 2,
+
+nℓ :“ mj0`ℓ´1, nℓ :“ mj0`ℓ´1.
+
+In the merged IBS, z1 is the unique focal element of Im 
+
+> Z
+
+containing 0, and it aggregates all mass that may be mapped to 0 by ReLU (i.e., originating from values ď 0 before activation). Moreover, Im 
+
+> Z
+
+is a sound outer approximation of applying ReLU to the credal set defined by the original IBS. 
+
+After merging, all quantile grid points satisfy ui ě wi or ui “ 0 for the edges, where the quasi-copulas are 0 by definition. Therefore once the merger has taken place, the imprecise copula can be evaluated and propagated through the activation function. In the case of injective activations, no merger is required. Let σi : R Ñ R be measurable activation functions and define Zi “ σipXiq,
+
+Z “ p Z1, . . . , Z nq. For each marginal i, construct an output IBS IZi by applying Prop. 7 and the ReLU-aware merger if the activation in question is ReLU (Prop. 8). Let 
+
+!
+
+tγiji uMi
+
+> ji“1
+
+)ni“1
+
+be the resulting quantile grid for Zi. There exists a mem-ory index map Lact : ś
+
+> i
+
+t1, . . . , N iu Ñ ś
+
+> i
+
+t1, . . . , M iu, constructed analogously to Laff , such that each RJ maps into a unique output cell. 
+
+Proposition 9 (Push-forward of an imprecise copula through an acti-vation). For any point in the output quantile grid u˚ “ p γ1 
+
+> ℓ1
+
+, . . . , γ nℓn q define 
+
+Ipu˚q :“ ␣J ˇˇ Lact  
+
+> i
+
+pJq ď ℓi for all i “ 1, . . . , n ( .
+
+We define the push-forward copula envelopes 
+
+QZ pu˚q :“ max 
+
+$&%ÿ
+
+> JPIpu˚q
+
+mJ, 1 ´ ÿ
+
+> JRIpu˚q
+
+mJ
+
+,.- ,QZ pu˚q :“ min 
+
+$&%ÿ
+
+> JPIpu˚q
+
+mJ, 1 ´ ÿ
+
+> JRIpu˚q
+
+mJ
+
+,.- .
+
+Then rQZ , Q Z s defines a coherent discrete imprecise copula for Z on the output quantile grid. 
+
+3.3 Full propagation algorithm 
+
+We can now compose the affine and activation operations on coupled IBSs to propagate them through a full feed-forward neural network, in Algorithm 1. The algorithm has exponential complexity first with respect to the amount of neurons per layer which leads to an exponential explosion of the copula quan-tile grid domain; and with respect to the number of focal elements in the IBS marginals, which also grow exponentially after each affine step. 12 F. Pifarre-Esquerda et al. 
+
+Algorithm 1 Coupled IBS propagation through a neural network 
+
+Input: Input p-boxes tr F i, F isu h0
+
+> i“1
+
+; grids tαi, 0 
+
+> j
+
+uNi, 0 
+
+> j“0
+
+; input imprecise copula C0 “rQX0 , Q X0 s; network tp W k , b k , σ k qu L´1 
+
+> k“0
+
+.
+
+Ensure: tdLXLr uhL 
+
+> r“1
+
+and imprecise copula rQL, Q Ls on UL “ śhL
+
+> r“1
+
+tαr,L j u.
+
+Init: pd0
+
+> X0
+> i
+
+, tαi, 0 
+
+> j
+
+uq Ð PboxToIBS pr F i, F is, tαi, 0 
+
+> j
+
+uq for i “ 1, . . . , h 0; C0puq Ð 
+
+CX0 puq for all u P U0.1: for k “ 0 to L ´ 1 do Affine: Sk`1 “ W k Xk ` bk
+
+2: pt dk`1
+
+> Sk`1
+> r
+
+u, tγr,k `1u, L k, aff q Ð AffineStep pt dkXki
+
+u, tαi,k u, C k , W k , b k q Ź Prop. 5 3: Ck`1,aff Ð PushFwdCopula pCk , tαi,k u, tγr,k `1u, L k, aff q Ź Prop. 6 
+
+Activation: Xk`1 “ σk pSk`1q
+
+4: pt dk`1
+
+> Xk`1
+> r
+
+uq Ð ActIBS pt dk`1
+
+> Sk`1
+> r
+
+u, σ k q Ź Prop. 7 5: pt dk`1
+
+> Xk`1
+> r
+
+u, tαr,k `1u, L k, act q Ð Merge pt dk`1
+
+> Xk`1
+> r
+
+u, σ k q Ź Prop. 8 6: Ck`1 Ð PushFwdCopula pCk`1,aff , tγr,k `1u, tαr,k `1u, L k, act q Ź Prop. 9 7: end for 
+
+8: return `tdLXLr uhL
+
+> r“1
+
+, C L˘
+
+3.4 Quantitative verification 
+
+The propagation of coupled IBSs through a neural network provides the reach-able states with sound probabilistic information and a rich description of the domain of the outputs of the neural networks and their dependencies. The resulting structure allows us, in particular, to verify probabilistic prop-erties. Given a linear safety property Hy ď w on the network output vector 
+
+y we can compute sound bounds for the probability of the property being sat-isfied. Practically, an extra affine step on the coupled IBS is used to evaluate 
+
+z “ Hy ´ w. The probability bounds of the linear property of interest are then given by the belief and plausibility (Prop. 3) of the z IBS evaluated at 0. The copula volumes also allow us to verify a conjunction of linear properties. 
+
+## 4 Conclusions 
+
+We have developed a pipeline to propagate imprecisely coupled interval belief structures through affine transforms and activation layers. While these opera-tions may be of interest in other fields, we use them for neural networks reach-ability analysis, obtaining imprecise descriptions of the network’s outputs and their dependence, with application to quantitative verification. Future work includes a computational implementation in order to evaluate this methodology on well-established benchmarks for probabilistic verification. This may require developing more careful heuristic merger strategies through the propagation to keep computation tractable. Difficulties may also arise in modelling features and copulas in a fully imprecise manner. Finally, the proba-bilistic information obtained after the propagation is much more detailed than Propagation of IBSs and imprecise copulas for NN verification 13 
+
+needed for the verification of linear safety properties. This paves the way for further interpretability applications on the imprecise multivariate distributions obtained such as robustness certification or sensitivity analysis. 
+
+Acknowledgments. This work was partially supported by the SAIF project, funded by the “France 2030” government investment plan managed by the French National Research Agency, under the reference ANR-23-PEIA-0006. 
+
+Disclosure of Interests. The authors have no competing interests. 
+
+## References 
+
+1. Balch, M.S., Martin, R., Ferson, S.: Satellite conjunction analysis and the false confidence theorem. Proceedings of the Royal Society A: Mathematical, Physical and Engineering Sciences 475 (2227), 20180565 (07 2019) 2. Baluta, T., Chua, Z.L., Meel, K.S., Saxena, P.: Scalable Quantitative Verification for Deep Neural Networks. In: 2021 IEEE/ACM 43rd International Conference on Software Engineering (ICSE). pp. 312–323. IEEE, Madrid, ES (May 2021) 3. Beer, M., Ferson, S., Kreinovich, V.: Imprecise probabilities in engineering analyses. Mechanical Systems and Signal Processing 37 (1-2), 4–29 (May 2013) 4. Boetius, D., Leue, S., Sutter, T.: Solving Probabilistic Verification Problems of Neural Networks using Branch and Bound (2024) 5. Denœux, T.: Reasoning with imprecise belief structures. International Journal of Approximate Reasoning 20 (1), 79–111 (Jan 1999) 6. Ferson, S., Ginzburg, L., Akçakaya, R.: Whereof one cannot speak: when input distributions are unknown. Risk Analysis (1996) 7. Ferson, S., Kreinovich, V., Ginzburg, L.R., Myers, D.S.: Constructing probability boxes and dempster-shafer structures. Technical Report SAND2002-4015, Sandia National Laboratories, Albuquerque, New Mexico (2003) 8. Goubault, E., Putot, S.: A Zonotopic Dempster-Shafer Approach to the Quan-titative Verification of Neural Networks. In: Platzer, A., Rozier, K.Y., Pradella, M., Rossi, M. (eds.) Formal Methods, vol. 14933, pp. 324–342. Springer Nature Switzerland, Cham (2025) 9. Gray, A., Forets, M., Schilling, C., Ferson, S., Benet, L.: Verified propagation of imprecise probabilities in non-linear ODEs. International Journal of Approximate Reasoning 164 , 109044 (Jan 2024) 10. Kokol Bukovšek, D., Košir, T., Mojškerc, B., Omladič, M.: Extending multivari-ate sub-quasi-copulas. Journal of Mathematical Analysis and Applications 540 (1), 128582 (Dec 2024) 11. Montes, I., Miranda, E., Pelessoni, R., Vicig, P.: Sklar’s theorem in an imprecise setting. Fuzzy Sets and Systems 278 , 48–66 (Nov 2015) 12. Müller, M.N., Makarchuk, G., Singh, G., Püschel, M., Vechev, M.: Prima: general and precise neural network certification via scalable convex hull approximations. Proc. ACM Program. Lang. 6(POPL) (Jan 2022) 13. Nelsen, R.B.: An Introduction to Copulas. Springer Series in Statistics, Springer New York, New York, NY, 2. ed. 2006. corr. 2. pr. softcover version of original hardcover edition 2006 edn. (2010) 14. Omladič, M., Stopar, N.: Final solution to the problem of relating a true copula to an imprecise copula. Fuzzy Sets and Systems 393 , 96–112 (Aug 2020) 14 F. Pifarre-Esquerda et al. 15. Omladič, M., Stopar, N.: A full scale Sklar’s theorem in the imprecise setting. Fuzzy Sets and Systems 393 , 113–125 (Aug 2020) 16. Omladič, M., Stopar, N.: Multivariate imprecise Sklar type theorems. Fuzzy Sets and Systems 428 , 80–101 (Jan 2022) 17. Pautov, M., Tursynbek, N., Munkhoeva, M., Muravev, N., Petiushko, A., Oseledets, I.: CC-CERT: A Probabilistic Approach to Certify General Robustness of Neural Networks. Proceedings of the AAAI Conference on Artificial Intelligence 36 (7), 7975–7983 (Jun 2022) 18. Sevastianov, P., Dymova, L., Bartosiewicz, P.: A framework for rule-base evidential reasoning in the interval setting applied to diagnosing type 2 diabetes. Expert Systems with Applications 39 (4), 4190–4200 (Mar 2012) 19. Singh, G., Gehr, T., Püschel, M., Vechev, M.: An abstract domain for certifying neural networks. Proceedings of the ACM on Programming Languages 3(POPL), 1–30 (2019) 20. Singh, G., Laurel, J., Misailovic, S., Banerjee, D., Singh, A., Xu, C., Ugare, S., Zhang, H., et al.: Safety and trust in artificial intelligence with abstract inter-pretation. Foundations and Trends ® in Programming Languages 8(3-4), 250–408 (2025) 21. Tran, H.D., Choi, S., Okamoto, H., Hoxha, B., Fainekos, G., Prokhorov, D.: Quan-titative Verification for Neural Networks using ProbStars. In: Proceedings of the 26th ACM International Conference on Hybrid Systems: Computation and Con-trol. pp. 1–12. ACM, San Antonio TX USA (May 2023) 22. Tran, H.D., Manzanas Lopez, D., Musau, P., Yang, X., Nguyen, L.V., Xiang, W., Johnson, T.T.: Star-based reachability analysis of deep neural networks. In: Formal Methods – The Next 30 Years: Third World Congress, FM 2019, Porto, Portugal, October 7–11, 2019, Proceedings. p. 670–686. Springer-Verlag, Berlin, Heidelberg (2019) 23. Wang, Y., Yang, J., Xu, D., Chin, K.: On the combination and normalization of interval-valued belief structures ✩. Information Sciences 177 (5), 1230–1247 (Mar 2007) 24. Wang, Y.M., Yang, J.B., Xu, D.L., Chin, K.S.: The evidential reasoning approach for multiple attribute decision analysis using interval belief degrees. European Jour-nal of Operational Research 175 (1), 35–66 (Nov 2006) 25. Weng, T.W., Chen, P.Y., Nguyen, L.M., Squillante, M.S., Oseledets, I., Daniel, L.: PROVEN: Certifying Robustness of Neural Networks with a Probabilistic Ap-proach (2018) 26. Williamson, R.C., Downs, T.: Probabilistic arithmetic. I. Numerical methods for calculating convolutions and dependency bounds. International Journal of Approx-imate Reasoning 4(2), 89–158 (Mar 1990) 27. Yager, R.R.: Dempster-Shafer belief structures with interval valued focal weights. International Journal of Intelligent Systems 16 (4), 497–512 (Apr 2001)
