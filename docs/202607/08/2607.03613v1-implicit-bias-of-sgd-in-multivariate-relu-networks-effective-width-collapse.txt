@@ -1,0 +1,8553 @@
+Title: Implicit Bias of SGD in Multivariate ReLU Networks: Effective Width Collapse
+
+URL Source: https://arxiv.org/pdf/2607.03613v1
+
+Published Time: Tue, 07 Jul 2026 01:45:55 GMT
+
+Number of Pages: 72
+
+Markdown Content:
+# Implicit Bias of SGD in Multivariate ReLU Networks: Effective Width Collapse 
+
+Shuang Liang liangshuang@g.ucla.edu 
+
+Department of Statistics & Data Science University of California, Los Angeles Los Angeles, CA 90095, USA 
+
+Tom Jacobs tom.jacobs@cispa.de 
+
+CISPA Helmholtz Center for Information Security 
+
+Guido Mont´ ufar montufar@math.ucla.edu 
+
+Departments of Mathematics and Statistics & Data Science University of California, Los Angeles; and Max Planck Institute for Mathematics in the Sciences 
+
+Abstract 
+
+We study the implicit bias of noisy stochastic gradient descent in training wide two-layer ReLU networks for multivariate regression. In a mean-field regime, the training dynamics are approximated by a Wasserstein gradient flow that converges to a unique stationary measure. We characterize the structure of this stationary measure and the predictor it represents. We show that, despite the network being infinitely overparameterized, the learned predictor admits an effectively finite representation: the input weights and biases align along finitely many directions, leading to an effective width collapse. In particular, the solution function is continuous piecewise affine, with affine regions determined by the cells of a finite hyperplane arrangement. The number of learned directions, and hence hyperplanes, is bounded above by 2 P − 1, where P denotes the number of linear dichotomies realizable on the training inputs. We further establish a non-redundancy property of the learned representation by proving that each learned direction induces a unique ternary activation pattern on the training data. Consequently, the complexity of the learned predictor is governed by the combinatorial geometry of the training data. 
+
+Keywords: implicit bias, stochastic gradient descent, mean-field limit, ReLU neural networks, feature learning. 
+
+1 Introduction 
+
+Overparameterized neural networks generally admit infinitely many interpolating solutions for a given training data set. Yet optimization algorithms such as stochastic gradient de-scent (SGD) consistently select solutions that generalize remarkably well. Understanding the principles governing this selection mechanism is a central question in modern learning theory. One approach to this question is through the notion of implicit bias , which posits that optimization algorithms not only minimize the training error but also systematically favor certain minimizers over others. For example, in linear models, gradient-based opti-mization is known to select minimum-norm solutions. More generally, a large body of work has characterized the implicit bias of gradient descent and SGD through variational princi-ples involving margin maximization, reproducing kernel Hilbert space norms, total variation  
+
+> ©2026 Shuang Liang, Tom Jacobs and Guido Mont´ ufar. License: CC-BY 4.0, see https://creativecommons.org/licenses/by/4.0/ .
+> arXiv:2607.03613v1 [cs.LG] 3 Jul 2026 Liang, Jacobs, Mont´ ufar
+
+Figure 1: A two-layer ReLU network with N = 1000 hidden neurons and two input dimen-sions, trained via SGD with weight decay. Left: the learned function is piecewise affine and approximately fits the training data (blue dots). Middle: the training trajectories of the input weights and biases ( wi
+
+> 1
+
+, w i
+
+> 2
+
+, b i) ∈ R3, i = 1 , . . . , N align along a small number of directions, and the effective width of the network col-lapses. Right: the kink hyperplanes of the trained function (orange lines) form a non-redundant arrangement in relation to the input data (blue dots). of curvatures, and other notions of complexity (e.g., Zhang et al., 2020; Chizat and Bach, 2020; Lyu and Li, 2020; Ji and Telgarsky, 2020). Despite this substantial progress, our understanding of the implicit bias of nonlinear neural networks remains incomplete, partic-ularly in feature-learning regimes. A natural framework for studying implicit bias in feature-learning dynamics is the mean-field regime (Mei et al., 2018; Chizat and Bach, 2018; Rotskoff and Vanden-Eijnden, 2018; Sirignano and Spiliopoulos, 2020). In this regime, a wide two-layer network is represented by a probability measure over neurons, and the training dynamics are described by a Wasser-stein gradient flow on the space of probability measures. Moreover, when stochastic noise is incorporated into the dynamics, the resulting evolution admits a unique stationary measure that characterizes the long-time behavior of noisy SGD. This raises the following fundamen-tal question: What is the structure of the stationary measure and of the solution function represented by this stationary measure? 
+
+Main Contributions We study multivariate regression with wide two-layer ReLU net-works trained by noisy stochastic gradient descent with weight decay in the mean-field regime. Our main results, illustrated in Figure 1, are as follows: 
+
+• In Theorem 4, we show that, as the noise level tends to zero, the solution selected by noisy SGD converges, irrespective of the strength of weight decay, to a continuous piecewise affine function. More precisely, this function is affine on each connected component of the complement of a finite hyperplane arrangement. 
+
+• We further show that the number of hyperplanes is bounded above by 2 P − 1, where 
+
+P denotes the number of linear dichotomies realizable on the training inputs. Thus, 
+
+> 2Implicit Bias of SGD in Multivariate ReLU Networks
+
+the linear-region complexity of the learned solution is controlled by the combinatorial geometry of the training data set. 
+
+• Next, in Theorem 5, we show that the input weights and biases of the trained network collapse onto at most 2 P − 1 distinct directions. Consequently, the trained network has effective width at most 2 P − 1. 
+
+• Finally, in Theorem 6, we establish a strong non-redundancy property of these effec-tive neurons. Specifically, distinct effective neurons induce distinct ternary activation patterns on the training inputs. Our work builds on the analysis of Shevchenko et al. (2022), who characterized the solution functions selected by noisy SGD in the mean-field regime for univariate ReLU networks. We extend this analysis to the multivariate setting and, in addition, characterize the structure of the stationary measure, thereby describing the network parameters at convergence. In Section 2 we place our results in the context of recent advances on mean-field dynamics, noisy SGD, implicit bias, and sparse or finite-support solutions. To our knowledge, our results provide the first derivation of effective width collapse as an implicit bias of noisy SGD for multivariate regression with general training data, together with a problem-dependent characterization of the learned solution. 
+
+Organization The remainder of the article is organized as follows. Section 2 gives an overview of related work. Section 3 provides the necessary preliminaries, introducing the mean-field analysis of two-layer networks and discussing the implementation of ReLU acti-vation functions within this framework. Section 4 presents our main results, and Section 5 discusses their interpretation, technical aspects, and limitations. Section 6 outlines the proof strategy and key components. Section 7 presents numerical experiments illustrating the main results. Supporting results and technical proofs are collected in the appendices. 
+
+2 Related Work 
+
+Implicit Bias for Wide Neural Networks The implicit bias of gradient-based param-eter optimization in wide neural network depends significantly on the training regime, in particular, on the scale of network parametrization and initialization relative to the network width (see, e.g., Luo et al., 2021; Yang and Hu, 2021). A significant line of work has studied the implicit bias in the lazy or kernel regime (Jacot et al., 2018; Du et al., 2019; Arora et al., 2019; Lee et al., 2019), where the network parameters remain close to their initialization throughout training and no feature learning takes place. In this regime, the implicit bias is characterized as minimization of a reproducing kernel Hilbert space norm (Zhang et al., 2020), whose explicit form has been investigated in series of works (Williams et al., 2019; Sahs et al., 2022; Heiss et al., 2023; Jin and Mont´ ufar, 2023; Liang and Mont´ ufar, 2025). A distinct and important training regime is the mean-field regime, where the network parameters are modeled as an interacting particle system whose evolution is described by a nonlinear PDE over probability measures (Mei et al., 2018; Chizat and Bach, 2018; Rotskoff and Vanden-Eijnden, 2018; Sirignano and Spiliopoulos, 2020). This setting is of particular interest because it captures many nontrivial dynamical phenomena, including feature learn-ing. However, compared to the kernel regime, much less is known about the convergence of 
+
+> 3Liang, Jacobs, Mont´ ufar
+
+training and the resulting implicit bias. The challenges in analyzing the mean-field dynam-ics are discussed by Ma et al. (2020). Nevertheless, several important advances have been made in characterizing the implicit bias in the mean-field regime. In a classification setting, Chizat and Bach (2020) showed that if the network parameters converge in direction, the converged direction is a maximizer for an F1 norm maximum margin problem. Pellegrini and Biroli (2020) provided an analysis for hinge loss and linearly separable data with a spherically symmetric input distribution. Assuming infinitely many training samples, they showed that the ReLU network implements a linear classifier throughout training. The work most closely related to ours is that of Shevchenko et al. (2022), whose analysis provides the main foundation for the present work. They studied noisy SGD in a setting where the global convergence of the corresponding mean-field PDE to a stationary measure had previously been established by Mei et al. (2018). For univariate ReLU networks, they showed that, in the vanishing-noise limit, the stationary measure corresponds to a piecewise linear function with at most three knots between any two consecutive training inputs. Adetailed comparison between their results and ours is provided in Section 5. 
+
+Explaining Sparsity from Training Dynamics The phenomenon that training dy-namics lead to sparse features has been widely observed empirically (Maennel et al., 2018; Luo et al., 2021; Zhou et al., 2022). One attempt to explain this phenomenon is through 
+
+early alignment (Maennel et al., 2018), whereby, under infinitesimal initialization, the net-work parameters align along a small number of directions during the initial phase of training. Motivated by this phenomenon, a line of work has investigated the full training dynamics and established effective width collapse (Phuong and Lampert, 2021; Lyu et al., 2021; Wang and Pilanci, 2022; Boursier et al., 2022; Chistikov et al., 2023; Min et al., 2024; Boursier and Flammarion, 2025). Building on the connection between gradient flow and maximum-margin optimization in homogeneous networks for classification (Lyu and Li, 2020; Ji and Telgarsky, 2020), Frei et al. (2023b); Kou et al. (2024) demonstrated an implicit bias toward low-rank input weights. Moreover, Safran et al. (2022) showed that, for univariate classi-fication problems whose labels are generated by a teacher network of width r, the learned function has effective width O(r). For Gaussian cluster data and linear classification loss, Vasudeva et al. (2026) showed that, with infinitely many training samples, the trained ReLU network yields a linear decision boundary. Besides Shevchenko et al. (2022), existing works establishing effective width collapse as a consequence of the training dynamics rely on restrictive assumptions on the training data. In classification, these include orthogonally separable (Phuong and Lampert, 2021; Wang and Pilanci, 2022), symmetric separable (Lyu et al., 2021), nearly orthogonal (Frei et al., 2023b; Kou et al., 2024), and positively correlated (Min et al., 2024) training data. In multivariate regression, Boursier et al. (2022) assume that the training inputs are mutually orthogonal, Chistikov et al. (2023) consider labels generated by a single neuron, and Boursier and Flammarion (2025) analyze a training set consisting of three data points. In addition, these works typically require the parameter initialization to have sufficiently small scale or to satisfy a balancedness condition. By contrast, we establish effective width collapse under minimal assumptions on the training data and parameter initialization. The tradeoff is that our analysis relies on the network being sufficiently wide, allowing us to exploit the mean-field framework. 
+
+> 4Implicit Bias of SGD in Multivariate ReLU Networks
+
+Explaining Sparsity from Optimal Solutions Our results complement prior work on sparse or finite-support solutions of static optimization problems that capture the learning objective. The setting closest to ours is that of shallow ReLU networks with unbounded width and Euclidean norm regularization of the network parameters. By the homogeneity of the ReLU activation, this is equivalent to regularizing the F1 functional norm (see, e.g., Bach, 2017). For univariate ReLU networks with a free skip connection, Boursier and Flammarion (2023) showed that, the minimum-F1-norm interpolator is unique and can be expressed as the sum of an affine function and a ReLU network of width at most M − 1, where M is the number of training samples. For multivariate data, de Dios and Bruna (2020); Del Grande et al. (2026) showed that every minimum-F1-norm interpolator admits a representation as a ReLU network with effective width bounded by a constant K that depends on the input dimension and sample size. By contrast, we derive an effective-width bound for the solution selected by noisy SGD. Our bound is strictly sharper than those of de Dios and Bruna (2020); Del Grande et al. (2026); see a detailed comparison in Section 5. A different regularizer, which penalizes only the Euclidean or ℓp norm of the network weights but not the biases, has been studied both for unbounded-width networks (Savarese et al., 2019; Ongie et al., 2020; Parhi and Nowak, 2021; Debarre et al., 2022) and finite-width networks (Ergen and Pilanci, 2021; Nakhleh and Nowak, 2026). In both settings, it has been shown that there exist optimal solutions that can be represented as ReLU networks with width at most K, where K is a data-dependent constant. In classification, another widely studied optimization problem is the maximum-margin problem. This line of work is motivated by the observation of Lyu and Li (2020); Ji and Telgarsky (2020) that, under suitable conditions, training homogeneous neural networks converges in direction to a KKT point of a maximum-margin problem. Subsequent work has investigated the structure of the maximum-margin solutions and their connection to sparse feature representations (Frei et al., 2023a; Timor et al., 2023; Tsilivis et al., 2025; Jacobs and Mont´ ufar, 2026; Jacobs et al., 2026). While these works provide a detailed understanding of the solutions of the associated optimization problem, it remains largely open under what conditions a training algorithm converges to such solutions. Our results bridge this gap by showing that effective width collapse arises not only as a property of static variational problems, but also as a consequence of noisy SGD training dynamics. 
+
+3 Preliminaries 
+
+In this section, we recall preliminary results from the mean-field theory of wide neural networks and introduce a bounded, smoothed approximation of the ReLU neuron, which is needed to apply these mean-field results. 
+
+3.1 Mean-Field Analysis for Wide Two-Layer Networks 
+
+Consider fully connected networks with d input units, N hidden units, and one output unit, defined by 
+
+hσ(x, Θ) = 1
+
+N
+
+> N
+
+X
+
+> i=1
+
+σ(x, θ i), (1) 
+
+> 5
+
+Liang, Jacobs, Mont´ ufar 
+
+where σ : Rd × RD → R is the unit (or neuron) activation, θi ∈ RD denotes the parameter vector of the ith hidden unit, and Θ = ( θi)Ni=1 ∈ RN D denotes the parameter of the entire network. To recover a ReLU network, we set σ(x, θ ) = a(w⊤x + b)+, where θ = ( a, w, b ) ∈
+
+R × Rd × R = Rd+2 consists of the output weight a, the input weights w, and the bias b, and where ( u)+ = max( u, 0). Assume that the parameters of the hidden units are initialized as i.i.d. samples from a fixed measure ρ0 ∈ P a 
+
+> 2
+
+(RD). Here and throughout, Pa 
+
+> 2
+
+(RD) denotes the space of absolutely continuous probability measures on RD with finite second moments. Consider a finite training data set {(xj , y j )}Mj=1 ⊂ Rd ×R. We consider the mean squared error with ℓ2-regularization: 
+
+L(Θ) = 1
+
+M
+
+> M
+
+X
+
+> j=1
+
+(hσ(xj , Θ) − yj )2 + λN ∥Θ∥2.
+
+To minimize L, we train the neural network using noisy stochastic gradient descent (noisy SGD), with parameter updates of the form 
+
+θk+1  
+
+> i
+
+= θki − 2sk,N 
+
+ hσ(˜ xk, Θk) − ˜yk
+
+∇θi σ(˜ xk, θ ki ) − 2sk,N λθ ki +
+
+s
+
+2sk,N 
+
+β gki , (2) where sk,N is the step size, (˜ xk, ˜yk)k∈N0 are i.i.d. samples drawn from the empirical distribu-tion 1
+
+> M
+
+PMj=1 δ(xj ,y j ) induced by the training data, and ( gki )i∈{ 1,...,N },k ∈N are i.i.d. Gaussian noise drawn from N (0 , I D). The parameter β−1 controls the noise level and is commonly referred to as the temperature . In this work, we focus on the vanishing-temperature regime, 
+
+β−1 → 0, in which case (2) recovers the standard SGD algorithm (Robbins and Monro, 1951). The network model (1) depends on the parameter Θ only through the empirical measure 
+
+> 1
+> N
+
+PNi=1 δθi . In particular, the ordering of the hidden units does not affect the network output. This motivates a reformulation of the model in terms of probability measures 
+
+ρ ∈ P (RD): 
+
+hσ(x, ρ ) = 
+
+Z
+
+σ(x, θ ) dρ. 
+
+When ρ = 1
+
+> N
+
+PNi=1 δθi , this representation recovers the finite-width network (1). Let ˆ ρ(N ) 
+
+> k
+
+= 1
+
+> N
+
+PNi=1 δθki denote the empirical distribution of the network parameters after 
+
+k steps of noisy SGD (2). Consider a step size scheme sk,N = εξ (kε ), where ε = εN > 0depends on the width N and ξ : [0 , ∞) → [0 , ∞) is a sufficiently regular function, e.g., 
+
+εN = N −1 and ξ ≡ 1, so sk,N = N −1. It is known that, for any fixed training time t ≥ 0, the empirical parameter measure ˆ ρ(N ) 
+
+> ⌊t/ε ⌋
+
+converges weakly to ρt as ε → 0 and N → ∞ , where 
+
+ρt is the solution of the following partial differential equation with initial condition ρ0 (the parameter initialization distribution): 
+
+∂tρt = 2 ξ(t)∇θ ·
+
+
+
+ρt∇θΨλσ(θ; ρt)
+
+
+
++ 2 ξ(t)β−1∆θρt
+
+Ψλσ(θ; ρ) = 1
+
+M
+
+> M
+
+X
+
+> j=1
+
+
+
+hσ(xj , ρ ) − yj
+
+
+
+σ(xj , θ ) + λ
+
+2 ∥θ∥2.
+
+(3) 
+
+6Implicit Bias of SGD in Multivariate ReLU Networks 
+
+Here ∇θ · denotes the divergence operator and ∆ θ the Laplacian. The mean-field potential Ψλσ(θ; ρ) is interpreted as the loss experienced by an individual neuron when all other neurons are represented collectively by the distribution ρ. Thus, ˆ ρ(N ) 
+
+> ⌊t/ε ⌋
+
+may be viewed as a discrete-time, finite-particle approximation of ρt. Note that in the step size scheme sk,N = εξ (kε ), ε
+
+specifies the time discretization scale and ξ controls the speed of evolution of the PDE (3). Let H denote the set of admissible densities of probability measures in Pa 
+
+> 2
+
+(RD): 
+
+H =
+
+
+
+ρ : RD → [0 , +∞) : ρ is measurable ,
+
+Z
+
+ρ(θ)dθ = 1 , M (ρ) < +∞
+
+
+
+,
+
+where M (ρ) = R ∥θ∥2ρ(θ)dθ is the second moment. For notational simplicity, we use ρ
+
+to denote both a measure and its density when the latter exists. Then PDE (3) can be interpreted as a Wasserstein gradient flow on H, minimizing the following free energy: 
+
+F β,λ σ (ρ) = 12M
+
+> M
+
+X
+
+> j=1
+
+
+
+hσ(xj , ρ ) − yj
+
+2
+
++ λ
+
+2 M (ρ) − 1
+
+β H(ρ), (4) where H(ρ) = − R ρ(θ) log( ρ(θ)) dθ is the entropy. Under suitable regularity assumptions on the activation function σ and the initialization measure ρ0, it has been shown that the free energy (4) admits a unique minimizer ρ∗ in H, and that PDE (3) converges weakly to this minimizer. Moreover, the minimizer satisfies the following condition: 
+
+ρ∗(θ) = Z−1 
+
+> β,λ,ρ ∗
+
+exp( −βΨλσ(θ; ρ∗)) , (5) where Zβ,λ,ρ = R exp( −βΨλσ(θ; ρ)) dθ is the partition function. This condition follows from the Euler-Lagrange equation characterizing minimizers of the free energy F β,λ σ (see Mei et al., 2018, Lemma 10.3). Notably, since ρ∗ appears on both sides of (5), the equation constitutes a self-consistency condition for the stationary measure. As the right-hand side has the form of a Boltzmann distribution, (5) is referred to as a Boltzmann fixed point condition .The aforementioned results are summarized in the following theorem. 
+
+Theorem 1 (Mei et al. 2018) Consider a neural network (1) with activation σ, trained using noisy SGD (2) with step size scheme sk,N = εξ (kε ), initialization distribution ρ0, and 
+
+β ≥ 1, λ > 0. Assume that: (i) ξ : [0 , ∞) → [0 , ∞) is bounded and Lipschitz continuous, with R ∞ 
+
+> 0
+
+ξ(t)dt = + ∞; (ii) ρ0 ∈ P a 
+
+> 2
+
+(RD) and is sub-Gaussian; (iii) σ is bounded and for any fixed x ∈ Rd, σ(x, ·) ∈ C4(RD, R) and ∇kθ σ(x, ·) is bounded for k = 0 , . . . , 4. Then, the free energy F β,λ σ admits a unique minimizer ρ∗ in H, which satisfies (5) . Furthermore, for any fixed x ∈ Rd, the following holds almost surely with respect to the random initialization, the data and noise sampling in the noisy SGD algorithm: 
+
+lim  
+
+> t→+∞
+
+lim  
+
+> N→+∞
+> ε→0
+
+1
+
+N
+
+> N
+
+X
+
+> i=1
+
+σ(x, θ ⌊t/ε ⌋ 
+
+> i
+
+) − hσ(x, ρ ∗) = 0 ,
+
+where the limit in (N, ε ) is taken along any sequence (N, ε N ) satisfying that (N, ε N ) →
+
+(+ ∞, 0) , εN log( N/ε N ) → 0, and N/ log( N/ε N ) → ∞ .
+
+> 7
+
+Liang, Jacobs, Mont´ ufar 
+
+Thus, the function hσ(·, ρ ∗) characterizes the implicit bias of noisy SGD training, and a fundamental goal of the present work is to understand its structure. This is challenging because the stationary measure ρ∗ is known only implicitly through the Boltzmann fixed point condition (5), a self-consistency equation that does not explicitly characterize either 
+
+ρ∗ or the function it represents. 
+
+3.2 Bounded and Smoothed Approximation of ReLU Neurons 
+
+Theorem 1 requires that the neuron map σ(x, θ ) is bounded and smooth in the parameter 
+
+θ, assumptions that are not satisfied by the ReLU neuron 
+
+σ(x, θ ) = a(w⊤x + b)+. (6) In this subsection, we introduce a bounded and smooth approximation of the ReLU neuron that enables the application of Theorem 1. Our construction follows the approximation introduced by Shevchenko et al. (2022). For m, τ > 0, let ( ·)m,τ  
+
+> +
+
+denote the C4 smooth, bounded approximation of the univariate ReLU activation, defined as follows: (u)m,τ  
+
+> +
+
+=
+
+(
+
+Sτ (u) = log(1 + eτ u )/τ, u < S −1 
+
+> τ
+
+(m2)
+
+ϕm,τ (u), u ≥ S−1 
+
+> τ
+
+(m2), u ∈ R.
+
+Thus, ( u)m,τ  
+
+> +
+
+agrees with the softplus Sτ (u) = τ −1 log(1 + eτ u ) until it reaches the value 
+
+m2, after which it is smoothly capped by the tail ϕm,τ . The tail is chosen such that 
+
+∥(·)m,τ  
+
+> +
+
+∥∞ ≤ 2m2 and ( ·)m,τ  
+
+> +
+
+∈ C4(R) with bounded derivatives up to the fourth order. We also introduce a smooth, bounded approximation of the identity map in order to make the neuron output (6) bounded in output weights a. For m, τ > 0 and n ∈ N, let 
+
+vm,τ =
+
+(
+
+v, ∥v∥ < m − τ −1
+
+ψm,τ (v), ∥v∥ ≥ m − τ −1, v ∈ Rn.
+
+The tail ψm,τ is chosen so that ∥(·)m,τ ∥ ≤ m and ( ·)m,τ ∈ C4(Rn, Rn) with bounded derivatives up to the fourth order. In addition, we assume that the tail functions ϕm,τ 
+
+and ψm,τ satisfy suitable regularity properties; in particular, for every m > 0 the limits lim τ →+∞(u)m,τ  
+
+> +
+
+and lim τ →+∞ vm,τ exist. For brevity, we defer the detailed construction to Appendix A. Define the m-truncated, τ -smoothed ReLU neuron with m, τ > 0: 
+
+σm,τ (x, θ ) = am,τ (x⊤wm,τ + b)m,τ  
+
+> +
+
+, x ∈ Rd, θ = ( a, w, b ) ∈ Rd+2 .
+
+The truncation of the input weights w is introduced only for technical reasons. By con-struction, the approximated ReLU neuron converges pointwise to the ReLU neuron as 
+
+m, τ → +∞, i.e., lim m,τ →+∞ σm,τ (x, θ ) = a(w⊤x + b)+ for every ( x, θ ). Moreover, σm,τ 
+
+satisfies the assumptions of Theorem 1. Let ρ∗ 
+
+> β,λ,m,τ
+
+denote the stationary measure of the mean-field PDE (3) associated with the neuron σm,τ , regularization parameter λ, and temperature β−1. With a slight abuse of notation, let 
+
+h∗ 
+
+> β,λ,m,τ
+
+(·) = hσm,τ (·, ρ ∗ 
+
+> β,λ,m,τ
+
+)
+
+8Implicit Bias of SGD in Multivariate ReLU Networks 
+
+denote the corresponding network function. The goal of this work is to study the stationary measure ρ∗ 
+
+> β,λ,m,τ
+
+and the corresponding solution function h∗ 
+
+> β,λ,m,τ
+
+in order to characterize the implicit bias of noisy SGD in both parameter space and function space. We impose the following assumptions on ( β, λ, m, τ ). 
+
+Assumption 2 Suppose (β, λ, m, τ ) satisfies λ, τ > 0, and 
+
+β > max 
+
+
+
+1, 1
+
+λ , 1
+
+λ log 1
+
+λ
+
+
+
+, m > max 
+
+C0, 14
+
+C1
+
+√λ +
+
+r C21
+
+λ + 4 
+
+!2
+
+, exp(2 C2β + 2) 
+
+ ,
+
+where C0, C 1, C 2 are constants independent of (β, λ, m, τ ).
+
+The next result removes the smoothing parameter τ by showing that both the stationary measure and the corresponding solution function have pointwise limits as τ → +∞. Its proof is inspired by Shevchenko et al. (2022, Lemma A.4) and is deferred to Appendix B.1. 
+
+Lemma 3 (Zero-smoothing limit) Under Assumption 2, the following pointwise limits exist: 
+
+ρ∗
+
+> β,λ,m
+
+(·) = lim   
+
+> τ→+∞
+
+ρ∗ 
+
+> β,λ,m,τ
+
+(·), h∗
+
+> β,λ,m
+
+(·) = lim   
+
+> τ→+∞
+
+h∗ 
+
+> β,λ,m,τ
+
+(·).
+
+Moreover, h∗
+
+> β,λ,m
+
+(·) ∈ C2(Rd).
+
+We are interested in the limits of ρ∗ 
+
+> β,λ,m
+
+and h∗ 
+
+> β,λ,m
+
+as m, β → +∞, where m → +∞
+
+recovers the ReLU activation and β → +∞ corresponds to the vanishing-temperature limit of noisy SGD. The existence of these limits lim  
+
+> m,β →+∞
+
+ρ∗
+
+> β,λ,m
+
+(·), lim  
+
+> m,β →+∞
+
+h∗
+
+> β,λ,m
+
+(·) (7) remains open even in the univariate setting (Shevchenko et al., 2022). Several obstacles arise. As β → +∞, the free energy (4) generally loses strict convexity and may therefore have multiple minimizers. Moreover, as m → +∞, the activation function becomes unbounded, causing the free energy functional to potentially lose lower semicontinuity. Consequently, the standard arguments used to establish the existence of minimizers no longer apply (see, e.g., Jordan et al., 1998). These difficulties are intrinsic to the free energy and the unboundedness of the ReLU activation, rather than artifacts of the particular approximation introduced above. Motivated by these obstacles, we do not assume that the limits in (7) exist. Instead, we analyze all accumulation points arising in the joint limit β, m → +∞. Specifically, we study the structural properties of any ρ∗ and h∗ for which there exists a sequence {(βn, λ n, m n)}
+
+satisfying βn, m n → +∞ and h∗ = lim n→+∞ h∗ 
+
+> βn,λ n,m n
+
+and ρ∗ = lim n→+∞ ρ∗ 
+
+> βn,λ n,m n
+
+. The precise notion of these limits will be specified further below. 
+
+4 Main Results 
+
+In this section, we present our main results on the implicit bias of SGD when training wide two-layer ReLU networks for multivariate regression. 
+
+> 9Liang, Jacobs, Mont´ ufar
+
+4.1 Implicit Bias Toward Piecewise Affine Functions 
+
+For a set of input data points X = {xj }Mj=1 ⊂ Rd, a linear dichotomy is an unordered partition X = X+ ⊔ X − such that X+ and X− are strictly separable by an affine hyperplane; that is, there exist w ∈ Rd and b ∈ R satisfying x⊤ 
+
+> j
+
+w +b > 0 for xj ∈ X + and x⊤ 
+
+> j
+
+w +b < 0 for 
+
+xj ∈ X −. Note that a dichotomy is strict and unordered. It should be distinguished from a binary sign pattern on X , where the two classes carry specified labels and interchanging the labels gives a different sign pattern, and from a linear trichotomy of X , where the separation hyperplane is allowed to pass through some of the input points. Let P(X ) denote the total number of realizable linear dichotomies of X .The following theorem shows that the function obtained by training a ReLU network with noisy SGD in the vanishing-temperature regime is piecewise affine. 
+
+Theorem 4 (SGD Selects a Piecewise Affine Solution) Consider a training data set 
+
+{(xj , y j )}Mj=1 ⊂ Rd × R, with d ≥ 1 and xi̸ = xj whenever i̸ = j. Let X = {xj }Mj=1 denote the set of training inputs. For each (β, λ, m, τ ), let h∗ 
+
+> β,λ,m,τ
+
+(x) denote the network func-tion associated with the m-truncated, τ -smoothed ReLU neuron, evaluated at the stationary measure ρ∗ 
+
+> β,λ,m,τ
+
+of the mean-field PDE (3) . Let h∗ 
+
+> β,λ,m
+
+= lim τ →+∞ h∗ 
+
+> β,λ,m,τ
+
+, whose exis-tence follows from Lemma 3. Consider any sequence (βn, λ n, m n) satisfying Assumption 2 for n ≥ 1, with mn, β n → +∞ and λn → ¯λ for an arbitrary ¯λ > 0 as n → +∞, and such that lim n→+∞ h∗ 
+
+> βn,λ n,m n
+
+(x) exists for every x ∈ Rd. Then there exist hyperplanes 
+
+πk = x ∈ Rd : x⊤wk + bk = 0 , k = 1 , . . . , K , with 
+
+K ≤ 2P(X ) − 1, (8) 
+
+such that the limit function h∗(·) = lim n→+∞ h∗ 
+
+> βn,λ n,m n
+
+(·) is affine on every connected com-ponent of Rd \ SKk=1 πk. Moreover, h∗ is Lipschitz continuous and satisfies 
+
+∥h∗∥Lip ≤ 2( d + 2) + 2¯λM 
+
+> M
+
+X
+
+> j=1
+
+y2 
+
+> j
+
+. (9) Theorem 4, together with Theorem 1, shows that training an infinitely wide ReLU net-work with noisy SGD on training inputs X results in a continuous piecewise affine function with at most 2 P(X ) − 1 kink hyperplanes, as the network width N tends to infinity and the temperature β−1 vanishes. Note that P(X ) depends only on the affine configuration of the input points X , and is independent of both the network width N and the ambient dimension d. Hence, the bound on the linear-region complexity of the learned function depends only on the geometry of the training data. By a classical result of Cover (1965), the bound (8) can be further estimated as follows: 2P(X ) − 1 ≤ 2
+
+> d
+
+X
+
+> i=0
+
+M − 1
+
+i
+
+
+
+− 1, (10) where equality holds if and only if the training inputs X are in general position, i.e., ev-ery subset of d or fewer points is linearly independent. In the non-general position case, 
+
+> 10 Implicit Bias of SGD in Multivariate ReLU Networks
+
+P(X ) can be computed by via Zaslavsky’s Theorem (Zaslavsky, 1975) from the theory of hyperplane arrangements (see, e.g., Stanley, 2007, Theorem 2.5). We emphasize that the regularization strength ¯λ = lim n→+∞ λn can be an arbitrary positive real number. Thus, the strength of weight decay does not fundamentally affect the piecewise affine nature of the learned function. However, as shown in (9), it controls the slope of the learned function: stronger regularization leads to flatter solutions and a larger tradeoff between data fitting and regularization. A numerical illustration of the role of the regularization strength is provided in Figure 5. We reiterate that Theorem 4 applies to any function h∗ that arises as the pointwise limit of a sequence h∗ 
+
+> βn,λ n,m n
+
+. Proposition 19 shows that this class of accumulation points is non-empty and arises naturally: every sequence ( βn, λ n, m n) satisfying Assumption 2, with mn, β n → +∞ and λn → ¯λ, has a subsequence ( βnk , λ nk , m nk ) such that h∗  
+
+> βnk,λ nk,m nk
+
+converges pointwise. 
+
+4.2 Feature Learning 
+
+Theorem 4 characterizes the implicit bias of noisy SGD in function space by showing that the algorithm is biased toward piecewise affine solution functions. We now examine the implicit bias in parameter space by studying the structure of the trained network parameters. This elucidates the feature-learning mechanism underlying the learning process. Before stating our results, we emphasize that the piecewise affine structure of a solution function does not, in general, provide a tight characterization of the structure of the net-work parameters. For ReLU networks, the parameter fiber associated with a given function, i.e., the set of parameters realizing that function, may exhibit intricate geometric structure (see, e.g., Phuong and Lampert, 2020; Petzka et al., 2020; Grigsby et al., 2023; Grillo and Mont´ ufar, 2026; Ramakrishnan, 2026; Gegenfurtner et al., 2026). In particular, a piece-wise affine solution function could arise from sparse output weights while leaving the input weights essentially unchanged, corresponding to feature selection rather than feature learn-ing. Moreover, there exist continuous piecewise affine functions that cannot be represented 
+
+exactly by any finite-width shallow ReLU network, such as ( u, v ) ∈ R2 7 → max(0 , u, v ). Therefore, to establish feature learning and effective width collapse, we investigate the stationary measure directly. Consider the projection map ω(a, w, b ) = ( w, b ), and let ω#ρ denote the push-forward on Rd+1 of a measure ρ ∈ P (Rd+2 ). When ρ∗ is the stationary measure of the mean-field PDE, the measure ω#ρ∗ is precisely the marginal measure of the input weights and biases of the trained network. We now present our second main result, which establishes feature learning by showing that, after training, the input weights and biases align along finitely many data-dependent directions. 
+
+Theorem 5 (Feature Learning of SGD) Consider the same assumptions and notations as in Theorem 4. Assume additionally that ρ∗ 
+
+> βn,λ n,m n
+
+converges to some ρ∗ ∈ P (Rd) in 2-Wasserstein distance as n → +∞. Let q∗ = ω#ρ∗ denote the marginal measure of the input weights and biases. Then there exist K ≤ 2P(X ) − 1 directions, represented by unit vectors 
+
+> 11 Liang, Jacobs, Mont´ ufar
+
+(wk, b k) ∈ Rd+1 with ∥(wk, b k)∥ = 1 and associated rays 
+
+rk =
+
+n
+
+(w, b ) ∈ Rd+1 : ( w, b ) = γ(wk, b k) for some γ ≥ 0
+
+o
+
+, k = 1 , . . . , K, 
+
+such that 
+
+supp( q∗) ⊂
+
+> K
+
+[
+
+> k=1
+
+rk. (11) Theorem 5 shows that the input weights and biases of the trained network align along at most K ≤ 2P(X ) − 1 directions. In particular, the learned function is representable by a shallow ReLU network with K hidden neurons: 
+
+Z
+
+a(x⊤w + b)+dρ ∗ =
+
+> K
+
+X
+
+> k=1
+
+ak(x⊤wk + bk)+ with ak =
+
+Z 
+
+> {(a,w,b ) : ( w,b )∈rk}
+
+a∥(w, b )∥dρ ∗. (12) Thus, the effective width of the network collapses to at most 2 P(X ) − 1. We remark that (11) includes the degenerate case where the support is exactly the origin, i.e., supp( q∗) = {0}. In this case, the represented function is identically zero, and the only learned feature is the zero feature. This occurs, for example, when yj = 0 for all j, in which case the stationary measure is the Gaussian ρ∗(θ) ∝ exp( − βλ  
+
+> 2
+
+∥θ∥2), which satisfies the Boltzmann fixed point condition (5). Outside this degenerate case, whenever supp( q∗)̸ = {0}, there is at least one aligned direction, and the network learns sparse, nonzero features. Empirically, we observe that after training, the input weights and biases often separate into two groups: one concentrated near the origin, whose contribution to the represented function is negligible, and another consisting of parameters with non-negligible norms that align along a few directions and constitute the learned nonzero features. Theorem 5 applies to any measure ρ∗ that arises as the 2-Wasserstein limit of a sequence 
+
+ρ∗ 
+
+> βn,λ n,m n
+
+. The assumption of 2-Wasserstein convergence is used in the proof to obtain uniform integrability of the second moments (see Appendix C). Establishing the existence of such a convergent sequence appears to be challenging in general. Nevertheless, Lemma 15 shows that any sequence ( βn, λ n, m n) satisfying Assumption 2, with mn, β n → +∞ and 
+
+λn → ¯λ > 0, admits a subsequence ( βnk , λ nk , m nk ) for which ρ∗  
+
+> βnk,λ nk,m nk
+
+converges weakly. 
+
+4.3 Non-Redundancy of the Learned Features 
+
+We have shown that the input weights and biases of the trained network align along K ≤
+
+2P(X ) − 1 directions, each corresponding to an effective hidden neuron as in (12). We now characterize these directions and, consequently, the structure of the learned features. For the given set X = {xj }Mj=1 , define a linear ternary activation pattern on X as a map 
+
+A : X → {− 1, 0, 1} for which there exist w ∈ Rd and b ∈ R satisfying sgn( x⊤ 
+
+> j
+
+w + b) = A(xj )for xj ∈ X . We distinguish two subclasses of ternary activation patterns: if A(xj ) ∈ {± 1}
+
+for every xj , we call A a binary activation pattern . Otherwise, if A(xj ) = 0 for at least one 
+
+xj , we call A a strict ternary activation pattern . We further introduce the following partial order on activation patterns: 
+
+A′ ⪯ A ⇐⇒ A(xj ) ∈ 0, A ′(xj ) , ∀j. (13) 
+
+> 12 Implicit Bias of SGD in Multivariate ReLU Networks
+
+Figure 2: Non-redundancy of the learned features. Left: input points and kink hyperplanes of the trained network under the same setting of Figure 1. Middle: the space 
+
+S2 of normalized input weights and biases after stereographic projection. The red stars are the learned features, i.e., the directions that the input weights and biases align with. Each direction induces a kink hyperplane on the left; these kink hyperplanes may overlap. The colored circles represent the hyperplanes (w, b ) : w⊤xj + b = 0 , each corresponding to a training point xj on the left. Right: examples of feature arrangements forbidden by Theorem 6. The bottom pair have the same sign pattern; the top pair is comparable under the partial order; the triplet on the right are degenerations of the same binary sign pattern, exceeding the allowed maximum of two. Thus, A′ ⪯ A means that A is obtained from A′ by replacing some (possibly none) of the 
+
+±1 labels of A′ with zeros, while leaving all remaining labels unchanged. In this case, we say that A is a degeneration of A′. Any ternary activation pattern is a degeneration of itself: A ⪯ A.We present our third main result, which describes the structure of the learned features of the ReLU networks after SGD training. 
+
+Theorem 6 (Non-redundancy of Learned Features) Under the same notations and assumptions as in Theorem 5, let {(wk, b k)}Kk=1 be the collection of distinct directions that the input weights and biases align with. For k = 1 , . . . , K , let Ak denote the ternary sign pattern on the training inputs X induced by the direction (wk, b k):
+
+Ak(xj ) = sgn( x⊤ 
+
+> j
+
+wk + bk), ∀j. 
+
+Then the following holds: (i) For any distinct k, k ′, the two ternary sign patterns Ak and Ak′ are incomparable: neither Ak ⪯ Ak′ nor Ak′ ⪯ Ak holds. In particular, Ak̸ = Ak′ whenever k̸ = k′.(ii) For any k ∈ { 1, . . . , K }, there exists at least one j ∈ { 1, . . . , M } such that A(xj ) = 1 .(iii) Given an arbitrary linear binary activation pattern ˆA of X , the set 
+
+D( ˆA) = 
+
+n
+
+Ak : ˆA ⪯ Ak, k = 1 , . . . , K 
+
+o
+
+(14) 
+
+> 13 Liang, Jacobs, Mont´ ufar
+
+Figure 3: A two-layer univariate ReLU network with N = 1000 hidden neurons, trained via SGD with weight decay on a symmetric data set of size two. Blue dots represent the training data and orange curves the learned functions. The figure illustrates how the location of the kink hyperplanes (knots) is determined by the training data, as predicted in Proposition 7. 
+
+contains at most two elements. Moreover, if D( ˆA) has two elements, then both of these elements are strict ternary activation patterns. 
+
+Theorem 6 shows a strong non-redundancy of the learned features, illustrated in Fig-ure 2. Item ( i) shows that each effective neuron of the trained network induces a distinct activation pattern on the training inputs. Moreover, the activation patterns induced by different effective neurons are incomparable with respect to the partial order ⪯. Item ( ii )shows that every effective neuron activates at least one training point. Item ( iii ) states that, from any binary activation pattern ˆA on X , one can obtain at most two learned ternary patterns Ak by turning some of the ±1 labels of ˆA into zeros. Theorem 6 can be directly translated into a description of the locations of the kink hyperplanes of the learned functions; the formal statement is provided in Corollary 20. Identifying the exact aligned directions, or the exact location of the kink hyperplanes, is challenging for general training data. We obtain the following result for symmetric training data sets of size two. 
+
+Proposition 7 (Kink Hyperplanes for Two-Point Data) Under the same notations and assumptions as in Theorem 5, let X = {(x1, y 1), (x2, y 2)} ⊂ Rd × R be a training data set of size two, with x1 = −x2 and |y1| = |y2|. Let Π be the collection of kink hyperplanes 
+
+πk = {x ∈ Rd : x⊤wk + bk = 0 } for k = 1 , . . . , K . The following holds: 
+
+• Even labels y1 = y2: If ∥x1∥ < 1, then Π = ∅ and h∗ is globally affine. If ∥x1∥ ≥ 1,then Π consists of at most two hyperplanes: Π ⊂ { π′
+
+> 1
+
+, π ′
+
+> 2
+
+} where π′ 
+
+> 1
+
+= {x : x⊤ 
+
+> 1
+
+x+1 = 0 }
+
+and π′ 
+
+> 2
+
+= {x : x⊤ 
+
+> 1
+
+x − 1 = 0 }.
+
+• Odd labels y1 = −y2: Π consists of at most two hyperplanes: Π ⊂ { π′
+
+> 1
+
+, π ′
+
+> 2
+
+} where 
+
+π′ 
+
+> 1
+
+= {x : x⊤ 
+
+> 1
+
+x + ¯b = 0 }, π′ 
+
+> 2
+
+= {x : x⊤ 
+
+> 1
+
+x − ¯b = 0 }, and ¯b = min {1, ∥x1∥2}.
+
+Proposition 7 characterizes exactly the features extracted from simple symmetric data sets; see Figure 3 for an illustration. Interestingly, the solution function may or may not 
+
+> 14 Implicit Bias of SGD in Multivariate ReLU Networks
+
+be globally linear depending on the norm of the training inputs. Another interesting phe-nomenon is that, the kink hyperplanes may or may not pass through the training points, which is in contrast to the linear spline interpolation solutions observed in different training regimes (Williams et al., 2019; Lai et al., 2023) and in the optimal solutions (Savarese et al., 2019; Ergen and Pilanci, 2021). A similar observation was made by Shevchenko et al. (2022) in the univariate setting: for the specific training set {(−10 , 2) , (10 , 2) }, they showed that no function that is linear on the interval [ −10 , 10] can minimize the free energy. Conse-quently, the solution function must have at least one knot in the open interval ( −10 , 10). Here, we consider a more general setting and explicitly characterize the location of the kink hyperplanes. We remark that characterizing the exact location of the kink hyperplanes for more gen-eral data requires a fine-grained understanding of the residuals of the learned predictor at the training points. We discuss this direction further in Section 6.5. A complete character-ization remains an interesting and important problem for future work. 
+
+5 Discussion of the Main Results 
+
+Generalization The Lipschitz bound (9) provides a standard route toward a generaliza-tion bound for the limiting solution function h∗ in Theorem 4. Specifically, under com-mon boundedness assumptions of the input and output domains, the class of functions satisfying (9) has controlled Rademacher complexity (see, e.g., Wainwright, 2019). Stan-dard Rademacher-complexity arguments then yield a generalization bound (Bartlett and Mendelson, 2002). We remark that the bound (9) follows from the uniform second-moment bound on the stationary measures ρ∗ 
+
+> β,λ,m
+
+in Lemma 15, which is a multivariate adaptation of Lemma A.2 in the work of Shevchenko et al. (2022). The bound on the effective width in Theorem 5 also allows one to control the network complexity, e.g., by bounding the VC-dimension via results in the work of Bartlett et al. (2019). However, such a bound would be insufficient for generalization. A first issue is that the bound 2 P(X )−1 grows with the cardinality of the training set M . Moreover, controlling only the effective width (or the number of linear regions) is often too weak for obtaining non-vacuous generalization bounds, as piecewise linear functions with a bounded number of regions still constitute a large function class. A similar dependence on the sample size also appears in the bound of Shevchenko et al. (2022) for univariate networks; we note that no generalization result is provided there either. Safran et al. (2022) obtained a generalization guarantee for univariate shallow ReLU networks based solely on a bound on the number of linear regions of the learned function. This is possible for two reasons: first, they considered a classification problem with the 0-1 loss, where the prediction error depends only on the sign of the network output, not on its magnitude. In this setting, bounding the number of linear regions, and hence the number of sign changes of the prediction function, is sufficient to control the complexity of the function class relevant to the 0-1 loss; second, they assumed that the labels are generated by a teacher network of width r, and by analyzing a KKT condition satisfied by the trained student network, they derived a bound on the number of linear regions that depends only on r, not on the sample size. The student-teacher setting is important, since fixed-size 
+
+> 15 Liang, Jacobs, Mont´ ufar
+
+ReLU networks can have poor empirical performance on random labels even under the 0-1 loss (Telgarsky, 2016). 
+
+The Role of Weight Decay We considered a sequence of regularization parameters 
+
+λn > 0 converging to an arbitrary limit ¯λ > 0. The positivity of each λn is needed to ensure the applicability of Theorem 1, in particular the validity of the Boltzmann fixed point condition (5). As observed by Mei et al. (2018), when λ = 0 and the neuron map σ is bounded, the right-hand side of (5) fails to be normalizable. The positivity assumption on ¯λ
+
+is needed in the analysis of the limiting support of the measure ρ∗ 
+
+> β,λ,m
+
+(see Proposition 10). We note that the particular value of ¯λ has no bearing on the piecewise-affine nature of the solution function, the alignment of the learned input weights and biases, or the non-redundancy property of the learned features. Nevertheless, it controls the Lipschitz constant of the solution function; see (9) and Figure 5. 
+
+The Role of Stochasticity in SGD The stochasticity in SGD, including both data sampling and injected Gaussian noise, is needed in the mean-field analysis in Theorem 1. Several alternative training procedures have also been studied in the mean-field regime, such as mini-batch and full-batch training, training without noise, training with Gaussian noise under different scalings, and training with heavy-tailed noise (Mei et al., 2018; Chizat and Bach, 2018; Mei et al., 2019; Sirignano and Spiliopoulos, 2020; Wan et al., 2024; Descours et al., 2024). In these settings, however, either convergence of the mean-field PDE dynamics in time to a stationary measure has not been established, or the stationary measures lack a sufficiently explicit characterization. As a result, analyzing the corresponding implicit bias remains challenging. Nevertheless, neither the specific data sampling scheme nor the precise noise model enters our analysis. The proofs rely only on the Boltzmann fixed point condition (5) and on structural properties of the ReLU neuron. 
+
+The Role of Initialization and Scaling Notice that Theorem 1 imposes only mild as-sumptions on the initialization distribution ρ0: namely, that ρ0 ∈ P a 
+
+> 2
+
+and is sub-Gaussian. Consequently, our results apply to any initialization satisfying these conditions. This broad applicability stems from the injected Gaussian noise in SGD, or equivalently from the en-tropy regularization appearing in the free energy. The entropy term makes the free energy strictly convex, thereby ensuring the existence of a unique stationary measure. We consider wide neural networks in the mean-field regime, using the parametrization with one-over-width scaling in (1) and an initialization distribution that is independent of the network width. Alternative choices of the parametrization and initialization scaling give rise to different training regimes, with different training dynamics and implicit biases under gradient-based optimization (see, e.g., Williams et al., 2019; Luo et al., 2021; Yang and Hu, 2021). 
+
+Comparison with Shevchenko et al. (2022) Shevchenko et al. (2022) studied univari-ate network with m-truncated, τ -smoothed ReLU neurons, trained by noisy SGD with tem-perature β−1 and weight decay λ on M data points. They showed that, as β, τ, m → +∞,the learned function is approximated by piecewise linear functions with O(M ) knots. The-orem 4 extends this result to the multivariate case d ≥ 1, where the bound on the number of kink hyperplanes has order O(Pdi=0 
+
+ M −1
+
+> i
+
+). Regarding the configuration of the knots, Shevchenko et al. (2022) showed that there are at most three knots between any two con-
+
+> 16 Implicit Bias of SGD in Multivariate ReLU Networks
+
+secutive training points and, when three knots occur, two must coincide with the endpoints of the interval, while the third lies strictly in its interior. This appears as a special case of Corollary 20, which is a direct consequence of Theorem 6 (see Appendix H for details). Moreover, Corollary 20 yields an additional consequence in the univariate setting: there can be at most two knots in ( −∞ , x 1] ∪ [xM , +∞), where x1 = min j xj and xM = max j xj . If two knots are present, they must occur precisely at the boundary data points x1 and xM .To our knowledge, this observation is not contained in the analysis of Shevchenko et al. (2022). Beyond extending the above results to general input dimensions, a key advance over Shevchenko et al. (2022) is that we investigate the implicit bias in parameter space. Specif-ically, Theorem 5 shows that the learned input weights and biases align along finitely many directions, leading to an effective collapse of the network width. Theorem 6 further charac-terizes the structure of these directions and the resulting learned features. As discussed in Section 4.2, these results are nontrivial and do not follow from the piecewise-affine structure of the represented function alone. Compared with Shevchenko et al. (2022), the present work has the following limitations. The piecewise-linearity result of Shevchenko et al. (2022) applies to lim n λn ≥ 0 including the regime of vanishing regularization, whereas our analysis requires ¯λ = lim n λn > 0. As discussed earlier, the positivity of ¯λ is needed to analyze the limiting support of the stationary measure ρ∗
+
+> β,λ,m
+
+. The support analysis is a key ingredient in our study of the parameter-space implicit bias and, to our knowledge, has no counterpart in the work of Shevchenko et al. (2022), where the support of the limiting measure is not investigated. Additionally, to establish the piecewise-affine structure of the solution function, both Shevchenko et al. (2022) and our work rely on a bound on the second derivative of the solution function for x outside of a failure set U . This bound vanishes as β, m → +∞
+
+and the set U shrinks to a union of points in the univariate case or hyperplanes in the multivariate case. In the univariate setting, Shevchenko et al. (2022, Theorem 1) further derives a non-asymptotic bound on the Lebesgue measure of U . We do not obtain an analogous bound for d > 1. In our analysis, the failure set U consists of x that violates the Quadratic Positivity Condition. This condition requires that, in the space of hyperplanes, the set ˆGx of all hyperplanes passing through x be disjoint from another set ˆΩβ,λ,m (see Sections 6.3–6.4 for details). Although we obtained a non-asymptotic bound on the size of ˆΩβ,λ,m (see Appendix B.3), converting this information into a quantitative estimate for the measure of the failure set in the input domain appears challenging. 
+
+Comparison with de Dios and Bruna (2020); Del Grande et al. (2026) de Dios and Bruna (2026); Del Grande et al. (2026) studied the minimal total variation norm (TV norm) interpolation problem: inf  
+
+> μ∈M(Sd)
+
+∥μ∥TV s.t.
+
+Z
+
+(w⊤xj + b)+dμ (w, b ) = yj , j = 1 , . . . , M, (15) where M (Sd) is the space of signed Radon measures on Sd. They proved that all minimizers of (15) are atomic measures, of the form ρ∗ = PK′ 
+
+> k=1
+
+ciδwi , and thus correspond to ReLU networks with at most K′ hidden neurons. As discussed in Section 2, the key difference between problem (15) and the free-energy-minimization problem considered in this work is 
+
+> 17 Liang, Jacobs, Mont´ ufar
+
+their connection to training dynamics: the latter precisely characterizes the implicit bias of noisy SGD, whereas there is no general guarantee that the minimizer of problem (15) is reached by the training procedure. Moreover, due to the entropy regularizer, the minimizer of the free energy at any finite temperature β−1 > 0 must be absolutely continuous. By contrast, atomic measures belong to the feasible set of (15) and are naturally promoted by the TV regularizer. de Dios and Bruna (2020) showed that K′ ≤ 2P(X ) (see the proof of Theorem 4.2 therein), which exceeds our bound (8) by one. Del Grande et al. (2026, Lemma 3.11) showed that K′ ≤ max k=0 ,...,M 
+
+ Mk
+
+Ξ( M − k, d + 1 − k), where Ξ( n, d ) is the number of regions in Rd produced by an arrangement of n central hyperplanes. In Appendix F we show that, for generic data, this bound is strictly larger than ours, and that in the regime 2d + 1 ≤ M , our bound improves upon it by a factor of at least 2 d/(d + 1) 2.
+
+6 Proof of the Main Results 
+
+In this section, we outline the proofs of our main results. In our analysis, we mostly focus on the input weights and biases of the ReLU network, as they define the hidden features and the kink hyperplanes of the output function. Thus, throughout this section, by parameter space we mean the space of input weights and biases Rd+1 .In Section 6.1, we introduce the notation and a decomposition of the parameter space induced by the training data. In Section 6.2, we derive a bound on the limit of the Hessian of the solution function h∗ 
+
+> β,λ,m,τ
+
+(x) as τ → +∞. In Section 6.3, we introduce the Quadratic Positivity Condition at a test location x. This condition requires, in the parameter space, that the set of all hyperplanes passing through x be disjoint from a cluster set Ω β,λ,m ,defined by the non-positive sets of certain quadratic functions appearing in the Hessian bound. For every x satisfying this condition, we obtain a further bound on the limiting Hessian that vanishes as β, m → +∞. In Section 6.4, we show that the cluster set Ω β,λ,m 
+
+shrinks to a limiting set Ω ∗, given by a union of K ≤ 2P(X ) − 1 rays in Rd+1 . These rays define K hyperplanes in input space. Based on this, we then show that (i) for every x at positive distance from these K hyperplanes, the Hessian at x vanishes as β, m → +∞; and (ii) the marginal measure of input weights and biases has vanishing mass outside these K
+
+rays. Finally, in Section 6.5, we investigate the geometry of the limiting set Ω ∗.Our proof strategy builds on the analysis of Shevchenko et al. (2022) for univariate networks. Their argument has two main components. First, they derive a bound on the Hessian at a test location x that vanishes as β, m → +∞, provided that an associated quadratic function fβ,m is positive at x. Second, they show that the non-positive set of fβ,m 
+
+has vanishing Lebesgue measure as β, m → +∞, and hence shrinks to a finite set of points. In their analysis, the quadratic function fβ,m is analyzed on the input domain and plays a central role. As noted by the authors, extending these arguments beyond one dimension presents two main obstacles. First, there is no simple analogue of the interval decomposition of the input domain: in R1, the training inputs partition the input domain into intervals, on each of which the activation pattern of every ReLU neuron is fixed. Second, whereas in one dimension the non-positive set of a quadratic function is the union of at most two intervals, in higher dimensions the corresponding quadric sublevel sets can exhibit considerably more intricate geometry, making their concentration difficult to analyze. We overcome both 
+
+> 18 Implicit Bias of SGD in Multivariate ReLU Networks
+
+obstacles by shifting the analysis from the input space to the parameter space, where the training data induce a natural decomposition. We identify the relevant quadratic functions on the parameter space and analyze the shrinkage of their non-positive sets. In the sequel, we let α = ( β, λ, m ) and, for two quantities A, B , we write A ≲ B if there exists a constant C independent of ( β, λ, m, τ, x ), such that A ≤ CB .
+
+6.1 Subdivision of Parameter Space 
+
+We begin by introducing a natural decomposition of the parameter space induced by the training data, together with the notation needed for our analysis. For a single ReLU neuron a(w⊤x + b)+, the non-linearity occurs along the hyperplane 
+
+{x ∈ Rd : w⊤x + b = 0 }. This defines a natural mapping from the parameter space to the set of affine hyperplanes in the input space. Conversely, for any x ∈ Rd, let 
+
+Gx = (w, b ) ∈ Rd+1 : w⊤x + b = 0 , which is the set of parameters ( w, b ) whose associ-ated input-space hyperplane passes through x. Given a training set X = {xj }Mj=1 , consider the arrangement of hyperplanes {Gxj }Mj=1 ⊂ Rd+1 . Let {Uk} denote the sectors of the arrangement, that is, the open connected components, of Rd+1 \ ∪ j Gxj . Each sector Uk
+
+corresponds to a unique binary sign pattern on X and determines an index set 
+
+Jk =
+
+n
+
+j ∈ { 1, . . . , M } : sgn( w⊤xj + b) = 1 , ∀(w, b ) ∈ Uk
+
+o
+
+.
+
+Thus, the sectors are in one-to-one correspondence with the binary sign patterns on X re-alizable by affine functions. The number of such binary sign patterns is exactly twice the number of linear dichotomies. Hence, there are precisely 2 P(X ) sectors in total. For analyt-ical convenience, we work with their closures and write Ok = cl( Uk) for k = 1 , . . . , 2P(X ). Fix a point x ∈ Rd at which the Hessian of the solution function is to be evaluated. The hyperplanes {Gxj }Mj=1 induce a decomposition of Gx, Gx = S
+
+> k
+
+(Gx ∩ Ok). Each open sector Gx ∩ Uk consists of those parameters that define a hyperplane passing through the evaluation point x while inducing the binary sign pattern with index set Jk on the training set. The set Gx can be naturally identified with Rd via the map w 7 → (w, −w⊤x). Then, for k = 1 , . . . , 2P(X ), the closed sector Gx ∩ Ok can be identified with 
+
+Owk =
+
+n
+
+w ∈ Rd : ( w, −w⊤x) ∈ Ok
+
+o
+
+.
+
+6.2 Zero-Smoothing Limit 
+
+Next, we control the Hessian of the solution function in the zero-smoothing limit τ → +∞.By the construction of σm,τ in Appendix A, the limits ( u)m 
+
+> +
+
+= lim τ →+∞(u)m,τ  
+
+> +
+
+and vm =lim τ →+∞ vm,τ exist for every m > 0; in particular, 
+
+vm = lim   
+
+> τ→+∞
+
+vm,τ =
+
+(v, ∥v∥ ≤ m 
+
+> m
+> ∥v∥
+
+v, ∥v∥ > m. (16) Let σm denote the m-truncated ReLU neuron in the zero-smoothing limit: 
+
+σm(x, θ ) = lim   
+
+> τ→+∞
+
+σm,τ (x, θ ) = am(x⊤wm + b)m 
+
+> +
+
+.
+
+> 19
+
+Liang, Jacobs, Mont´ ufar 
+
+Since the maps u 7 → (u)m,τ  
+
+> +
+
+and v 7 → vm,τ are bounded and have bounded first derivatives with the bounds independent of τ , σm is bounded and Lipschitz continuous for every m > 0. By results of Mei et al. (2018, Lemma 10.2–10.4), the free energy F β,λ σm associated with the m-truncated ReLU neuron σm, with regularization λ > 0 and temperature β−1 > 0, admits a unique minimizer, which we denote by ρ∗
+
+> α
+
+. Define 
+
+h∗
+
+> α
+
+(·) = hσm (·, ρ ∗
+
+> α
+
+), Rαj = 1
+
+M
+
+
+
+h∗
+
+> α
+
+(xj ) − yj
+
+
+
+, j = 1 , . . . , M. 
+
+Thus, h∗ 
+
+> α
+
+is the solution function associated with the m-truncated neuron σm and Rαj is the residual of h∗ 
+
+> α
+
+at the jth data point, divided by M .A priori, the limit lim τ →+∞ h∗ 
+
+> β,λ,m,τ
+
+need not coincide with h∗
+
+> α
+
+, since h∗ 
+
+> β,λ,m,τ
+
+is obtained by first minimizing the free energy associated with the smoothed and truncated neuron σm,τ 
+
+and then taking τ → +∞, whereas h∗ 
+
+> α
+
+is obtained by minimizing the free energy associated directly with the limiting neuron σm. The following result shows that, as τ → +∞, not only h∗ 
+
+> β,λ,m,τ
+
+but also its Hessian converge to h∗ 
+
+> α
+
+and its associated Hessian, respectively. This proves Lemma 3. We also bound the norm of the Hessian in the zero-smoothing limit. The proof is provided in Appendix B.1. 
+
+Proposition 8 (Zero-Smoothing Limit) For any α = ( β, λ, m ) that satisfies Assump-tion 2, we have that h∗ 
+
+> α
+
+∈ C2(Rd) and 
+
+h∗
+
+> α
+
+(x) = lim   
+
+> τ→+∞
+
+h∗ 
+
+> β,λ,m,τ
+
+(x), ∇2
+
+> x
+
+h∗
+
+> α
+
+(x) = lim   
+
+> τ→+∞
+
+∇2
+
+> x
+
+h∗ 
+
+> β,λ,m,τ
+
+(x), for every x ∈ Rd.
+
+Furthermore, 
+
+∥∇ 2
+
+> x
+
+h∗
+
+> α
+
+(x)∥ ≲ m−1(1 + λ−1) + β−1λ− d+6 4 (1 + √λ) d+2 2 + β d+1 2 λ d 
+
+> 4
+
+(1 + √λ) d+2 2 Iα(x), (17) 
+
+where 
+
+Iα(x) =  
+
+> 2P(X)
+
+X
+
+> k=1
+
+Z
+
+> Owk
+
+∥w∥2|(Qαk )⊤wm| exp 
+
+
+
+− λβ 
+
+2
+
+
+
+∥w∥2 + |x⊤wm|2 − (( Qαk )⊤wm)2
+
+dw Qαk = 1
+
+λ
+
+X
+
+> j∈Jk
+
+Rαj (xj − x) ∈ Rd, k = 1 , . . . , 2P(X ),
+
+with the convention that Qαk = 0 if Jk = ∅.
+
+Thus, the Hessian is upper bounded by three terms. The first two vanish as m, β → +∞.The third is more complicated and depends on Iα(x). 
+
+6.3 Quadratic Positivity Condition 
+
+We introduce a condition for controlling the term Iα(x) in the right-hand side of (17) and thus controlling the Hessian. To motivate the condition, recall from (16) that wm = γww
+
+for some γw ∈ [0 , 1]. Observe that if 
+
+∥w∥2 + |x⊤w|2 − | (Qαk )⊤w|2 ≥ δ∥w∥2, ∀w ∈ Owk , ∀k, (18) 
+
+20 Implicit Bias of SGD in Multivariate ReLU Networks 
+
+for some δ ∈ (0 , 1], then, 
+
+∥w∥2 + |x⊤wm|2 − | (Qαk )⊤wm|2 = (1 − γ2
+
+> w
+
+)∥w∥2 + γ2
+
+> w
+
+(∥w∥2 + |x⊤w|2 − | (Qαk )⊤w|2)
+
+≥ (1 − γ2
+
+> w
+
+(1 − δ)) ∥w∥2
+
+≥ δ∥w∥2.
+
+(19) Under this condition, each integral in Iα(x) can be controlled by the third moment of a Gaussian distribution as follows: 
+
+Z
+
+> Owk
+
+∥w∥2|(Qαk )⊤wm| exp 
+
+
+
+− λβ 
+
+2
+
+
+
+∥w∥2 + |x⊤wm|2 − | (Qαk )⊤wm|2
+
+dw 
+
+≤p1 + ∥x∥2
+
+Z
+
+> Rd
+
+∥w∥3 exp 
+
+
+
+− λβδ 
+
+2 ∥w∥2
+
+
+
+dw 
+
+≲p1 + ∥x∥2(λβδ )− d+3 2 .
+
+Then the Hessian can be bounded as 
+
+∥∇ 2
+
+> x
+
+h∗
+
+> α
+
+(x)∥ ≲ m−1(1 + λ−1) + β−1λ− d+6 4 (1 + √λ) d+2 2
+
+
+
+1 + δ− d+3 2
+
+p1 + ∥x∥2
+
+
+
+,
+
+where the right-hand side vanishes as m, β → +∞, provided that δ is lower bounded. We reformulate condition (18) in a more convenient form. For k = 1 , . . . , 2P(X ), define a quadratic function 
+
+f αk (w, b ) = ∥w∥2 + b2 −
+
+ 1
+
+λ
+
+X
+
+> j∈Jk
+
+Rαj (x⊤ 
+
+> j
+
+w + b)
+
+2
+
+, (20) with the convention that f αk (w, b ) = ∥w∥2 + b2 if Jk = ∅. Note that f αk is 2-homogeneous and that the left-hand side of (18) is precisely f αk (w, −w⊤x). Thus, (18) is satisfied if min   
+
+> k∈{ 1,..., 2P(X)}
+
+inf 
+
+> (w,b )∈Gx∩Ok
+> ∥w∥2+b2=1
+
+f αk (w, b ) > 0, (21) with the convention that inf (w,b )∈S f (w, b ) = + ∞ if S = ∅. We refer to (21) as the Quadratic Positivity Condition , as it requires the positivity of f αk on the intersection of the hyperplane 
+
+Gx and the closed sector Ok for every k.We have the following result bounding the integral in the right-hand side of (17) and thus the Hessian of the solution function at x, provided that x satisfies the Quadratic Positivity Condition. The proof is provided in Appendix B.2. 
+
+Proposition 9 (Quadratic Positivity Condition) Assume that α = ( β, λ, m ) satisfies Assumption 2. Assume that x ∈ Rd satisfies the Quadratic Positivity Condition (21) . Let 
+
+δ = min 
+
+n
+
+min  
+
+> k
+
+inf 
+
+> (w,b )∈Gx∩Ok
+> ∥w∥2+b2=1
+
+f αk (w, b ), 12
+
+o
+
+∈
+
+
+
+0, 12
+
+i
+
+.
+
+Then, 
+
+∥∇ 2
+
+> x
+
+h∗
+
+> α
+
+(x)∥ ≲ m−1(1 + λ−1) + β−1λ− d+6 4 (1 + √λ) d+2 2
+
+
+
+1 + p1 + ∥x∥2 · δ− d+3 2
+
+
+
+. (22) 
+
+21 Liang, Jacobs, Mont´ ufar 
+
+Figure 4: Illustration of the Quadratic Positivity Condition for d = 2. For a fixed k, the red antipodal disks represent ˆΩαk , the non-positive set of the quadratic function 
+
+f αk ; the region bounded by the blue arcs is ˆOk, the sector corresponding to a particular binary pattern on the training inputs; and the green arc is ˆGx ∩ ˆOk,the set of parameters defining a hyperplane that passes through x while inducing that binary pattern on the training set. 
+
+6.4 Shrinkage of Cluster Set 
+
+According to the bound (22), the Hessian vanishes as m, β → +∞ and λ → ¯λ > 0, provided that the margin δ remains uniformly bounded away from zero throughout this limiting process. We now examine when δ admits such a lower bound. To this end, we derive a geometric description of the Quadratic Positivity Condition. Let 
+
+P αk = 1
+
+λ
+
+X
+
+> j∈Jk
+
+Rαj
+
+xj
+
+1
+
+
+
+∈ Rd+1 ,
+
+with the convention that P αk = 0 if Jk = ∅. Writing z = ( w, b ), we can express f αk as the quadratic form 
+
+f αk (z) = z⊤ 
+
+Id+1 − P αk (P αk )⊤
+
+z = z⊤Λαk z. 
+
+The coefficient matrix Λ αk has eigenvalues 1 with multiplicity d and 1 − ∥ P αk ∥2. Thus, if we define the non-positive set of f αk by Ωαk =
+
+n
+
+(w, b ) ∈ Rd+1 : f αk (w, b ) ≤ 0
+
+o
+
+,
+
+then Ω αk is a quadratic double cone when ∥P αk ∥2 > 1, a line when ∥P αk ∥2 = 1, and the singleton {(0 , 0) } when ∥P αk ∥2 < 1. Here and throughout, we call a set S ⊂ Rd+1 a cone if 
+
+v ∈ S implies cv ∈ S for all c ≥ 0. Notably, (21) is equivalent to requiring that the cones 
+
+Gx ∩ Ok and Ω αk intersect only at the origin. This condition can be expressed on the unit sphere. For any cone S ⊂ Rd+1 , let ˆS = S ∩ Sd denote its spherical cross-section. Since a cone is fully determined by its spherical cross-section, (21) is equivalent to ( ˆGx ∩ ˆOk) ∩ ˆΩαk = ∅, ∀k, 
+
+> 22
+
+Implicit Bias of SGD in Multivariate ReLU Networks 
+
+illustrated in Figure 4, or, equivalently, ˆGx ∩ ˆΩα = ∅, where ˆΩα = 
+
+> 2P(X)
+
+[
+
+> k=1
+
+ˆOk ∩ ˆΩαk .
+
+We refer to the set ˆΩα as the cluster set , in analogy to the terminology of Shevchenko et al. (2022). Next we show that, under a suitable sequence αn = ( βn, λ n, m n), the cluster set ˆΩαn shrinks to at most 2 P(X ) − 1 fixed points on the sphere Sd, as n → +∞. Consequently, for any x ∈ Rd such that ˆGx avoids these limiting points, we can obtain a uniform positive lower bound on the margin δ. The following result formalizes this shrinkage of the cluster set. Its proof is provided in Appendix B.3. 
+
+Proposition 10 (Shrinkage of Cluster Set) Consider any sequence αn = ( βn, λ n, m n)
+
+that satisfies Assumption 2 for n ≥ 1, with mn → +∞ and λn → ¯λ for an arbitrary ¯λ > 0 as 
+
+n → +∞, and such that lim n→+∞ h∗ 
+
+> αn
+
+(x) exists for every x ∈ Rd. For k = 1 , . . . , 2P(X ), let 
+
+P ∗ 
+
+> k
+
+= lim n→+∞ P αn 
+
+> k
+
+, f ∗ 
+
+> k
+
+(w, b ) = z⊤(Id+1 − P ∗ 
+
+> k
+
+(P ∗ 
+
+> k
+
+)⊤)z with z = ( w, b ), and ˆΩ∗ 
+
+> k
+
+= {(w, b ) ∈
+
+Sd : f ∗ 
+
+> k
+
+(w, b ) ≤ 0}. Define 
+
+ˆΩ∗ = 
+
+> 2P(X)
+
+[
+
+> k=1
+
+ˆOk ∩ ˆΩ∗
+
+> k
+
+. (23) 
+
+Then, ˆΩ∗ consists of at most 2P(X ) − 1 points on Sd and, furthermore, for any ε > 0 there exists N > 0 such that for all n > N ,
+
+ˆΩαn ⊂
+
+n
+
+z ∈ Sd : d∠(z, ˆΩ∗) ≤ ε
+
+o
+
+,
+
+where d∠(z, S ) = inf z′∈S arccos( z⊤z′) denotes the spherical point-to-set distance for z ∈ Sd
+
+and S ⊂ Sd, with the convention that d∠(z, S ) = + ∞ if S = ∅.
+
+Notice that the limit lim n→+∞ P αk exists for every k, as both limits, lim n→+∞ λn and lim n→+∞ Rαn 
+
+> j
+
+, exist by our assumptions. Based on Proposition 9 and Proposition 10, we obtain the following result, thereby proving Theorem 4. The proof is given in Appendix B.4. 
+
+Theorem 11 Consider any sequence αn = ( βn, λ n, m n) that satisfies Assumption 2 for 
+
+n ≥ 1, with mn, β n → +∞ and λn → ¯λ for an arbitrary ¯λ > 0 as n → +∞, and such that lim n→+∞ h∗
+
+> α
+
+(x) exists for every x ∈ Rd. Let ˆΩ∗ = {(wk, b k)}Kk=1 be defined as in (23) ,with K ≤ 2P(X ) − 1. Let πk = x ∈ Rd : x⊤wk + bk = 0 for k = 1 , . . . , K . Then for any compact set Γ ⊂ Rd \ ∪ kπk, we have that 
+
+lim  
+
+> n→+∞
+
+sup 
+
+> x∈Γ
+
+∥∇ 2
+
+> x
+
+h∗ 
+
+> αn
+
+(x)∥ = 0 .
+
+Consequently, the function h∗(·) = lim n→+∞ h∗ 
+
+> αn
+
+(·) is affine on each connected component of Rd \ ∪ kπk. Moreover, h∗ is Lipschitz continuous and satisfies 
+
+∥h∗∥Lip ≤ 2( d + 2) + 2¯λM 
+
+> M
+
+X
+
+> j=1
+
+y2 
+
+> j
+
+.
+
+23 Liang, Jacobs, Mont´ ufar 
+
+The shrinkage of the cluster set also allows us to analyze the support of the stationary measure ρ∗
+
+> α
+
+. Specifically, for any set B ⊂ Rd+1 such that the projection of cl( B) onto the sphere is disjoint from ˆΩ∗, we show that lim  
+
+> n→+∞
+
+Eθ∼ρ∗
+
+> αn
+
+∥(w, b )∥2 · I(w,b )∈B
+
+ = 0 .
+
+That is, the ∥(w, b )∥2-weighted mass of ρ∗ 
+
+> αn
+
+over R × B vanishes as n → +∞. This directly gives the desired results in Theorem 5. The formal proof is given in Appendix C. 
+
+6.5 Position of Limiting Cluster Set Relative to Sphere Stratification 
+
+In view of the previous subsection, the limiting set ˆΩ∗ determines the aligned directions in parameter space and the kink hyperplanes in input space. We now study the location of the points in ˆΩ∗ = {(wk, b k)} relative to a stratification of the sphere Sd induced by ternary activation patterns on the training inputs. Recall from Section 4.3 the definition of linear ternary activation patterns on the training set. Each ternary activation pattern A : X → {− 1, 0, 1} defines a stratum on the sphere Sd:
+
+VA =
+
+n
+
+(w, b ) ∈ Sd : sgn( w⊤xj + b) = A(xj ), ∀j
+
+o
+
+.
+
+Let V = {VA}A, where A ranges over all linear ternary activation patterns realizable on 
+
+X . The following basic result shows that V forms a stratification of the sphere Sd and the strata have simple geometry. Its proof is given in Appendix D. 
+
+Lemma 12 The strata form a disjoint decomposition of the sphere: Sd = ⊔V ∈V V . More-over, every stratum V other than V0 = {(w, b ) ∈ Sd : sgn( w⊤xj + b) = 0 ∀j} is simply connected and contained in an open hemisphere of Sd.
+
+Notably, all the notions related to ternary activation patterns introduced in Section 4.3 can be translated into geometric language. To know the activation pattern induced by the hyperplane πk = {x : w⊤ 
+
+> k
+
+x + bk = 0 }, it suffices to know which stratum of V contains the point ( wk, b k). A ternary activation pattern A is a binary sign pattern if and only if VA
+
+is a d-dimensional stratum, i.e., has the same dimension as the sphere Sd, and is a strict ternary sign pattern if and only if VA has positive codimension on Sd. For the partial order on ternary sign patterns defined in (13), it is straightforward to verify that 
+
+A′ ⪯ A ⇐⇒ cl( VA′ ) ⊃ VA.
+
+In addition, for a given binary sign pattern ˆA, the set D( ˆA) defined in (14) can be rewritten as 
+
+D( ˆA) = Ak : ( wk, b k) ∈ cl( V ˆA), k = 1 , . . . , K .
+
+Exploiting the geometry of the limiting set ˆΩ∗, together with the structure of the strata in Lemma 12, we obtain the following result, which provides a geometric proof of Theorem 6. Its proof is provided in Appendix D. We write ∂cl( S)S for the relative boundary of S in its closure for any S ⊂ Sd.
+
+> 24 Implicit Bias of SGD in Multivariate ReLU Networks
+
+Proposition 13 (Geometry of Limiting Cluster Set) Consider the stratification V of the sphere induced by the training inputs X . Let ˆΩ∗ be defined as in Theorem 11. The following holds: (i) Every stratum V ∈ V contains at most one point in ˆΩ∗. Moreover, ˆΩ∗ ∩V̸ = ∅ implies that ˆΩ∗ ∩ ∂cl( V )V = ∅.(ii) ˆΩ∗ ∩ cl( V−1) = ∅, where V−1 = {(w, b ) ∈ Sd : sgn( w⊤xj + b) = −1 ∀j}.(iii) For an arbitrary binary sign pattern ˆA on X , cl( V ˆA) ∩ ˆΩ∗ contains at most two points. If cl( V ˆA) ∩ ˆΩ∗ contains two points, then both points must lie in the boundary ∂cl( V ˆA)V ˆA.
+
+Finally, we briefly outline the proof of Proposition 7. As indicated by Theorem 11, the vectors 
+
+P ∗ 
+
+> k
+
+= 1¯λM 
+
+X
+
+> j∈Jk
+
+(h∗(xj ) − yj )
+
+xj
+
+1
+
+
+
+, k = 1 , . . . , 2P(X ),
+
+characterize the set ˆΩ∗ and hence the locations of the kink hyperplanes {πk}Kk=1 . For the specific data set X = {(x1, y 1), (x2 = −x1, y 2 = y1)}, we have (i) h∗ is an even function and h∗(x1) − y1 = h∗(x2) − y2; and (ii) there are only four possible binary sign patterns: 
+
+J1 = {1, 2} , J 2 = {1} , J 3 = {2} , J 4 = ∅. These observations allow us to explicitly compute 
+
+P ∗ 
+
+> k
+
+for k = 1 , . . . , 4, thereby identifying the locations of the hyperplanes. The case of odd labels follows a similar strategy. The formal proof is provided in Appendix E. For general training data, determining P ∗ 
+
+> k
+
+remains challenging, in particular if one relies solely on the Boltzmann fixed point condition. We expect that additional information about the free-energy minimizer is needed. 
+
+7 Experiments 
+
+In Figure 1 and Figure 2, we consider a two-layer ReLU network of width N = 1000 and initialize the neuron parameters ( a, w, b ) as i.i.d. samples from the Gaussian N (0 , ν 2Id+2 )with ν = 10 −3. On a training data set of size M = 9 with two-dimensional inputs, we run the SGD algorithm (2) with step size sN,k ≡ 10 −3, weight decay regularization strength 
+
+λ = 10 −2 and no Gaussian noise, β−1 = 0, for 2 × 10 6 iterations. The learned features are identified as follows: (i) among all trained input weights and biases ( wi, b i)Ni=1 , keep only those with norm larger than 10 −8 and normalize them onto the unit sphere; and (ii) apply DBSCAN (Ester et al., 1996), a standard clustering method, to the normalized points under the spherical distance: d∠(z, z ′) = arccos( z⊤z′) for z, z ′ ∈ Sd. In our experiment, the resulting clusters had maximal within-cluster spherical distance 7 .9 × 10 −4, approximately 0.045 ◦. These results are consistent with Theorem 5 and Theorem 6. In Figure 3, we report the result of training a two-layer ReLU network on a univariate data set of size M = 2 via SGD for 10 6 iterations. The network width, initialization, step size, regularization, and noise level are the same as in the previous experiment. The result is consistent with Proposition 7. Figure 5 and Figure 6 illustrate the roles of weight decay and Gaussian noise in SGD, respectively. In these figures, a two-layer ReLU network is trained on a two-dimensional 
+
+> 25 Liang, Jacobs, Mont´ ufar
+
+Figure 5: A two-layer ReLU network is trained via SGD without noise on two-dimensional input data, under various levels of weight decay λ. The figure shows that the trained function is piecewise affine for all values of λ, whereby larger λ promotes a smaller Lipschitz constant. 
+
+Figure 6: A two-layer ReLU network is trained via noisy SGD with weight decay on two-dimensional input data, under various noise levels β−1. The figure shows that, as the noise level tends to zero, the trained function converges to a piecewise affine function, while for larger noise levels, the function is increasingly smooth. data set via SGD for 10 6 iterations. The network width, initialization, and baseline SGD parameters are the same as before. The results are consistent with Theorem 4. 
+
+8 Conclusion 
+
+We presented an analysis of SGD training of wide shallow ReLU networks. We showed in the mean-field limit that the learned function is piecewise linear. At convergence, the input weights and biases of the network align along a finite number of directions depending on the training data, so the network learns a finite collection of features and its effective width collapses. These directions satisfy a non-redundancy property: distinct directions induce distinct ternary linear sign patterns on the training inputs. These results contribute to the theoretical understanding of the implicit bias and feature-learning mechanisms of gradient-based training in nonlinear neural networks. While it is widely believed that gradient-based optimization can discover useful feature representations, a rigorous mathematical understanding of this phenomenon has remained limited. Previous 
+
+> 26 Implicit Bias of SGD in Multivariate ReLU Networks
+
+theoretical results establishing the emergence of sparse or structured features have either relied on specialized assumptions on the training data or initialization, or have characterized optimal solutions of associated variational problems. In contrast, our analysis shows that an effectively finite width representation emerges directly from the training dynamics in a broad mean-field setting, and relates its structure to the combinatorial geometry of the training data. 
+
+Limitations Our analysis is formulated within the mean-field framework of Mei et al. (2018) and therefore considers two-layer networks in the infinite-width limit trained by noisy SGD with weight decay. Rather than analyzing ReLU neurons directly, we study bounded, smooth approximations and subsequently pass to the ReLU limit. This approximation is motivated by the current state of the theory. To our knowledge, a direct initialization-to-convergence analysis for mean-field training of ReLU networks has not yet been established. 
+
+Future work Several interesting directions remain open. A natural next step is to obtain finer-grained descriptions of the learned features, including characterizations of the precise locations of the kink hyperplanes beyond the special classes of training data considered in Proposition 7. Another important question is whether the bound on the number of learned features is tight. Our numerical experiments, together with those of Shevchenko et al. (2022), suggest that this bound may admit further improvement, possibly depending on the specific structure of the data. It would also be of interest to extend the analysis to other optimization procedures (e.g., gradient descent, mini-batch SGD, and preconditioned SGD), classification losses, different activation functions, and more complex architectures such as deep networks or attention-based models. 
+
+Reproducibility Statement 
+
+Code to reproduce our experiments is available at https://github.com/shuangliang15/ effective-width-collapse .
+
+Acknowledgments and Disclosure of Funding 
+
+This project has been supported in part by NSF grants DMS-2145630 and CCF-2212520. TJ was supported by the European Research Council (ERC) under the Horizon Europe Frame-work Programme (HORIZON) through grant agreement number 101116395 (SPARSE-ML). GM was supported in part by DARPA grant HR00112520014 through the Artificial Intelli-gence Quantified (AIQ) program, NSF grant DMS-2522495, DFG project 464109215 within the Priority Programme SPP 2298 “Theoretical Foundations of Deep Learning”, and the BMFTR through DAAD project 57616814 (SECAI). 
+
+> 27
+
+Liang, Jacobs, Mont´ ufar 
+
+Appendix 
+
+The appendix is organized into the following sections. 
+
+• Appendix A: Approximation of the ReLU Neuron 
+
+• Appendix B: Proof of Theorem 4 
+
+• Appendix C: Proof of Theorem 5 
+
+• Appendix D: Proof of Theorem 6 
+
+• Appendix E: Proof of Proposition 7 
+
+• Appendix F: Comparison of the Bounds on Effective Width 
+
+• Appendix G: Existence of Accumulation Points 
+
+• Appendix H: Non-redundancy of Kink Hyperplane Arrangement 
+
+Appendix A. Approximation of the ReLU Neuron 
+
+In this section, we provide a detailed construction of the m-truncated, τ -smoothed ReLU neuron σm,τ .
+
+A.1 Truncated and Smoothed ReLU Neuron 
+
+For approximating the ReLU activation function, let (u)m,τ  
+
+> +
+
+=
+
+(
+
+Sτ (u) = log(1 + eτ u )/τ, u < S −1 
+
+> τ
+
+(m2)
+
+ϕm,τ (u), u ≥ S−1 
+
+> τ
+
+(m2), u ∈ R.
+
+The tail is chosen so that ( ·)m,τ  
+
+> +
+
+∈ C4(R) and satisfies 
+
+∥ϕm,τ ∥∞ ≤ 2m2, ∥ϕ′ 
+
+> m,τ
+
+∥∞ ≤ 1, ∥ϕ′′  
+
+> m,τ
+
+∥∞ ≤ m−2,
+
+with bounded third and fourth derivatives. Moreover, as τ → ∞ , ( ·)m,τ  
+
+> +
+
+converges to a truncated ReLU ( ·)m 
+
+> +
+
+, defined as follows: (u)m 
+
+> +
+
+=
+
+(
+
+(u)+, u < m 2
+
+ϕm(u), u ≥ m2, u ∈ R,
+
+which satisfies that ( ·)m 
+
+> +
+
+∈ C4((0 , +∞)) and ϕ′′  
+
+> m,τ
+
+converges to ϕ′′  
+
+> m
+
+uniformly on any compact subset of ( m2, +∞). An explicit construction of {(·)m,τ  
+
+> +
+
+} is given in the next subsection. For approximating the identity map, let 
+
+vm,τ =
+
+(
+
+v, ∥v∥ < m − τ −1
+
+ψm,τ (v), ∥v∥ ≥ m − τ −1, v ∈ Rn.
+
+28 Implicit Bias of SGD in Multivariate ReLU Networks 
+
+The tail function ψm,τ is selected such that ( ·)m,τ ∈ C4(Rn, Rn), is an odd function, and satisfies that ∥ψm,τ (u)∥ ≤ m, ∥∇ ψm,τ (u)∥ ≤ 1, and ∥∇ (k)ψm,τ ∥ are bounded for k = 2 , 3, 4. Additionally, we require that as τ → +∞, ( ·)m,τ converges to the truncated identity map (·)m, defined as follows 
+
+vm =
+
+(
+
+v, ∥v∥ < m m · v/ ∥v∥, ∥v∥ ≥ m. v ∈ Rn.
+
+The existence of the family {(·)m,τ } is clear. The m-truncated, τ -smoothed ReLU neuron is defined as: 
+
+σm,τ (x, θ ) = am,τ (x⊤wm,τ + b)m,τ  
+
+> +
+
+, x ∈ Rd, θ = ( a, w, b ) ∈ Rd+2 .
+
+A.2 An Explicit Construction of the Family (u)m,τ 
+
+> +
+
+We construct a family {(u)m,τ  
+
+> +
+
+} that approximates the univariate ReLU function and satisfies the requirements in previous subsection. Select a univariate function g : [1 , +∞) → R that satisfies 
+
+• g(u) ∈ [1 , 2] , ∀u ≥ 1, 
+
+• there exists δ > 0 such that g(u) = u when u ∈ [1 , 1 + δ], 
+
+• g ∈ C4; for all u ≥ 1, g′(u) ∈ [0 , 1] , g ′′ (u) ∈ [−1, 0] , |g(3) (u)| ≤ C, |g(4) (u)| ≤ C.Such a function g implements a truncation. The existence of such a function g is clear. Let 
+
+Sτ (u) = log(1 + eτ u )
+
+τ .
+
+This is the τ -scaled softplus function, which is a smooth approximation of ( u)+ = max {0, u }.Define the tail function 
+
+ϕm,τ (u) = m2g
+
+ Sτ (u)
+
+m2
+
+
+
+.
+
+Let (u)m,τ  
+
+> +
+
+= Iu<c m,τ Sτ (u) + Iu≥cm,τ ϕm,τ (u).
+
+Here cm,τ = S−1 
+
+> τ
+
+(m2). As Sτ (cm,τ ) = m2 and Sτ is monotonically increasing, there exists δ′ such that 
+
+Sτ (u)
+
+m2 ∈ [1 , 1 + δ], ∀u ∈ [cm,τ , c m,τ + δ′].
+
+Then, 
+
+ϕm,τ (u) = Sτ (u), ∀u ∈ [cm,τ , c m,τ + δ′].
+
+Therefore, ( u)m,τ  
+
+> +
+
+is C4. Since 1 ≤ g ≤ 2, we have that |ϕm,τ (u)| ≤ 2m2. For the first derivative, 
+
+ϕ′ 
+
+> m,τ
+
+(u) = g′ Sτ (u)
+
+m2
+
+
+
+S′ 
+
+> τ
+
+(u).
+
+29 Liang, Jacobs, Mont´ ufar 
+
+Since 0 ≤ g′ ≤ 1 and 0 ≤ S′ 
+
+> τ
+
+≤ 1, we have that |ϕ′ 
+
+> m,τ
+
+(u)| ≤ 1. For the second derivative, 
+
+ϕ′′  
+
+> m,τ
+
+(u) = S′′  
+
+> τ
+
+(u)g′ Sτ (u)
+
+m2
+
+
+
++ 1
+
+m2 g′′  Sτ (u)
+
+m2
+
+
+
+(S′ 
+
+> τ
+
+(u)) 2.
+
+Since S′′  
+
+> τ
+
+< 1/S τ , we have that 
+
+S′′  
+
+> τ
+
+(u) ≤ 1
+
+m2 , ∀u ≥ cm,τ .
+
+Since −1 ≤ g′′ ≤ 0, we have that 
+
+ϕ′′  
+
+> m,τ
+
+(u) ≤ S′′  
+
+> τ
+
+(u)g′ Sτ (u)
+
+m2
+
+
+
+≤ 1
+
+m2 .
+
+Also, as S′′  
+
+> τ
+
+≥ 0, 
+
+ϕ′′  
+
+> m,τ
+
+(u) ≥ − 1
+
+m2 (S′ 
+
+> τ
+
+(u)) ≥ − 1
+
+m2 .
+
+Since g(3) , g (4) , S (3)  
+
+> τ
+
+, S (4)  
+
+> τ
+
+are bounded, ϕ(3)  
+
+> m,τ
+
+, ϕ (4)  
+
+> m,τ
+
+are bounded. Now define 
+
+ϕm(u) = m2g( um2 ), u ≥ m2,
+
+and let (u)m 
+
+> +
+
+= Iu<m 2 · (u)+ + Iu≥m2 ϕm(u).
+
+Since Sτ (u) → (u)+ pointwise and cm,τ → m2 as τ → +∞, we have ( u)m,τ  
+
+> +
+
+→ (u)m 
+
+> +
+
+as 
+
+τ → +∞. By similar arguments as above, ( u)m 
+
+> +
+
+∈ C4((0 , +∞)). Consider any compact set 
+
+K ⊂ (m2, +∞). For all large τ , K ⊂ (cm,τ , +∞). Note that 
+
+Sτ (u) → u, S′ 
+
+> τ
+
+(u) → 1, S′′  
+
+> τ
+
+(u) → 0uniformly on K as τ → +∞. Hence, 
+
+ϕ′′  
+
+> m,τ
+
+(u) → 1
+
+m2 g′′ ( um2 ) = ϕ′′ 
+
+> m
+
+(u)uniformly on K as τ → +∞. By above, the family (u)m,τ   
+
+> +m,τ
+
+satisfies all the previous requirements. 
+
+Appendix B. Proof of Theorem 4 
+
+In this section, we present the proof of Theorem 4. In Appendix B.1, Proposition 8 con-trols the Hessian of the solution function in the zero-smoothing limit; In Appendix B.2, Proposition 9 further bounds the limiting Hessian under the Quadratic Positivity Condi-tion; In Appendix B.3, Proposition 10 shows the shrinkage of the cluster set, which in turn determines where the Quadratic Positivity Condition holds. Combining these ingredients, in Appendix B.4, we prove Theorem 11, thereby proving Theorem 4. Technical lemmas are provided in Appendix B.5. 
+
+30 Implicit Bias of SGD in Multivariate ReLU Networks 
+
+B.1 Proof of Proposition 8 
+
+In this section, we prove Proposition 8 which bounds the Hessian of the solution depending on m, β, λ and a term that depends on the training data and residuals. Recall that we let 
+
+α = ( β, λ, m ). We also let ˆ α = ( β, λ, m, τ ). 
+
+Proof (Proof of Proposition 8) By Lemma 16, we have that for every ( x, θ ), lim   
+
+> τ→+∞
+
+σm,τ (x, θ )ρ∗
+
+> ˆα
+
+(θ) = σm(x, θ )ρ∗
+
+> α
+
+(θ).
+
+With Lemma 14, there exists C > 0 independent of ( τ, x ) such that 
+
+|σm,τ (x, θ )ρ∗
+
+> ˆα
+
+(θ)| ≤ C exp( − βλ 
+
+2 ∥θ∥2), ∀θ. 
+
+Thus, the Dominated Convergence Theorem gives that lim   
+
+> τ→+∞
+
+h∗
+
+> ˆα
+
+(x) = lim  
+
+> τ→+∞
+
+Z
+
+σm,τ (x, θ )ρ∗
+
+> ˆα
+
+(θ)dθ =
+
+Z
+
+σm(x, θ )ρ∗
+
+> α
+
+(θ)dθ = h∗
+
+> α
+
+(x), ∀x. 
+
+Let u = x⊤wm,τ + b and cm,τ = S−1 
+
+> τ
+
+(m2). Notice that 
+
+am,τ ∇2
+
+> x
+
+
+
+(x⊤wm,τ + b)m,τ 
+
+> +
+
+
+
+=
+
+
+
+am,τ wm,τ (wm,τ )⊤ τ e τ u 
+
+(1 + eτ u )2 , u < c m,τ 
+
+am,τ wm,τ (wm,τ )⊤ϕ′′  
+
+> m,τ
+
+(u), u ≥ cm,τ .
+
+Recall from Appendix A that ∥ϕ′′  
+
+> m,τ
+
+∥∞ ≤ m−2. Meanwhile, ∥S′′  
+
+> τ
+
+∥∞ ≤ τ / 4. By Lemma 14, there exists C > 0 such that for every ( x, θ ): 
+
+am,τ ∇2
+
+> x
+
+ (u)m,τ 
+
+> +
+
+ ρ∗
+
+> ˆα
+
+(θ) ≤ C|a|∥ w∥2 exp( − βλ 
+
+2 ∥θ∥2).
+
+Note that the right-hand side above is absolutely integrable in θ. Since σm,τ (x, θ )ρ∗
+
+> ˆα
+
+(θ) is integrable in θ for every x by Lemma 14 and is C2 differentiable in x for every θ, we have that 
+
+∇2
+
+> x
+
+h∗
+
+> ˆα
+
+(x)=∇2
+
+> x
+
+Z
+
+σm,τ (x, θ )ρ∗
+
+> ˆα
+
+(θ)dθ 
+
+=
+
+Z
+
+Iu<c m,τ am,τ wm,τ (wm,τ )⊤ τ e τ u 
+
+(1 + eτ u )2 ρ∗
+
+> ˆα
+
+(θ)dθ +
+
+Z
+
+Iu≥cm,τ am,τ wm,τ (wm,τ )⊤ϕ′′  
+
+> m,τ
+
+(u)ρ∗
+
+> ˆα
+
+(θ)dθ. 
+
+(24) 
+
+For the first term of the right-hand side of (24), consider the change of variable θ =(a, w, b ) 7 → (a, w, u ′) with u′ = τ u = τ (x⊤wm,τ + b) and we have that 
+
+Z
+
+Iu<c m,τ am,τ wm,τ (wm,τ )⊤ τ e τ u 
+
+(1 + eτ u )2 ρ∗
+
+> ˆα
+
+(θ) dθ 
+
+=
+
+Z
+
+Iu′<τ c m,τ am,τ wm,τ (wm,τ )⊤ eu′
+
+(1 + eu′ )2 ρ∗
+
+> ˆα
+
+(a, w, u′
+
+τ − x⊤wm,τ ) da dw du ′.
+
+31 Liang, Jacobs, Mont´ ufar 
+
+Notice that for a fixed ( a, w, u ′), 
+
+|ρ∗
+
+> ˆα
+
+(a, w, u′
+
+τ − x⊤wm,τ ) − ρ∗
+
+> α
+
+(a, w, −x⊤wm)|≤| ρ∗
+
+> ˆα
+
+(a, w, u′
+
+τ − x⊤wm,τ ) − ρ∗
+
+> ˆα
+
+(a, w, −x⊤wm)| + |ρ∗
+
+> ˆα
+
+(a, w, −x⊤wm) − ρ∗
+
+> α
+
+(a, w, −x⊤wm)|.
+
+By Lemma 14, ρ∗ 
+
+> ˆα
+
+is Lipschitz continuous with a Lipschitz constant independent of τ near (a, w, −x⊤wm). This implies the first term vanishes as τ → ∞ . The second term also vanishes according to Lemma 16. Therefore, we have that for any fixed ( a, w, u ′, m, x ), lim   
+
+> τ→+∞
+
+Iu′<τ c m,τ am,τ wm,τ (wm,τ )⊤ eu′
+
+(1 + eu′ )2 ρ∗
+
+> ˆα
+
+(a, w, u′
+
+τ − x⊤wm,τ )=amwm(wm)⊤ eu′
+
+(1 + eu′ )2 ρ∗
+
+> α
+
+(a, w, −x⊤wm).
+
+By Lemma 14, there exist constants C, C ′ independent of τ such that 
+
+Iu′<τ c m,τ am,τ wm,τ (wm,τ )⊤ eu′
+
+(1 + eu′ )2 ρ∗
+
+> ˆα
+
+(a, w, u′
+
+τ − x⊤wm,τ ) ≤ C eu′
+
+(1 + eu′ )2 exp( −C′(a2+∥w|| 2)) ,
+
+where the right-hand side is absolutely integrable in ( a, w, u ′). Then with the Dominated Convergence Theorem we have that lim  
+
+> τ→∞
+
+Z
+
+Iu<c m,τ am,τ wm,τ (wm,τ )⊤ τ e τ u 
+
+(1 + eτ u )2 ρ∗
+
+> ˆα
+
+(θ) dθ 
+
+=
+
+Z
+
+amwm(wm)⊤ eu′
+
+(1 + eu′ )2 ρ∗
+
+> α
+
+(a, w, −x⊤wm) da dw du ′
+
+=
+
+Z
+
+amwm(wm)⊤ρ∗
+
+> α
+
+(a, w, −x⊤wm) da dw. 
+
+where the second equality comes from the Fubini’s theorem. For the second term of the right-hand side of (24), recall that as τ → +∞, ϕ′′  
+
+> m,τ
+
+uniformly converges to ϕ′′  
+
+> m
+
+on any compact set in ( m2, +∞). Then we have that, for all θ ∈ Rd+2 \θ : x⊤wm + b = m2 , and hence for a.e. θ,
+
+lim   
+
+> τ→+∞
+
+Iu≥cm,τ am,τ wm,τ (wm,τ )⊤ϕ′′  
+
+> m,τ
+
+(u)ρ∗
+
+> ˆα
+
+(θ) = Ix⊤wm+b≥m2 amwm(wm)⊤ϕ′′ 
+
+> m
+
+(x⊤wm + b)ρ∗
+
+> α
+
+(θ).
+
+Similarly, with Lemma 14, there exist C, C ′ independent of τ such that 
+
+Iu≥cm,τ am,τ wm,τ (wm,τ )⊤ϕ′′  
+
+> m,τ
+
+(u)ρ∗
+
+> ˆα
+
+(θ) ≤ C exp( −C′∥θ∥2).
+
+Using the Dominated Convergence Theorem again, we have that 
+
+lim  
+
+> τ→+∞
+
+Z
+
+Iu≥cm,τ am,τ ∇2 
+
+> x
+
+(ϕm,τ (u)) ρ∗
+
+> ˆα
+
+(θ)dθ =
+
+Z
+
+Ix⊤wm+b≥m2 amwm(wm)⊤ϕ′′ 
+
+> m
+
+(x⊤wm + b)ρ∗
+
+> α
+
+(θ)dθ. 
+
+Therefore, we have that lim   
+
+> τ→+∞
+
+∇2
+
+> x
+
+h∗
+
+> ˆα
+
+(x) = 
+
+Z
+
+amwm(wm)⊤ρ∗
+
+> α
+
+(a, w, −x⊤wm) da dw 
+
++
+
+Z
+
+Ix⊤wm+b≥m2 amwm(wm)⊤ϕ′′ 
+
+> m
+
+(x⊤wm + b)ρ∗
+
+> α
+
+(θ)dθ. 
+
+(25) 
+
+32 Implicit Bias of SGD in Multivariate ReLU Networks 
+
+Now we examine the Hessian of h∗
+
+> α
+
+(·). Notice that h∗
+
+> α
+
+(·) is continuous and thus its distributional Hessian exists. Let D2 
+
+> x
+
+denote the distributional Hessian operator. Notice that, for any test function η(x), 
+
+D2
+
+> x
+
+h∗
+
+> α
+
+(·), η (·) =
+
+Z
+
+D2
+
+> x
+
+η(x)
+
+Z 
+
+σm(x, θ )ρ∗
+
+> α
+
+(θ)dθ 
+
+
+
+dx 
+
+=
+
+Z Z 
+
+D2
+
+> x
+
+η(x) · σm(x, θ )dx 
+
+
+
+ρ∗
+
+> α
+
+(θ)dθ 
+
+=
+
+Z Z 
+
+η(x) · D2
+
+> x
+
+σm(x, θ )dx 
+
+
+
+ρ∗
+
+> α
+
+(θ)dθ, 
+
+where the second equality is by Fubini’s Theorem. Note that, as distributions in x,
+
+D2
+
+> x
+
+(σm(x, θ )) = amwm(wm)⊤
+
+δ(x⊤wm + b) + Ix⊤wm+b≥m2 ϕ′′ 
+
+> m
+
+(x⊤wm + b)
+
+
+
+.
+
+Then we have that 
+
+D2
+
+> x
+
+h∗
+
+> α
+
+(·), η (·) =
+
+Z Z 
+
+amwm(wm)⊤ρ∗
+
+> α
+
+(a, w, −x⊤wm)dadw 
+
+
+
+η(x)dx 
+
++
+
+Z Z 
+
+amwm(wm)⊤ϕ′′ 
+
+> m
+
+(x⊤wm + b)Ix⊤wm+b≥m2 ρ∗
+
+> α
+
+(θ)dθ 
+
+
+
+η(x)dx, 
+
+which means that, 
+
+D2
+
+> x
+
+h∗
+
+> α
+
+(x) = 
+
+Z
+
+amwm(wm)⊤ρ∗
+
+> α
+
+(a, w, −x⊤wm) da dw 
+
++
+
+Z
+
+amwm(wm)⊤Ix⊤wm+b≥m2 ϕ′′ 
+
+> m
+
+(x⊤wm + b)ρ∗
+
+> α
+
+(θ)dθ. 
+
+(26) By Lemma 16, the right-hand side of (26) is an ordinary continuous function in x. Thus, 
+
+h∗ 
+
+> α
+
+∈ C2(Rd). Comparing (25) against (26) gives that lim   
+
+> τ→+∞
+
+∇2
+
+> x
+
+h∗
+
+> ˆα
+
+(x) = ∇2
+
+> x
+
+h∗
+
+> α
+
+(x).
+
+Next, we derive the Hessian bound (17). Recall from Appendix A that, |am| ≤ m and 
+
+∥ϕ′′ 
+
+> m
+
+∥∞ ≤ m−2. Thus, for the second term of the right-hand side of (26), 
+
+Z
+
+amwm(wm)⊤Ix⊤wm+b≥m2 ϕ′′ 
+
+> m
+
+(x⊤wm + b)ρ∗
+
+> α
+
+(θ) dθ ≤ 1
+
+m
+
+Z
+
+∥w∥2ρ∗
+
+> α
+
+(θ) dθ 
+
+≤ C(mλ )−1 + C′m−1,
+
+where the second inequality comes from Lemma 15 and C, C ′ > 0 are independent of ( α, x ). For the first term of the right-hand side of (26), let 
+
+Z∗ 
+
+> α
+
+=
+
+Z
+
+exp 
+
+n
+
+− β
+
+ MX
+
+> j=1
+
+Rαj σm(xj , θ ) + λ
+
+2 ∥θ∥2o 
+
+dθ. 
+
+33 Liang, Jacobs, Mont´ ufar 
+
+We have that Z
+
+amwm(wm)⊤ρ∗
+
+> α
+
+(a, w, −x⊤wm) da dw 
+
+=( Z∗
+
+> α
+
+)−1
+
+Z
+
+amwm(wm)⊤ · exp 
+
+n
+
+− β
+
+h MX
+
+> j=1
+
+Rαj · am(x⊤ 
+
+> j
+
+wm − x⊤wm)m
+
+> +
+
++ λ
+
+2 (a2 + ∥w∥2 + ( x⊤wm)2)
+
+io 
+
+da dw. 
+
+For all m > max j ∥xj − x∥, we have that max  
+
+> j
+
+|(xj − x)⊤wm| ≤ max  
+
+> j
+
+∥xj − x∥ · ∥ wm∥ ≤ max  
+
+> j
+
+∥xj − x∥ · m < m 2.
+
+Recall that ( z)m 
+
+> +
+
+= ( z)+ if z ≤ m2, and that, wm = γww for some γw ∈ [0 , 1]. Then we have that 
+
+Z∗ 
+
+> α
+
+·
+
+Z
+
+amwm(wm)⊤ρ∗
+
+> α
+
+(a, w, −x⊤wm) da dw 
+
+≤
+
+Z
+
+|a|∥ w∥2 · exp 
+
+−β
+
+
+
+> M
+
+X
+
+> j=1
+
+Rαj · am(( xj − x)⊤wm)+ + λ
+
+2 (a2 + ∥w∥2 + |x⊤wm|2)
+
+ da dw 
+
+= 
+
+> 2P(X)
+
+X
+
+> k=1
+
+Z
+
+> R×Owk
+
+|a|∥ w∥2 · exp 
+
+−β
+
+ X
+
+> j∈Jk
+
+Rαj · am(xj − x)⊤wm + λ
+
+2 (a2 + ∥w∥2 + |x⊤wm|2)
+
+ da dw. 
+
+For k = 1 , . . . , 2P(X ), with Tonelli’s theorem we have that 
+
+Z
+
+> R×Owk
+
+|a|∥ w∥2 exp 
+
+−β
+
+ X
+
+> j∈Jk
+
+Rαj · am(xj − x)⊤wm + λ
+
+2 (a2 + ∥w∥2 + |x⊤wm|2)
+
+ dadw 
+
+=
+
+Z
+
+> R×Owk
+
+|a|∥ w∥2 · exp 
+
+
+
+− λβ 
+
+2
+
+h
+
+2am(Qαk )⊤wm + a2 + ∥w∥2 + |x⊤wm|2i
+
+da dw 
+
+=
+
+Z
+
+> Owk
+
+∥w∥2 exp( − λβ 
+
+2 (∥w∥2 + |x⊤wm|2)) 
+
+ Z
+
+> R
+
+|a| exp( − λβ 
+
+2 (a2 + 2 am(Qαk )⊤wm)) da 
+
+
+
+dw. 
+
+For the inner integral in a, we have that 
+
+Z
+
+> R
+
+|a| exp( − λβ 
+
+2 (a2 + 2 am(Qαk )⊤wm)) da 
+
+≤
+
+Z
+
+> R
+
+|a| exp( − λβ 
+
+2 (a2 − 2|a|| (Qαk )⊤wm|)) da 
+
+=2 
+
+Z ∞
+
+> 0
+
+a exp( − λβ 
+
+2 (a2 − 2a|(Qαk )⊤wm|)) da 
+
+= 2
+
+λβ +
+
+r 2πλβ · exp( λβ 
+
+2 (( Qαk )⊤wm)2) · | (Qαk )⊤wm| · 
+
+
+
+1 + erf( |(Qαk )⊤wm|
+
+r λβ 
+
+2 )
+
+
+
+≤ 2
+
+λβ +
+
+r 2πλβ · exp( λβ 
+
+2 (( Qαk )⊤wm)2) · 2|(Qαk )⊤wm|.
+
+34 Implicit Bias of SGD in Multivariate ReLU Networks 
+
+Then we have that 
+
+Z
+
+> R×Owk
+
+|a|∥ w∥2 exp 
+
+−β
+
+ X
+
+> j∈Jk
+
+Rαj am(xj − x)⊤wm + λ
+
+2 (a2 + ∥w∥2 + |x⊤wm|2)
+
+ da dw 
+
+≤ 2
+
+λβ 
+
+Z
+
+> Owk
+
+∥w∥2 exp( − λβ 
+
+2 (∥w∥2 + |x⊤wm|2)) dw 
+
++ 2 
+
+r 2πλβ 
+
+Z
+
+> Owk
+
+∥w∥2|(Qαk )⊤wm| exp 
+
+
+
+− λβ 
+
+2
+
+
+
+∥w∥2 + |x⊤wm|2 − (( Qαk )⊤wm)2
+
+dw 
+
+≲(λβ )− d+4 2 + ( λβ )− 12
+
+Z
+
+> Owk
+
+∥w∥2|(Qαk )⊤wm| exp 
+
+
+
+− λβ 
+
+2
+
+
+
+∥w∥2 + |x⊤wm|2 − (( Qαk )⊤wm)2
+
+dw, 
+
+where the last inequality comes from the fact that 2
+
+λβ 
+
+Z
+
+> Owk
+
+∥w∥2 exp( − λβ 
+
+2 (∥w∥2+|x⊤wm|2)) dw ≤ 2
+
+λβ 
+
+Z
+
+> Rd
+
+∥w∥2 exp( − λβ 
+
+2 ∥w∥2)dw ≲ (λβ )− d+4 2 .
+
+By the above and with Lemma 18, we have that 
+
+∥∇ 2
+
+> x
+
+h∗
+
+> α
+
+(x)∥ ≲ m−1(1 + λ−1) + β−1λ− d+6 4 (1 + √λ) d+2 2 + β d+1 2 λ d 
+
+> 4
+
+(1 + √λ) d+2 2 Iα(x),
+
+where 
+
+Iα(x) =  
+
+> 2P(X)
+
+X
+
+> k=1
+
+Z
+
+> Owk
+
+∥w∥2|(Qαk )⊤wm| exp 
+
+
+
+− λβ 
+
+2
+
+
+
+∥w∥2 + |x⊤wm|2 − (( Qαk )⊤wm)2
+
+dw. 
+
+This completes the proof. 
+
+B.2 Proof of Proposition 9 
+
+In this section, we prove Proposition 9 which bounds the Hessian ∥∇ 2
+
+> x
+
+h∗
+
+> α
+
+(x)∥ under the Quadratic Positivity Condition. 
+
+Proof (Proof of Proposition 9) By assumption, for any k ∈ { 1, · · · , 2P(X )}, we have that 
+
+f αk (w, b ) ≥ δ(∥w∥2 + b2), ∀(w, b ) ∈ Gx ∩ Ok.
+
+Therefore, 
+
+∥w∥2 + |x⊤w|2 − | (Qαk )⊤w|2 ≥ δ∥w∥2, ∀w ∈ Owk .
+
+Note that wm = γww for some γw ∈ [0 , 1] and that δ ∈ (0 , 1/2]. Thus, for every w ∈ Owk ,
+
+∥w∥2 + |x⊤wm|2 − | (Qαk )⊤wm|2 = (1 − γ2
+
+> w
+
+)∥w∥2 + γ2
+
+> w
+
+(∥w∥2 + |x⊤w|2 − | (Qαk )⊤w|2)
+
+≥ (1 − γ2
+
+> w
+
+(1 − δ)) ∥w∥2
+
+≥ δ∥w∥2.
+
+35 Liang, Jacobs, Mont´ ufar 
+
+Notice that |(Qαk )⊤wm|2 ≤ (1 − δ)∥w∥2 + |x⊤wm|2 ≤ ∥ w∥2(1 + ∥x∥2). Then we have that 
+
+Z
+
+> Owk
+
+∥w∥2|(Qαk )⊤wm| exp 
+
+
+
+− λβ 
+
+2
+
+
+
+∥w∥2 + |x⊤wm|2 − | (Qαk )⊤wm|2
+
+dw 
+
+≤p1 + ∥x∥2
+
+Z
+
+> Rd
+
+∥w∥3 exp 
+
+
+
+− λβδ 
+
+2 ∥w∥2
+
+
+
+dw 
+
+≲p1 + ∥x∥2(λβδ )− d+3 2 .
+
+It follows that 
+
+Iα(x) ≲ p1 + ∥x∥2(λβδ )− d+3 2 .
+
+With Proposition 8, we have that 
+
+∥∇ 2
+
+> x
+
+h∗
+
+> α
+
+(x)∥ ≲ m−1(1 + λ−1) + β−1λ− d+6 4 (1 + √λ) d+2 2
+
+
+
+1 + p1 + ∥x∥2 · δ− d+3 2
+
+
+
+.
+
+This completes the proof. 
+
+B.3 Proof of Proposition 10 
+
+In this section, we prove Proposition 10 which shows the shrinkage of the cluster set. 
+
+Proof (Proof of Proposition 10) 
+
+Step 1. We begin with fixing the topology of the set ˆΩ∗ = [
+
+> k
+
+ˆOk ∩ ˆΩ∗
+
+> k
+
+.
+
+We claim that, for every k in {1, . . . , 2P(X )}, ˆOk ∩ ˆΩ∗ 
+
+> k
+
+has at most two connected compo-nents. Note that, when ∥P ∗ 
+
+> k
+
+∥ < 1, ˆΩ∗ 
+
+> k
+
+= ∅ and, when ∥P ∗ 
+
+> k
+
+∥ = 1, ˆΩ∗ 
+
+> k
+
+consists of two points. The claim thus holds in both cases. Assume that ∥P ∗ 
+
+> k
+
+∥ > 1. Under a suitable basis ˜ z, f ∗
+
+> k
+
+can be written as 
+
+f ∗ 
+
+> k
+
+(˜ z) = (1 − ∥ P ∗ 
+
+> k
+
+∥2)˜ z21 + X
+
+> i> 1
+
+˜z2 
+
+> i
+
+.
+
+Then ˆΩ∗ 
+
+> k
+
+has two connected components: 
+
+C+ =
+
+n
+
+˜z ∈ Sd : ˜ z1 ≥
+
+s 1
+
+∥P ∗ 
+
+> k
+
+∥2 − 1
+
+X
+
+> i> 1
+
+˜z2
+
+> i
+
+o
+
+, C − =
+
+n
+
+˜z ∈ Sd : ˜ z1 ≤ − 
+
+s 1
+
+∥P ∗ 
+
+> k
+
+∥2 − 1
+
+X
+
+> i> 1
+
+˜z2
+
+> i
+
+o
+
+.
+
+Clearly, C+ is contained by an open hemisphere on Sd. Select any z ∈ C+ and consider the standard gnomonic projection ι from C+ to the tangent space Tz Sd, viewed as an embedded submanifold of Rd+1 . Recall that Ok is a cone and ˆOk is its spherical cross-section. We have that 
+
+ι( ˆOk ∩ C+) = Tz Sd ∩ Ok ∩
+
+n
+
+˜z ∈ Rd+1 : ˜ z1 ≥
+
+s 1
+
+∥P ∗ 
+
+> k
+
+∥2 − 1
+
+X
+
+> i> 1
+
+˜z2
+
+> i
+
+o
+
+.
+
+36 Implicit Bias of SGD in Multivariate ReLU Networks 
+
+The set on the right-hand side is either empty or connected, as it is the intersection of three convex sets. As ι is a homeomorphism, ˆOk ∩ C+ is either empty or connected. Similar arguments apply to ˆOk ∩ C−. Thus, ˆOk ∩ ˆΩ∗ 
+
+> k
+
+has at most two connected components. We next show that the case of two components of ˆOk ∩ ˆΩ∗ 
+
+> k
+
+occurs if and only if both components of ˆΩ∗ 
+
+> k
+
+intersect the relative boundary of ˆOk in Sd. Note that f ∗ 
+
+> k
+
+(z) = 1 −(z⊤P ∗ 
+
+> k
+
+)2
+
+for z ∈ Sd. Then the two components of ˆΩ∗ 
+
+> k
+
+can be rewritten as 
+
+C+ =
+
+n
+
+z ∈ Sd : z⊤P ∗ 
+
+> k
+
+≥ 1
+
+o
+
+, C− =
+
+n
+
+z ∈ Sd : z⊤P ∗ 
+
+> k
+
+≤ − 1
+
+o
+
+.
+
+For contradiction, assume that C+ is in the relative interior of ˆOk in Sd. Then ∥P ∗ 
+
+> k
+
+∥ has to be no smaller than one. Suppose that ˆOk corresponds to the binary activation pattern 
+
+A and assume without loss of generality that A(x1) = 1. Notice that ˆOk is contained in the closed hemisphere E = {(w, b ) ∈ Sd : w⊤x1 + b ≥ 0}. By assumption, C+ lies in the relative interior of ˆOk and thus also in the relative interior of E. By the reflection symmetry, we have that C− = −C+ lies in the relative interior of −E. In particular, we have that 
+
+C− ∩ E = ∅. Consequently, C− ∩ ˆOk = ∅, which yields a contradiction. Therefore, ˆOk ∩ ˆΩ∗
+
+> k
+
+has two components if and only if both components of ˆΩ∗ 
+
+> k
+
+intersect the relative boundary of ˆOk.Consider any two adjacent sectors ˆOk, ˆOl with a non-empty intersection ˆOkl = ˆOk ∩ ˆOl.Recalling the definition of f αk from (20), we have that 
+
+f αn 
+
+> k
+
+(w, b ) = f αn 
+
+> l
+
+(w, b ), ∀(w, b ) ∈ ˆOkl .
+
+As f αn 
+
+> k
+
+converges pointwise to f ∗ 
+
+> k
+
+,
+
+f ∗ 
+
+> k
+
+(w, b ) = f ∗ 
+
+> l
+
+(w, b ), ∀(w, b ) ∈ ˆOkl .
+
+Thus, their non-positive sets agree on ˆOkl :ˆΩ∗ 
+
+> k
+
+∩ ˆOkl = ˆΩ∗ 
+
+> ℓ
+
+∩ ˆOkl . (27) This means that whenever ˆΩ∗ 
+
+> k
+
+∩ ˆOk has two components, each component must touch the relative boundary of ˆOk and will be merged with components in adjacent sectors. Now we show that ˆΩ∗ has at most 2 P(X ) − 1 connected components. First, consider the specific closed sector ˆOk0 =
+
+> M
+
+\
+
+> j=1
+
+n
+
+(w, b ) ∈ Sd : x⊤ 
+
+> j
+
+w + b ≤ 0
+
+o
+
+. (28) We have that Jk0 = ∅, f αn 
+
+> k0
+
+(z) = ∥z∥2 for every n. Thus, f ∗ 
+
+> k0
+
+(z) = ∥z∥2 and ˆΩ∗ 
+
+> k0
+
+= ∅. Thus, the sector ˆOk0 does not intersect any connected component of ˆΩ∗. Now suppose that ˆΩ∗
+
+has N connected components, denoted by {Ci}Ni=1 . For i = 1 , · · · , N , consider the number of sectors intersecting Ci:
+
+ri = # 
+
+n
+
+k : ˆOk ∩ Ci̸ = ∅
+
+o
+
+≥ 1.
+
+37 Liang, Jacobs, Mont´ ufar 
+
+Suppose that there are I connected components such that ri = 1. Because a sector can contain two components only if both touch its relative boundary, there are precisely I sectors that contain one component in their interior and intersect no other components on their relative boundaries. For the remaining N − I components, we have that ri ≥ 2. Thus, 2( N − I) ≤ X  
+
+> i:ri≥2
+
+ri.
+
+As there are already I + 1 sectors, including ˆOk0 , that do not intersect any component on their boundaries, these N − I components with ri ≥ 2 can only intersect the remaining 2P(X )−I −1 sectors. However, each of these sectors can intersect at most two components. Thus, X  
+
+> i:ri≥2
+
+ri ≤ 2(2 P(X ) − I − 1) .
+
+Therefore, we have that N − I ≤ 2P(X ) − I − 1. Thus, the total number of components is bounded as follows: 
+
+N = I + ( N − I) ≤ I + (2 P(X ) − I − 1) = 2 P(X ) − 1.
+
+Step 2. Next, we show that 
+
+s( ˆΩ∗) = 0 ,
+
+where s(A) denotes the spherical measure of a measurable set A ⊂ Sd. Fix an arbitrary k
+
+from {1, . . . , 2P(X )}. With z = ( w, b ), define Θαk = {a : |a| < m } × 
+
+
+
+Ok ∩ Ωαk ∩ { z : ∥z∥ < m }
+
+
+
+⊂ Rd+2 .
+
+Assume that m > 1 + max j ∥xj ∥. Then, given that |b| < m ,max  
+
+> j
+
+|x⊤ 
+
+> j
+
+wm + b| ≤ (1 + max  
+
+> j
+
+∥xj ∥)m ≤ m2.
+
+Then for all θ ∈ Θαk ,
+
+am(x⊤ 
+
+> j
+
+wm + b)m 
+
+> +
+
+= am(x⊤ 
+
+> j
+
+wm + b)+ = a(x⊤ 
+
+> j
+
+w + b)+, j = 1 , . . . , M. 
+
+Let 
+
+Z∗ 
+
+> α
+
+=
+
+Z
+
+exp 
+
+n
+
+− β
+
+h MX
+
+> j=1
+
+Rαj am(x⊤ 
+
+> j
+
+wm + b)m 
+
+> +
+
++ λ
+
+2 ∥θ∥2io 
+
+dθ. 
+
+We have that 
+
+Z∗ 
+
+> α
+
+≥
+
+Z
+
+> Θαk
+
+exp 
+
+n
+
+− β
+
+h X 
+
+> j∈Jk
+
+Rαj a(x⊤ 
+
+> j
+
+w + b) + λ
+
+2 ∥θ∥2io 
+
+dθ 
+
+=
+
+Z
+
+> Θαk
+
+exp 
+
+n
+
+− λβ 
+
+2
+
+h
+
+2a · (P αk )⊤z + ∥θ∥2i o 
+
+dθ 
+
+=
+
+Z
+
+> Θαk
+
+exp 
+
+n
+
+− λβ 
+
+2
+
+h 
+
+a + ( P αk )⊤z
+
+2
+
++ f αk (w, b )
+
+io 
+
+dθ 
+
+≥
+
+Z
+
+> Θαk
+
+exp 
+
+n
+
+− λβ 
+
+2
+
+
+
+a + ( P αk )⊤z
+
+2o
+
+dθ, 
+
+38 Implicit Bias of SGD in Multivariate ReLU Networks 
+
+where we used that f αk (w, b ) ≤ 0 for all ( w, b ) ∈ Ωαk . With change of variables θ 7 → (a, ˆz =
+
+z/ ∥z∥, r = ∥z∥), we have that 
+
+Z∗ 
+
+> α
+
+≥
+
+Z
+
+> Θαk
+
+exp 
+
+
+
+− λβ 
+
+2
+
+
+
+a + ( P αk )⊤z
+
+2
+
+dθ 
+
+=
+
+Z m
+
+> 0
+
+Z  
+
+> ˆOk∩ˆΩαk
+
+Z m
+
+> −m
+
+rd exp 
+
+
+
+− λβ 
+
+2 · (a + ( P αk )⊤ ˆzr )2
+
+
+
+da ds (ˆ z) dr 
+
+≥
+
+Z √m
+
+> 0
+
+Z  
+
+> ˆOk∩ˆΩαk
+
+Z m
+
+> −m
+
+rd exp 
+
+
+
+− λβ 
+
+2 · (a + ( P αk )⊤ ˆzr )2
+
+
+
+da ds (ˆ z) dr, 
+
+where s(ˆ z) denotes the spherical measure on Sd.By Lemma 17, there exists C1 independent of α such that P 
+
+> j
+
+(Rαj )2 ≤ C1λ. Then with Cauchy-Schwarz inequality, 
+
+∥P αk ∥2 = 1
+
+λ
+
+X
+
+> j∈Jk
+
+Rαj xj
+
+> 2
+
++
+
+ 1
+
+λ
+
+X
+
+> j∈Jk
+
+Rαj
+
+2
+
+≤ 1
+
+λ2 · C1λ ·
+
+ MX
+
+> j=1
+
+∥xj ∥2 + M
+
+
+
+.
+
+Thus, there exists C2 > 0 independent of α such that 
+
+∥P αk ∥ < C2
+
+√λ .
+
+Now assume that m satisfies 
+
+m > √m · C2
+
+√λ + 1 .
+
+Note that this holds if 
+
+m > 14
+
+C2
+
+√λ +
+
+r C22
+
+λ + 4 
+
+!2
+
+.
+
+We have that for r ∈ [0 , √m], 1 + |(P αk )⊤ ˆzr | ≤ 1 + ∥P αk ∥r ≤ 1 + C2
+
+√λ
+
+√m < m. 
+
+Thus, 
+
+m + ( P αk )⊤ ˆzr ≥ m − | (P αk )⊤ ˆzr | ≥ 1, −m + ( P αk )⊤ ˆzr ≤ 0.
+
+Then we have that 
+
+Z m
+
+> −m
+
+exp 
+
+
+
+− λβ 
+
+2 · (a + ( P αk )⊤ ˆzr )2
+
+
+
+da =
+
+Z m+( P αk )⊤ ˆzr    
+
+> −m+( Pαk)⊤ˆzr
+
+exp 
+
+
+
+− λβ 
+
+2 u2
+
+
+
+du 
+
+≥
+
+Z 10
+
+exp 
+
+
+
+− λβ 
+
+2 u2
+
+
+
+du 
+
+=
+
+r π
+
+2λβ erf( 
+
+r λβ 
+
+2 )
+
+≥ 12
+
+r π
+
+2λβ ,
+
+39 Liang, Jacobs, Mont´ ufar 
+
+where the final inequality comes from that λβ > 1 and that erf( p1/2) > 1/2. Therefore, with Tonelli’s Theorem, 
+
+Z∗ 
+
+> α
+
+≥
+
+Z √m
+
+> 0
+
+Z  
+
+> ˆOk∩ˆΩαk
+
+12
+
+r π
+
+2λβ · rd ds (ˆ z) dr ≥ C3 · s( ˆOk ∩ ˆΩαk ) · m d+1 2
+
+√λβ ,
+
+where C3 is independent of α.By Lemma 18, there exists C4 independent of α such that 
+
+Z∗ 
+
+> α
+
+≤ exp( C4β + 1) · ( 8πλβ )d+2 .
+
+Then we have that 
+
+C3 · s( ˆOk ∩ ˆΩαk ) · m d+1 2
+
+√λβ ≤ Z∗ 
+
+> α
+
+≤ exp( C4β + 1) · ( 8πλβ )d+2 .
+
+Since λβ > 1, we have that 
+
+s( ˆOk ∩ ˆΩαk ) ≤ C5
+
+exp( C4β + 1) 
+
+m d+1 2
+
+,
+
+where C4, C 5 are constants independent of α. Assume that m > exp(2 C4β + 2). Then, 
+
+s( ˆOk ∩ ˆΩαk ) ≤ C5
+
+1
+
+m d
+
+> 2
+
+. (29) As the analysis applies to any k, we have that lim  
+
+> n→∞
+
+max  
+
+> k
+
+s( ˆOk ∩ ˆΩαn 
+
+> k
+
+) = 0 . (30) Notice that, for every z ∈ Sd,
+
+|f αn 
+
+> k
+
+(z) − f ∗ 
+
+> k
+
+(z)| = |z⊤(P αn 
+
+> k
+
+(P αn 
+
+> k
+
+)⊤ − P ∗ 
+
+> k
+
+(P ∗ 
+
+> k
+
+)⊤)z| ≤ ∥ P αn 
+
+> k
+
+(P αn 
+
+> k
+
+)⊤ − P ∗ 
+
+> k
+
+(P ∗ 
+
+> k
+
+)⊤∥. (31) Thus, by lim n P αn 
+
+> k
+
+= P ∗ 
+
+> k
+
+, we have that f αn 
+
+> k
+
+converges uniformly to f ∗ 
+
+> k
+
+on Sd. Now assume that s( ˆΩ∗) > 0. Thus, there exists at least one k such that s( ˆΩ∗ 
+
+> k
+
+∩ ˆOk) > 0. As ˆΩ∗ 
+
+> k
+
+∩ ˆOk is closed, ˆΩ∗ 
+
+> k
+
+∩ ˆOk = Int Sd ( ˆΩ∗ 
+
+> k
+
+∩ ˆOk) ∪ ∂Sd ( ˆΩ∗ 
+
+> k
+
+∩ ˆOk),
+
+where Int Sd denotes the relative interior on Sd and ∂Sd denotes the relative boundary on Sd.Notice that 
+
+∂Sd ( ˆΩ∗ 
+
+> k
+
+∩ ˆOk) ⊂ ∂Sd ˆΩ∗ 
+
+> k
+
+∪ ∂Sd ˆOk.
+
+By the geometry of ˆOk and ˆΩ∗
+
+> k
+
+, we have that ∂Sd ( ˆΩ∗ 
+
+> k
+
+∩ ˆOk) has zero spherical measure. Therefore, ˆΩ∗ 
+
+> k
+
+∩ ˆOk must have a non-empty relative interior. Fix any z inside its relative interior. Then, there exists an ε > 0 and a spherical neighborhood U of z such that 
+
+U ⊂ ˆΩ∗ 
+
+> k
+
+∩ ˆOk and f ∗ 
+
+> k
+
+(z) < −ε for every z ∈ U . By the uniform convergence, there exists N
+
+such that for all n > N and every z ∈ U , f αn 
+
+> k
+
+(z) ≤ − ε/ 2 < 0. Thus, U ⊂ ˆΩαn 
+
+> k
+
+∩ ˆOk for all 
+
+n > N , which contradicts (30). Hence, s( ˆΩ∗) = 0. 
+
+40 Implicit Bias of SGD in Multivariate ReLU Networks 
+
+Step 3. Now we prove that ˆΩ∗ consists of at most 2 P(X ) − 1 points. For this end, we show that for every k, ˆΩ∗ 
+
+> k
+
+∩ ˆOk can be either two points, or one point, or empty. Note that, 
+
+f ∗ 
+
+> k
+
+(z) = 1 − (z⊤P ∗ 
+
+> k
+
+)2 when z ∈ Sd. Let ˆΩ∗ 
+
+> k
+
+∩ ˆOk = A+ ⊔ A− where 
+
+A+ =
+
+n
+
+z ∈ ˆOk : z⊤P ∗ 
+
+> k
+
+≥ 1
+
+o
+
+, A− =
+
+n
+
+z ∈ ˆOk : z⊤P ∗ 
+
+> k
+
+≤ − 1
+
+o
+
+.
+
+Recall that s(A+) = S(A−) = 0. We claim that 
+
+A+ =
+
+n
+
+z ∈ ˆOk : z⊤P ∗ 
+
+> k
+
+= 1 
+
+o
+
+, A− =
+
+n
+
+z ∈ ˆOk : z⊤P ∗ 
+
+> k
+
+= −1
+
+o
+
+.
+
+Indeed, if there exists z ∈ ˆOk such that z⊤P ∗ 
+
+> k
+
+> 1, there exists a spherical neighborhood U
+
+of z such that ( z′)⊤P ∗ 
+
+> k
+
+> 1 for every z′ ∈ U . Consequently, s( ˆΩ∗ 
+
+> k
+
+∩ ˆOk) ≥ s(U ∩ ˆOk) > 0, which yields a contradiction. We show that A+ must be a singleton. Assume that A+ contains two distinct points 
+
+z1̸ = z2. Let z0 = ( z1 + z2)/2 and ˆ z0 = z0/∥z0∥. Clearly, ∥z0∥ < 1 and ˆ z0 ∈ ˆOk. However, 
+
+|(P ∗ 
+
+> k
+
+)⊤ ˆz0|2 = 1
+
+∥z0∥2
+
+(P ∗ 
+
+> k
+
+)⊤z1 + ( P ∗ 
+
+> k
+
+)⊤z2
+
+2
+
+> 2
+
+= 1
+
+∥z0∥2 > 1.
+
+Similarly, there exists a spherical neighborhood U of ˆ z0 such that U ⊂ ˆΩ∗ 
+
+> k
+
+and s( ˆΩ∗ 
+
+> k
+
+∩ ˆOk) ≥
+
+s(U ∩ ˆOk) > 0, which yields a contradiction. Therefore, for every k, ˆΩ∗ 
+
+> k
+
+∩ ˆOk can be either two points, or one point, or empty. As a consequence, ˆΩ∗ = ∪k ˆΩ∗ 
+
+> k
+
+∩ ˆOk is a finite set. Since ˆΩ∗ has at most 2 P(X ) − 1 connected components, we have that ˆΩ∗ consists of at most 2P(X ) − 1 points. 
+
+Step 4. Finally, we show that ˆΩαn is contained by a spherical neighborhood of ˆΩ∗ for sufficiently large n. For this end, we show that, for every k and ε, there exists N such that ˆOk ∩ ˆΩαn 
+
+> k
+
+⊂
+
+n
+
+z ∈ Sd : d∠(z, ˆOk ∩ ˆΩ∗
+
+> k
+
+) < ε 
+
+o
+
+, ∀n > N. 
+
+Assume that this fails to hold. Then there exist k and ε0 > 0 and subsequence {nl} such that, for every l, there exists zl ∈ ˆOk ∩ ˆΩαnl 
+
+> k
+
+with d∠(zl, ˆOk ∩ ˆΩ∗
+
+> k
+
+) ≥ ε0. Since ˆOk is compact, we can assume without loss of generality that z∗ = lim l zl ∈ ˆOk exists. As zl ∈ ˆΩαnl 
+
+> k
+
+, we have that |z⊤ 
+
+> l
+
+P αnl 
+
+> k
+
+| ≥ 1 for every l. Taking n → +∞ gives that |(z∗)⊤P ∗ 
+
+> k
+
+| ≥ 1. Therefore, 
+
+z∗ ∈ ˆΩ∗ 
+
+> k
+
+∩ ˆOk, which yields a contradiction. It directly follows that, for every ε there exists 
+
+N such that ˆΩαn ⊂
+
+n
+
+z ∈ Sd : d∠(z, ˆΩ∗) < ε 
+
+o
+
+, ∀n > N. 
+
+This completes the proof. 
+
+B.4 Proof of Theorem 11 
+
+In this section, we prove Theorem 11, thereby proving Theorem 4. 
+
+Proof (Proof of Theorem 11 ) We will show that min  
+
+> k
+
+inf  
+
+> x∈Γ
+
+inf   
+
+> z∈ˆGx∩ˆOk
+
+f ∗ 
+
+> k
+
+(z) > 0.
+
+41 Liang, Jacobs, Mont´ ufar 
+
+Let ˆGΓ = ∪x∈Γ ˆGx = [
+
+> x∈Γ
+
+n
+
+(w, b ) ∈ Sd : w⊤x + b = 0 
+
+o
+
+.
+
+It suffices to show that min  
+
+> k
+
+inf   
+
+> z∈ˆGΓ∩ˆOk
+
+f ∗ 
+
+> k
+
+(z) > 0.
+
+Notice that for any k with ∥P ∗ 
+
+> k
+
+∥ < 1, we have that inf  
+
+> z∈Sd
+
+f ∗ 
+
+> k
+
+(z) ≥ 1 − ∥ P ∗ 
+
+> k
+
+∥2 > 0.
+
+Consider an arbitrary k with ∥P ∗ 
+
+> k
+
+∥ ≥ 1 and thus ˆΩ∗
+
+> k
+
+̸ = ∅. By the assumption that Γ ∩
+
+(∪kπk) = ∅, we have that ˆGΓ ∩ ˆΩ∗ = ∅. Thus, ˆGΓ ∩ ˆOk ∩ ˆΩ∗ 
+
+> k
+
+= ∅.
+
+As Γ is compact, ˆGΓ is closed. Since ˆGΓ, ˆOk, ˆΩ∗ 
+
+> k
+
+are closed sets, we have that 
+
+δk = d∠( ˆGΓ ∩ ˆOk, ˆΩ∗
+
+> k
+
+) > 0, (32) where d∠(S, S ′) = inf s∈S,s ′∈S′ arccos s⊤s′ for non-empty subsets S, S ′ ⊂ Sd.Let ˆP ∗ 
+
+> k
+
+= P ∗ 
+
+> k
+
+/∥P ∗ 
+
+> k
+
+∥ ∈ Sd. Define, for all z ∈ Sd, that 
+
+γk(z) = min  arccos( z⊤ ˆP ∗ 
+
+> k
+
+), π − arccos( z⊤ ˆP ∗ 
+
+> k
+
+) ∈ [0 , π
+
+2 ].
+
+Then, for any z ∈ Sd,
+
+f ∗ 
+
+> k
+
+(z) = 1 − (( P ∗ 
+
+> k
+
+)⊤z)2 = 1 − ∥ P ∗ 
+
+> k
+
+∥2 cos 2(γk(z)) .
+
+Thus, for z ∈ Sd,
+
+z ∈ ˆΩ∗ 
+
+> k
+
+⇐⇒ cos γk(z) ≥ 1
+
+∥P ∗ 
+
+> k
+
+∥ ⇐⇒ γk(z) ≤ ¯γk ≜ arccos( 1
+
+∥P ∗ 
+
+> k
+
+∥ ).
+
+As ∥P ∗ 
+
+> k
+
+∥ ≥ 1, ¯ γk ∈ [0 , π/ 2). By (32), 
+
+π
+
+2 ≥ γk(z) ≥ ¯γk + δk, ∀z ∈ ˆGΓ ∩ ˆOk.
+
+As cosine is monotonic on [0 , π/ 2], we have that 
+
+f ∗ 
+
+> k
+
+(z) ≥ 1 − ∥ P ∗ 
+
+> k
+
+∥2 cos 2 
+
+¯γk + δk
+
+
+
+, ∀z ∈ ˆGΓ ∩ ˆOk.
+
+Since ¯ γk, δ k ∈ [0 , π/ 2], cos(¯ γk + δk) = cos(¯ γk) cos( δk) − sin(¯ γk) sin( δk) ≤ cos(¯ γk) cos( δk) = 1
+
+∥P ∗ 
+
+> k
+
+∥ cos δk.
+
+Thus, 
+
+f ∗ 
+
+> k
+
+(z) ≥ 1 − cos 2(δk) = sin 2(δk) > 0, ∀z ∈ ˆGΓ ∩ ˆOk.
+
+42 Implicit Bias of SGD in Multivariate ReLU Networks 
+
+Now we have that 
+
+δ∗ = min  
+
+> k
+
+inf   
+
+> z∈ˆGΓ∩ˆOk
+
+f ∗ 
+
+> k
+
+(z) ≥ min 
+
+n
+
+min      
+
+> k:∥P∗
+> k∥<1
+
+1 − ∥ P ∗ 
+
+> k
+
+∥2, min      
+
+> k:∥P∗
+> k∥≥ 1
+
+sin 2(δk)
+
+o
+
+> 0.
+
+As shown in (31), f αn 
+
+> k
+
+converges uniformly to f ∗ 
+
+> k
+
+on Sd. Thus, there exists N > 0 such that inf  
+
+> n>N
+
+min  
+
+> k
+
+inf   
+
+> z∈ˆGΓ∩ˆOk
+
+f αn 
+
+> k
+
+(z) ≥ δ∗
+
+2 .
+
+That is, there exists N such that for all n > N and any x ∈ Γ, min  
+
+> k
+
+inf   
+
+> z∈ˆGx∩ˆOk
+
+f αn 
+
+> k
+
+(z) ≥ δ∗
+
+2 .
+
+Then, with Proposition 9, we have that lim  
+
+> n→+∞
+
+sup 
+
+> x∈Γ
+
+∥∇ 2
+
+> x
+
+h∗ 
+
+> αn
+
+(x)∥ = 0 . (33) We now show that h∗ is piecewise affine. Fix an open connected component C of 
+
+Rd \ ∪ kπk and a point x0 ∈ C. Select x1, . . . , x d ∈ C such that {xi − x0}di=1 forms a basis of 
+
+Rd. By Proposition 8, h∗ 
+
+> αn
+
+is C2 smooth for every n. By the Taylor’s theorem, for every i,
+
+h∗ 
+
+> αn
+
+(xi) = h∗ 
+
+> αn
+
+(x0) + ∇h∗ 
+
+> αn
+
+(x0)⊤(xi − x0) + 12 (xi − x0)⊤∇2h∗ 
+
+> αn
+
+(ξi,n )( xi − x0),
+
+where ξi,n is some point on the line segment between x0 and xi. With (33), we have that the limit lim  
+
+> n→+∞
+
+∇h∗ 
+
+> αn
+
+(x0)⊤(xi − x0) = h∗(xi) − h∗(x)exists for every i. This implies that lim n→+∞ ∇h∗ 
+
+> αn
+
+(x0) exists, which we denoted by v∗.Now for any x′ ∈ C, we have that 
+
+h∗ 
+
+> αn
+
+(x′) = h∗ 
+
+> αn
+
+(x0) + ∇h∗ 
+
+> αn
+
+(x0)⊤(x′ − x0) + 12 (x′ − x0)⊤∇2h∗ 
+
+> αn
+
+(ξ′
+
+> n
+
+)( x′ − x0),
+
+where ξ′ 
+
+> n
+
+is some point on the line segment between x′ and x0. Again, with (33), we have that 
+
+h∗(x′) = h∗(x0) + ( v∗)⊤(x′ − x0).
+
+Thus, h∗ is affine on C.Finally, we show that h∗ is Lipschitz continuous and derive the bound on the Lipschitz constant. Note that σm(x, θ )ρ∗
+
+> β,λ,m
+
+(θ) is integrable in θ for every x by Lemma 16 and is differentiable in x for almost every θ. When it is differentiable, we have that 
+
+∇xσm(x, θ )ρ∗
+
+> β,λ,m
+
+(θ) = amwmρ∗
+
+> β,λ,m
+
+(θ)
+
+
+
+Ix⊤wm+b∈(0 ,m 2) + Ix⊤wm+b≥m2 ϕ′
+
+> m
+
+(x⊤wm + b)
+
+
+
+.
+
+Then, 
+
+∥∇ xσm(x, θ )ρ∗
+
+> β,λ,m
+
+(θ)∥ ≤ 2∥aw ∥ρ∗
+
+> β,λ,m
+
+(θ) ≤ ∥ θ∥2ρ∗
+
+> β,λ,m
+
+(θ).
+
+43 Liang, Jacobs, Mont´ ufar 
+
+The right-hand side is integrable again by Lemma 16. Thus, 
+
+∇xh∗
+
+> β,λ,m
+
+(x) = 
+
+Z
+
+∇xσm(x, θ )ρ∗
+
+> β,λ,m
+
+(θ)dθ. 
+
+By Lemma 15, sup 
+
+> x∈Rd
+
+∇xh∗
+
+> β,λ,m
+
+(x) ≤
+
+Z
+
+∥θ∥2dρ ∗
+
+> β,λ,m
+
+(θ)
+
+≤ 2( d + 2) + 4( λβ )−1(1 + ( d + 2) log(8 π)) + 2
+
+λM 
+
+> M
+
+X
+
+> j=1
+
+y2 
+
+> j
+
+.
+
+Since h∗ 
+
+> β,λ,m
+
+is C2, we have that for any x, x ′ ∈ Rd,
+
+|h∗
+
+> β,λ,m
+
+(x) − h∗
+
+> β,λ,m
+
+(x′)| ≤ 
+
+
+
+2( d + 2) + 4( λβ )−1(1 + ( d + 2) log(8 π)) + 2
+
+λM 
+
+> M
+
+X
+
+> j=1
+
+y2
+
+> j
+
+
+
+∥x − x′∥.
+
+Under the sequence ( βn, λ n, m n), taking n → +∞ yields that 
+
+|h∗(x) − h∗(x′)| ≤ 
+
+ 2¯λM 
+
+> M
+
+X
+
+> j=1
+
+y2 
+
+> j
+
++ 2( d + 2) 
+
+
+
+∥x − x′∥.
+
+This completes the proof. 
+
+B.5 Technical Lemmas 
+
+In this section, we present technical Lemmas. Lemma 14 shows that the stationary measure 
+
+ρ∗ 
+
+> ˆα
+
+= ρ∗ 
+
+> β,λ,m,τ
+
+has Gaussian tail decay and is locally Lipschitz. It also controls the residuals of h∗
+
+> ˆα
+
+. Lemma 15 controls the second moments of ρ∗ 
+
+> ˆα
+
+and ρ∗
+
+> α
+
+. Lemma 16 shows that ρ∗
+
+> ˆα
+
+converges pointwise to ρ∗ 
+
+> α
+
+as τ → +∞ and that ρ∗ 
+
+> α
+
+also has Gaussian tail decay. Lemma 17 bounds the residuals of h∗
+
+> α
+
+. Lemma 18 provides estimates on the partition function Z∗
+
+> α
+
+,whose definition is given below. All these technical results are adapted and refined from those of Shevchenko et al. (2022) to accommodate arbitrary dimensions. For j = 1 , . . . , M , let 
+
+Rˆαj = 1
+
+M (h∗
+
+> ˆα
+
+(xj ) − yj ).
+
+Let Ψ∗
+
+> α
+
+(θ) = 
+
+> M
+
+X
+
+> j=1
+
+Rαj · σm(xj , θ ) + λ
+
+2 ∥θ∥2, Ψ∗
+
+> ˆα
+
+(θ) = 
+
+> M
+
+X
+
+> j=1
+
+Rˆαj · σm,τ (xj , θ ) + λ
+
+2 ∥θ∥2.
+
+Then 
+
+ρ∗
+
+> α
+
+(θ) = ( Z∗
+
+> α
+
+)−1 exp( −βΨ∗
+
+> α
+
+(θ)) , ρ∗
+
+> ˆα
+
+(θ) = ( Z∗
+
+> ˆα
+
+)−1 exp( −βΨ∗
+
+> ˆα
+
+(θ)) ,
+
+where Z∗ 
+
+> α
+
+= R exp( −βΨ∗
+
+> α
+
+(θ)) dθ and Z∗ 
+
+> ˆα
+
+= R exp( −βΨ∗
+
+> ˆα
+
+(θ)) dθ .
+
+44 Implicit Bias of SGD in Multivariate ReLU Networks 
+
+Lemma 14 For any β, λ, m, τ > 0, there exists C > 0 independent of τ such that 
+
+max  
+
+> j
+
+|Rˆαj | < C, ρ∗
+
+> ˆα
+
+(θ) ≤ C exp( − βλ 
+
+2 ∥θ∥2), ∀θ ∈ Rd+2 .
+
+Additionally, given any compact set K ⊂ Rd+2 , there exists CK > 0 independent of τ such that ρ∗
+
+> ˆα
+
+(θ) is CK -Lipschitz continuous on K.
+
+Proof In this proof, we use ( Ci)i∈N for positive constants that are independent of τ . By the construction of σm,τ , we have that max  
+
+> j
+
+|σm,τ (xj , θ )| ≤ C1, max  
+
+> j
+
+|σm,τ (xj , θ ) − σm,τ (xj , θ ′)| ≤ C2∥θ − θ′∥, ∀θ, θ ′ ∈ Rd+2 .
+
+It follows that max  
+
+> j
+
+|h∗
+
+> ˆα
+
+(xj )| = max  
+
+> j
+
+Eθ∼ρ∗ 
+
+> ˆα
+
+[σm,τ (xj , θ )] ≤ C3,
+
+and thus that max  
+
+> j
+
+|Rˆαj | < C 4.
+
+Then we have that 
+
+L + λ
+
+2 ∥θ∥2 ≥ Ψ∗
+
+> ˆα
+
+(θ) ≥ R + λ
+
+2 ∥θ∥2, ∀θ ∈ Rd+2 ,
+
+where L, R ∈ R are constants independent of τ . Meanwhile, notice that 
+
+Z∗ 
+
+> ˆα
+
+=
+
+Z
+
+exp( −βΨ∗
+
+> ˆα
+
+(θ)) dθ ≥
+
+Z
+
+exp( −βL − βλ 
+
+2 ∥θ∥2)dθ ≥ C5.
+
+This implies that 
+
+ρ∗
+
+> ˆα
+
+(θ) = ( Z∗
+
+> ˆα
+
+)−1 · exp( −βΨ∗
+
+> ˆα
+
+(θ)) ≤ C6 exp( − βλ 
+
+2 ∥θ∥2).
+
+Since K is compact, we have that 
+
+|∥ θ∥2 − ∥ θ′∥2| ≤ C7∥θ − θ′∥, ∀θ, θ ′ ∈ K. 
+
+Thus, 
+
+|Ψ∗
+
+> ˆα
+
+(θ)| < C 8, |Ψ∗
+
+> ˆα
+
+(θ) − Ψ∗
+
+> ˆα
+
+(θ′)| ≤ C9∥θ − θ′∥, ∀θ, θ ′ ∈ K. 
+
+Therefore, 
+
+exp( −βΨ∗
+
+> ˆα
+
+(θ)) − exp( −βΨ∗
+
+> ˆα
+
+(θ′)) ≤ C10 ∥θ − θ′∥, ∀θ, θ ′ ∈ K. 
+
+Then 
+
+|ρ∗
+
+> ˆα
+
+(θ) − ρ∗
+
+> ˆα
+
+(θ′)| = |(Z∗
+
+> ˆα
+
+)−1| · exp( −βΨ∗
+
+> ˆα
+
+(θ)) − exp( −βΨ∗
+
+> ˆα
+
+(θ′)) ≤ C11 ∥θ − θ′∥, ∀θ, θ ′ ∈ K, 
+
+which completes the proof. 
+
+45 Liang, Jacobs, Mont´ ufar 
+
+Lemma 15 For ˆα = ( β, λ, m, τ ) that satisfies Assumption 2, 
+
+max {M (ρ∗
+
+> α
+
+), M (ρ∗
+
+> ˆα
+
+)} ≤ 2( d + 2) + 4( λβ )−1(1 + ( d + 2) log(8 π)) + 2
+
+λM 
+
+> M
+
+X
+
+> j=1
+
+y2 
+
+> j
+
+.
+
+Therefore, there exists C, C ′ > 0 independent of ˆα such that 
+
+max {M (ρ∗
+
+> α
+
+), M (ρ∗
+
+> ˆα
+
+)} ≤ Cλ −1 + C′.
+
+Proof Let ρ = N (0 , I d+2 ). Then, 
+
+M (ρ) = d + 2 , H(ρ) = d + 2 2 log(2 πe ).
+
+Since a 7 → am,τ is odd, hσm,τ (x, ρ ) = 0 for any x. As β > 1, 
+
+F β,λ σm,τ (ρ) = 12M
+
+> M
+
+X
+
+> j=1
+
+y2 
+
+> j
+
++ d + 2 2 λ − β−1 d + 2 2 log(2 πe ).
+
+With Mei et al. (2018, Lemma 10.2), we have that 12M
+
+> M
+
+X
+
+> j=1
+
+y2 
+
+> j
+
++ d + 2 2 λ ≥ F β,λ σm,τ (ρ) ≥ F β,λ σm,τ (ρ∗
+
+> ˆα
+
+) ≥ λ
+
+4 M (ρ∗
+
+> ˆα
+
+) − β−1(1 + ( d + 2) log( 8πλβ )) .
+
+Since λβ > 1, 
+
+M (ρ∗
+
+> α
+
+) ≤ 2( d + 2) + 4( λβ )−1(1 + ( d + 2) log(8 π)) + 2
+
+λM 
+
+> M
+
+X
+
+> j=1
+
+y2 
+
+> j
+
+.
+
+It follows that 
+
+M (ρ∗
+
+> ˆα
+
+) ≤ C′ + Cλ −1,
+
+where C, C ′ > 0 are independent of ˆ α. Notice that a 7 → am is also odd and that σm is bounded Lipschitz. Thus, all above arguments apply. This completes the proof. 
+
+Lemma 16 For ˆα = ( β, λ, m, τ ) that satisfies Assumption 2, ρ∗
+
+> ˆα
+
+(θ) converges to ρ∗
+
+> α
+
+(θ)
+
+as τ → +∞, for every θ ∈ Rd+2 . Consequently, there exists C > 0 such that ρ∗
+
+> α
+
+(θ) ≤
+
+C exp( − βλ  
+
+> 2
+
+∥θ∥2) for every θ ∈ Rd+2 .
+
+Proof The key step of the proof is to show the weak convergence of measures: 
+
+ρ∗
+
+> ˆα
+
+dθ ⇒ ρ∗
+
+> α
+
+dθ, τ → +∞.
+
+By Lemma 14, there exists a constant C independent of τ such that 
+
+ρ∗
+
+> ˆα
+
+(θ) ≤ C exp( − βλ 
+
+2 ∥θ∥2).
+
+46 Implicit Bias of SGD in Multivariate ReLU Networks 
+
+Without loss of generality, assume C > 1. Then, 
+
+Z
+
+max {ρ∗ 
+
+> ˆα
+
+log ρ∗
+
+> ˆα
+
+, 0} dθ ≤
+
+Z
+
+max 
+
+n
+
+C exp( − βλ 
+
+2 ∥θ∥2) ·
+
+
+
+log C − βλ 
+
+2 ∥θ∥2
+
+, 0
+
+o
+
+dθ 
+
+≤
+
+Z     
+
+> n
+> θ:∥θ∥2≤2 log Cβλ
+> o
+
+C log Cdθ 
+
+≤ C′,
+
+(34) where C′ is independent of τ .Now consider any sequence ˆ αn = ( β, λ, m, τ n) with τn → +∞ as n → +∞. By (34) and Lemma 15, the sequence ρ∗ 
+
+> ˆαn
+
+has bounded truncated entropy and second moment. Thus, by Shevchenko et al. (2022, Lemma A.1), there exists μα ∈ H and a subsequence {nk}k such that 
+
+ρ∗ 
+
+> ˆαnk
+
+⇀ μ α weakly in L1, k → +∞.
+
+To simplify the notation, let ˆ αk = ˆ αnk and τk = τnk . Note that L1-weak convergence of densities implies weak convergence of measures. As θ 7 → ∥ θ∥2 is continuous and bounded from below, by Portmanteau theorem, lim inf  
+
+> k→+∞
+
+M (ρ∗ 
+
+> ˆαk
+
+) ≥ M (μα). (35) Notice that the map s 7 → s log s is proper, convex and lower semi-continuous. By Ambrosio and Savar´ e (2007, Remark 3.16, Lemma 3.17), we have that lim inf  
+
+> k→+∞
+
+−H(ρ∗ 
+
+> ˆαk
+
+) ≥ − H(μα). (36) Note that 
+
+|hσm,τ k (x, ρ ∗ 
+
+> ˆαk
+
+) − hσm (x, μ α)| ≤ | hσm,τ k (x, ρ ∗ 
+
+> ˆαk
+
+) − hσm (x, ρ ∗ 
+
+> ˆαk
+
+)| + |hσm (x, ρ ∗ 
+
+> ˆαk
+
+) − hσm (x, μ α)|.
+
+For the first term, we have that 
+
+|hσm,τ k (x, ρ ∗ 
+
+> ˆαk
+
+) − hσm (x, ρ ∗ 
+
+> ˆαk
+
+)| ≤ 
+
+Z
+
+|στk ,m (x, θ ) − σm(x, θ )|ρ∗ 
+
+> ˆαk
+
+(θ)dθ. 
+
+Notice that (i) ρ∗ 
+
+> ˆαk
+
+has Gaussian tail decay with constants independent of τ according to Lemma 14, (ii) σm,τ and σm are bounded uniformly in τ , and (iii) σm,τ (x, θ ) converges pointwise in ( x, θ ) to σm(x, θ ) as τ → +∞. By the Dominated Convergence Theorem, the first term vanishes as k → +∞. The second term also vanishes by the L1-weak convergence. Then we have that lim  
+
+> k→+∞
+
+hσm,τ k (x, ρ ∗ 
+
+> ˆαk
+
+) = hσm (x, μ α).
+
+This, together with (35), (36), yields that lim inf  
+
+> k→+∞
+
+F β,λ σm,τ k (ρ∗ 
+
+> ˆαk
+
+) ≥ F β,λ σm (μα). (37) 
+
+47 Liang, Jacobs, Mont´ ufar 
+
+On the other side, as σm,τ and σm are bounded uniformly in τ , and σm,τ (x, θ ) converges to 
+
+σm(x, θ ) as τ → +∞, the Dominated Convergence Theorem gives that lim  
+
+> k→+∞
+
+hσm,τ k (xj , ρ ∗
+
+> α
+
+) = hσm (xj , ρ ∗
+
+> α
+
+), ∀j, 
+
+which implies that lim  
+
+> k→+∞
+
+F β,λ σm,τ k (ρ∗
+
+> α
+
+) = F β,λ σm (ρ∗
+
+> α
+
+). (38) Combining (37) and (38), we have that 
+
+F β,λ σm (μα) ≤ lim inf  
+
+> k→+∞
+
+F β,λ σm,τ k (ρ∗ 
+
+> ˆαk
+
+) ≤ lim inf  
+
+> k→+∞
+
+F β,λ σm,τ k (ρ∗
+
+> α
+
+) = F β,λ σm (ρ∗
+
+> α
+
+).
+
+Since ρ∗ 
+
+> α
+
+is the unique minimizer of F β,λ σm , we have that μα = ρ∗ 
+
+> α
+
+a.e.. By the above, for any sequence ρ∗ 
+
+> ˆαn
+
+with τn → +∞, one can find a subsequence that converges weakly to ρ∗ 
+
+> α
+
+in L1. Again, note that L1-weak convergence of densities implies weak convergence of measures. By Billingsley (2013, Theorem 2.6), we have that 
+
+ρ∗
+
+> ˆα
+
+dθ ⇒ ρ∗
+
+> α
+
+dθ, τ → +∞.
+
+Since σm,τ and σm are uniformly bounded in τ , we have that lim   
+
+> τ→+∞
+
+h∗
+
+> ˆα
+
+(xj ) = h∗
+
+> α
+
+(xj ), ∀j. 
+
+It follows that lim   
+
+> τ→+∞
+
+Ψ∗
+
+> ˆα
+
+(θ) = Ψ ∗
+
+> α
+
+(θ), ∀θ. 
+
+This implies that lim   
+
+> τ→+∞
+
+exp( −βΨ∗
+
+> ˆα
+
+(θ)) = exp( −βΨ∗
+
+> α
+
+(θ)) , ∀θ. 
+
+By Lemma 14, max j |Rˆαj | is bounded by a constant independent of τ . Thus, exp( −βΨ∗
+
+> ˆα
+
+(θ)) = exp( −β(
+
+> M
+
+X
+
+> j=1
+
+Rˆαj · σm(xj , θ ) + λ
+
+2 ∥θ∥2)) ≤ C′ exp( − βλ 
+
+2 ∥θ∥2),
+
+for some C′ > 0 independent of τ . Thus, with the Dominated Convergence Theorem, lim   
+
+> τ→+∞
+
+Z∗ 
+
+> ˆα
+
+= lim  
+
+> τ→+∞
+
+Z
+
+exp( −βΨ∗
+
+> ˆα
+
+(θ)) dθ =
+
+Z
+
+exp( −βΨ∗
+
+> α
+
+(θ)) dθ = Z∗
+
+> α
+
+.
+
+Then we have that lim   
+
+> τ→+∞
+
+ρ∗
+
+> ˆα
+
+(θ) = ρ∗
+
+> α
+
+(θ).
+
+Finally, with Lemma 14 we have that, there exists C > 0 such that ρ∗
+
+> α
+
+(θ) ≤ C exp( − βλ  
+
+> 2
+
+∥θ∥2)for every θ ∈ Rd+2 . This completes the proof. 
+
+48 Implicit Bias of SGD in Multivariate ReLU Networks 
+
+Lemma 17 For any α = ( β, λ, m ) satisfying Assumption 2, there exists a constant C > 0
+
+independent of α such that MX
+
+> j=1
+
+|Rαj | ≤ C√λ. 
+
+Proof We first construct a Dirac measure ν such that the hσm (·, ν ) interpolates the training data. Recall that xi̸ = xj whenever i̸ = j. Thus, there exists v ∈ Rd such that ∥v∥ = 1 and 
+
+v⊤xi̸ = v⊤xj if i̸ = j. Define 
+
+νj = 13
+
+
+
+δ( 3M y j
+
+ε , v, ε − v⊤xj ) + δ(− 6M y j
+
+ε , v, −v⊤xj ) + δ( 3M y j
+
+ε , v, −ε − v⊤xj )
+
+
+
+∈ P 2(Rd+2 ).
+
+Then x 7 → R a(w⊤x + b)+dν j is a tent function along v, centered at xj , with height M y j ,and support width controlled by ε. Let ν = 1
+
+> M
+
+PMj=1 νj ∈ P 2(Rd+2 ). With sufficiently small 
+
+ε, we have that Z
+
+a(w⊤xj + b)+dν = yj , j = 1 , . . . , M. 
+
+Fix such an ε. Since supp ν is compact, there exists M0 > 0 independent of α such that for all m > M 0,
+
+σm(xj , θ ) = a(w⊤xj + b)+ ∀θ ∈ supp ν, j = 1 , . . . , M. 
+
+With m > M 0, we have that 
+
+hσm (xj , ν ) = 
+
+Z
+
+σm(xj , θ )dν = yj , j = 1 , . . . , M. 
+
+Now we construct a measure μ ∈ H that has a finite entropy and is close to ν. For any finite set S = {θi}Ni=1 ⊂ Rd+2 , let Bζ
+
+> ∞
+
+(S) = θ ∈ Rd+2 : min i ∥θ − θi∥∞ ≤ ζ . Define 
+
+μj = Unif 
+
+
+
+Bζ
+
+> ∞
+
+(supp νj )
+
+
+
+, μ = 1
+
+M
+
+> M
+
+X
+
+> j=1
+
+μj ∈ P a 
+
+> 2
+
+(Rd+2 ).
+
+Since supp μ shrinks to supp ν as ζ → 0, there exist ζ0 such that for all ζ < ζ 0 and m > M 0,
+
+σm(xj , θ ) = a(w⊤xj + b)+, ∀θ ∈ supp μ, j = 1 , . . . , M. (39) Note that νj is supported on three points. Without loss of generality, assume that for all 
+
+ζ < ζ 0, Bζ
+
+> ∞
+
+(supp νj ) consists of three disjoint ℓ∞ balls. For j = 1 , . . . , M , suppose that νj = 13
+
+P3 
+
+> k=1
+
+δ(ajk , w jk , b jk ) with ( ajk , w jk , b jk ) ∈ Rd+2 .Let ν′ 
+
+> jk
+
+= δ(wjk , b jk ), and μ′ 
+
+> jk
+
+= Unif( Bζ
+
+> ∞
+
+(wjk , b jk )). Then with (39) we have that 
+
+Z
+
+σm(x, θ )dμ j −
+
+Z
+
+σm(x, θ )dν j = M y j
+
+ε
+
+ Z
+
+(w⊤x + b)+dμ ′ 
+
+> j1
+
+−
+
+Z
+
+(w⊤x + b)+dν ′
+
+> j1
+
+
+
+− 2M y j
+
+ε
+
+ Z
+
+(w⊤x + b)+dμ ′ 
+
+> j2
+
+−
+
+Z
+
+(w⊤x + b)+dν ′
+
+> j2
+
+
+
++ M y j
+
+ε
+
+ Z
+
+(w⊤x + b)+dμ ′ 
+
+> j3
+
+−
+
+Z
+
+(w⊤x + b)+dν ′
+
+> j3
+
+
+
+.
+
+49 Liang, Jacobs, Mont´ ufar 
+
+Notice that ( w, b ) 7 → (w⊤x + b)+ is L-Lipschitz for a constant L independent of α. Let W1
+
+denote the 1-Wasserstein distance with respect to ( Rd+1 , ∥·∥ 2). Then with the Kantorovich-Rubinstein duality, we have that 
+
+Z
+
+σm(x, θ )dμ j −
+
+Z
+
+σm(x, θ )dν j ≤ 2M |yj |
+
+ε L
+
+> 3
+
+X
+
+> k=1
+
+W1(μ′
+
+> jk
+
+, ν ′
+
+> jk
+
+)
+
+≤ 2M |yj |
+
+ε L
+
+> 3
+
+X
+
+> k=1
+
+sup   
+
+> p∈Bζ
+> ∞(wjk ,b jk )
+
+∥p − (wjk , b jk )∥2
+
+≤ 2M |yj |
+
+ε L · 3ζ√d + 1 .
+
+Therefore, there exists K > 0 that is independent of α such that, for every ζ < ζ 0,max 
+
+> j
+
+Z
+
+σm(xj , θ )dμ −
+
+Z
+
+σm(xj , θ )dν = max 
+
+> j
+
+Z
+
+σm(xj , θ )dμ − yj ≤ Kζ. 
+
+Then, with ζ = min( ζ0/2, √λ) we have that 12M
+
+> M
+
+X
+
+> j=1
+
+(hσm (xj , μ ) − yj )2 ≤ C0λ, 
+
+for some constant C0 > 0 independent of α.Note that H is concave on H. Therefore, 
+
+H(μ) ≥ 1
+
+M
+
+> M
+
+X
+
+> j=1
+
+H(μj ) = 1
+
+M
+
+> M
+
+X
+
+> j=1
+
+log(Vol( Bζ
+
+> ∞
+
+(supp νj ))) = log(3(2 ζ)d+2 ).
+
+To bound the second moment of μ, recall that for all ζ < ζ 0, supp μ is contained in a compact set that is independent of α. Thus, M (μ) < 2C1 for some constant C1 > 0 independent of 
+
+α. Then, we have that 
+
+F β,λ σm (μ) ≤ C0λ + C1λ − 1
+
+β log(3(2 ζ)d+2 ).
+
+With Mei et al. (2018, Lemma 10.2), we have that 12M
+
+> M
+
+X
+
+> j=1
+
+(h∗
+
+> α
+
+(xj ) − yj )2
+
+≤F β,λ σm (ρ∗
+
+> α
+
+) − λ
+
+4 M (ρ∗
+
+> α
+
+) + 1
+
+β (1 + ( d + 2) log( 8πβλ )) 
+
+≤F β,λ σm (μ) + 1
+
+β (1 + ( d + 2) log( 8πβλ )) 
+
+≤(C0 + C1)λ +
+
+
+
+1 + ( d + 2) log( 8πβλ ) − log 3 
+
+ 1
+
+β + ( d + 2) 1
+
+β log 
+
+ 12 min 
+
+n
+
+ζ0/2, √λ
+
+o .
+
+50 Implicit Bias of SGD in Multivariate ReLU Networks 
+
+As β > λ −1 and β > λ −1 log( λ−1), 
+
+
+
+1 + ( d + 2) log( 8πβλ ) − log 3 
+
+ 1
+
+β ≤ (1 − log 3) 1
+
+β + d + 2 
+
+β log( 8πλ ) ≤ C2λ, 
+
+for some constant C2 > 0 independent of α. When √λ < ζ 0/2, we have that (d + 2) 1
+
+β log 
+
+ 12 min 
+
+n
+
+ζ0/2, √λ
+
+o = ( d + 2) 1
+
+β log 
+
+ 12√λ
+
+
+
+≤ C3λ, 
+
+for some constant C3 > 0 independent of α. When √λ ≥ ζ0/2, (d + 2) 1
+
+β log 
+
+ 12 min 
+
+n
+
+ζ0/2, √λ
+
+o = ( d + 2) 1
+
+β log 
+
+ 1
+
+ζ0
+
+
+
+≤ C4λ, 
+
+for some constant C4 > 0 independent of α. Finally, we have that 
+
+> M
+
+X
+
+> j=1
+
+(h∗
+
+> α
+
+(xj ) − yj )2 ≤ C5λ, 
+
+for some constant C5 independent of α, which implies that 
+
+> M
+
+X
+
+> j=1
+
+|Rαj | = 1
+
+M
+
+> M
+
+X
+
+> j=1
+
+|h∗
+
+> α
+
+(xj ) − yj | ≤ C6
+
+√λ, 
+
+for some constant C6 independent of α. This completes the proof. 
+
+Lemma 18 For any α = ( β, λ, m ) satisfying Assumption 2, 
+
+Cβ − d+2 2 λ− d+2 4 (1 + √λ)− d+2 2 ≤ Z∗ 
+
+> α
+
+≤ exp 
+
+
+
+C′β + 1 + ( d + 2) log 8πλβ 
+
+
+
+for some constants C, C ′ > 0 independent of α.
+
+Proof First, we obtain the lower bound. Let C1 = max {max j ∥xj ∥, 1}. Notice that 
+
+Z∗ 
+
+> α
+
+=
+
+Z
+
+exp 
+
+−β
+
+
+
+> M
+
+X
+
+> j=1
+
+Rαj · am(x⊤ 
+
+> j
+
+wm + b)m 
+
+> +
+
++ λ
+
+2 ∥θ∥2
+
+ dθ 
+
+≥
+
+Z
+
+exp 
+
+−β
+
+
+
+> M
+
+X
+
+> j=1
+
+|Rαj || a|(∥xj ∥∥ w∥ + |b|) + λ
+
+2 ∥θ∥2
+
+ dθ 
+
+≥
+
+Z
+
+exp 
+
+−β
+
+C1(∥aw ∥ + |ab |)
+
+> M
+
+X
+
+> j=1
+
+|Rαj | + λ
+
+2 ∥θ∥2
+
+ dθ. 
+
+51 Liang, Jacobs, Mont´ ufar 
+
+By Lemma 17, there exists C2 > 0 independent of α such that 
+
+Z∗ 
+
+> α
+
+≥
+
+Z
+
+exp 
+
+
+
+−β
+
+
+
+C1C2
+
+√λ(∥aw ∥ + |ab |) + λ
+
+2 ∥θ∥2
+
+ 
+
+dθ 
+
+≥
+
+Z
+
+exp 
+
+(
+
+−β
+
+"
+
+(C1C2
+
+√λ + λ
+
+2 )a2 + ( C1C2
+
+√λ + λ
+
+2 )( ∥w∥2 + b2)
+
+#) 
+
+dθ 
+
+= (π) d+2 2
+
+(C1C2
+
+√λ + λ 
+
+> 2
+
+) 12 ( C1C2
+
+> 2
+
+√λ + λ 
+
+> 2
+
+) d+1 2 β d+2 2
+
+≥ (π) d+2 2
+
+(C1C2
+
+√λ + λ 
+
+> 2
+
+) d+2 2 β d+2 2
+
+≥ C3β− d+2 2 λ− d+2 4 (1 + √λ)− d+2 2 ,
+
+for some C3 > 0 independent of α.For the upper bound, note that 
+
+H(ρ∗
+
+> α
+
+) = −
+
+Z
+
+ρ∗
+
+> α
+
+(θ) log ρ∗
+
+> α
+
+(θ)dθ 
+
+= −
+
+Z
+
+ρ∗
+
+> α
+
+(θ)
+
+−β
+
+> M
+
+X
+
+> j=1
+
+Rαj σm(xj , θ ) − λβ 
+
+2 ∥θ∥2 − log Z∗
+
+> α
+
+ dθ 
+
+= β
+
+> M
+
+X
+
+> j=1
+
+Rαj
+
+Z
+
+ρ∗
+
+> α
+
+(θ)σm(xj , θ )dθ + λβ 
+
+2 M (ρ∗
+
+> α
+
+) + log Z∗
+
+> α
+
+= β
+
+> M
+
+X
+
+> j=1
+
+Rαj h∗
+
+> α
+
+(xj ) + λβ 
+
+2 M (ρ∗
+
+> α
+
+) + log Z∗
+
+> α
+
+.
+
+Then we have that 
+
+F β,λ σm (ρ∗
+
+> α
+
+) = 12M
+
+> M
+
+X
+
+> j=1
+
+(h∗
+
+> α
+
+(xj ) − yj )2 + λ
+
+2 M (ρ∗
+
+> α
+
+) − 1
+
+β H(ρ∗
+
+> α
+
+)= 12M
+
+> M
+
+X
+
+> j=1
+
+(h∗
+
+> α
+
+(xj ) − yj )2 − 1
+
+M
+
+> M
+
+X
+
+> j=1
+
+(h∗
+
+> α
+
+(xj ) − yj )h∗
+
+> α
+
+(xj ) − 1
+
+β log Z∗
+
+> α
+
+= − 12M
+
+> M
+
+X
+
+> j=1
+
+(h∗
+
+> α
+
+(xj )) 2 + 12M
+
+> M
+
+X
+
+> j=1
+
+y2 
+
+> j
+
+− 1
+
+β log Z∗
+
+> α
+
+≤ 12M
+
+> M
+
+X
+
+> j=1
+
+y2 
+
+> j
+
+− 1
+
+β log Z∗
+
+> α
+
+≤ C4 − 1
+
+β log Z∗
+
+> α
+
+,
+
+for some C4 > 0 independent of α. With Mei et al. (2018, Lemma 10.2), we have that 
+
+C4 − 1
+
+β log Z∗ 
+
+> α
+
+≥ F β,λ σm (ρ∗
+
+> α
+
+) ≥ − 1
+
+β (1 + ( d + 2) log( 8πβλ )) .
+
+52 Implicit Bias of SGD in Multivariate ReLU Networks 
+
+Then we have that 
+
+Z∗ 
+
+> α
+
+≤ exp 
+
+
+
+C4β + 1 + ( d + 2) log 8πλβ 
+
+
+
+.
+
+This completes the proof. 
+
+Appendix C. Proof of Theorem 5 
+
+In this section, we present the proof of Theorem 5, which shows that the trained input weights and biases align along a few directions. 
+
+Proof (Proof of Theorem 5) Let αn = ( βn, λ n, m n). Let z = ( w, b ). Consider any open set 
+
+B ⊂ Rd+1 such that 0 /∈ cl( B), dcl B ∩ ˆΩ∗ = ∅ where dcl B ≜
+
+ z
+
+∥z∥ : z ∈ cl( B)
+
+
+
+. (40) Recall the definition of ˆΩ∗ from Proposition 10. We have that 
+
+δ = min 
+
+n
+
+min  
+
+> k
+
+inf  
+
+> z∈dcl B∩ˆOk
+
+f ∗ 
+
+> k
+
+(z), 12
+
+o
+
+∈ (0 , 12 ].
+
+Fix any ε > 0. Since ρ∗ 
+
+> αn
+
+converges to ρ∗ in 2-Wasserstein distance, ρ∗ 
+
+> αn
+
+has uniformly integrable second moments (see, e.g., Ambrosio et al., 2005, Proposition 7.1.5). Thus, there exists L > 0 such that Z
+
+> ∥θ∥>L
+
+∥z∥2ρ∗ 
+
+> αn
+
+(θ)dθ < ε, ∀n ≥ 1.
+
+Thus, 
+
+Z
+
+> R×B
+
+∥z∥2ρ∗ 
+
+> αn
+
+(θ)dθ ≤
+
+Z
+
+> (R×B)∩{∥ θ∥≤ L}
+
+∥z∥2ρ∗ 
+
+> αn
+
+(θ)dθ + ε. 
+
+For the first term of the right-hand side, we have that 
+
+Z
+
+> (R×B)∩{∥ θ∥≤ L}
+
+∥z∥2ρ∗ 
+
+> αn
+
+(θ)dθ = 
+
+> 2P(X)
+
+X
+
+> k=1
+
+Z 
+
+> (R×(B∩Ok)) ∩{∥ θ∥≤ L}
+
+∥z∥2ρ∗ 
+
+> αn
+
+(θ)dθ. 
+
+Consider any fixed k. Since L is fixed, for sufficiently large m we have that 
+
+σm(xj , θ ) = am(x⊤ 
+
+> j
+
+wm + b)m 
+
+> +
+
+= a(x⊤ 
+
+> j
+
+w + b)+, ∀θ ∈ {∥ θ∥ < L } , ∀j. 
+
+Let 
+
+Z∗ 
+
+> α
+
+=
+
+Z
+
+exp 
+
+n
+
+− β
+
+ MX
+
+> j=1
+
+Rαj σm(xj , θ ) + λ
+
+2 ∥θ∥2o 
+
+dθ. 
+
+53 Liang, Jacobs, Mont´ ufar 
+
+Then we have that 
+
+Z∗ 
+
+> αn
+
+·
+
+Z 
+
+> (R×(B∩Ok)) ∩{∥ θ∥≤ L}
+
+∥z∥2ρ∗ 
+
+> αn
+
+(θ)dθ 
+
+=
+
+Z 
+
+> (R×(B∩Ok)) ∩{∥ θ∥≤ L}
+
+∥z∥2 exp 
+
+− βnλn
+
+2
+
+ X
+
+> j∈Jk
+
+Rαn
+
+> j
+
+λn
+
+2a(w⊤xj + b) + ∥θ∥2
+
+ dθ 
+
+=
+
+Z 
+
+> (R×(B∩Ok)) ∩{∥ θ∥≤ L}
+
+∥z∥2 exp 
+
+− βnλn
+
+2
+
+ X
+
+> j∈Jk
+
+Rαn
+
+> j
+
+λn
+
+2a(w⊤xj + b) + a2
+
+ exp 
+
+
+
+− βnλn
+
+2 (∥z∥2)
+
+
+
+dθ 
+
+≤
+
+Z
+
+> R
+
+Z 
+
+> B∩Ok∩{∥ z∥≤ L}
+
+∥z∥2 exp 
+
+− βnλn
+
+2
+
+ X
+
+> j∈Jk
+
+Rαn
+
+> j
+
+λn
+
+2a(w⊤xj + b) + a2
+
+ exp 
+
+
+
+− βnλn
+
+2 (∥z∥2)
+
+
+
+dzda. 
+
+Note that for any u ∈ R and β, λ > 0, 
+
+Z
+
+R
+
+exp 
+
+
+
+− βλ 
+
+2
+
+2au + a2
+
+da ≤
+
+Z
+
+R
+
+exp 
+
+
+
+− βλ 
+
+2
+
+a2 − 2|a|| u|
+
+da 
+
+= 2 
+
+Z ∞
+
+0
+
+exp 
+
+
+
+− βλ 
+
+2
+
+a2 − 2a|u|
+
+da 
+
+≤ 2
+
+r 2πλβ exp( λβ 
+
+2 u2).
+
+Thus, by Tonelli’s theorem, 
+
+Z
+
+(R×(B∩Ok )) ∩{∥ θ∥≤ L}
+
+∥z∥2ρ∗
+
+αn (θ)dθ 
+
+≤2
+
+r 2πλnβn
+
+Z
+
+B∩Ok ∩{∥ z∥≤ L}
+
+∥z∥2(Z∗
+
+αn )−1 exp 
+
+− βnλn
+
+2
+
+
+
+∥z∥2 − X
+
+j∈Jk
+
+Rαn
+
+j
+
+λn
+
+(w⊤xj + b) 2 dz 
+
+=2 
+
+r 2πλnβn
+
+Z
+
+B∩Ok ∩{∥ z∥≤ L}
+
+∥z∥2(Z∗
+
+αn )−1 exp 
+
+
+
+− βnλn
+
+2 f αn
+
+k (z)
+
+
+
+dz. 
+
+As shown in (31), f αn
+
+k converges uniformly to f ∗
+
+k on Sd. Thus, we have that for sufficiently large n:min 
+
+k inf 
+
+z∈dcl B∩ ˆOk
+
+f αn
+
+k (z) ≥ δ
+
+2 .
+
+Thus, 
+
+Z
+
+(R×(B∩Ok )) ∩{∥ θ∥≤ L}
+
+∥z∥2ρ∗
+
+αn (θ)dθ 
+
+≤2( Z∗
+
+αn )−1
+
+r 2πλnβn
+
+Z
+
+∥z∥2 exp 
+
+
+
+− βnλnδ∥z∥2
+
+4
+
+
+
+dz 
+
+≤C(Z∗
+
+αn )−1(λβ )− d+4 2 δ− d+3 2 .
+
+54 Implicit Bias of SGD in Multivariate ReLU Networks 
+
+for some constant C > 0 independent of αn. With Lemma 18, we have that 
+
+Z 
+
+> (R×(B∩Ok)) ∩{∥ θ∥≤ L}
+
+∥z∥2ρ∗ 
+
+> αn
+
+(θ)dθ ≤ C′β−1 
+
+> n
+
+λ−(d+6) /4 
+
+> n
+
+(1 + pλn)(d+2) /2,
+
+for some constant C′ > 0 independent of αn. Thus, lim 
+
+> n→+∞
+
+Z 
+
+> (R×(B∩Ok)) ∩{∥ θ∥≤ L}
+
+∥z∥2ρ∗ 
+
+> αn
+
+(θ)dθ = 0 .
+
+With this, we can conclude that, lim sup 
+
+> n→+∞
+
+Z
+
+> R×B
+
+∥z∥2ρ∗ 
+
+> αn
+
+(θ)dθ ≤ ε. 
+
+Since ε is arbitrary, we have that lim 
+
+> n→+∞
+
+Z
+
+> R×B
+
+∥z∥2ρ∗ 
+
+> αn
+
+(θ)dθ = 0 .
+
+Since B is open, we have that Iz∈B (θ)∥z∥2 is lower semicontinuous and bounded from below. By Portmanteau theorem, 0 ≤
+
+Z
+
+> R×B
+
+∥z∥2dρ ∗ ≤ lim inf 
+
+> n→+∞
+
+Z
+
+> R×B
+
+∥z∥2dρ ∗ 
+
+> αn
+
+= 0 .
+
+Thus, R 
+
+> R×B
+
+∥z∥2dρ ∗ = 0. Let Ω∗ =
+
+n
+
+γ(w, b ) : γ ≥ 0, (w, b ) ∈ ˆΩ∗o
+
+.
+
+By Proposition 10, Ω ∗ is the union of at most 2 P(X ) − 1 rays. For any z / ∈ Ω∗, we can find a neighborhood B of z that satisfies (40) and that ∥z∥ > c for some c > 0 and for every 
+
+z ∈ B. Then, 0 = 
+
+Z
+
+> R×B
+
+∥z∥2dρ ∗ ≥ c2
+
+Z
+
+> R×B
+
+dρ ∗ ≥ 0.
+
+Thus, ( a, z ) /∈ supp( ρ∗) for any a ∈ R, z / ∈ Ω∗. Hence, we have that supp( ρ∗) ⊂ R × Ω∗.
+
+It follows that supp( q∗) = supp( ω#(ρ∗)) ⊂ Ω∗,
+
+which completes the proof. 
+
+55 Liang, Jacobs, Mont´ ufar 
+
+Appendix D. Proof of Theorem 6 
+
+In this section, we present the proof of Theorem 6. We first prove Lemma 12, which characterizes the geometry of the strata. We then prove Proposition 13, which provides a geometric proof of Theorem 6. 
+
+Proof (Proof of Lemma 12 ) It is clear that Sd = ∪V ∈V V . If VA̸ = VA′ , then there exists 
+
+j ∈ { 1, . . . , M } such that A(xj )̸ = A′(xj ). As VA ⊂ (w, b ) ∈ Sd : sgn( w⊤xj + b) = A(xj )
+
+and VA′ ⊂ (w, b ) ∈ Sd : sgn( w⊤xj + b) = A′(xj ) , we have that VA ∩ VA′ = ∅.Consider any V̸ = V0 and V̸ = ∅. Let V = VA for a ternary sign pattern A. Then there exists j such that A(xj )̸ = 0. Thus, V ⊂ (w, b ) ∈ Sd : sgn( w⊤xj + b) = A(xj ) ,which is an open hemisphere on Sd. Then we can select a point z ∈ V and consider the standard gnomonic projection ι from V to the tangent space Tz Sd, viewed as an embedded submanifold of Rd+1 . Notice that 
+
+ι(V ) = Tz Sd ∩
+
+ M\
+
+> j=1
+
+n
+
+(w, b ) ∈ Rd+1 : sgn( w⊤xj + b) = A(xj )
+
+o  
+
+.
+
+The set on the right-hand side is simply connected as it is the intersection of convex sets. As ι is a homeomorphism, V is simply connected. This completes the proof. 
+
+Proof (Proof of Proposition 13 ) Let V0 = {(w, b ) ∈ Sd : sgn( w⊤xj + b) = 0 ∀j}. We first prove item ( i) for strata V̸ = V0. Select a k ∈ { 1, . . . , M } such that V ⊂ ˆOk (and thus cl( V ) ⊂ ˆOk). Let Tk = ˆΩ∗ 
+
+> k
+
+∩ ˆOk. Implied by (27), we have that ˆΩ∗ ∩ V = ˆΩ∗ 
+
+> k
+
+∩ V = Tk ∩ V, ˆΩ∗ ∩ cl( V ) = ˆΩ∗ 
+
+> k
+
+∩ cl( V ) = Tk ∩ cl( V ).
+
+As shown in the proof of Proposition 10, Tk consists of at most two points. If Tk is empty or a singleton, items ( i) and ( ii ) hold trivially. Assume that Tk has two points. Using similar arguments as in the proof of Proposition 10, Tk is the union of the two singleton sets: 
+
+{z+} =
+
+n
+
+z ∈ ˆOk : z⊤P ∗ 
+
+> k
+
+≥ 1
+
+o
+
+=
+
+n
+
+z ∈ ˆOk : z⊤P ∗ 
+
+> k
+
+= 1 
+
+o
+
+,
+
+{z−} =
+
+n
+
+z ∈ ˆOk : z⊤P ∗ 
+
+> k
+
+≤ − 1
+
+o
+
+=
+
+n
+
+z ∈ ˆOk : z⊤P ∗ 
+
+> k
+
+= −1
+
+o
+
+.
+
+(41) Note that this implies that v⊤P ∗ 
+
+> k
+
+< 1 for every z ∈ ˆOk \ { z+} and v⊤P ∗ 
+
+> k
+
+> −1 for every 
+
+z ∈ ˆOk \ { z−}.Assume that z+ ∈ V . We aim to show that z− /∈ cl( V ). Let A be the ternary sign pattern A : {xj }Mj=1 → {− 1, 0, 1} such that V = VA. Let 
+
+eA = {j : A(xj ) = 0 } , SA =
+
+n
+
+(w, b ) ∈ Sd : w⊤xj + b = 0 ∀j ∈ eA
+
+o
+
+.
+
+When eA = ∅, let SA = Sd. Clearly, cl( V ) ⊂ SA. Note that SA is the intersection of Sd and the linear space LA = {(w, b ) ∈ Rd+1 : w⊤xj + b = 0 ∀j ∈ eA}, whose dimension is denoted by rA. Thus, SA is a sphere of dimension rA − 1 ≥ 0, i.e., SA ∼= SrA−1. When rA = 1, then 
+
+SA is a pair of antipodal points. As V is connected by Lemma 12, V must be a singleton and the claim holds trivially. 
+
+> 56 Implicit Bias of SGD in Multivariate ReLU Networks
+
+Now assume that rA > 1. Notice that 
+
+V =
+
+n
+
+(w, b ) ∈ SA : sgn( w⊤xj + b) = A(xj ), A (xj )̸ = 0 
+
+o
+
+.
+
+Thus, V is relatively open in SA. Let ¯P ∗ 
+
+> k
+
+denote the projection of P ∗ 
+
+> k
+
+onto the linear space 
+
+LA. Define the linear function 
+
+P : SA → R, P (z) = z⊤ ¯P ∗ 
+
+> k
+
+.
+
+According to (41), we have that P (z+) = 1 and P (z) < 1 for every z ∈ cl( V ) \ { z+}. Since 
+
+V is relatively open in SA, P attains a local maximum at z+. It is clear that P has only one local maximum over SA, which is the global maximum. It follows that z+ = ¯P ∗ 
+
+> k
+
+. Since 
+
+P (z−) = z⊤− z+ = −1, we have that z− = −z+. On the other hand, select any j′ /∈ eA and assume without loss of generality that A(xj′ ) = 1. Consider the closed hemisphere on SA:
+
+S+ 
+
+> A
+
+=
+
+n
+
+(w, b ) ∈ SA : w⊤xj′ + b ≥ 0
+
+o
+
+.
+
+Clearly, cl( V ) ⊂ S+ 
+
+> A
+
+. Note that z+ ∈ V and thus lies in the relative interior of S+ 
+
+> A
+
+. By the reflection symmetry, we have that z− lies in SA \ S+ 
+
+> A
+
+, which means that z− /∈ cl( V ). Therefore, we conclude that V ∩ ˆΩ∗ consists of at most one point and V ∩ ˆΩ∗̸ = ∅ implies that ( ∂cl( V )V ) ∩ ˆΩ∗ = ∅.Now we prove item ( ii ), and prove item ( i) for V0. Notice that cl( V−1) is a spherical sector. Let k ∈ { 1, · · · , 2P(X )} be the index such that cl( V−1) = ˆOk. It is clear that 
+
+Jk = ∅. Then, f ∗ 
+
+> k
+
+(z) = ∥z∥2 and ˆΩ∗ 
+
+> k
+
+= ∅. Thus, ˆΩ∗ ∩ cl( V−1) = ∅. In particular, as cl( V0) ⊂ cl( V−1), we have that cl( V0) ∩ ˆΩ∗ = ∅.Item ( iii ) is a direct consequence of the proof of Proposition 10, in particular the state-ment that, for every k, ˆOk ∩ ˆΩ∗ 
+
+> k
+
+has at most two connected components and the case of two components occurs if and only if both components of ˆΩ∗ 
+
+> k
+
+intersect the relative boundary of ˆOk in Sd. This completes the proof. 
+
+Proof (Proof of Theorem 6 ) Notice that all the realizable linear ternary activation patterns on X are in one-to-one correspondence with the strata in V by Lemma 12. Recall from The-orem 11 that {(wk, b k)}Kk=1 = ˆΩ∗. Then, we have that items ( i), (ii ), (iii ) of Proposition 13 imply items ( i), (ii ), (iii ) of Theorem 6, respectively. This completes the proof. 
+
+Appendix E. Proof of Proposition 7 
+
+In this section, we prove Proposition 7, which identifies the kink hyperplanes for a simple class of data sets. 
+
+Proof (Proof of Proposition 7) Since the data set is symmetric, we can assume without loss of generality that x1 > 0. Recall that for any cone S ⊂ Rd+1 , we use ˆS to denote its spherical cross-section, i.e., ˆS = S ∩ Sd. For any z ∈ Rd+1 \ { 0}, let ℓz denote the straight line passing through z:
+
+ℓz = {γz : γ ∈ R} .
+
+> 57
+
+Liang, Jacobs, Mont´ ufar 
+
+Even labels y1 = y2: We first show that h∗ is an even function. Consider T (a, w, b ) = (a, −w, b ). Notice that 
+
+σm(x, T (θ)) = am
+
+x⊤(−w)m + b
+
+m 
+
+> +
+
+= am(−x⊤wm + b)m 
+
+> +
+
+= σm(−x, θ ).
+
+For any ρ ∈ H , let T#ρ denote the push-forward measure under T . Clearly, T#ρ ∈ H . We have that 
+
+hσm (x, T #ρ) = 
+
+Z
+
+σm(x, T (θ)) dρ (θ) = 
+
+Z
+
+σm(−x, θ )dρ (θ) = hσm (−x, ρ ).
+
+Let R be the empirical risk 
+
+R(ρ) = 14
+
+
+
+(hσm (x1, ρ ) − y1)2 + ( hσm (x2, ρ ) − y2)2
+
+.
+
+By above, R(ρ) = R(T#ρ) for any ρ ∈ H . Notice that M (ρ) = M (T#ρ) as T preserves the norm, and that H(ρ) = H(T#ρ) as T is a diffeomorphism that preserves the volume. Therefore, for any β, λ, m > 0, we have that 
+
+F β,λ σm (ρ) = F β,λ σm (T#ρ).
+
+This implies that ρ∗ 
+
+> α
+
+= T#ρ∗ 
+
+> α
+
+a.e., since ρ∗ 
+
+> α
+
+is the unique minimizer. Therefore, under the sequence αn = ( βn, λ n, m n) in Theorem 4, 
+
+h∗ 
+
+> αn
+
+(x) = hσmn (x, ρ ∗ 
+
+> αn
+
+) = hσmn (x, T #ρ∗ 
+
+> αn
+
+) = hσmn (−x, ρ ∗ 
+
+> αn
+
+) = h∗ 
+
+> αn
+
+(−x), ∀n. 
+
+Taking n → +∞ yields that 
+
+h∗(x) = h∗(−x).
+
+Thus, h∗ is an even function. Let J1 = {1, 2} , J 2 = {1} , J 3 = {2} , J 4 = ∅, and κ = ( h∗(x1) − y1)/(2 ¯λ). We have that 
+
+
+
+P ∗ 
+
+> 1
+
+= κ
+
+x1
+
+1
+
+
+
++ κ
+
+x2
+
+1
+
+
+
+= κ
+
+0
+
+2
+
+
+
+,P ∗ 
+
+> 2
+
+= κ
+
+x1
+
+1
+
+
+
+,P ∗ 
+
+> 3
+
+= κ
+
+−x1
+
+1
+
+
+
+,P ∗ 
+
+> 4
+
+= 0 .
+
+For k = 1 , . . . , 4, let Ω ∗ 
+
+> k
+
+denote the non-positive set of f ∗ 
+
+> k
+
+. Note that Ω ∗ 
+
+> k
+
+is either the singleton {0} or a double cone with axis ℓP ∗ 
+
+> k
+
+. Let 
+
+
+
+O1 =
+
+n
+
+(w, b ) ∈ Rd+1 : w⊤x1 + b ≥ 0, −w⊤x1 + b ≥ 0
+
+o
+
+,O2 =
+
+n
+
+(w, b ) ∈ Rd+1 : w⊤x1 + b ≥ 0, −w⊤x1 + b ≤ 0
+
+o
+
+,O3 =
+
+n
+
+(w, b ) ∈ Rd+1 : w⊤x1 + b ≤ 0, −w⊤x1 + b ≥ 0
+
+o
+
+,O4 =
+
+n
+
+(w, b ) ∈ Rd+1 : w⊤x1 + b ≤ 0, −w⊤x1 + b ≤ 0
+
+o
+
+.
+
+58 Implicit Bias of SGD in Multivariate ReLU Networks 
+
+Clearly, f ∗ 
+
+> 4
+
+(z) = ∥z∥2 and Ω ∗ 
+
+> 4
+
+= {0}. We now examine Ω ∗ 
+
+> k
+
+∩ Ok for k = 1 , 2, 3. If κ = 0, we have that P ∗ 
+
+> k
+
+= 0 for every k. Then, f ∗ 
+
+> k
+
+(z) = ∥z∥2 and Ω ∗ 
+
+> k
+
+= {0} for every k. Therefore, Ω∗ = {0}. Clearly, in this case ˆΩ∗ = ∅ and, by Theorem 11, h∗ is globally affine. Now consider κ̸ = 0. Let Ojk = Oj ∩ Ok for any i̸ = j. Notice that 
+
+
+
+∂O 1 = O12 ∪ O13 ,∂O 2 = O12 ∪ O24 ,∂O 3 = O13 ∪ O34 .
+
+For k = 1, notice that (P ∗ 
+
+> 1
+
+)⊤(x1, 1) = 2 κ, (P ∗ 
+
+> 1
+
+)⊤(−x1, 1) = 2 κ. 
+
+This means that ℓP ∗ 
+
+> 1
+
+intersects the interior of O1. With Proposition 10, we have that Ω∗ 
+
+> 1
+
+∩ O1 ⊂ ℓP ∗ 
+
+> 1
+
+, 1 ≥ ∥ P ∗ 
+
+> 1
+
+∥ = |κ|√2. (42) For k = 2, notice that (P ∗ 
+
+> 2
+
+)⊤(x1, 1) = κ(∥x1∥2 + 1) , (P ∗ 
+
+> 2
+
+)⊤(−x1, 1) = κ(−∥ x1∥2 + 1) .
+
+If ∥x1∥ < 1, we have that ℓP ∗ 
+
+> 2
+
+intersects O1 and O4. Note that sin( d∠(ℓP ∗ 
+
+> 2
+
+, O 12 )) =      
+
+> (P∗
+> 2)⊤P∗
+> 3
+> ∥P∗
+> 3∥
+
+∥P ∗ 
+
+> 2
+
+∥ = 1 − ∥ x1∥2
+
+∥x1∥2 + 1 .
+
+Thus, 
+
+d∠(ℓP ∗ 
+
+> 2
+
+, O 12 ) = arcsin( 1 − ∥ x1∥2
+
+∥x1∥2 + 1 ) < π/ 2 = d∠(ℓP ∗ 
+
+> 2
+
+, O 24 ).
+
+By the double-cone geometry of Ω ∗
+
+> 2
+
+, we have that Ω ∗ 
+
+> 2
+
+∩ O2̸ = ∅ if and only if arcsin( 1 − ∥ x1∥2
+
+∥x1∥2 + 1 ) = arccos( 1
+
+∥P ∗ 
+
+> 2
+
+∥ ) = arccos( 1
+
+|κ|p∥x1∥2 + 1 ).
+
+As ∥x1∥ < 1, this leads to that 
+
+|κ| =
+
+s
+
+∥x1∥2 + 1 4∥x1∥2 > 1
+
+√2 ,
+
+which is impossible by (42). Thus, Ω ∗ 
+
+> 2
+
+∩ O2 = ∅. Similarly, we have that Ω ∗ 
+
+> 3
+
+∩ O3 = ∅.Therefore, Ω ∗ ⊂ ℓP ∗ 
+
+> 1
+
+. Notice that ℓP ∗ 
+
+> 1
+
+corresponds to the empty set x : 0⊤x + 1 = 0 = ∅.Then with Theorem 11, we have that h∗ is globally affine. If ∥x1∥ ≥ 1, we have that ℓP ∗ 
+
+> 2
+
+intersects O2. It follows that Ω ∗ 
+
+> 2
+
+∩ O2 ⊂ ℓP ∗ 
+
+> 2
+
+. Similarly, we have that Ω ∗ 
+
+> 3
+
+∩ O3 ⊂ ℓP ∗ 
+
+> 3
+
+. Thus, we have that Ω∗ ⊂ ℓP ∗ 
+
+> 1
+
+∪ ℓP ∗ 
+
+> 2
+
+∪ ℓP ∗ 
+
+> 3
+
+.
+
+59 Liang, Jacobs, Mont´ ufar 
+
+Notice that ℓP ∗ 
+
+> 2
+
+corresponds to the hyperplane x : x⊤ 
+
+> 1
+
+x + 1 = 0 and ℓP ∗ 
+
+> 3
+
+corresponds to 
+
+x : − x⊤ 
+
+> 1
+
+x + 1 = 0 .
+
+Odd labels y1 = −y2: With similar arguments, we have that h∗ is an odd function. Then we have that 
+
+P ∗ 
+
+> 1
+
+= κ
+
+x1
+
+1
+
+
+
+− κ
+
+x2
+
+1
+
+
+
+= κ
+
+2x1
+
+0
+
+
+
+,P ∗ 
+
+> 2
+
+= κ
+
+x1
+
+1
+
+
+
+,P ∗ 
+
+> 3
+
+= κ
+
+ x1
+
+−1
+
+
+
+,P ∗ 
+
+> 4
+
+= 0 .
+
+Similarly, it suffices to examine Ω ∗ 
+
+> k
+
+∩ Ok for k = 1 , 2, 3, with κ̸ = 0. Define: 
+
+Q1 = ( −x1, ∥x1∥2), Q2 = ( x1, ∥x1∥2).
+
+Recall that Gx = (w, b ) ∈ Rd+1 : w⊤x + b = 0 . Note that 
+
+ℓQ1 = Proj Gx1 (ℓP ∗ 
+
+> 1
+
+) = Proj Gx1 (ℓP ∗ 
+
+> 3
+
+)
+
+ℓQ2 = Proj Gx2 (ℓP ∗ 
+
+> 1
+
+) = Proj Gx2 (ℓP ∗ 
+
+> 2
+
+),
+
+where Proj A(B) denotes the orthogonal projection of B onto A.For k = 1, we have that (P ∗ 
+
+> 1
+
+)⊤(x1, 1) = 2 κ∥x1∥2, (P ∗ 
+
+> 1
+
+)⊤(−x1, 1) = −2κ∥x1∥2.
+
+Thus, ℓP ∗ 
+
+> 1
+
+intersects O2 and O3. Notice that sin( d∠(ℓP ∗ 
+
+> 1
+
+, O 12 )) =      
+
+> (P∗
+> 1)⊤P∗
+> 3
+> ∥P∗
+> 3∥
+
+∥P ∗ 
+
+> 1
+
+∥ =     
+
+> (P∗
+> 1)⊤P∗
+> 2
+> ∥P∗
+> 2∥
+
+∥P ∗ 
+
+> 1
+
+∥ = sin( d∠(ℓP ∗ 
+
+> 1
+
+, O 13 )) .
+
+Notice also that O13 ⊂ G1 and O12 ⊂ G2. Thus, by the double-cone geometry of Ω ∗ 
+
+> 1
+
+and since Ω ∗ 
+
+> 1
+
+∩ O1 consists of at most two rays, we have that 
+
+O1 ∩ Ω∗ 
+
+> 1
+
+⊂ Proj G1 (ℓP ∗ 
+
+> 1
+
+) ∪ Proj G2 (ℓP ∗ 
+
+> 1
+
+) = ℓQ1 ∪ ℓQ2 .
+
+For k = 2, we have that (P ∗ 
+
+> 2
+
+)⊤(x1, 1) = κ(∥x1∥2 + 1) , (P ∗ 
+
+> 2
+
+)⊤(−x1, 1) = κ(−∥ x1∥2 + 1) .
+
+When ∥x1∥ ≤ 1, we have that ℓP ∗ 
+
+> 2
+
+intersects O1 and O4. Notice that 
+
+d∠(ℓP ∗ 
+
+> 2
+
+, O 12 ) = arcsin( 1 − ∥ x1∥2
+
+∥x1∥2 + 1 ) < π/ 2 = d∠(ℓP ∗ 
+
+> 2
+
+, O 24 ).
+
+Since O12 ⊂ G2, we have that 
+
+O2 ∩ Ω∗ 
+
+> 2
+
+⊂ Proj G2 (ℓP ∗ 
+
+> 2
+
+) = ℓQ2 .
+
+60 Implicit Bias of SGD in Multivariate ReLU Networks 
+
+Similarly, we have that 
+
+O3 ∩ Ω∗ 
+
+> 3
+
+⊂ ℓQ1 .
+
+Thus, Ω∗ ⊂ ℓQ1 ∪ ℓQ2 .
+
+Note that ℓQ1 corresponds to the hyperplane x : − x⊤ 
+
+> 1
+
+x + ∥x1∥2 = 0 and ℓQ2 corresponds to x : x⊤ 
+
+> 1
+
+x + ∥x1∥2 = 0 .When ∥x1∥ > 1, we have that ℓP ∗ 
+
+> 2
+
+intersects the interior of O2. Then we have that 
+
+O2 ∩ Ω∗ 
+
+> 2
+
+⊂ ℓP ∗ 
+
+> 2
+
+, 1 ≥ ∥ P ∗ 
+
+> 2
+
+∥ = |κ|p∥x1∥2 + 1 . (43) Note that O1 ∩ Ω∗
+
+> 1
+
+̸ = ∅ if and only if 
+
+d∠(ℓP ∗ 
+
+> 1
+
+, O 12 ) = arcsin( ∥x1∥
+
+p∥x1∥2 + 1 ) = arccos( 12|κ|∥ x1∥ ) = arccos( 1
+
+∥P ∗ 
+
+> 1
+
+∥ ).
+
+Equivalently, 
+
+|κ| =
+
+s
+
+1 + ∥x1∥2
+
+4∥x1∥2 .
+
+This, together with (43), yields that 1 ≥ ∥x1∥2 + 1 2∥x1∥ ,
+
+which is impossible, as ∥x1∥ > 1. Therefore, we have that O1 ∩ Ω∗ 
+
+> 1
+
+= ∅. Similar to k = 2, we have that 
+
+O3 ∩ Ω∗ 
+
+> 3
+
+⊂ ℓP ∗ 
+
+> 3
+
+.
+
+Thus, Ω∗ ⊂ ℓP ∗ 
+
+> 2
+
+∪ ℓP ∗ 
+
+> 3
+
+.
+
+Note that ℓP ∗ 
+
+> 2
+
+corresponds to the hyperplane x : x⊤ 
+
+> 1
+
+x + 1 = 0 and ℓP ∗ 
+
+> 3
+
+corresponds to 
+
+x : − x⊤ 
+
+> 1
+
+x + 1 = 0 . This completes the proof. 
+
+Appendix F. Comparison of the Bounds on Effective Width 
+
+In this section, we compare our bound on the effective width with the bound obtained in Del Grande et al. (2026): 
+
+K′ ≤ K′ 
+
+> bound
+
+= max 
+
+> k=0 ,...,M
+
+Mk
+
+
+
+Ξ( M − k, d + 1 − k),
+
+where Ξ( n, d ) is the number of regions in Rd divided by an arrangement of n hyperplanes that pass through the origin. Note that Del Grande et al. (2026) considered networks 
+
+61 Liang, Jacobs, Mont´ ufar 
+
+without input biases and replace each training input xj by x′ 
+
+> j
+
+= ( xj , 1) ∈ Rd′
+
+= Rd+1 .Accordingly, the original bound in Del Grande et al. (2026) is max 
+
+> k=0 ,...,M
+
+Mk
+
+
+
+Ξ( M − k, d ′ − k).
+
+For the training set X = {xj }Mj=1 ⊂ Rd, let Gxj = (w, b ) : w⊤xj + b = 0 . Note that in the analysis of Del Grande et al. (2026), Ξ( M − k, d + 1 − k) is essentially counting the number of regions of ∩j∈J k Gxj divided by Gxj j / ∈J k for some Jk ⊂ { 1, . . . , M } with 
+
+|J k| = k (see the proof of Lemma 3.11 in Del Grande et al. 2026). Below we consider the general case, i.e., X are in general position. In this case, Cover (1965) gives that 2P(X ) − 1 = 2 
+
+> d
+
+X
+
+> i=0
+
+M − 1
+
+i
+
+
+
+− 1,
+
+and that 
+
+K′ 
+
+> bound
+
+= max 
+
+> k=0 ,...,M
+
+Mk
+
+
+
+· 2
+
+> d−k
+
+X
+
+> i=0
+
+M − k − 1
+
+i
+
+
+
+.
+
+Note that, 
+
+K′ 
+
+> bound
+
+> 2
+
+> d
+
+X
+
+> i=0
+
+M − 1
+
+i
+
+
+
+.
+
+Thus, K′ 
+
+> bound
+
+exceeds our bound by at least one. Now assume that 2 d + 1 ≤ M . Note that 
+
+ M −1
+
+> i+1
+
+ M −1
+
+> i
+
+ = M − 1 − ii + 1 ≥ 1 ⇐⇒ 2i ≤ M − 2,
+
+which is satisfied when i ≤ d − 1. Thus, 2P(X ) − 1 < 2
+
+> d
+
+X
+
+> i=0
+
+M − 1
+
+i
+
+
+
+≤ 2( d + 1) 
+
+M − 1
+
+d
+
+
+
+.
+
+Meanwhile, max 
+
+> k=0 ,...,M
+
+Mk
+
+
+
+· 2
+
+> d−k
+
+X
+
+> i=0
+
+M − k − 1
+
+i
+
+
+
+≥ 2
+
+ M
+
+⌊d/ 2⌋
+
+ M − ⌊ d/ 2⌋ − 1
+
+d − ⌊ d/ 2⌋
+
+
+
+≥ 2 MM − ⌊ d/ 2⌋
+
+ d
+
+⌊d/ 2⌋
+
+ M − 1
+
+d
+
+
+
+≥ 2
+
+ d
+
+⌊d/ 2⌋
+
+ M − 1
+
+d
+
+
+
+≥ 2 2d
+
+d + 1 
+
+M − 1
+
+d
+
+
+
+.
+
+62 Implicit Bias of SGD in Multivariate ReLU Networks 
+
+Therefore, 
+
+K′
+
+> bound
+
+2P(X ) − 1 ≥ 2d
+
+(d + 1) 2 .
+
+That is, in the regime of 2 d + 1 ≤ M , our bound improves over the bound in Del Grande et al. (2026) by a factor of at least 2 d/(d + 1) 2.
+
+Appendix G. Existence of Accumulation Points 
+
+In this section, we show that for any sequence ( βn, λ n, m n) satisfying Assumption 2, with 
+
+mn, β n → +∞ and λn → ¯λ, one can find a subsequence ( βnk , λ nk , m nk ) along which 
+
+h∗  
+
+> βnk,λ nk,m nk
+
+(·) converges pointwise. 
+
+Proposition 19 Under the setting of Theorem 4, for any sequence (βn, λ n, m n) satisfying Assumption 2 for n ≥ 1, with mn, β n → +∞ and λn → ¯λ for an arbitrary ¯λ > 0 as 
+
+n → +∞, there exists a subsequence (βnk , λ nk , m nk ) such that lim k→+∞ h∗  
+
+> βnk,λ nk,m nk
+
+(x)
+
+exists for every x ∈ Rd.
+
+Proof Notice that 
+
+|h∗
+
+> β,λ,m
+
+(0) | =
+
+Z
+
+am(b)m 
+
+> +
+
+dρ ∗
+
+> β,λ,m
+
+(θ) ≤
+
+Z
+
+|ab |dρ ∗
+
+> β,λ,m
+
+(θ) ≤
+
+Z
+
+∥θ∥2dρ ∗
+
+> β,λ,m
+
+(θ).
+
+By Lemma 15, we have that sup 
+
+> n
+
+|h∗ 
+
+> βn,λ n,m n
+
+(0) | ≤ C
+
+for a constant C > 0. On the other hand, as we shown in the proof of Theorem 11, we have that, for any x, x ′ ∈ Rd,sup 
+
+> n
+
+|h∗ 
+
+> βn,λ n,m n
+
+(x) − h∗ 
+
+> βn,λ n,m n
+
+(x′)|≤
+
+
+
+2( d + 2) + 4( λnβn)−1(1 + ( d + 2) log(8 π)) + 2
+
+λnM
+
+> M
+
+X
+
+> j=1
+
+y2
+
+> j
+
+
+
+∥x − x′∥≤C′∥x − x′∥,
+
+for a constant C′ > 0. Thus, for any x ∈ Rd,sup 
+
+> n
+
+|h∗ 
+
+> βn,λ n,m n
+
+(x)| ≤ sup 
+
+> n
+
+|h∗ 
+
+> βn,λ n,m n
+
+(0) | + sup 
+
+> n
+
+|h∗ 
+
+> βn,λ n,m n
+
+(x) − h∗ 
+
+> βn,λ n,m n
+
+(0) | ≤ C′′ ,
+
+for some C′′ > 0. Thus, there exists a subsequence such that lim  
+
+> k→+∞
+
+h∗   
+
+> βnk,λ nk,m nk
+
+(x)exists. Now take a countable dense subset {xi}i≥1 ⊂ Rd. By a diagonal argument, we can find a subsequence {nk} such that lim  
+
+> k→+∞
+
+h∗   
+
+> βnk,λ nk,m nk
+
+(xi)
+
+63 Liang, Jacobs, Mont´ ufar 
+
+exists for every i. To simplify the notation, let hk = h∗  
+
+> βnk,λ nk,m nk
+
+. Now for any x ∈ Rd and any ε > 0, note that 
+
+|hk(x) − hk′ (x)| ≤ | hk(x) − hk(xi)| + |hk(xi) − hk′ (xi)| + |hk′ (x) − hk′ (xi)|≤ 2C′∥x − xi∥ + |hk(xi) − hk′ (xi)|.
+
+Since {xi} is dense in Rd, we can select i such that 2C′∥x − xi∥ ≤ ε/ 2.
+
+Since {hk(xi)} is convergent, there exists K such that for any k, k ′ > K ,
+
+|hk(xi) − hk′ (xi)| ≤ ε/ 2.
+
+Therefore, for k, k ′ > K ,
+
+|hk(x) − hk′ (x)| ≤ ε. 
+
+Thus, the limit lim k→+∞ hk(x) exists. This means that h∗  
+
+> βnk,λ nk,m nk
+
+has a pointwise limit as k → +∞. This completes the proof. 
+
+Appendix H. Non-redundancy of Kink Hyperplane Arrangement 
+
+In this section, we obtain a description of the location of the kink hyperplanes of the limiting piecewise affine function using Theorem 6. We characterize the location of a hyperplane in the input space through the partition it induces on the training set X = {xj }Mj=1 . As defined in Section 4.1, a dichotomy is a partition of the training set induced by a hyperplane that does not pass through any data point. To accommodate hyperplanes that intersect the training set, we introduce the following notion. For a training set X = {xj }Mj=1 , we say T = ( {X +, X−} , X0) is a linear 
+
+trichotomy of X if X = X+ ⊔ X − ⊔ X 0 and there exist w ∈ Rd, b ∈ R satisfying w⊤xj + b > 0if xj ∈ X +, w⊤xj + b < 0 if xj ∈ X −, and w⊤xj + b = 0 if xj ∈ X 0. In this case, we say that T is realized by the hyperplane {x : w⊤x + b = 0 }. Note that a dichotomy is a special trichotomy with X0 = ∅. We call a trichotomy a strict trichotomy if it is not a dichotomy. We introduce a partial order to compare trichotomies. For two trichotomies of X , T = ( {X +, X−} , X0) and T ′ = ( X ′
+
+> +
+
+, X ′− , X ′
+
+> 0
+
+), define T ′ ⪯ T if, after possibly interchanging X+ and X−,
+
+X+ ⊆ X ′
+
+> +
+
+, X− ⊆ X ′−.
+
+When T ′ ⪯ T , we say that T is a degeneration of T ′.Recall from Section 6.5 that, each stratum V ∈ V uniquely corresponds to a realizable ternary sign pattern on the training inputs X . Note that each realizable trichotomy of X
+
+corresponds to a pair of ternary sign patterns related by a sign flip, and hence to a pair of antipodal strata {V, −V }, except that the trichotomy ( {∅, ∅}, X ) corresponds to the single stratum V0. Under this correspondence, the following result is a direct consequence of Theorem 6. 
+
+64 Implicit Bias of SGD in Multivariate ReLU Networks 
+
+Corollary 20 (Kink Hyperplane Arrangement) Under the same notations and as-sumptions as in Theorem 5, assume that (wk, b k)̸ = ( wk′ , b k′ ) whenever k̸ = k′. Let Π
+
+denote the collection of hyperplanes πk = x : x⊤wk + bk = 0 for k = 1 , . . . , K . For any dichotomy T of X , let D(T ) denote the set of all trichotomies that are degenerations of T
+
+and are realized by hyperplanes in Π. The following holds: (i) Any trichotomy of the training set X is realized by most two hyperplanes in Π.(ii) Consider the dichotomy T0 = ( {X , ∅} , ∅). Then T0 is realized by at most one hyper-plane in Π. Moreover, D(T0) contains at most two elements. When D(T0) contains two elements, both elements are strict trichotomies. (iii) Given an arbitrary dichotomy T of X , D(T ) has at most four elements. At least 
+
+2|D (T )| − 4 of the elements in D(T ) are strict trichotomies, where |D (T )| denotes the cardinality of D(T ).
+
+Shevchenko et al. (2022) showed that the solution function has at most three knots between any two consecutive training points and, when three knots occur, two must coincide with the endpoints of the interval, while the third lies strictly in its interior. We explain that this is covered as a special case of Corollary 20. Consider a set of univariate training inputs X = {xj }Mj=1 and assume that −L = x0 < x 1 < · · · < x M < x M +1 = L for some sufficiently large L > 0. Fix a j ∈ { 1, . . . , M − 1}. Let T denote the dichotomy 
+
+X = xj′ j′≤j ⊔xj′ j′>j . Note that |D (T )| precisely counts the knots in the closed interval [xj , x j+1 ]. By Corollary 20, if |D (T )| = 3, then at least two of the corresponding hyperplanes realize strict trichotomies. In the univariate setting, this means that two of the associated knots must lie exactly at xj and xj+1 , while the remaining knot must lie in ( xj , x j+1 ). On the other hand, if |D (T )| = 4, then Corollary 20 implies that all four corresponding hyperplanes must realize strict trichotomies. This is impossible on the interval [ xj , x j+1 ], since only the end points correspond to strict trichotomies. Regarding the dichotomy T0 = ( {X , ∅} , ∅), note that D(T0) counts the knots in the intervals [ x0, x 1] and [ xM , x M +1 ]. By Corollary 20, there are at most two knots on these two closed intervals. Moreover, if two knots are present, they must occur precisely at the boundary data points x1 and xM .
+
+> 65 Liang, Jacobs, Mont´ ufar
+
+References 
+
+Luigi Ambrosio and Giuseppe Savar´ e. Gradient flows of probability measures. In Handbook of differential equations: evolutionary equations , volume 3, pages 1–136. Elsevier, 2007. Luigi Ambrosio, Nicola Gigli, and Giuseppe Savar´ e. Gradient flows: in metric spaces and in the space of probability measures . Springer, 2005. Sanjeev Arora, Simon Du, Wei Hu, Zhiyuan Li, and Ruosong Wang. Fine-grained analysis of optimization and generalization for overparameterized two-layer neural networks. In 
+
+International Conference on Machine Learning , pages 322–332. PMLR, 2019. Francis Bach. Breaking the curse of dimensionality with convex neural networks. Journal of Machine Learning Research , 18(19):1–53, 2017. Peter L Bartlett and Shahar Mendelson. Rademacher and Gaussian complexities: Risk bounds and structural results. Journal of machine learning research , 3(Nov):463–482, 2002. Peter L Bartlett, Nick Harvey, Christopher Liaw, and Abbas Mehrabian. Nearly-tight VC-dimension and pseudodimension bounds for piecewise linear neural networks. Journal of Machine Learning Research , 20(63):1–17, 2019. Patrick Billingsley. Convergence of probability measures . John Wiley & Sons, 2013. Etienne Boursier and Nicolas Flammarion. Penalising the biases in norm regularisation enforces sparsity. Advances in Neural Information Processing Systems , 36:57795–57824, 2023. Etienne Boursier and Nicolas Flammarion. Early alignment in two-layer networks training is a two-edged sword. Journal of Machine Learning Research , 26(183):1–75, 2025. Etienne Boursier, Loucas Pillaud-Vivien, and Nicolas Flammarion. Gradient flow dynamics of shallow ReLU networks for square loss and orthogonal inputs. In Advances in Neu-ral Information Processing Systems , volume 35, pages 20105–20118. Curran Associates, Inc., 2022. URL https://proceedings.neurips.cc/paper_files/paper/2022/file/ 7eeb9af3eb1f48e29c05e8dd3342b286-Paper-Conference.pdf .Dmitry Chistikov, Matthias Englert, and Ranko Lazic. Learning a neuron by a shal-low ReLU network: Dynamics and implicit bias for correlated inputs. In Thirty-seventh Conference on Neural Information Processing Systems , 2023. URL https: //openreview.net/forum?id=xgY4QcOiEZ .L´ ena¨ ıc Chizat and Francis Bach. On the global convergence of gradient de-scent for over-parameterized models using optimal transport. In Advances in Neural Information Processing Systems , volume 31. Curran Associates, Inc., 2018. URL https://proceedings.neurips.cc/paper_files/paper/2018/file/ a1afc58c6ca9540d057299ec3016d726-Paper.pdf .
+
+> 66 Implicit Bias of SGD in Multivariate ReLU Networks
+
+Lenaic Chizat and Francis Bach. Implicit bias of gradient descent for wide two-layer neural networks trained with the logistic loss. In Conference on learning theory , pages 1305–1338. PMLR, 2020. Thomas M Cover. Geometrical and statistical properties of systems of linear inequalities with applications in pattern recognition. IEEE Transactions on Electronic Computers ,14(3):326–334, 1965. Jaume de Dios and Joan Bruna. On sparsity in overparametrised shallow ReLU networks. 
+
+arXiv preprint arXiv:2006.10225 , 2020. Thomas Debarre, Quentin Denoyelle, Michael Unser, and Julien Fageot. Sparsest piecewise-linear regression of one-dimensional data. Journal of Computational and Applied Math-ematics , 406:114044, 2022. Leonardo Del Grande, Christoph Brune, and Marcello Carioni. A dual certificate approach to sparsity in infinite-width shallow neural networks. arXiv preprint arXiv:2603.17785 ,2026. Arnaud Descours, Arnaud Guillin, Manon Michel, and Boris Nectoux. Law of large numbers and central limit theorem for wide two-layer neural networks: the mini-batch and noisy case. Journal of Machine Learning Research , 25(208):1–76, 2024. Simon S. Du, Xiyu Zhai, Barnabas Poczos, and Aarti Singh. Gradient descent provably optimizes over-parameterized neural networks. In International Conference on Learning Representations , 2019. URL https://openreview.net/forum?id=S1eK3i09YQ .Tolga Ergen and Mert Pilanci. Convex geometry and duality of over-parameterized neural networks. Journal of Machine Learning Research , 22(212):1–63, 2021. URL http:// jmlr.org/papers/v22/20-1447.html .Martin Ester, Hans-Peter Kriegel, J¨ org Sander, and Xiaowei Xu. A density-based algorithm for discovering clusters in large spatial databases with noise. In Proceedings of the Second International Conference on Knowledge Discovery and Data Mining , pages 226–231, 1996. Spencer Frei, Gal Vardi, Peter Bartlett, and Nathan Srebro. Benign overfitting in linear classifiers and leaky ReLU networks from KKT conditions for margin maximization. In The Thirty Sixth Annual Conference on Learning Theory , pages 3173–3228. PMLR, 2023a. Spencer Frei, Gal Vardi, Peter Bartlett, Nathan Srebro, and Wei Hu. Implicit bias in leaky ReLU networks trained on high-dimensional data. In The Eleventh International Conference on Learning Representations , 2023b. URL https://openreview.net/forum? id=JpbLyEI5EwW .Johanna Marie Gegenfurtner, Moritz Grillo, and Guido Mont´ ufar. The symmetries of three-layer ReLU networks, 2026. URL https://arxiv.org/abs/2605.18319 .
+
+> 67 Liang, Jacobs, Mont´ ufar
+
+Elisenda Grigsby, Kathryn Lindsey, and David Rolnick. Hidden symmetries of ReLU net-works. In Proceedings of the 40th International Conference on Machine Learning , volume 202 of Proceedings of Machine Learning Research , pages 11734–11760. PMLR, 2023. URL 
+
+https://proceedings.mlr.press/v202/grigsby23a.html .Moritz Grillo and Guido Mont´ ufar. Most ReLU networks admit identifiable parameters, 2026. URL https://arxiv.org/abs/2605.03601 .Jakob Heiss, Josef Teichmann, and Hanna Wutte. How (implicit) regularization of ReLU neural networks characterizes the learned function–part II: the multi-D case of two layers with random first layer. arXiv preprint arXiv:2303.11454 , 2023. Tom Jacobs and Guido Mont´ ufar. Implicit bias of mirror flow in homogeneous neural networks: Sparse and dense feature learning, 2026. URL https://arxiv.org/abs/2605. 19458 .Tom Jacobs, Chao Zhou, and Rebekka Burkholz. Never saddle for reparameterized steepest descent as mirror flow. In The Fourteenth International Conference on Learning Repre-sentations , 2026. URL https://openreview.net/forum?id=YgudIlQ9nC .Arthur Jacot, Franck Gabriel, and Clement Hongler. Neural tangent ker-nel: Convergence and generalization in neural networks. In Advances in Neural Information Processing Systems , volume 31. Curran Associates, Inc., 2018. URL https://proceedings.neurips.cc/paper_files/paper/2018/file/ 5a4be1fa34e62bb8a6ec6b91d2462f5a-Paper.pdf .Ziwei Ji and Matus Telgarsky. Directional convergence and alignment in deep learning. In Advances in Neural Information Processing Systems , volume 33, pages 17176–17186. Curran Associates, Inc., 2020. URL https://proceedings.neurips.cc/paper_files/ paper/2020/file/c76e4b2fa54f8506719a5c0dc14c2eb9-Paper.pdf .Hui Jin and Guido Mont´ ufar. Implicit bias of gradient descent for mean squared error regression with two-layer wide neural networks. Journal of Machine Learning Research ,24(137):1–97, 2023. URL http://jmlr.org/papers/v24/21-0832.html .Richard Jordan, David Kinderlehrer, and Felix Otto. The variational formulation of the fokker–planck equation. SIAM journal on mathematical analysis , 29(1):1–17, 1998. Yiwen Kou, Zixiang Chen, and Quanquan Gu. Implicit bias of gradient descent for two-layer ReLU and leaky ReLU networks on nearly-orthogonal data. Advances in Neural Information Processing Systems , 36, 2024. Jianfa Lai, Manyun Xu, Rui Chen, and Qian Lin. Generalization ability of wide neural networks on R. arXiv preprint arXiv:2302.05933 , 2023. Jaehoon Lee, Lechao Xiao, Samuel Schoenholz, Yasaman Bahri, Roman Novak, Jascha Sohl-Dickstein, and Jeffrey Pennington. Wide neural networks of any depth evolve as linear models under gradient descent. In Advances in Neural Information Processing Systems ,volume 32. Curran Associates, Inc., 2019. URL https://proceedings.neurips.cc/ paper_files/paper/2019/file/0d1a9651497a38d8b1c3871c84528bd4-Paper.pdf .
+
+> 68 Implicit Bias of SGD in Multivariate ReLU Networks
+
+Shuang Liang and Guido Mont´ ufar. Implicit bias of mirror flow for shallow neural net-works in univariate regression. In The Thirteenth International Conference on Learning Representations , 2025. URL https://openreview.net/forum?id=IF0Q9KY3p2 .Tao Luo, Zhi-Qin John Xu, Zheng Ma, and Yaoyu Zhang. Phase diagram for two-layer ReLU neural networks at infinite-width limit. Journal of Machine Learning Research , 22 (71):1–47, 2021. URL http://jmlr.org/papers/v22/20-1123.html .Kaifeng Lyu and Jian Li. Gradient descent maximizes the margin of homogeneous neural networks. In International Conference on Learning Representations , 2020. URL https: //openreview.net/forum?id=SJeLIgBKPS .Kaifeng Lyu, Zhiyuan Li, Runzhe Wang, and Sanjeev Arora. Gradient descent on two-layer nets: Margin maximization and simplicity bias. In Advances in Neural Information Processing Systems , 2021. URL https://openreview.net/forum?id=Aa5oPXc_1IV .Chao Ma, Stephan Wojtowytsch, Lei Wu, et al. Towards a mathematical understanding of neural network-based machine learning: what we know and what we don’t. arXiv preprint arXiv:2009.10713 , 2020. Hartmut Maennel, Olivier Bousquet, and Sylvain Gelly. Gradient descent quantizes ReLU network features. arXiv preprint arXiv:1803.08367 , 2018. Song Mei, Andrea Montanari, and Phan-Minh Nguyen. A mean field view of the land-scape of two-layer neural networks. Proceedings of the National Academy of Sciences ,115(33):E7665–E7671, 2018. URL https://www.pnas.org/doi/abs/10.1073/pnas. 1806579115 .Song Mei, Theodor Misiakiewicz, and Andrea Montanari. Mean-field theory of two-layers neural networks: dimension-free bounds and kernel limit. In Proceedings of the Thirty-Second Conference on Learning Theory , volume 99 of Proceedings of Machine Learning Research , pages 2388–2464. PMLR, 2019. URL https://proceedings.mlr.press/v99/ mei19a.html .Hancheng Min, Enrique Mallada, and Rene Vidal. Early neuron alignment in two-layer ReLU networks with small initialization. In The Twelfth International Confer-ence on Learning Representations , 2024. URL https://openreview.net/forum?id= QibPzdVrRu .Julia B Nakhleh and Robert D Nowak. Global minimizers of ℓp-regularized objectives yield the sparsest ReLU neural networks. In The Thirty-ninth Annual Conference on Neural Information Processing Systems , 2026. URL https://openreview.net/forum? id=EMa1ih7Wdt .Greg Ongie, Rebecca Willett, Daniel Soudry, and Nathan Srebro. A function space view of bounded norm infinite width ReLU nets: The multivariate case. In International Conference on Learning Representations , 2020. URL https://openreview.net/forum? id=H1lNPxHKDH .
+
+> 69 Liang, Jacobs, Mont´ ufar
+
+Rahul Parhi and Robert D Nowak. Banach space representer theorems for neural networks and ridge splines. Journal of Machine Learning Research , 22(43):1–40, 2021. Franco Pellegrini and Giulio Biroli. An analytic theory of shallow networks dynamics for hinge loss classification. Advances in Neural Information Processing Systems , 33:5356– 5367, 2020. Henning Petzka, Martin Trimmel, and Cristian Sminchisescu. Notes on the symmetries of 2-layer ReLU-networks. In NLDL , pages 1–6, 2020. URL https://doi.org/10.7557/ 18.5150 .Mary Phuong and Christoph H. Lampert. Functional vs. parametric equivalence of ReLU networks. In International Conference on Learning Representations , 2020. URL https: //openreview.net/forum?id=Bylx-TNKvH .Mary Phuong and Christoph H Lampert. The inductive bias of re {lu } networks on orthog-onally separable data. In International Conference on Learning Representations , 2021. URL https://openreview.net/forum?id=krz7T0xU9Z_ .Pranavkrishnan Ramakrishnan. A complete symmetry classification of shallow ReLU net-works, 2026. URL https://arxiv.org/abs/2604.14037 .Herbert Robbins and Sutton Monro. A stochastic approximation method. The annals of mathematical statistics , pages 400–407, 1951. Grant M. Rotskoff and Eric Vanden-Eijnden. Trainability and accuracy of neural net-works: An interacting particle system approach. arxiv e-prints, page. arXiv preprint arXiv:1805.00915 , 2018. Itay Safran, Gal Vardi, and Jason D Lee. On the effective number of linear regions in shallow univariate ReLU networks: Convergence guarantees and implicit bias. Advances in Neural Information Processing Systems , 35:32667–32679, 2022. URL https://openreview.net/ forum?id=F8UV5CItyRG .Justin Sahs, Ryan Pyle, Aneel Damaraju, Josue Ortega Caro, Onur Tavaslioglu, Andy Lu, Fabio Anselmi, and Ankit B Patel. Shallow univariate ReLU networks as splines: Initialization, loss surface, hessian, and gradient flow dynamics. Frontiers in artificial intelligence , 5:889981, 2022. Pedro Savarese, Itay Evron, Daniel Soudry, and Nathan Srebro. How do infinite width bounded norm networks look in function space? In Proceedings of the Thirty-Second Conference on Learning Theory , volume 99 of Proceedings of Machine Learning Re-search , pages 2667–2690. PMLR, 2019. URL https://proceedings.mlr.press/v99/ savarese19a.html .Alexander Shevchenko, Vyacheslav Kungurtsev, and Marco Mondelli. Mean-field analysis of piecewise linear solutions for wide ReLU networks. Journal of Machine Learning Research , 23(130):1–55, 2022. URL http://jmlr.org/papers/v23/21-1365.html .
+
+> 70 Implicit Bias of SGD in Multivariate ReLU Networks
+
+Justin Sirignano and Konstantinos Spiliopoulos. Mean field analysis of neural networks: A law of large numbers. SIAM Journal on Applied Mathematics , 80(2):725–752, 2020. Richard P Stanley. An introduction to hyperplane arrangements. Geometric combinatorics ,13:389–496, 2007. Matus Telgarsky. Benefits of depth in neural networks. In Conference on learning theory ,pages 1517–1539. PMLR, 2016. Nadav Timor, Gal Vardi, and Ohad Shamir. Implicit regularization towards rank minimiza-tion in ReLU networks. In International Conference on Algorithmic Learning Theory ,pages 1429–1459. PMLR, 2023. Nikolaos Tsilivis, Gal Vardi, and Julia Kempe. Flavors of margin: Implicit bias of steep-est descent in homogeneous neural networks. In International Conference on Learning Representations , volume 2025, pages 10609–10635, 2025. Bhavya Vasudeva, Jung Lee, Vatsal Sharan, and Mahdi Soltanolkotabi. The rich and the simple: On the implicit bias of adam and sgd. Advances in neural information processing systems , 38:161725–161761, 2026. Martin J Wainwright. High-dimensional Statistics: A Non-asymptotic Viewpoint , vol-ume 48. Cambridge university press, 2019. Yijun Wan, Melih Barsbey, Abdellatif Zaidi, and Umut Simsekli. Implicit compressibility of overparametrized neural networks trained with heavy-tailed SGD. In Forty-first Interna-tional Conference on Machine Learning , 2024. URL https://openreview.net/forum? id=CpgKRKBUTl .Yifei Wang and Mert Pilanci. The convex geometry of backpropagation: Neural network gradient flows converge to extreme points of the dual convex program. In International Conference on Learning Representations , 2022. URL https://openreview.net/forum? id=5QhUE1qiVC6 .Francis Williams, Matthew Trager, Daniele Panozzo, Claudio Silva, Denis Zorin, and Joan Bruna. Gradient dynamics of shallow univariate ReLU networks. In Ad-vances in Neural Information Processing Systems , volume 32. Curran Associates, Inc., 2019. URL https://proceedings.neurips.cc/paper_files/paper/2019/file/ 1f6419b1cbe79c71410cb320fc094775-Paper.pdf .Greg Yang and Edward J Hu. Tensor programs IV: Feature learning in infinite-width neural networks. In International Conference on Machine Learning , pages 11727–11737. PMLR, 2021. Thomas Zaslavsky. Facing up to Arrangements: Face-Count Formulas for Partitions of Space by Hyperplanes . American Mathematical Society: Memoirs of the American Math-ematical Society. American Mathematical Society, 1975. URL https://books.google. com/books?id=K-nTCQAAQBAJ .
+
+> 71 Liang, Jacobs, Mont´ ufar
+
+Yaoyu Zhang, Zhi-Qin John Xu, Tao Luo, and Zheng Ma. A type of generalization error induced by initialization in deep neural networks. In Proceedings of The First Mathemat-ical and Scientific Machine Learning Conference , volume 107 of Proceedings of Machine Learning Research , pages 144–164. PMLR, 2020. URL http://proceedings.mlr.press/ v107/zhang20a.html .Hanxu Zhou, Zhou Qixuan, Zhenyuan Jin, Tao Luo, Yaoyu Zhang, and Zhi-Qin Xu. Em-pirical phase diagram for three-layer neural networks with infinite width. Advances in Neural Information Processing Systems , 35:26021–26033, 2022.

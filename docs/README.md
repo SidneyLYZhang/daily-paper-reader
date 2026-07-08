@@ -6,76 +6,87 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-07-06
-- 运行时间：2026-07-06 22:16:38 UTC
+- 最新运行日期：2026-07-08
+- 运行时间：2026-07-08 21:48:13 UTC
 - 运行状态：成功
-- 本次总论文数：18
-- 精读区：5
+- 本次总论文数：21
+- 精读区：8
 - 速读区：13
 
 ### 今日简报（AI）
-今天我们推荐了18篇论文，精读5篇、速读13篇，聚焦Belavkin方程与无监督强化学习。  
-最值得精读的是《Propagation of chaos for Belavkin equations beyond pure states》与《Learning Generalizable Skill Policy with Data-Efficient Unsupervised RL》，两篇均获8.0高分。  
-建议优先阅读上述两篇精读，再浏览速读中7.0分的《HiComm》和《UCOB》扩展视野。
-- 详情：[/202607/06/README](/202607/06/README)
+今日精选21篇论文，精读8篇，其中两篇以9.0高分领跑，聚焦分类采样与生成AI几何新范式。
+
+最值得关注的是CuBAS的信息几何自适应采样方法，以及SMG对非欧几何在生成AI中的突破性应用。
+
+下一步建议优先精读这两篇9分论文，同时留意速读列表中自动驾驶强化学习与扩散引导策略优化等8分前沿方向。
+- 详情：[/202607/08/README](/202607/08/README)
 
 ### 精读区论文标签
-1. [Propagation of chaos for Belavkin equations beyond pure states](/202607/06/2606.29557v2-propagation-of-chaos-for-belavkin-equations-beyond-pure-states)  
+1. [CuBAS: Information Geometric Curvature-Based Adaptive Sampling for Supervised Classification](/202607/08/2607.03145v1-cubas-information-geometric-curvature-based-adaptive-sampling-for-supervised-classification)  
+   标签：评分：9.0/10、query:npl-bdl-saig
+   evidence：信息几何与统计推断
+2. [Statistically Meaningful Geometry (SMG) Beyond the Euclidean Paradigm, with Application to Generative AI](/202607/08/2607.03329v1-statistically-meaningful-geometry-smg-beyond-the-euclidean-paradigm-with-application-to-generative-ai)  
+   标签：评分：9.0/10、query:npl-bdl-saig
+   evidence：提出基于信息几何的统计意义几何框架，解决过参数化模型的泛化问题
+3. [Foundations of Equivariant Deep Learning: Unifying Graph and Sheaf Neural Networks](/202607/08/2607.03798v1-foundations-of-equivariant-deep-learning-unifying-graph-and-sheaf-neural-networks)  
+   标签：评分：9.0/10、query:ml-theory
+   evidence：开发序等变神经网络作为几何深度学习的基础
+4. [Mask-based Predictive Representations for Reinforcement Learning](/202607/08/2607.04153v1-mask-based-predictive-representations-for-reinforcement-learning)  
+   标签：评分：9.0/10、query:rl-semantic
+   evidence：掩码预测用于强化学习中的状态表示
+5. [Learning Task-Sufficient World Models by Synergizing Agentic Exploration and Structured Modeling](/202607/08/2607.04409v1-learning-task-sufficient-world-models-by-synergizing-agentic-exploration-and-structured-modeling)  
+   标签：评分：9.0/10、query:rl-semantic
+   evidence：强化学习中的潜在空间表示
+6. [Optimal control problems of Stochastic Volterra integral equations under Volatility Ambiguity](/202607/08/2607.06139v1-optimal-control-problems-of-stochastic-volterra-integral-equations-under-volatility-ambiguity)  
+   标签：评分：9.0/10、query:npl-bdl-saig
+   evidence：波动率模糊下随机Volterra方程的最优控制，与随机过程中的策略极限理论相关
+7. [Geometric Information Decomposition for Weighted Empirical Measures on the Sphere](/202607/08/2607.02943v1-geometric-information-decomposition-for-weighted-empirical-measures-on-the-sphere)  
    标签：评分：8.0/10、query:npl-bdl-saig
-   evidence：随机分析在扩散过程中的应用
-2. [Learning Generalizable Skill Policy with Data-Efficient Unsupervised RL](/202607/06/2607.00392v1-learning-generalizable-skill-policy-with-data-efficient-unsupervised-rl)  
-   标签：评分：8.0/10、query:rl-semantic
-   evidence：无监督强化学习中的技能隐表示与信息瓶颈
-3. [Local Motion Matters: A Deconstruct-Recompose Paradigm for Reinforcement Learning Pre-training from Videos](/202607/06/2607.00808v1-local-motion-matters-a-deconstruct-recompose-paradigm-for-reinforcement-learning-pre-training-from-videos)  
-   标签：评分：8.0/10、query:rl-semantic
-   evidence：通过局部运动分解进行强化学习状态表示学习
-4. [Fast approximation and learning of binary classification tasks in o-minimal structures using ReLU neural networks](/202607/06/2607.01266v1-fast-approximation-and-learning-of-binary-classification-tasks-in-o-minimal-structures-using-relu-neural-networks)  
+   evidence：利用最大熵投影对球面度量进行几何信息分解
+8. [Language Models Represent and Transform Concepts with Shared Geometry](/202607/08/2607.04525v1-language-models-represent-and-transform-concepts-with-shared-geometry)  
    标签：评分：8.0/10、query:ml-theory
-   evidence：代数几何（o-minimal）用于神经网络逼近
-5. [Path-level Hindsight Instructions for Semantic Exploration in Vision-Language Navigation](/202607/06/2607.01754v1-path-level-hindsight-instructions-for-semantic-exploration-in-vision-language-navigation)  
-   标签：评分：8.0/10、query:rl-semantic
-   evidence：强化学习用于视觉语言导航中的语义探索
+   evidence：将概念表示建模为点云流形和向量场，与几何深度学习理论一致
 
 ### 速读区论文标签
-1. [HiComm: Hierarchical Communication for Multi-agent Reinforcement Learning](/202607/06/2606.29126v2-hicomm-hierarchical-communication-for-multi-agent-reinforcement-learning)  
-   标签：评分：7.0/10、query:rl-semantic
-   evidence：多智能体强化学习、层级通信、状态表示、观察基础
-2. [UCOB: Learning to Utilize and Evolve Agentic Skills via Credit-Aware On-Policy Bidirectional Self-Distillation](/202607/06/2606.29502v1-ucob-learning-to-utilize-and-evolve-agentic-skills-via-credit-aware-on-policy-bidirectional-self-distillation)  
-   标签：评分：7.0/10、query:rl-semantic
-   evidence：技能条件提示作为在线强化学习中的语义上下文
-3. [Gradient Smoothing: Coupling Layer-wise Updates for Improved Optimization](/202607/06/2606.30813v1-gradient-smoothing-coupling-layer-wise-updates-for-improved-optimization)  
+1. [CritiqueDriveVLM: From Verifier-Guided Reinforcement Learning to Latent Thought Distillation for Autonomous Driving](/202607/08/2607.04179v1-critiquedrivevlm-from-verifier-guided-reinforcement-learning-to-latent-thought-distillation-for-autonomous-driving)  
+   标签：评分：8.0/10、query:rl-semantic
+   evidence：验证器引导的强化学习用于自动驾驶大模型的潜在思维蒸馏
+2. [Diffusion-Guided Uncertainty-Aware Delayed Policy Optimization](/202607/08/2607.05064v1-diffusion-guided-uncertainty-aware-delayed-policy-optimization)  
+   标签：评分：8.0/10、query:rl-semantic
+   evidence：利用扩散模型建模延迟状态与当前状态的关系，提升RL状态表示
+3. [Width-Robust Learnability in Mean-Field Bayesian Neural Networks](/202607/08/2607.05735v1-width-robust-learnability-in-mean-field-bayesian-neural-networks)  
+   标签：评分：8.0/10、query:npl-bdl-saig
+   evidence：研究均场贝叶斯神经网络的宽度鲁棒可学习性
+4. [Learning to Throw Objects Safely in Multi-Obstacle Environments](/202607/08/2607.06388v1-learning-to-throw-objects-safely-in-multi-obstacle-environments)  
+   标签：评分：8.0/10、query:rl-semantic
+   evidence：使用强化学习和势场状态表示实现抛掷
+5. [Radial Suppression Accelerates Algorithmic Generalization: A Geometric Analysis of Delayed Generalization](/202607/08/2606.32000v1-radial-suppression-accelerates-algorithmic-generalization-a-geometric-analysis-of-delayed-generalization)  
    标签：评分：7.0/10、query:ml-theory
-   evidence：深度学习训练中的优化
-4. [SGD at the Edge of Stability: Stochastic Stabilization with Large Learning Rates](/202607/06/2606.30930v1-sgd-at-the-edge-of-stability-stochastic-stabilization-with-large-learning-rates)  
+   evidence：隐藏表示的几何分析，径向-角度分解
+6. [Homogenization of $\ell_2$-Adversarial Training in High-Dimensions: Exact Dynamics under Stochastic Gradient Descent](/202607/08/2607.00207v1-homogenization-of-ell2-adversarial-training-in-high-dimensions-exact-dynamics-under-stochastic-gradient-descent)  
    标签：评分：7.0/10、query:ml-theory
-   evidence：大学习率下随机梯度下降的收敛性分析
-5. [Motion Planning in Compressed Representation Spaces](/202607/06/2606.30940v1-motion-planning-in-compressed-representation-spaces)  
-   标签：评分：7.0/10、query:rl-semantic
-   evidence：用于规划的潜在空间表示
-6. [Continuous-Time Decentralized Online Estimation With Additive Noises](/202607/06/2606.31384v1-continuous-time-decentralized-online-estimation-with-additive-noises)  
-   标签：评分：7.0/10、query:npl-bdl-saig
-   evidence：连续时间随机微分方程分析
-7. [Direction-Magnitude Decomposition for Low-Rank Matrix Optimization: Faster Convergence and Saddle-to-saddle Dynamics](/202607/06/2606.31390v1-direction-magnitude-decomposition-for-low-rank-matrix-optimization-faster-convergence-and-saddle-to-saddle-dynamics)  
+   evidence：SGD下对抗训练动态，非凸优化
+7. [Born Discrete, Made Smooth: Variational Formulation of Shallow Neural Networks](/202607/08/2607.02003v1-born-discrete-made-smooth-variational-formulation-of-shallow-neural-networks)  
    标签：评分：7.0/10、query:ml-theory
-   evidence：非凸低秩矩阵优化方法
-8. [Propagation of~Interval Belief Structures and~Imprecise Copulas for~Neural Network Verification](/202607/06/2606.30105v1-propagation-ofinterval-belief-structures-andimprecise-copulas-forneural-network-verification)  
+   evidence：通过变分公式处理神经网络训练中的非凸优化问题
+8. [Implicit Bias of SGD in Multivariate ReLU Networks: Effective Width Collapse](/202607/08/2607.03613v1-implicit-bias-of-sgd-in-multivariate-relu-networks-effective-width-collapse)  
+   标签：评分：7.0/10、query:ml-theory
+   evidence：研究神经网络中SGD的隐式偏差，与非凸优化相关
+9. [PIEFS: Physics-Informed Eigenfunction Features with Learnable Scaling](/202607/08/2607.03692v1-piefs-physics-informed-eigenfunction-features-with-learnable-scaling)  
+   标签：评分：7.0/10、query:ml-theory
+   evidence：基于谱方法的可学习度量表示学习，用于几何深度学习
+10. [Analysis of a maximum-entropy based estimator for dynamic random graph models](/202607/08/2606.32013v1-analysis-of-a-maximum-entropy-based-estimator-for-dynamic-random-graph-models)  
    标签：评分：6.0/10、query:npl-bdl-saig
-   evidence：基于区间信念结构的神经网络不精确概率验证传播
-9. [Preference-Based Reward Learning under Partial Observability with Inexact Dynamics](/202607/06/2606.30271v1-preference-based-reward-learning-under-partial-observability-with-inexact-dynamics)  
+   evidence：动态随机图模型的最大熵估计，结合随机分析和统计推断
+11. [Multi-scale Mixture of World Models for Embodied Agents in Evolving Environments](/202607/08/2607.00457v1-multi-scale-mixture-of-world-models-for-embodied-agents-in-evolving-environments)  
    标签：评分：6.0/10、query:rl-semantic
-   evidence：偏好奖励学习中的隐状态推断
-10. [Data-Adaptive Learning of Dynamical Systems by Matching Transfer Operators and Invariant Measures](/202607/06/2607.00391v1-data-adaptive-learning-of-dynamical-systems-by-matching-transfer-operators-and-invariant-measures)  
-   标签：评分：6.0/10、query:npl-bdl-saig
-   evidence：过渡统计方法、Perron-Frobenius算子、Markov矩阵、随机分析
-11. [LSR-Net: Long-Short-Range Operator Learning for Pattern Dynamics on Manifolds](/202607/06/2607.00750v1-lsr-net-long-short-range-operator-learning-for-pattern-dynamics-on-manifolds)  
+   evidence：尺度感知的世界模型混合方法，与强化学习中的状态表示学习相关
+12. [Role-Aware Neural Convex Divergence Heads for Asymmetric Representation Learning](/202607/08/2607.01762v1-role-aware-neural-convex-divergence-heads-for-asymmetric-representation-learning)  
    标签：评分：6.0/10、query:ml-theory
-   evidence：流形上的几何深度学习用于模式动力学
-12. [Full Bayesian Reinforcement Learning via LF-IBIS](/202607/06/2607.01741v1-full-bayesian-reinforcement-learning-via-lf-ibis)  
-   标签：评分：6.0/10、query:npl-bdl-saig
-   evidence：使用近似贝叶斯计算和迭代重要性采样的贝叶斯强化学习
-13. [Learning to Move Before Learning to Do: Task-Agnostic pretraining for VLAs](/202607/06/2607.02466v1-learning-to-move-before-learning-to-do-task-agnostic-pretraining-for-vlas)  
+   evidence：几何深度学习理论与应用
+13. [Bridging Interleaved Multi-Modal Reasoning as a Unified Decision Process](/202607/08/2607.03748v1-bridging-interleaved-multi-modal-reasoning-as-a-unified-decision-process)  
    标签：评分：6.0/10、query:rl-semantic
-   evidence：通过自监督逆动力学进行状态表示学习
+   evidence：应用强化学习于多模态推理，通过统一决策过程进行潜在空间表示
 
 
 <div class="dpr-home-promo-card">

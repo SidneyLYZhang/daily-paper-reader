@@ -1,0 +1,352 @@
+Title: Role-Aware Neural Convex Divergence Heads for Asymmetric Representation Learning
+
+URL Source: https://arxiv.org/pdf/2607.01762v1
+
+Published Time: Fri, 03 Jul 2026 00:36:28 GMT
+
+Number of Pages: 22
+
+Markdown Content:
+# Role-Aware Neural Convex Divergence Heads for Asymmetric Representation Learning 
+
+He Huang a,b,1, ∗, Lu Shen c,1 , Yunfeng Huang d, Li Qi a,b 
+
+> a
+
+School of Mathematics and Statistics, Chongqing Technology and Business University, Chongqing, 400067, China 
+
+> b
+
+Chongqing Key Laboratory of Statistical Intelligent Computing and Monitoring, Chongqing Technology and Business University, Chongqing, 400067, China 
+
+> c
+
+School of Food Science, Chongqing Technology and Business University, Chongqing, 400067, China 
+
+> d
+
+Faculty of Electrical Engineering and Information Technology, TU Dortmund University, Dortmund, Germany 
+
+Abstract 
+
+Many representation learning problems involve directed relations, such as lex-ical entailment, sentence entailment, ontology hierarchy, and citation links. Standard Euclidean, cosine, and Mahalanobis heads are symmetric, while generic neural scorers can model directionality but provide limited geometric structure. This paper proposes a role-aware neural convex divergence head for asymmetric representation learning. The head applies source- and target-role projections before evaluating an input-convex neural Bregman diver-gence, yielding a nonnegative structured score in the role-projected space. We characterize its projected-space identity, source-role convexity, directional-gap decomposition, and Hessian-based local curvature. Experiments on lex-ical, sentence, ontology, and directed graph benchmarks compare symmetric distances, unstructured asymmetric scorers, order/hyperbolic baselines, plain ICNN-Bregman heads, and the proposed role-aware variant. Across ten ran-dom seeds on the main semantic and ontology benchmarks, role-aware pro-jections consistently improve directional accuracy over plain ICNN-Bregman heads while preserving zero observed negative divergence rate. The results also identify a boundary case: on large fixed-feature citation prediction, spe-
+
+> ∗
+
+Corresponding author. 
+
+Email address: huanghe@ctbu.edu.cn (He Huang) 
+
+> 1
+
+He Huang and Lu Shen contributed equally to this work. 
+
+> arXiv:2607.01762v1 [cs.LG] 2 Jul 2026
+
+cialized symmetric or hyperbolic baselines remain stronger in ranking accu-racy. Overall, the proposed head is best understood as a structured and interpretable plug-in distance module for tasks where directional relations matter. 
+
+Keywords: asymmetric metric learning, Bregman divergence, input-convex neural networks, role-aware projection, directed representation learning, interpretability 
+
+1. Introduction 
+
+Distance functions are a central component of representation learning. They are used to compare examples in metric learning, retrieve nearest neigh-bors, score candidate links, classify examples by prototypes, and regularize embedding spaces. A large fraction of practical systems still rely on sym-metric distances such as Euclidean distance, cosine distance, or Mahalanobis distance. These choices are effective when the relation of interest is similar-ity. However, many relations studied in machine learning are not symmetric. Hypernymy is directed from a specific concept to a more general concept; entailment is directed from a premise to a hypothesis; ontology edges are directed from child terms to parent terms; and citation links point from a citing paper to a cited paper. The importance of asymmetry in similarity judgments is not new: Tver-sky’s feature-based theory showed that similarity can be directional and context-dependent, challenging purely metric views of comparison [1]. In representation learning, one response is to abandon distance structure and use a generic neural scorer, such as a multilayer perceptron on concatenated pair features. This provides expressive asymmetry but weakens the geometric meaning of the learned score. Another response is to use structured asym-metric geometry, including order embeddings [2] or hyperbolic embeddings [3]. These approaches are well matched to hierarchical data, but their as-sumptions can be restrictive and they are usually implemented as a complete embedding model rather than as a plug-in head for arbitrary encoders. This paper studies a middle ground. We ask whether an asymmetric head can be both neural and geometrically structured. Our starting point is the Bregman divergence, originally introduced in convex programming [4], 
+
+Dϕ(x, y ) = ϕ(x) − ϕ(y) − ∇ ϕ(y)⊤(x − y), (1) 2where ϕ is a differentiable convex potential. Bregman divergences are gen-erally asymmetric and nonnegative, and they include many classical diver-gences as special cases [5]. Their properties are grounded in classical convex analysis and convex optimization [6, 7]. Recent work has explored neural parameterizations of Bregman divergences and convex potentials [8, 9, 10]. We build on this line of work, but target a specific problem: using neural convex divergences as plug-in distance heads for asymmetric representation learning. The proposed method, called the role-aware neural convex divergence head, applies two learnable role projections before computing a neural Breg-man divergence: 
+
+Dϕ,P s,P t (x, y ) = Dϕ(Psx, P ty), (2) where Ps and Pt map an input embedding into source and target roles. This construction turns a known asymmetric divergence into a practical, role-aware, encoder-agnostic head. The contribution lies in the combination of a plug-in ICNN potential, role-specific projections, directed training losses, and interpretation tools for asymmetric pairwise learning. This work makes three main contributions. First, we propose a role-aware neural convex divergence head for asym-metric representation learning. The head can be attached to fixed embed-dings or learned encoders and returns a nonnegative Bregman divergence in a source-target projected space. Second, we provide a theoretical and diagnostic characterization of the head. We show how classical Bregman properties are retained after role pro-jection, derive a quadratic special-case decomposition of the directional gap, and connect this decomposition to Hessian-based local curvature analysis. Third, we conduct a systematic empirical study across lexical entailment, sentence entailment, ontology hierarchy, and directed citation tasks. The ex-periments compare symmetric distances, unstructured asymmetric scorers, order/hyperbolic baselines, plain ICNN-Bregman heads, and the proposed role-aware variant, with ablations, significance tests, and interpretability di-agnostics. 
+
+2. Related Work 
+
+2.1. Metric learning and symmetric distance heads 
+
+Classical metric learning methods learn distances that preserve neighbor-hood or constraint structure, including large-margin nearest-neighbor learn-3ing [11] and information-theoretic metric learning [12]. The broader literature is reviewed by Kulis [13], who emphasizes metric learning as the problem of adapting the geometry of a representation space to task-specific comparison constraints. In modern deep learning pipelines, learned encoders are often paired with Euclidean, cosine, or Mahalanobis heads. These heads are stable, efficient, and interpretable for similarity, but they satisfy d(x, y ) = d(y, x )
+
+and therefore collapse direction-specific information by design. 
+
+2.2. Asymmetric representation learning 
+
+Directed relations have motivated specialized embedding geometries. Or-der embeddings model partial-order relations through coordinate-wise in-equalities and have been used for visual-semantic hierarchy and entailment [2]. Hyperbolic and Poincare embeddings exploit negative curvature to rep-resent trees and hierarchies compactly [3]. Knowledge-graph models such as TransE and RotatE provide additional examples of structured directional scoring for relational data [14, 15]. These models are powerful, but they often impose task-specific geometry or relation-specific scoring assumptions. 
+
+2.3. Input-convex networks and neural Bregman divergences 
+
+Input-convex neural networks (ICNNs) parameterize convex scalar func-tions by constraining selected weights to be nonnegative [8]. Convex neural potentials connect to a longer tradition of convex analysis, Bregman dis-tances, and projection methods [4, 16, 6]. Deep divergence learning and neu-ral Bregman divergence models show that neural potentials can learn flexible dissimilarities while retaining structure inherited from convexity [9, 17, 10]. Our work differs in emphasis: we treat the divergence as a reusable head for directed representation learning and evaluate whether role-specific projec-tions improve directional behavior without abandoning Bregman structure. 
+
+2.4. Benchmarks for directed semantic and graph relations 
+
+HyperLex evaluates graded lexical entailment and hypernymy [18]. Word-Net provides large lexical taxonomies [19]. SICK and SNLI are standard sentence-pair entailment resources [20, 21]. Gene Ontology provides directed biological concept relations [22]. OGB link-prediction datasets evaluate di-rected graph prediction under larger-scale fixed-feature regimes [23]. These resources allow us to test whether the proposed head is useful beyond one narrow dataset. 43. Method 
+
+3.1. Problem setting 
+
+Let x, y ∈ Rd be two embeddings produced by an encoder or directly provided as fixed input features. A directed pair (x, y ) indicates that x
+
+should be related to y in a source-to-target direction. The datasets used in this paper do not provide ground-truth divergence values D(x, y ). Instead, they provide directed relation labels or graded relation scores, such as child-to-parent ontology edges, premise-to-hypothesis entailment labels, or citing-to-cited paper links. The divergence is therefore a learned scoring function. The goal is to learn a score s(x, y ) or distance-like quantity D(x, y ) such that positive directed pairs have smaller divergence than corrupted negative pairs, and such that the forward direction can be distinguished from the reverse direction when the task requires it. The head is designed to be plug-in in two senses. Mathematically, it only consumes embeddings and returns a pairwise divergence, so it can be placed after different encoders. In software, it is implemented as a module with the same interface as ordinary distance heads: given two batches of embeddings, it returns one scalar per pair. 
+
+3.2. Input-convex potential 
+
+We parameterize a differentiable strongly convex potential ϕθ : Rk → R
+
+using an ICNN [8]. A typical layer has the form 
+
+zℓ+1 = σ(W (z) 
+
+> ℓ
+
+zℓ + W (u) 
+
+> ℓ
+
+u + bℓ), (3) where u is the input, σ is a convex nondecreasing activation, and W (z) 
+
+> ℓ
+
+is constrained to be element-wise nonnegative. To improve numerical stability and ensure strong convexity, we use a quadratic term: 
+
+ϕθ(u) = gθ(u) + λ
+
+2 ∥u∥22, λ > 0, (4) where gθ is the ICNN output. The induced Bregman divergence is 
+
+Dϕθ (u, v ) = ϕθ(u) − ϕθ(v) − ∇ ϕθ(v)⊤(u − v). (5) This quantity is nonnegative when ϕθ is convex, and it is generally asymmet-ric. 53.3. Role-aware projected divergence 
+
+Plain Bregman divergence is asymmetric, but in practice the learned di-rection may be weak if both arguments are passed through the same repre-sentation role. We therefore introduce role projections: 
+
+u = Psx, v = Pty, (6) where Ps and Pt are learnable source and target maps. The proposed head is 
+
+Dθ,P s,P t (x, y ) = Dϕθ (Psx, P ty). (7) The projections can be linear maps, shallow MLPs, or constrained affine maps. The experiments mainly use linear maps because they give the clearest interpretation: the model learns which directions of the embedding space matter when an item acts as a source and which directions matter when it acts as a target. Figure 1 summarizes the system-level role of the proposed head. A pair of items is encoded into two embeddings, the proposed head scores the ordered pair, and the resulting divergence can be used for ranking, link prediction, or interpretation. In the experiments, this scoring module is trained through triplet-style pairwise ranking, described below. Although the reported ex-periments use fixed embeddings to isolate the head, the module itself has the same input-output interface as ordinary distance heads and can be placed after a learned encoder. 
+
+3.4. Training objectives 
+
+For directed link prediction and pairwise relation learning, the exper-iments use a triplet-style pairwise ranking objective, following the large-margin metric-learning view that supervision can be given as relative com-parison constraints rather than absolute distances [11, 13]. Each observed directed relation (x, y +) is treated as a positive source-target pair. During training, one corrupted target y− is sampled for each positive pair from a candidate pool that excludes annotated positive targets of the same source. This negative-sampling protocol is also common in embedding-based link pre-diction, where models are trained to score observed edges above corrupted edges [14]. We then minimize a margin objective: 
+
+Lrank = max {0, m + D(x, y +) − D(x, y −)}, (8) 6directed pair encoder embeddings  
+
+> x
+> y
+> role-aware plug-in head D
+> train
+> explain
+
+zoomed view of the proposed head 
+
+> zx
+> zy
+> Ps
+> Pt
+> source role
+> target role
+> u
+> v
+> input-convex potential
+> D
+> loss
+> diagnosis
+> The same head can be attached after fixed embeddings or learned encoders.
+
+Figure 1: Neural architecture view of the proposed role-aware plug-in divergence head. A directed pair is encoded into two embeddings, the proposed head applies source- and target-role projections, and an ICNN-induced Bregman divergence returns an ordered-pair score. The score is used for pairwise ranking losses and for geometric diagnostics such as directional gaps and local curvature. 
+
+where (x, y +) is a positive directed pair and y− is a sampled corrupted target. Thus a minibatch contains triples (x, y +, y −), but the learned score remains an ordered-pair divergence D(x, y ). The loss does not regress to a known numerical divergence; it only enforces that the learned divergence ranks the annotated relation above sampled non-relations. Across epochs, the same positive pair can be compared with different corrupted targets. For direction supervision, we add a forward-reverse margin: 
+
+Ldir = max {0, m d + D(x, y ) − D(y, x )}. (9) The full objective is 
+
+L = Lrank + αLdir , (10) where α controls the ranking-direction trade-off. Thus, the main training signal is relational: positive pairs should be closer than corrupted pairs, and annotated forward directions should be preferred 7over their reversals. In the reported experiments, the input representations are held fixed and only the comparison head is optimized. This design isolates the behavior of the proposed head and allows the same training protocol to be applied to heterogeneous datasets whose labels are edges, entailment judgments, or graded relation strengths rather than explicit metric distances. 
+
+4. Theoretical Analysis 
+
+4.1. Nonnegativity and identity in projected space 
+
+Proposition 1. If ϕ is convex and differentiable, the role-aware head in Eq. (7) is nonnegative. If ϕ is strictly convex, its zero set is characterized by equality in the role-projected space. 
+
+Proof. The first-order supporting hyperplane property of convex functions implies that for all u, v [6, 7], 
+
+Dϕ(u, v ) ≥ 0. (11) Therefore Eq. (7) satisfies 
+
+Dθ,P s,P t (x, y ) ≥ 0 (12) for all x, y . If ϕ is strictly convex, then Dϕ(u, v ) = 0 if and only if u = v.Consequently, 
+
+Dθ,P s,P t (x, y ) = 0 ⇐⇒ Psx = Pty. (13) The projected head therefore no longer claims that D(x, x ) = 0 in the orig-inal input space. Instead, it has a role-diagonal identity: a pair has zero divergence when the source representation of the first item equals the target representation of the second item. This is appropriate for directed relations, where source and target roles are semantically distinct. □
+
+4.2. Quadratic special case and relation to projected metrics 
+
+The proposed head contains familiar distance heads as special cases. This helps clarify which part of the model creates directionality. 
+
+Proposition 2. If the potential is quadratic, 
+
+ϕ(u) = 12u⊤Hu, H ⪰ 0, (14) 8then the role-aware Bregman head becomes a role-aware Mahalanobis dis-tance in the projected space: 
+
+Dϕ(Psx, P ty) = 12(Psx − Pty)⊤H(Psx − Pty). (15) If H = I, this reduces to a squared Euclidean distance between the source-role representation of x and the target-role representation of y.
+
+Proof. For a quadratic potential, ∇ϕ(v) = Hv . Substituting into the Bregman definition gives 
+
+Dϕ(u, v ) = 12u⊤Hu − 12v⊤Hv − v⊤H(u − v)= 12(u − v)⊤H(u − v). (16) Taking u = Psx and v = Pty gives Eq. (15). □
+
+This special case shows that the proposed model is not merely an un-constrained asymmetric neural scorer. It generalizes a role-aware projected metric by replacing the fixed quadratic potential with a learned convex po-tential. 
+
+4.3. Source of directional asymmetry 
+
+Although Bregman divergences can be asymmetric even without role pro-jections, the experiments show that this asymmetry does not always align with the annotated source-to-target relation. The role-aware formulation makes the source of directionality explicit. Let 
+
+a = Psx, b = Pty, c = Psy, d = Ptx. (17) The directional gap can be written as 
+
+G(x, y ) = Dϕ(a, b ) − Dϕ(c, d ). (18) 
+
+Proposition 3. Under the quadratic potential in Proposition 2, the directional gap has the exact decomposition 
+
+G(x, y ) = 12(Psx − Pty)⊤H(Psx − Pty)
+
+− 12(Psy − Ptx)⊤H(Psy − Ptx). (19) 9Equation (19) shows that directionality is produced by an interaction be-tween role-specific projections and the geometry induced by H. If Ps = Pt
+
+and H is symmetric positive semidefinite, the two terms become identical after swapping x and y, so the gap vanishes in the quadratic case. Thus, in this interpretable limit, role separation is necessary for directional prefer-ence. With a neural convex potential, additional asymmetry can also arise from the non-quadratic shape of ϕ, but the role maps still determine which representation is evaluated as source and which is evaluated as target. 
+
+4.4. Convexity and local curvature 
+
+For a fixed second argument v, Dϕ(u, v ) is convex in the first argument 
+
+u because it is the sum of the convex function ϕ(u) and a linear term in 
+
+u. For the role-aware head, this means that the divergence is convex in the source-role variable Psx when the target-role variable Pty is fixed. The local geometry is controlled by the Hessian of the potential. If u =
+
+v + δ and ϕ is twice differentiable, Taylor expansion around v gives 
+
+Dϕ(v + δ, v ) ≈ 12δ⊤∇2ϕ(v)δ. (20) For the role-aware head, δ = Psx − Pty describes the local displacement be-tween the source-role and target-role representations. The trace and eigenval-ues of ∇2ϕ(Pty) therefore quantify local curvature around the target role. In our experiments, the minimum eigenvalues remain positive because the po-tential includes a strongly convex quadratic component. This supports the interpretation that the learned head does not behave like an unconstrained black-box scorer. 
+
+4.5. Directional gap 
+
+We define the directional gap 
+
+G(x, y ) = D(x, y ) − D(y, x ). (21) For a directed positive pair (x, y ), a negative gap means the learned di-vergence prefers the annotated forward direction. Unlike ranking accuracy, which compares positive and corrupted pairs, the directional gap directly measures whether the head distinguishes the observed relation from its re-versal. This quantity is also useful for case studies: pairs with the largest negative gaps are examples where the model expresses strongest directional confidence. 10 5. Experiments 
+
+5.1. Datasets 
+
+We evaluate on five main directed semantic and ontology benchmarks. HyperLex contains graded lexical entailment pairs represented with GloVe embeddings [24]. WordNet contains lexical hierarchy edges also represented with GloVe embeddings. SICK and SNLI contain sentence entailment pairs represented with Sentence-BERT embeddings [25]. Gene Ontology contains directed biological concept relations represented with Sentence-BERT em-beddings of term names and definitions. Across these datasets, the notation (x, y ) always denotes an ordered pair rather than an unordered similarity pair. In HyperLex, x is the more specific lexical item and y is the more general lexical item; the dataset provides a graded lexical entailment score, which we use as relation strength and for filtering/evaluation. In WordNet, x is a child synset and y is a hypernym synset; the label is the existence of a hypernym edge. In SICK and SNLI, 
+
+x is the premise sentence and y is the hypothesis sentence; entailment pairs are treated as positive directed relations. In Gene Ontology, x is a child GO term and y is a parent GO term connected by an is_a or part_of relation. In all cases, the numerical divergence D(x, y ) is not observed in the dataset; it is learned from these relation labels by ranking annotated targets above sampled corrupted targets. We also evaluate OGBL-Citation2 as a larger fixed-feature stress test in which the distance head is applied to fixed node features without a graph neural encoder. For citation graphs, x is the citing paper and y is the cited paper, and the label is whether the directed citation edge exists. Node features are fixed bag-of-words or provided node attributes. Positive pairs are observed citation edges; negative targets are sampled papers that are not observed as cited by the same source paper. 
+
+5.2. Baselines 
+
+We compare the proposed role-aware Bregman head with symmetric Eu-clidean, cosine, and Mahalanobis distances; an unstructured MLP scorer; a bilinear asymmetric scorer; a plain ICNN-Bregman head without role projec-tions; order embeddings; and a Poincare-style hyperbolic baseline. The com-parison is designed to separate three factors: symmetry versus asymmetry, 11 structured versus unstructured asymmetry, and plain Bregman asymmetry versus role-aware Bregman asymmetry. 
+
+5.3. Evaluation metrics 
+
+Ranking accuracy measures whether a positive pair is scored better than sampled negatives. Direction accuracy measures whether the annotated di-rection is preferred to the reversed pair. For link-prediction and parent-retrieval evaluation, we also report AUC, average precision, mean reciprocal rank (MRR), and Hits at K (Hits@K), following common ranking-based eval-uation practice for link prediction [23]. MRR is the average reciprocal rank of the true target among candidate targets: if the annotated target is ranked at position r, the contribution is 1/r . Hits at K is the fraction of queries for which the annotated target appears in the top K ranked candidates. Negative divergence rate measures the fraction of evaluated pairs assigned a negative value; for a valid divergence this should be zero. Directional gap statistics and Hessian traces are reported for interpretability. All main semantic and ontology results use ten random seeds. We report mean and standard deviation. For the key comparison between the proposed role-aware Bregman head and the plain ICNN-Bregman head, we use paired seed-level tests and bootstrap confidence intervals over the seed differences. 
+
+6. Results and Analysis 
+
+6.1. Main directed semantic and ontology results 
+
+Table 1 summarizes the central results. The proposed role-aware Bregman head consistently improves direction accuracy over the plain ICNN-Bregman head on all five main datasets. The improvements are large on HyperLex and SNLI, moderate on SICK and WordNet, and smaller but consistent on Gene Ontology. At the same time, the proposed head keeps a zero observed negative divergence rate, unlike the bilinear scorer, which often produces negative values. 
+
+6.2. Statistical significance 
+
+Table 2 reports paired ten-seed comparisons between the role-aware and plain ICNN-Bregman heads. Direction accuracy improves significantly on every main dataset. The same analysis also confirms that the role-aware Bregman head has a significantly lower negative-value rate than the bilinear scorer. 12 Table 1: Main ten-seed results. Values are mean ± standard deviation. R-Acc is ranking accuracy; D-Acc is direction accuracy. Bold entries mark the proposed role-aware Bregman head and its key direction/validity measurements, rather than best-in-column values.                                                                                                                                   
+
+> Dataset Model R-Acc D-Acc Neg. rate HyperLex ICNN-Bregman 0.9642 ±0.0094 0.3883 ±0.0394 0.0000
+> Role-Aware Bregman 0.9496 ±0.0184 0.9015 ±0.0204 0.0000
+> MLP 0.9197 ±0.0269 0.9102 ±0.0215 0.0000
+> Order 0.9672 ±0.0173 0.9124 ±0.0236 0.0000
+> SICK ICNN-Bregman 0.9982 ±0.0024 0.5645 ±0.0190 0.0000
+> Role-Aware Bregman 0.9745 ±0.0064 0.6450 ±0.0161 0.0000
+> MLP 0.9943 ±0.0039 0.6655 ±0.0117 0.0000
+> SNLI ICNN-Bregman 0.9887 ±0.0063 0.6527 ±0.0267 0.0000
+> Role-Aware Bregman 0.9687 ±0.0130 0.8279 ±0.0168 0.0000
+> MLP 0.9806 ±0.0072 0.8730 ±0.0178 0.0000
+> WordNet ICNN-Bregman 0.9061 ±0.0042 0.7906 ±0.0116 0.0000
+> Role-Aware Bregman 0.9087 ±0.0042 0.8380 ±0.0131 0.0000
+> MLP 0.9610 ±0.0025 0.8546 ±0.0111 0.0000
+> Order 0.9291 ±0.0029 0.8249 ±0.0100 0.0000
+> Gene Ontology ICNN-Bregman 0.9864 ±0.0014 0.9175 ±0.0056 0.0000
+> Role-Aware Bregman 0.9873 ±0.0022 0.9424 ±0.0062 0.0000
+> MLP 0.9949 ±0.0008 0.9444 ±0.0044 0.0000
+> Order 0.9960 ±0.0006 0.9515 ±0.0053 0.0000
+
+6.3. Projection and direction-weight ablations 
+
+Table 3 reports the ablation evidence. The projection ablation uses HyperLex, SNLI, and WordNet over five seeds and compares plain ICNN-Bregman, shared projection, source-only projection, target-only projection, and the full source-target role-aware head. The results show that role sep-aration is the key design choice. Shared projection variants behave simi-larly to plain ICNN-Bregman heads and often fail to recover directionality. Source-only and target-only projections improve direction accuracy, showing that the improvement does not come merely from adding parameters. This empirical pattern agrees with the quadratic gap decomposition in Eq. (19): when source and target roles are not separated, the projected quadratic limit cannot express a directional preference between a pair and its reversal. The full source-target variant is a robust default, while target-only projection can be especially strong on hierarchy-like target roles. The direction-weight sweep in Table 3 shows a clear ranking-direction trade-off. Increasing the weight of the forward-reverse margin improves di-13 Table 2: Paired seed-level significance tests for direction accuracy: role-aware Bregman minus plain ICNN-Bregman. CI denotes bootstrap confidence interval over seed differ-ences; p-values are from an exact two-sided sign test over the ten paired seeds. 
+
+Dataset Mean difference 95% CI p-value HyperLex +0 .5131 [0 .4876 , 0.5394] 0.00195 
+
+SICK +0 .0804 [0 .0680 , 0.0920] 0.00195 
+
+SNLI +0 .1752 [0 .1606 , 0.1901] 0.00195 
+
+WordNet +0 .0474 [0 .0390 , 0.0562] 0.00195 
+
+Gene Ontology +0 .0249 [0 .0219 , 0.0284] 0.00195 
+
+Note: with ten paired seeds, the exact two-sided sign test is discrete. If all ten seed-level differences favor the same method, the minimum attainable p-value is 
+
+2/210 = 0 .001953 , which explains why the reported p-values are identical across datasets. Table 3: Projection and direction-weight ablations over five seeds. The upper panel reports direction accuracy for projection variants. The lower panel reports ranking accuracy / direction accuracy for different direction-loss weights using the full role-aware projected Bregman head.                                                
+
+> Panel Dataset Plain Shared Source-only Target-only Source-target Projection D-Acc HyperLex 0.3080 0.3124 0.7182 0.7562 0.7299
+> SNLI 0.6904 0.6952 0.8654 0.8809 0.8779
+> WordNet 0.6866 0.6908 0.7306 0.7376 0.7376
+> Panel Dataset α= 0 α= 0 .1α= 0 .3α= 1 .0α= 3 .0
+> R-Acc / D-Acc HyperLex 0.6715 /0.6905 0.6803 /0.7007 0.6847 /0.7139 0.6934 /0.7299 0.6949 /0.7314
+> SNLI 0.8955 /0.7012 0.9063 /0.8301 0.9069 /0.8564 0.9104 /0.8779 0.9003 /0.8767
+> WordNet 0.8304 /0.6722 0.8339 /0.7164 0.8347 /0.7250 0.8340 /0.7376 0.8311 /0.7320
+
+rection accuracy up to a moderate range. On SNLI and WordNet, very large weights provide little additional direction gain and slightly reduce ranking quality. This supports the interpretation that directionality is not obtained for free; it must be balanced against positive-negative ranking. 
+
+6.4. Interpretability 
+
+Interpretability is one of the main reasons for using a structured diver-gence head instead of an unconstrained asymmetric scorer. We therefore an-alyze the learned head at three levels. The first level is validity : because the score is a Bregman divergence in the role-projected space, negative distance values should not occur. The second level is directional preference : the direc-tional gap G(x, y ) = D(x, y ) − D(y, x ) indicates whether the model prefers 14 the annotated direction or its reversal. The third level is local geometry :the Hessian of the convex potential describes how sensitive the divergence is to perturbations around the target-role representation. These diagnostics operationalize the theoretical analysis in Section 4: the gap measures the ob-servable consequence of the source-target decomposition, while the Hessian summarizes the local convex geometry through which role-projected differ-ences are evaluated. Table 4 and Figure 2 summarize these diagnostics. The directional gap becomes more consistently negative for annotated forward pairs after role-aware projection. On HyperLex, the fraction of pairs with forward-preferred gap increases from 0.3358 for plain ICNN-Bregman to 0.9124 for the role-aware head. This is not merely a ranking improvement against sampled negatives; it means that the head learns a directional preference between an observed pair and its reversed counterpart. WordNet and Gene Ontology already have stronger directionality under the plain Bregman head, but role-aware projection still increases the forward-preferred rate and makes the average gap more negative. The case-level view in Figure 2 shows how this diagnostic can be used in practice. For the HyperLex pair celery → food, the learned divergence is 
+
+D(celery , food ) = 0 .16 in the annotated direction and D(food , celery ) = 1 .93 
+
+in the reverse direction, producing a gap of −1.77 . This gives an inter-pretable answer to the question “why did the model prefer this direction?”: the source-role representation of the specific concept is close to the target-role representation of the general concept, while the reverse role assignment is much farther away. Such examples can be inspected directly, sorted by gap magnitude, or compared with annotation scores. The Hessian analysis complements the gap analysis. A generic MLP scorer can produce a directional score, but it does not provide a convex po-tential whose curvature can be inspected. In contrast, the role-aware Breg-man head allows local curvature summaries such as the Hessian trace, top eigenvalue, and minimum eigenvalue. The positive minimum eigenvalues ob-served in the case-level example and aggregate analysis are expected from the strongly convex quadratic component, and they provide a sanity check that the head remains in a convex-divergence regime. The trace values are larger for WordNet and Gene Ontology than for HyperLex, suggesting that the potential uses stronger local curvature on denser or more heterogeneous hierarchy structures. We do not treat the trace as a causal explanation of a prediction, but as a geometric diagnostic of how the learned divergence 15 Table 4: Directional gap and curvature diagnostics. A higher G < 0 rate means the model more often prefers the annotated forward direction.                               
+
+> Dataset Model Gap mean G < 0rate Hessian trace HyperLex ICNN-Bregman 0.0001 0.3358 –HyperLex Role-Aware Bregman −0.6127 0.9124 42 .1213
+> WordNet ICNN-Bregman −0.1434 0.7810 –WordNet Role-Aware Bregman −0.7439 0.8490 94 .7032
+> Gene Ontology ICNN-Bregman −0.7000 0.9160 –Gene Ontology Role-Aware Bregman −1.9039 0.9360 83 .0153
+
+organizes the projected space. Together, these diagnostics distinguish the proposed head from both sym-metric distances and unconstrained asymmetric scorers. Symmetric distances cannot produce nonzero directional gaps by construction. MLP and bilin-ear scorers can express directionality, but their scores are not guaranteed to be nonnegative divergences and they do not yield a convex potential for Hessian-based inspection. The role-aware Bregman head therefore provides a middle ground: its predictions are still learned neural scores, but they can be audited through directional gaps, divergence validity, and local convex geometry. In this sense, the interpretability analysis is not an auxiliary visu-alization step; it is the empirical counterpart of the gap decomposition and curvature characterization. 
+
+6.5. OGB citation stress test 
+
+Table 5 reports OGBL-Citation2 results with fixed node features and no graph neural encoder. Poincare and cosine baselines achieve stronger rank-ing accuracy and MRR than the proposed head. The role-aware Bregman head slightly improves ranking accuracy and AUC over plain ICNN-Bregman, but does not dominate this large citation setting. The result suggests that large-scale citation prediction requires either stronger input representations or integration with a graph encoder. 
+
+7. Discussion 
+
+The experiments support three conclusions. First, plain Bregman asym-metry is not sufficient in practice. Although Bregman divergences are mathe-matically asymmetric, the learned head can still fail to align that asymmetry 16 Figure 2: Case-level interpretability on HyperLex. For the pair celery → food, the role-aware Bregman head assigns a much smaller forward divergence than reverse divergence, producing a negative directional gap. The same example also reports local Hessian diag-nostics of the convex potential. Table 5: OGBL-Citation2 fixed-feature stress test over five seeds.                                                                 
+
+> Model R-Acc D-Acc MRR Neg. rate Cosine 0.9252 ±0.0035 0.5000 ±0.0000 0.6253 ±0.0031 0.0000
+> MLP 0.9205 ±0.0033 0.5464 ±0.0169 0.5691 ±0.0055 0.0000
+> ICNN-Bregman 0.8671 ±0.0053 0.5734 ±0.0087 0.5275 ±0.0070 0.0000
+> Role-Aware Bregman 0.8730 ±0.0052 0.5532 ±0.0212 0.5233 ±0.0045 0.0000
+> Poincare 0.9341 ±0.0028 0.5000 ±0.0000 0.6299 ±0.0039 0.0000
+> Bilinear 0.8850 ±0.0051 0.5206 ±0.0150 0.4384 ±0.0068 0.7144
+
+with the annotated relation direction. Role-aware projections address this mismatch by allowing an embedding to take different forms when it acts as a source or target. This conclusion is consistent with the theoretical gap de-composition: the direction score depends not only on the convex potential, but also on how a pair is assigned to source and target roles. Second, the proposed method should be understood as a structured al-ternative to generic asymmetric scorers. MLP scorers often achieve strong direction accuracy and can be stronger on pure retrieval metrics. However, they do not provide nonnegative divergence values, projected-space identity, or Hessian-based curvature diagnostics. Conversely, symmetric distances can 17 retrieve semantically or topologically related items well, but they remain direction-blind. The role-aware Bregman head is therefore most attractive when the user wants both directional performance and a distance-like geo-metric explanation. Third, the method is not a universal ranking winner. Symmetric dis-tances and hyperbolic baselines remain highly competitive when the input embeddings already encode the task well or when the evaluation mostly re-wards undirected neighborhood quality. This is visible in SICK, SNLI, Gene Ontology, and OGB. The contribution is therefore not that role-aware Breg-man heads replace all scorers, but that they provide a principled option for directed relations where geometric validity and interpretation matter. 
+
+8. Limitations and Future Work 
+
+The current experiments use fixed embeddings, which isolates the behav-ior of the comparison head but does not test full end-to-end representation learning. Joint encoder and head training may improve ranking performance, especially on graph benchmarks where the OGB stress test currently uses fixed node features rather than a graph neural encoder. The role projec-tions are mostly linear; nonlinear role maps could increase expressiveness but may weaken interpretability. The empirical study also focuses on head-level comparisons rather than complete task-specific systems. Future work should evaluate the head inside stronger encoders, study robustness to noisy directed labels, and develop generalization guarantees for convex-divergence heads. 
+
+9. Conclusion 
+
+This paper presented a role-aware neural convex divergence head for asymmetric representation learning. By combining source-target role pro-jections with an ICNN-induced Bregman divergence, the method preserves structured nonnegative divergence values while improving directional dis-crimination over plain ICNN-Bregman heads. The theoretical analysis char-acterizes how the head retains projected-space Bregman properties and how directional gaps arise from the interaction between role separation and convex geometry. Experiments across lexical, sentence, ontology, and graph bench-marks show that the method is especially useful when asymmetric relations are central and interpretability is desired. The ablation and interpretability 18 analyses further connect the theory to practice: role separation drives direc-tional gains, while gap and Hessian diagnostics make the learned asymmetry inspectable. The results also clarify its limitations: unstructured MLPs and specialized geometric baselines can outperform it on pure ranking metrics. Overall, role-aware neural convex divergence heads provide a practical and interpretable plug-in distance head for directed representation learning. 
+
+CRediT authorship contribution statement 
+
+He Huang: Conceptualization, Methodology, Software, Formal analysis, Investigation, Writing – original draft, Funding acquisition, Project adminis-tration. Lu Shen: Methodology, Investigation, Validation, Resources, Writ-ing – review and editing, Funding acquisition. Yunfeng Huang: Software, Validation, Formal analysis, Visualization, Writing – review and editing. Li Qi: Supervision, Funding acquisition, Resources, Writing – review and edit-ing. 
+
+Declaration of competing interest 
+
+The authors declare that they have no known competing financial inter-ests or personal relationships that could have appeared to influence the work reported in this paper. 
+
+Data availability 
+
+The experiments use publicly available benchmark datasets. The code and scripts for reproducing the reported results are available in the following GitHub repository: 
+
+> https://github.com/HeHuangDortmund/Role-Aware-Neural-Convex-Divergence-Heads
+
+Large raw datasets, generated embeddings, and run outputs can be regener-ated using the provided scripts. 
+
+Declaration of generative AI and AI-assisted technologies in the manuscript preparation process 
+
+During the preparation of this work, the authors used OpenAI Chat-GPT/Codex to assist with language editing, formatting, code review, and 19 manuscript organization. After using these tools, the authors reviewed and edited the content as needed and take full responsibility for the content of the published article. 
+
+Funding 
+
+This work was supported by the Science and Technology Research Program of Chongqing Municipal Education Commission [grant numbers KJQN202500828, KJQN202500837] and the Chongqing Technology and Business University High Level Talent Research Project [grant numbers 2556012, 2556008]. 
+
+References 
+
+[1] A. Tversky, Features of similarity, Psychological Review 84 (1977) 327– 352. [2] I. Vendrov, R. Kiros, S. Fidler, R. Urtasun, Order-embeddings of im-ages and language, in: International Conference on Learning Represen-tations, 2016. [3] M. Nickel, D. Kiela, Poincare embeddings for learning hierarchical rep-resentations, in: Advances in Neural Information Processing Systems, 2017, pp. 6341–6350. [4] L. M. Bregman, The relaxation method of finding the common point of convex sets and its application to the solution of problems in convex programming, USSR Computational Mathematics and Mathematical Physics 7 (1967) 200–217. [5] A. Banerjee, S. Merugu, I. S. Dhillon, J. Ghosh, Clustering with breg-man divergences, Journal of Machine Learning Research 6 (2005) 1705– 1749. [6] R. T. Rockafellar, Convex Analysis, Princeton University Press, Prince-ton, NJ, 1970. [7] S. Boyd, L. Vandenberghe, Convex Optimization, Cambridge University Press, Cambridge, 2004. 20 [8] B. Amos, L. Xu, J. Z. Kolter, Input convex neural networks, in: Pro-ceedings of the International Conference on Machine Learning, 2017, pp. 146–155. [9] H. K. Cilingir, R. Manzelli, B. Kulis, Deep divergence learning, in: Proceedings of the 37th International Conference on Machine Learn-ing, volume 119 of Proceedings of Machine Learning Research , 2020, pp. 2027–2037. [10] F. Lu, E. Raff, F. Ferraro, Neural bregman divergences for distance learning, in: International Conference on Learning Representations, 2023. [11] K. Q. Weinberger, L. K. Saul, Distance metric learning for large margin nearest neighbor classification, Journal of Machine Learning Research 10 (2009) 207–244. [12] J. V. Davis, B. Kulis, P. Jain, S. Sra, I. S. Dhillon, Information-theoretic metric learning, in: Proceedings of the International Conference on Machine Learning, 2007, pp. 209–216. [13] B. Kulis, Metric learning: A survey, Foundations and Trends in Machine Learning 5 (2013) 287–364. [14] A. Bordes, N. Usunier, A. Garcia-Duran, J. Weston, O. Yakhnenko, Translating embeddings for modeling multi-relational data, in: Ad-vances in Neural Information Processing Systems, 2013, pp. 2787–2795. [15] Z. Sun, Z.-H. Deng, J.-Y. Nie, J. Tang, Rotate: Knowledge graph embedding by relational rotation in complex space, in: International Conference on Learning Representations, 2019. [16] Y. Censor, A. Lent, An iterative row-action method for interval convex programming, Journal of Optimization Theory and Applications 34 (1981) 321–353. [17] A. Siahkamari, X. Xia, V. Saligrama, D. A. Castanon, B. Kulis, Learning to approximate a bregman divergence, in: Advances in Neural Informa-tion Processing Systems, volume 33, 2020, pp. 3603–3612. 21 [18] I. Vulic, D. Gerz, D. Kiela, F. Hill, A. Korhonen, Hyperlex: A large-scale evaluation of graded lexical entailment, Computational Linguistics 43 (2017) 781–835. [19] G. A. Miller, Wordnet: A lexical database for english, Communications of the ACM 38 (1995) 39–41. [20] M. Marelli, S. Menini, M. Baroni, L. Bentivogli, R. Bernardi, R. Zam-parelli, A sick cure for the evaluation of compositional distributional semantic models, in: Proceedings of the Ninth International Conference on Language Resources and Evaluation, 2014, pp. 216–223. [21] S. R. Bowman, G. Angeli, C. Potts, C. D. Manning, A large anno-tated corpus for learning natural language inference, in: Proceedings of the Conference on Empirical Methods in Natural Language Processing, 2015, pp. 632–642. [22] The Gene Ontology Consortium, The gene ontology resource: 20 years and still going strong, Nucleic Acids Research 47 (2019) D330–D338. [23] W. Hu, M. Fey, M. Zitnik, Y. Dong, H. Ren, B. Liu, M. Catasta, J. Leskovec, Open graph benchmark: Datasets for machine learning on graphs, in: Advances in Neural Information Processing Systems, volume 33, 2020, pp. 22118–22133. [24] J. Pennington, R. Socher, C. D. Manning, Glove: Global vectors for word representation, in: Proceedings of the Conference on Empirical Methods in Natural Language Processing, 2014, pp. 1532–1543. [25] N. Reimers, I. Gurevych, Sentence-bert: Sentence embeddings using siamese bert-networks, in: Proceedings of the Conference on Empirical Methods in Natural Language Processing, 2019, pp. 3982–3992. 22
