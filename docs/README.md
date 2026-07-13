@@ -6,83 +6,54 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-07-12
-- 运行时间：2026-07-12 21:32:55 UTC
+- 最新运行日期：2026-07-13
+- 运行时间：2026-07-13 21:50:59 UTC
 - 运行状态：成功
-- 本次总论文数：21
-- 精读区：8
-- 速读区：13
+- 本次总论文数：10
+- 精读区：2
+- 速读区：8
 
 ### 今日简报（AI）
-今日推荐21篇论文，精读8篇，重点在强化学习的数学方法与潜在记忆宫殿推理。最值得关注的是两项高分工作：强化学习的数学基础（9.0分）与控制推理的自回归变分推理（9.0分）。普通读者建议优先精读这两篇，掌握其理论框架后再尝试速读其他相关论文。
-- 详情：[/202607/12/README](/202607/12/README)
+今日精读几何代数与无调度优化两大方向，速读聚焦随机网络动力学与表示学习，共10篇论文。
+
+最值得看SO(3)等变几何代数层相对标量化的优势分析，以及无调度方法在非凸优化中逃逸鞍点的率保证。
+
+建议优先精读两篇8分论文：前者理解几何代数的等变场景，后者把握无调度优化的理论进展，再根据兴趣选览速读篇。
+- 详情：[/202607/13/README](/202607/13/README)
 
 ### 精读区论文标签
-1. [Mathematical methods of reinforcement learning](/202607/12/2607.06935v1-mathematical-methods-of-reinforcement-learning)  
-   标签：评分：9.0/10、query:npl-bdl-saig
-   evidence：强化学习数学方法综述涵盖概率与随机分析
-2. [Latent Memory Palace: Reasoning for Control as Autoregressive Variational Inference](/202607/12/2607.08724v1-latent-memory-palace-reasoning-for-control-as-autoregressive-variational-inference)  
-   标签：评分：9.0/10、query:rl-semantic
-   evidence：用于控制策略推理的自回归潜在空间
-3. [PIEFS: Physics-Informed Eigenfunction Features with Learnable Scaling](/202607/12/2607.03692v2-piefs-physics-informed-eigenfunction-features-with-learnable-scaling)  
+1. [When Do Geometric Algebra Layers Beat Scalarization? A Controlled Study on SO(3)-Equivariant Vector Laws](/202607/13/2607.06634v1-when-do-geometric-algebra-layers-beat-scalarization-a-controlled-study-on-so3-equivariant-vector-laws)  
    标签：评分：8.0/10、query:ml-theory
-   evidence：具有可学习尺度的物理信息特征函数特征用于几何表示学习
-4. [Non-asymptotic Convergence of Stochastic Gradient Descent in Score-based Generative Models](/202607/12/2607.04775v1-non-asymptotic-convergence-of-stochastic-gradient-descent-in-score-based-generative-models)  
+   evidence：几何代数在等变深度学习中的应用
+2. [Understanding Schedule-Free Methods in Nonconvex Optimization: Rate Guarantees and Escaping Saddles](/202607/13/2607.09167v1-understanding-schedule-free-methods-in-nonconvex-optimization-rate-guarantees-and-escaping-saddles)  
    标签：评分：8.0/10、query:ml-theory
-   evidence：基于分数生成模型中SGD非凸收敛分析
-5. [Non-Convex Sparse Reinforcement Learning via Non-Monotone Inclusions](/202607/12/2607.04990v1-non-convex-sparse-reinforcement-learning-via-non-monotone-inclusions)  
-   标签：评分：8.0/10、query:ml-theory
-   evidence：非凸优化用于深度学习训练
-6. [FlatManifold: Robust Continual Learning under Severe Label Noise and Domain Shifts via Intrinsic Manifold Flattening](/202607/12/2607.05201v1-flatmanifold-robust-continual-learning-under-severe-label-noise-and-domain-shifts-via-intrinsic-manifold-flattening)  
-   标签：评分：8.0/10、query:ml-theory
-   evidence：几何深度学习理论及其在AI中的应用
-7. [On the Approximation of Optimal Control in Regime-Switching Diffusions](/202607/12/2607.07896v1-on-the-approximation-of-optimal-control-in-regime-switching-diffusions)  
-   标签：评分：8.0/10、query:npl-bdl-saig
-   evidence：随机扩散中最优控制策略的逼近
-8. [An exact information theory of generalization phase transitions in Bayesian diffusion models](/202607/12/2607.08041v1-an-exact-information-theory-of-generalization-phase-transitions-in-bayesian-diffusion-models)  
-   标签：评分：8.0/10、query:npl-bdl-saig
-   evidence：贝叶斯扩散模型，泛化相变
+   evidence：无调度方法在非凸优化中的理论分析
 
 ### 速读区论文标签
-1. [Leveraging Extragradient for Effective Sharpness-Aware Minimization in Deep Learning](/202607/12/2607.06151v1-leveraging-extragradient-for-effective-sharpness-aware-minimization-in-deep-learning)  
-   标签：评分：8.0/10、query:ml-theory
-   evidence：非凸优化用于深度学习训练
-2. [Bayesian Experimental Design via Score Matching](/202607/12/2607.08335v1-bayesian-experimental-design-via-score-matching)  
-   标签：评分：8.0/10、query:npl-bdl-saig
-   evidence：通过分数匹配实现贝叶斯深度学习用于实验设计
-3. [Tubular Neighbourhoods of Pfaffian Sets and Applications to Neural Networks](/202607/12/2607.08370v1-tubular-neighbourhoods-of-pfaffian-sets-and-applications-to-neural-networks)  
-   标签：评分：8.0/10、query:ml-theory
-   evidence：代数几何用于神经网络理论
-4. [Dynamics of Gradient Descent with Large Step Size Near a Manifold of Flat Minima](/202607/12/2607.08380v1-dynamics-of-gradient-descent-with-large-step-size-near-a-manifold-of-flat-minima)  
-   标签：评分：8.0/10、query:ml-theory
-   evidence：深度学习训练中梯度下降的动力学
-5. [Sharp bounds for stochastic proximal and projection estimators via radial dominance](/202607/12/2607.08670v1-sharp-bounds-for-stochastic-proximal-and-projection-estimators-via-radial-dominance)  
-   标签：评分：8.0/10、query:npl-bdl-saig
-   evidence：通过径向优势给出随机近端估计量的界
-6. [Dynamics of Chemotactic Gliding-Aggregation in Myxobacteria on Bounded Domains: Stochastic Modeling, Analysis, and Deep Neural Network Simulations](/202607/12/2607.03677v1-dynamics-of-chemotactic-gliding-aggregation-in-myxobacteria-on-bounded-domains-stochastic-modeling-analysis-and-deep-neural-network-simulations)  
+1. [Local large deviations for linear-region growth in random piecewise-linear networks](/202607/13/2607.07014v1-local-large-deviations-for-linear-region-growth-in-random-piecewise-linear-networks)  
    标签：评分：7.0/10、query:npl-bdl-saig
-   evidence：随机建模与深度神经网络模拟生物过程
-7. [Non-Convex Sparse Reinforcement Learning via Non-Monotone Inclusions](/202607/12/2607.04990v2-non-convex-sparse-reinforcement-learning-via-non-monotone-inclusions)  
-   标签：评分：7.0/10、query:ml-theory
-   evidence：非凸优化用于深度学习训练
-8. [The Map Behind the Flow: Finite-Step Gradient Descent as a Dynamical System](/202607/12/2607.04993v1-the-map-behind-the-flow-finite-step-gradient-descent-as-a-dynamical-system)  
-   标签：评分：7.0/10、query:ml-theory
-   evidence：非凸优化用于深度学习训练
-9. [CompactionRL: Reinforcement Learning with Context Compaction for Long-Horizon Agents](/202607/12/2607.05378v1-compactionrl-reinforcement-learning-with-context-compaction-for-long-horizon-agents)  
+   evidence：随机网络中线性区域增长的大偏差
+2. [How are linear representations learned? Exact solutions to the dynamics of abstraction](/202607/13/2607.08843v1-how-are-linear-representations-learned-exact-solutions-to-the-dynamics-of-abstraction)  
    标签：评分：7.0/10、query:rl-semantic
-   evidence：基于上下文压缩的强化学习方法用于长周期智能体
-10. [Quantitative Gaussian-Process limits of Tensor Programs](/202607/12/2607.06290v1-quantitative-gaussian-process-limits-of-tensor-programs)  
-   标签：评分：6.0/10、query:ml-theory
-   evidence：随机神经网络的定量高斯过程极限
-11. [A Function-Space Dichotomy for Compositional Learning: Exponential Sub-Optimality of the Neural Tangent Kernel](/202607/12/2607.06382v1-a-function-space-dichotomy-for-compositional-learning-exponential-sub-optimality-of-the-neural-tangent-kernel)  
-   标签：评分：6.0/10、query:ml-theory
-   evidence：神经网络优化超越NTK机制的理论分析
-12. [Heat-Kernel Entropy Profiles and Geometric Effective Sample Size for Weighted Measures on Manifolds](/202607/12/2607.06696v1-heat-kernel-entropy-profiles-and-geometric-effective-sample-size-for-weighted-measures-on-manifolds)  
+   evidence：线性表示学习动力学理论，与强化学习潜在空间构建相关
+3. [Nonconvex Composite Functional Constraints via First-Order Augmented Lagrangian Methods under Local Regularity](/202607/13/2607.08954v1-nonconvex-composite-functional-constraints-via-first-order-augmented-lagrangian-methods-under-local-regularity)  
+   标签：评分：7.0/10、query:ml-theory
+   evidence：非凸优化在深度学习训练中的应用
+4. [PeTeR: Post-Training Robustification of Probabilistic Circuits](/202607/13/2607.07671v1-peter-post-training-robustification-of-probabilistic-circuits)  
    标签：评分：6.0/10、query:npl-bdl-saig
-   evidence：流形上的热核熵剖面，信息几何
-13. [On Adversarial Vulnerability of Vision-Language Models through the Lens of Intermediate Spectral Subspaces](/202607/12/2607.07375v1-on-adversarial-vulnerability-of-vision-language-models-through-the-lens-of-intermediate-spectral-subspaces)  
-   标签：评分：6.0/10、query:ml-theory
-   evidence：谱子空间用于理解视觉语言模型的对抗脆弱性几何
+   evidence：使用分布鲁棒优化对概率电路进行训练后鲁棒化
+5. [LEEVLA: Seeing What Matters in Latent Environment Evolution for Vision-Language-Action](/202607/13/2607.08182v1-leevla-seeing-what-matters-in-latent-environment-evolution-for-vision-language-action)  
+   标签：评分：6.0/10、query:rl-semantic
+   evidence：LEEVLA引导VLA模型关注信息丰富的潜在区域，进化潜在世界表示，与强化学习中的潜在空间表示相关
+6. [Modeling and Analysis for Multiple-Layer LEO Satellite Internet of Things Constellations](/202607/13/2607.09035v1-modeling-and-analysis-for-multiple-layer-leo-satellite-internet-of-things-constellations)  
+   标签：评分：6.0/10、query:npl-bdl-saig
+   evidence：基于随机几何的低轨卫星物联网星座建模
+7. [Learning More from Less: Reinforcement Learning from Hindsight](/202607/13/2607.09042v1-learning-more-from-less-reinforcement-learning-from-hindsight)  
+   标签：评分：6.0/10、query:rl-semantic
+   evidence：使用后见之明重标记对VLA进行强化学习后训练
+8. [Causally Debiased Latent Action Model for Embodied Action Conditioned World Models](/202607/13/2607.09185v1-causally-debiased-latent-action-model-for-embodied-action-conditioned-world-models)  
+   标签：评分：6.0/10、query:rl-semantic
+   evidence：提出因果去偏潜在动作模型用于具身世界模型，与强化学习中的潜在空间表示相关
 
 
 <div class="dpr-home-promo-card">
