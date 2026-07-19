@@ -6,54 +6,83 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-07-13
-- 运行时间：2026-07-13 21:50:59 UTC
+- 最新运行日期：2026-07-19
+- 运行时间：2026-07-19 21:41:05 UTC
 - 运行状态：成功
-- 本次总论文数：10
-- 精读区：2
-- 速读区：8
+- 本次总论文数：21
+- 精读区：8
+- 速读区：13
 
 ### 今日简报（AI）
-今日精读几何代数与无调度优化两大方向，速读聚焦随机网络动力学与表示学习，共10篇论文。
-
-最值得看SO(3)等变几何代数层相对标量化的优势分析，以及无调度方法在非凸优化中逃逸鞍点的率保证。
-
-建议优先精读两篇8分论文：前者理解几何代数的等变场景，后者把握无调度优化的理论进展，再根据兴趣选览速读篇。
-- 详情：[/202607/13/README](/202607/13/README)
+今日共处理21篇论文，精读8篇，重点关注优化与统计几何领域。推荐优先阅读《Spectral Signatures of Replica Symmetry Breaking》与《A Tractable Pseudo-Metric on Non-Parametric Exponential Statistical Manifolds》，分别揭示随机矩阵谱特征与SPD几何新度量。建议后续关注速读中控制理论、算子视角与极值方法的相关应用拓展。
+- 详情：[/202607/19/README](/202607/19/README)
 
 ### 精读区论文标签
-1. [When Do Geometric Algebra Layers Beat Scalarization? A Controlled Study on SO(3)-Equivariant Vector Laws](/202607/13/2607.06634v1-when-do-geometric-algebra-layers-beat-scalarization-a-controlled-study-on-so3-equivariant-vector-laws)  
-   标签：评分：8.0/10、query:ml-theory
-   evidence：几何代数在等变深度学习中的应用
-2. [Understanding Schedule-Free Methods in Nonconvex Optimization: Rate Guarantees and Escaping Saddles](/202607/13/2607.09167v1-understanding-schedule-free-methods-in-nonconvex-optimization-rate-guarantees-and-escaping-saddles)  
-   标签：评分：8.0/10、query:ml-theory
-   evidence：无调度方法在非凸优化中的理论分析
+1. [Spectral Signatures of Replica Symmetry Breaking in Optimization-Induced Random Matrices](/202607/19/2607.10513v1-spectral-signatures-of-replica-symmetry-breaking-in-optimization-induced-random-matrices)  
+   标签：评分：9.0/10、query:ml-theory
+   evidence：机器学习中的随机矩阵理论
+2. [A Tractable Pseudo-Metric on Non-Parametric Exponential Statistical Manifolds via SPD Geometry](/202607/19/2607.11092v1-a-tractable-pseudo-metric-on-non-parametric-exponential-statistical-manifolds-via-spd-geometry)  
+   标签：评分：9.0/10、query:npl-bdl-saig
+   evidence：指数流形上的信息几何与SPD几何
+3. [On the Policy Convergence of Policy Mirror Descent Methods](/202607/19/2607.11626v1-on-the-policy-convergence-of-policy-mirror-descent-methods)  
+   标签：评分：9.0/10、query:npl-bdl-saig
+   evidence：马尔可夫决策过程中策略镜像下降的策略收敛性
+4. [Invariant Learning Dynamics of Transformers in Inductive Reasoning Tasks](/202607/19/2607.11875v1-invariant-learning-dynamics-of-transformers-in-inductive-reasoning-tasks)  
+   标签：评分：9.0/10、query:ml-theory
+   evidence：Transformer学习动力学在不变流形上的理论框架，与几何深度学习理论相关
+5. [When Does Reward Teach State? A Hidden-Automaton Instrument and the Group-Language Boundary](/202607/19/2607.11953v1-when-does-reward-teach-state-a-hidden-automaton-instrument-and-the-group-language-boundary)  
+   标签：评分：9.0/10、query:rl-semantic
+   evidence：基于隐藏自动机的强化学习状态表示分析
+6. [When Does Reward Teach State? A Hidden-Automaton Instrument and the Group-Language Boundary](/202607/19/2607.11953v2-when-does-reward-teach-state-a-hidden-automaton-instrument-and-the-group-language-boundary)  
+   标签：评分：9.0/10、query:rl-semantic
+   evidence：通过隐藏自动机探测RL中的潜在状态表示
+7. [Factorized Spectral Representations for Reinforcement Learning](/202607/19/2607.13498v1-factorized-spectral-representations-for-reinforcement-learning)  
+   标签：评分：9.0/10、query:rl-semantic
+   evidence：强化学习中状态表示的分解谱方法
+8. [Multi-Axis Max@K Reinforcement Learning for Representative Diversity in Text-to-Image Generation](/202607/19/2607.14962v1-multi-axis-maxk-reinforcement-learning-for-representative-diversity-in-text-to-image-generation)  
+   标签：评分：9.0/10、query:rl-semantic
+   evidence：强化学习优化文本到图像生成的语义模式覆盖
 
 ### 速读区论文标签
-1. [Local large deviations for linear-region growth in random piecewise-linear networks](/202607/13/2607.07014v1-local-large-deviations-for-linear-region-growth-in-random-piecewise-linear-networks)  
-   标签：评分：7.0/10、query:npl-bdl-saig
-   evidence：随机网络中线性区域增长的大偏差
-2. [How are linear representations learned? Exact solutions to the dynamics of abstraction](/202607/13/2607.08843v1-how-are-linear-representations-learned-exact-solutions-to-the-dynamics-of-abstraction)  
-   标签：评分：7.0/10、query:rl-semantic
-   evidence：线性表示学习动力学理论，与强化学习潜在空间构建相关
-3. [Nonconvex Composite Functional Constraints via First-Order Augmented Lagrangian Methods under Local Regularity](/202607/13/2607.08954v1-nonconvex-composite-functional-constraints-via-first-order-augmented-lagrangian-methods-under-local-regularity)  
-   标签：评分：7.0/10、query:ml-theory
+1. [A Control Theory of Predictability in Latent World Models](/202607/19/2607.10362v1-a-control-theory-of-predictability-in-latent-world-models)  
+   标签：评分：8.0/10、query:rl-semantic
+   evidence：强化学习中潜在世界模型的状态表示
+2. [From Self-Attention to Connection Laplacian: A Unified Operator View of Transformers](/202607/19/2607.10677v1-from-self-attention-to-connection-laplacian-a-unified-operator-view-of-transformers)  
+   标签：评分：8.0/10、query:ml-theory
+   evidence：连接拉普拉斯算子视角的自注意力机制，属于几何深度学习理论
+3. [An Extreme Value Perspective on Learning Stress Laws](/202607/19/2607.10700v1-an-extreme-value-perspective-on-learning-stress-laws)  
+   标签：评分：8.0/10、query:npl-bdl-saig
+   evidence：利用自相似生成估计进行罕见事件概率估计，属于非线性概率方法
+4. [GNet: A scalable and flexible Gaussian process network with nonparametric neurons](/202607/19/2607.10735v2-gnet-a-scalable-and-flexible-gaussian-process-network-with-nonparametric-neurons)  
+   标签：评分：8.0/10、query:npl-bdl-saig
+   evidence：贝叶斯深度学习方法
+5. [Parameter-Free Cubic-Regularized Newton Method: Sharp Complexity and Generalized Smoothness](/202607/19/2607.10741v1-parameter-free-cubic-regularized-newton-method-sharp-complexity-and-generalized-smoothness)  
+   标签：评分：8.0/10、query:ml-theory
    evidence：非凸优化在深度学习训练中的应用
-4. [PeTeR: Post-Training Robustification of Probabilistic Circuits](/202607/13/2607.07671v1-peter-post-training-robustification-of-probabilistic-circuits)  
+6. [Beyond Euclidean Clipping: Overcoming Exploration Collapse in LLM RL via Riemannian Isometric Policy Optimization](/202607/19/2607.10169v1-beyond-euclidean-clipping-overcoming-exploration-collapse-in-llm-rl-via-riemannian-isometric-policy-optimization)  
+   标签：评分：7.0/10、query:ml-theory
+   evidence：利用策略流形内蕴几何的黎曼等距策略优化
+7. [PnP-IPA: A Provably Convergent Plug-and-Play Inexact Proximal Algorithm for Nonconvex Imaging Problems](/202607/19/2607.10223v1-pnp-ipa-a-provably-convergent-plug-and-play-inexact-proximal-algorithm-for-nonconvex-imaging-problems)  
+   标签：评分：7.0/10、query:ml-theory
+   evidence：用于成像问题的非凸优化算法
+8. [Neural feedback approximation for stochastic control with degenerate diffusions: error estimates and numerical analysis](/202607/19/2607.10254v1-neural-feedback-approximation-for-stochastic-control-with-degenerate-diffusions-error-estimates-and-numerical-analysis)  
+   标签：评分：7.0/10、query:npl-bdl-saig
+   evidence：随机控制、策略学习、神经反馈近似
+9. [GRASP: GRanularity-Aware Search Policy for Agentic RAG](/202607/19/2607.10463v1-grasp-granularity-aware-search-policy-for-agentic-rag)  
+   标签：评分：7.0/10、query:rl-semantic
+   evidence：强化学习框架用于自适应语义搜索，使用嵌入空间进行检索
+10. [Learning from Noise: Effective-Rank Collapse and Out-of-Distribution Rejection in Restricted Boltzmann Machines](/202607/19/2607.10506v1-learning-from-noise-effective-rank-collapse-and-out-of-distribution-rejection-in-restricted-boltzmann-machines)  
+   标签：评分：6.0/10、query:ml-theory
+   evidence：RBM谱分析中的随机矩阵理论
+11. [Gradient Flow Dynamics and Implicit Bias of Diagonal Linear Networks under Infinitesimal Initialization](/202607/19/2607.12332v1-gradient-flow-dynamics-and-implicit-bias-of-diagonal-linear-networks-under-infinitesimal-initialization)  
+   标签：评分：6.0/10、query:ml-theory
+   evidence：非凸优化中的梯度流动力学与隐式偏差
+12. [Non-vacuous Generalization Bounds for Reinforcement Learning with Verifiable Rewards](/202607/19/2607.14506v1-non-vacuous-generalization-bounds-for-reinforcement-learning-with-verifiable-rewards)  
    标签：评分：6.0/10、query:npl-bdl-saig
-   evidence：使用分布鲁棒优化对概率电路进行训练后鲁棒化
-5. [LEEVLA: Seeing What Matters in Latent Environment Evolution for Vision-Language-Action](/202607/13/2607.08182v1-leevla-seeing-what-matters-in-latent-environment-evolution-for-vision-language-action)  
-   标签：评分：6.0/10、query:rl-semantic
-   evidence：LEEVLA引导VLA模型关注信息丰富的潜在区域，进化潜在世界表示，与强化学习中的潜在空间表示相关
-6. [Modeling and Analysis for Multiple-Layer LEO Satellite Internet of Things Constellations](/202607/13/2607.09035v1-modeling-and-analysis-for-multiple-layer-leo-satellite-internet-of-things-constellations)  
+   evidence：针对强化学习微调的PAC-Bayes界，属于贝叶斯深度学习方法
+13. [Statistical Inference for Scenario-Based Dynamic Optimization under Uncertainty](/202607/19/2607.14965v1-statistical-inference-for-scenario-based-dynamic-optimization-under-uncertainty)  
    标签：评分：6.0/10、query:npl-bdl-saig
-   evidence：基于随机几何的低轨卫星物联网星座建模
-7. [Learning More from Less: Reinforcement Learning from Hindsight](/202607/13/2607.09042v1-learning-more-from-less-reinforcement-learning-from-hindsight)  
-   标签：评分：6.0/10、query:rl-semantic
-   evidence：使用后见之明重标记对VLA进行强化学习后训练
-8. [Causally Debiased Latent Action Model for Embodied Action Conditioned World Models](/202607/13/2607.09185v1-causally-debiased-latent-action-model-for-embodied-action-conditioned-world-models)  
-   标签：评分：6.0/10、query:rl-semantic
-   evidence：提出因果去偏潜在动作模型用于具身世界模型，与强化学习中的潜在空间表示相关
+   evidence：随机分析及其应用
 
 
 <div class="dpr-home-promo-card">
