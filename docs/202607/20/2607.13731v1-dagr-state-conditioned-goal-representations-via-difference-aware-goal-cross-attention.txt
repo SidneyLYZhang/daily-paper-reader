@@ -1,0 +1,1755 @@
+Title: DAGR: State-Conditioned Goal Representations via Difference-Aware Goal Cross-Attention
+
+URL Source: https://arxiv.org/pdf/2607.13731v1
+
+Published Time: Thu, 16 Jul 2026 01:30:35 GMT
+
+Number of Pages: 29
+
+Markdown Content:
+# DAGR : State-Conditioned Goal Representations via Difference-Aware Goal Cross-Attention 
+
+Xing Lei 1 Wenyan Yang 2 Xuetao Zhang 1∗ Donglin Wang 3 
+
+> 1
+
+Institute of Artificial Intelligence and Robotics, Xi’an Jiaotong University  
+
+> 2
+
+Department of Electrical Engineering and Automation, Aalto University  
+
+> 3
+
+School of Engineering, Westlake University 
+
+leixing@stu.xjtu.edu.cn 
+
+Abstract 
+
+Goal-conditioned reinforcement learning hinges on how the goal is encoded. Con-trastive, metric, temporal-distance, and information-theoretic encoders differ in ob-jective. They still share one trait. None of them sees the current state. Such a state-independent embedding cannot mark which part of the goal still needs action. The policy must then recover that cue by inverting both encoders. We propose D AGR . It refines the static embedding of any late-fusion encoder into a state-conditioned one through multi-scale gated cross-attention. A near-identity gated residual preserves the base representation. Difference-aware Goal Cross-Attention then biases the at-tention scores using a per-token state-goal discrepancy map. On OGBench, D AGR 
+
+improves navigation. Our ablations trace the gain to the gated residual, not to the difference bias that names the method. On manipulation and puzzle tasks it matches or falls below the base. D AGR is a structured refinement, not a universal improve-ment. Code is available at https://github.com/leixingxing1/DAGR .
+
+1 Introduction 
+
+Goal-conditioned reinforcement learning (GCRL) trains agents that reach any specified goal state [Schaul et al., 2015, Plappert et al., 2018, Liu et al., 2022], with applications spanning navi-gation [Shah et al., 2021a, Hirose et al., 2023], manipulation [Nair et al., 2018, Kalashnikov et al., 2018, Fang et al., 2022], and multi-task control [Lynch et al., 2020, Jang et al., 2022]. In the offline setting [Lange et al., 2012, Levine et al., 2020], the learned goal representation governs whether the policy generalizes to unseen state-goal pairs [Yang et al., 2022b, Ma et al., 2022b, Park et al., 2025]. Recent methods disagree sharply on how to shape it. Contrastive learning [Eysenbach et al., 2022, Zheng et al., 2024b], metric learning [Ma et al., 2023, Wang et al., 2023, Park et al., 2024], temporal-distance modeling [Park et al., 2026], and information-theoretic compression [Alemi et al., 2017, Shah et al., 2021b] pull the embedding in different directions. They nonetheless agree on one structural point. The state encoder ψ and the goal encoder ϕ are trained apart, and their outputs meet only inside the policy and value heads [Park et al., 2025]. We call the resulting ϕ(g) a state-independent goal representation. That independence keeps these objectives tractable and their guarantees clean [Park et al., 2026], but it costs something. Because ϕ(g) never sees the current state, it cannot say which aspects of the goal still call for action, and the policy must recover that cue by inverting both encoders and comparing their outputs. The bottom panel of Figure 1 makes this concrete. One maze goal hands every state the same embedding, and therefore the same hint, no matter which way the agent must move. We formalize the cost as an information bound (Proposition 4.1) and through Rademacher composition (Proposition 4.2). 
+
+> ∗
+
+Corresponding author. Preprint. Under review. arXiv:2607.13731v1 [cs.LG] 15 Jul 2026 State 𝐀 Goal 𝐀                              
+
+> 𝐀 𝐀 = [ 𝐀 ;𝐀 ]
+> Policy 𝐀 (𝐀 |𝐀 𝐀 )Value 𝐀 (𝐀 𝐀 )
+> (a) Original
+> ✓Captures Pixel-level Correspondence
+> ✗Limited Representation Flexibility
+> State 𝐀 Goal 𝐀
+> 𝐀 (𝐀 )
+> 𝐀 𝐀 = [ 𝐀 ;𝐀 (𝐀 )]
+> Policy 𝐀 (𝐀 |𝐀 𝐀 )Value 𝐀 (𝐀 𝐀 )
+> (b) Dual Goal Representation
+> ✓Flexible Representation Learning
+> ✗Goal Embedding is State-independent
+> State 𝐀 Goal 𝐀
+> Policy 𝐀 (𝐀 |𝐀 𝐀 )Value 𝐀 (𝐀 𝐀 )
+> (c) DAGR (Ours)
+> ✓State-conditioned Goal Embedding
+> ✓Flexible Representation Learning
+> Dual Goal
+> Rep
+> 𝐀 (𝐀 )
+> 𝐀 (𝐀 |𝐀 )
+> Dual Goal
+> Rep
+> Concat Concat
+> DGCA: Difference-aware
+> Goal Cross-attention
+> 𝐀 𝐀 = [ 𝐀 ;𝐀 (𝐀 |𝐀 )] Concat
+
+Dual goal representation (late fusion) DAGR (state-conditioned refinement, ours) 
+
+𝐀 2
+
+𝐀 3
+
+𝐀 4      
+
+> Condition
+> on 𝐀
+> 𝐀 (𝐀 ):Same hint at every state -- 'goal is over there' 𝐀 (𝐀 |𝐀 ):Different hint at each 𝐀 𝐀 -- 'go this way next'
+
+𝐀 1
+
+𝐀 5
+
+𝐀 𝐀 1
+
+𝐀 2
+
+𝐀 3
+
+𝐀 4 𝐀 5
+
+𝐀 Figure 1: From a state-independent goal embedding to a state-conditioned one. The top panel contrasts the data flows of late fusion, Dual [Park et al., 2026], and D AGR . The bottom panel shows the consequence in a shared maze with the same g and s1, . . . , s 5. Under Dual, ϕ(g) supplies the same hint at every si. Under D AGR , the hint reflects the discrepancy between si and g. Formally, DAGR defines the goal representation φ∨ 
+
+> DAGR
+
+(g | s)( s′) = d∗(s′, g )·∆s,g (s′), where d∗(s′, g ) denotes the optimal temporal distance from s′ to g and ∆s,g : S → [0 , 1] weights the relevance of each s′ to the current state-goal mismatch. This augments the Dual functional φ∨(g)( s′) = d∗(s′, g ) with a state-dependent term, which is the property we call difference-aware . We approximate ∆s,g by the per-token discrepancy map of multi-scale D GCA in Section 4.2. What the figure isolates, and what our ablations confirm carries the gain, is the state-conditioning itself. The particular form of ∆s,g is a design choice on top of it. We propose D AGR , a module that refines the static ϕ(g) of any late-fusion encoder into a state-conditioned ϕ(g | s) through cross-attention, as sketched in the top panel of Figure 1. Refining a representation that already carries guarantees is delicate, so two choices keep it safe. The first is a multi-scale gated residual, initialized so that ϕ(g | s) starts out equal to ϕ(g). The downstream value and policy losses then shape a state-conditioned perturbation of the base, and they open the gate only where doing so pays. The second is an attention rule that adds a learnable non-negative bias, derived from a per-token state-goal difference map, to the usual similarity scores. Section 4 gives the architecture. It also shows that D AGR preserves the sufficiency and the noise invariance of any base representation (Theorems 4.3 and 4.4), that the added approximation error stays under a gate-controlled bound (Theorem 4.5), and that on discrepancy-structured tasks it admits a tighter sample-complexity upper bound than late fusion (Proposition 4.6). We evaluate D AGR on OGBench [Park et al., 2025], layered on Dual [Park et al., 2026] with GCIVL [Park et al., 2025] downstream. On state-based navigation it improves the success rate on every task but one, and the gains are largest on the mazes where Dual is weakest. On visual navigation it is the strongest of the six goal-representation baselines we compare against, so the directional signal survives the pixel 2encoder. The single exception is PointMaze, whose state is low-dimensional enough that the encoder barely compresses, and Proposition 4.6 predicts a null result exactly there. On manipulation and on the discrete puzzles the outcome is mixed. D AGR matches the base on some tasks and falls below it on others, and the tasks where it regresses are the ones that violate the structural condition of Definition 3. Our ablations then ask which part of the module produces the gains that do appear, and the answer is not the part the method is named after. The gated residual carries the improvement, whereas removing the difference bias leaves navigation performance intact. We treat this as a finding rather than an inconvenience, and we state it in the main text. 
+
+Contributions. (i) We isolate the state-independence of the goal encoder as a design axis orthogonal to the choice of representation objective (Figure 2), and quantify its cost with an information bound and a Rademacher composition bound. (ii) We propose D AGR , a module that state-conditions any late-fusion goal encoder while provably retaining sufficiency, exogenous noise invariance, and a gate-controlled bound on the added value error. (iii) We state a structural condition on the task that predicts in advance where state-conditioning helps and where its optimum collapses back to the base, and both predictions hold on OGBench. (iv) We attribute the gain component by component, and report that the difference bias, which gives the module its name, contributes an inductive bias at initialization and little beyond it. 
+
+2 Related Work 
+
+Offline Goal-Conditioned RL. Offline GCRL trains goal-reaching policies from fixed datasets [Lange et al., 2012, Levine et al., 2020]. Existing paradigms include behavioral cloning [Lynch et al., 2020, Ghosh et al., 2021], value-based estimation [Kumar et al., 2020, Kostrikov et al., 2022, Park et al., 2025], hierarchical or subgoal-based planning [Park et al., 2023, Ahn et al., 2025, Zhou and Kao, 2025, Lei et al., 2025, Giammarino and Qureshi, 2026], decision trans-former [Lei et al., 2026], contrastive value learning [Eysenbach et al., 2022, Myers et al., 2024, Zheng et al., 2024b], explicit subgoal planning [Eysenbach et al., 2019, Wang et al., 2024b], dual optimization [Ma et al., 2022a, Sikchi et al., 2024], and generative trajectory modeling [Jain and Ravanbakhsh, 2024, Bao et al., 2026]. OGBench [Park et al., 2025] shows that no single method dominates across all task categories. D AGR is orthogonal to this axis, refining the goal representation consumed by any such downstream algorithm rather than proposing a new policy objective. UVFA           
+
+> state-independent ϕ(g),no rep-learning loss
+> BVN, FiLM, SCRL
+> state-conditional ϕ(s, g ),no rep-learning loss
+> VIP, TRA, HILP, BYOL-γ, Dual
+> rep-learning on ϕ(g),state-independent
+> DAGR (ours)
+> rep-learning on ϕ(g),refined to ϕ(g|s),
+> state-conditional
+> with rep-learning no rep-learning
+> objective on  ϕ
+> state-independent ϕ(g)state-conditional ϕ(s, g )
+> goal-embedding signature
+
+Figure 2: Two design axes for goal encoders in offline GCRL. Horizon-tal: whether ϕ is state-conditional (ϕ(s, g ) or ϕ(g | s)) or state-independent (ϕ(g)). Vertical: whether ϕ is trained with a representation-learning objective. Among these, D AGR is the only one that satisfies both. Quasimetric methods act on a third orthogonal axis (constraining the value-function class) and are omitted here. 
+
+Goal Representation Learning. Several families of objec-tives have been proposed for learning goal embeddings that generalize across unseen state-goal combinations [Park et al., 2026, Kim et al., 2026]. Metric-based methods align geometric and temporal distances (VIP [Ma et al., 2023], HILP [Park et al., 2024], QRL [Wang et al., 2023] and its quasimetric extensions [Myers et al., 2025a, Zheng et al., 2026]). Temporal-distance methods fit the embedding di-rectly to a value or distance signal (TRA [Myers et al., 2025b], Dual [Park et al., 2026]). Information-theoretic methods compress the goal representation via a variational information bottleneck [Tishby et al., 2000, Alemi et al., 2017], applied to GCRL by Shah et al. [2021b] and Park et al. [2023]. Self-predictive methods use bootstrapped temporal consistency in the form of BYOL-γ [Lawson et al., 2025], building on the self-predictive representation framework of Schwarzer et al. [2021]. All such methods produce a state-independent ϕ(g). D AGR is orthogonal and composable, as it operates on the output ϕ(g) rather than on the objective that produces it. 
+
+Two axes prior work conflates. Goal representation learn-ing shapes ϕ through an auxiliary objective [Ma et al., 2023, Myers et al., 2025b, Park et al., 2024, Lawson et al., 2025, Park et al., 2026] but keeps it a function of g alone. A separate axis, often conflated with the first, asks whether ϕ is state-conditional . UVFA [Schaul et al., 2015] keeps ϕ(g) state-independent, whereas BVN [Yang et al., 2022a] uses ϕ(s, g ) and shows 3it to be strictly more expressive. FiLM [Perez et al., 2018] and SCRL [Zheng et al., 2024a] also condition on s but introduce no representation-learning objective. D AGR is closest in spirit to BVN on this axis but differs in three respects. First, it refines a representation-learned base ϕ(g) rather than training ϕ(s, g ) monolithically. Second, it reduces to the base encoder at initialization through a gated residual that preserves sufficiency and noise invariance (Theorems 4.3 and 4.4). Third, it biases attention with an explicit per-token difference map. A third orthogonal line constrains the value-function class to be quasimetric [Pitis et al., 2020, Wang and Isola, 2022b,a, Wang et al., 2023], exploiting state-goal geometry on the value head rather than on ϕ. Figure 2 summarizes these axes. 
+
+Cross-Attention in Computer Vision and RL. Cross-attention has become a standard mechanism for selective information flow across modalities in computer vision [Carion et al., 2020, Jaegle et al., 2021, Alayrac et al., 2022], with recent variants modifying the attention rule itself such as Gated Attention [Qiu et al., 2026]. In RL, it underlies trajectory modeling [Chen et al., 2021, Reed et al., 2022], in-context value inference [Xu et al., 2026], and an expanding body of work on vision-language-action models [Brohan et al., 2023b,a, Team et al., 2024, Kim et al., 2024, Black et al., 2024, Wang et al., 2024a, Huang et al., 2025, Zhong et al., 2026]. FiLM [Perez et al., 2018, Hill et al., 2020] applies feature-wise modulation in goal-conditioned RL but is spatially uniform. To our knowledge, DAGR is the first to introduce a learnable difference bias into goal-conditioned cross-attention and to deploy it at multiple scales over a temporal-distance goal representation. 
+
+3 Preliminaries 
+
+3.1 Offline Goal-Conditioned RL 
+
+A goal-conditioned MDP (GCMDP) [Kaelbling, 1993] is a tuple M = ( S, A, G, p, r, γ ) with goal space G ⊆ S , sparse reward r(s, g ) = 1[s = g], and discount γ ∈ (0 , 1) . A policy π : S ×G → ∆( A)
+
+induces value V π (s, g ) = Eπ [P 
+
+> t
+
+γtr(st, g ) | s0 = s] with optimum V ∗(s, g ). We define the optimal temporal distance d∗(s, g ) = log γ V ∗(s, g ), which equals the shortest-path length in deterministic environments. The offline dataset D = {(si, a i, s ′
+
+> i
+
+)}Ni=1 is fixed. 
+
+3.2 Late Fusion and the State-Independence of ϕ(g)
+
+We focus on the late-fusion paradigm shared by current goal-representation methods (cf. Figure 1, left). A state encoder ψ : S → Rds and a goal encoder ϕ : G → Rd are trained independently, and the policy is parameterized as πθ (a | ψ(s), ϕ (g)) . The defining property of late fusion is that the goal encoder ϕ takes no state input. For any fixed goal g, the same vector ϕ(g) is supplied to the policy and value heads regardless of the current state s. The policy network must therefore infer at each step which components of ϕ(g) are currently actionable. D AGR replaces ϕ(g) by a state-conditioned 
+
+ϕ(g | s) that exposes this information explicitly at the representation level. 2
+
+Definition 1 (Sufficient Goal Representation [Park et al., 2026]) . A representation ϕ : G → Rd is sufficient for optimal control if there exists π∗ : S × Rd → ∆( A) such that V π∗(·| s,ϕ (g)) (s, g ) = 
+
+V ∗(s, g ) for all (s, g ) ∈ S × G .
+
+3.3 Multi-Head Cross-Attention 
+
+Given Q ∈ Rnq ×d, K ∈ Rnk ×d, V ∈ Rnk ×dv , cross-attention is CrossAttn( Q, K, V ) =softmax( QK ⊤/√d) V [Vaswani et al., 2017]. Multi-head attention computes H such operations in parallel with distinct projections W Qh , W Kh , W Vh and concatenates them through W O . The softmax weights measure similarity, so attention concentrates on tokens that resemble the query. For goal-conditioned control, the policy must act on the components in which state and goal disagree rather than on the components in which they agree. This mismatch between the inductive bias of standard cross-attention and the requirements of goal-conditioned control motivates the difference-bias term introduced in Section 4.              
+
+> 2Throughout the paper, ϕ(g|s)denotes a deterministic function ϕ:G × S → Rd, with the vertical bar reading “ ϕof g, parameterized by s.” This is a notational convention and should not be read as a conditional distribution.
+
+4𝐀 (𝐀 ) 𝐀 (𝐀 ) 𝐀       
+
+> Fine Scale
+> 𝐀 =𝐀 𝐀
+> Token Projection
+> Difference Map
+> 𝐀
+> MH-DGCA
+> (Eq. 17)
+> attn_out
+> level₀
+> Medium Scale
+> 𝐀 =𝐀 𝐀
+> Token Projection
+> Difference Map
+> 𝐀
+> MH-DGCA
+> (Eq. 17)
+> attn_out
+> level₁
+> Coarse Scale
+> 𝐀 =𝐀 𝐀
+> Token Projection
+> s_tok, g_tok
+> Difference Map
+> 𝐀
+> MH-DGCA
+> (Eq. 17)
+> attn_out
+> Gated Residual Block
+> (Eq. 18-19)
+> level₂
+> Learnable Fusion (Eq. 16)
+
+𝐀 (𝐀 |𝐀 ) State-Aware  
+
+> Goal Rep
+> s_tok, g_tok s_tok, g_tok s_tok s_tok s_tok
+> Gated Residual Block
+> (Eq. 18-19)
+> Gated Residual Block
+> (Eq. 18-19)
+
+Figure 3: Multi-scale D GCA architecture. Three scale levels with token counts Tℓ ∈ { 16 , 8, 4}
+
+project the flat encoder outputs ψ(s) and ψg (g) into aligned pseudo-token spaces. Each level computes a difference map ∆(ℓ), runs multi-head D GCA with ϕ(g) as the query, and produces a gated residual update. Outputs are combined through learnable fusion weights to yield ϕDAGR (g | s).
+
+4 Difference-Aware Goal Representations 
+
+We begin with the core idea of D AGR , following the exposition pattern of the Dual representation [Park et al., 2026]. Recall from Section 3 that the optimal temporal distance d∗(s, g ) = log γ V ∗(s, g )
+
+corresponds in deterministic environments to the shortest-path length from s to g. The Dual represen-tation characterizes a goal g by the set of optimal temporal distances d∗(·, g ) from all other states. In a discrete state space S = {s1, . . . , s K }, this corresponds to the vector 
+
+φ∨(g) = d∗(s1, g ), d ∗(s2, g ), . . . , d ∗(sK , g )⊤, (1) and in general to the functional φ∨(g)( s′) = d∗(s′, g ), which depends on g alone. D AGR extends this construction with a state-dependent weighting: 
+
+φ∨ 
+
+> DAGR
+
+(g | s) = d∗(s1, g ) · ∆s,g (s1), . . . , d ∗(sK , g ) · ∆s,g (sK )⊤, (2) in the discrete case, and to the functional φ∨ 
+
+> DAGR
+
+(g | s)( s′) = d∗(s′, g ) · ∆s,g (s′) in general. Here 
+
+∆s,g : S → [0 , 1] is large when s′ is informative about the difference between s and g and small when s′ is irrelevant. We call φ∨ 
+
+> DAGR
+
+the difference-aware goal representation of the GCMDP M.In continuous environments we approximate ∆s,g by the per-token difference map of multi-scale Difference-aware Goal Cross-Attention in Section 4.2. The rest of this section unpacks this construction. We first show what a state-independent goal representation cannot encode (Section 4.1), then specify the single-scale (Section 4.2) and multi-scale (Section 4.3) DGCA blocks that realize ∆s,g , and conclude with the theoretical properties of the resulting representation (Section 4.4). The joint training procedure with the downstream offline GCRL algorithm is deferred to Appendix A. 
+
+4.1 The Representation-Level Bottleneck of Late Fusion 
+
+To make precise what is missing in a state-independent ϕ(g), let S, G, and A∗ denote the random variables for state, goal, and optimal action. Under late fusion, conditioned on S = s the optimal action A∗ is determined by π∗(· | s, g ), which depends on g only through ϕ(g). This yields the Markov chain G → ϕ(G) → A∗ given S = s, from which the data processing inequality yields the following bound. 
+
+Proposition 4.1 (Information Bottleneck of State-Independent Goal Representations) . For any state-independent ϕ,
+
+I(A∗; ϕ(G) | S) ≤ I(A∗; G | S),
+
+5with equality if and only if ϕ(G) retains all goal information relevant to A∗ given S.
+
+The equality condition fails precisely when the optimal action depends on a joint property of (S, G )
+
+that ϕ cannot resolve without access to S. A canonical example is when π∗(a | s, g ) = f (s − g),the relational case. Even when ϕ is information-theoretically sufficient, the downstream policy still pays a sample-complexity price. Realizing π∗ from inputs (ψ(s), ϕ (g)) requires the network to implicitly invert both encoders before computing the difference. This composition is strictly harder than receiving s − g directly. 
+
+Proposition 4.2 (Late Fusion Admits a Looser Complexity Bound on Relational Tasks) . Suppose 
+
+π∗(a | s, g ) = f (s − g). Then realizing π∗ from the late-fusion inputs (ψ(s), ϕ (g)) requires composing f with measurable inverse selections of ψ and of ϕ. The composition property of Rademacher complexity [Bartlett and Mendelson, 2002] then yields an upper bound on the policy class that exceeds the corresponding bound under direct access to s − g by a factor Lψ−1 Lϕ−1 ≥ 1.
+
+We are precise about what this does and does not say. It compares two upper bounds . It does not establish that the true Rademacher complexity of the realized function class is larger under late fusion. The proposition motivates the architecture. It does not prove that late fusion must be worse. Both observations point to the same fix: surface state-conditioned goal information at the representation level rather than asking the policy to recover it. This motivates the module we introduce next. Full proofs are in Appendices D.1 and D.2. 
+
+4.2 Single-Scale Difference-Aware Goal Cross-Attention (D GCA )
+
+We aim to construct a transformation that takes the static ϕ(g) ∈ Rd, the state encoding ψ(s) ∈ Rds ,and a separate goal-image encoding ψg (g) ∈ Rds , and returns a state-conditioned representation 
+
+ϕ(g | s) ∈ Rd. The transformation should satisfy two properties. First, at initialization it should reduce to the identity map on ϕ(g), so that training begins from the base representation. Second, it should be able to route information from state features that disagree with the goal into the refined representation. This routing is trainable end to end via the downstream policy and value losses. The building block is a multi-head cross-attention in which the goal supplies the query and the state supplies the keys and values, with an additive bias derived from a per-token discrepancy map. Figure 3 shows the architecture. Three ingredients realize it. The first is a token decomposition. Let T denote the pseudo-token count, H the number of heads, 
+
+dk the per-head key dimension, and dm := Hd k. With separately learned projections Ws, W g ∈
+
+R(T d m)×ds ,
+
+stok = Reshape  Ws ψ(s), gtok = Reshape  Wg ψg (g) ∈ RT ×dm . (3) The two projections are untied, which aligns the token spaces position-wise and renders the per-token difference s(t)tok − g(t)tok meaningful. The second ingredient is the difference map. A normalized ℓ2 difference measures the mismatch at each token position, 
+
+∆t = ∥s(t)tok − g(t)tok ∥2
+
+max t′ ∥s(t′)tok − g(t′)tok ∥2 + ε ∈ [0 , 1] , ∆ = (∆ 1, . . . , ∆T ), (4) with ε = 10 −8 for numerical stability. The maximum is taken within the same (s, g ) pair, so ∆ ranks tokens by relative mismatch and is invariant to the absolute scale of state-goal differences. A value near one marks a position at which state and goal still differ, and a value near zero marks a position at which they agree. The third ingredient is the attention rule that uses ∆ as an additive bias in logit space. 
+
+Definition 2 (Difference-Aware Goal Cross-Attention) . Given a goal query Q ∈ R1×dk , state keys and values K, V ∈ RT ×dk , and a difference map ∆ ∈ [0 , 1] T as defined in Equation (4), 
+
+DGCA( Q, K, V, ∆) = softmax 
+
+ QK ⊤
+
+√dk
+
++ ζ(λ) · ∆
+
+
+
+V ∈ R1×dk , (5) where ζ : R → R≥0 is defined by ζ(x) := softplus( x) = log(1 + ex), and λ ∈ R is a learnable scalar parameter. We initialize λ0 = −5, which yields ζ(λ0) = log(1 + e−5) ≈ 0.0067 .6The reparameterization through ζ keeps the bias non-negative, so higher token-wise discrepancy only increases the corresponding attention logit. At initialization, ζ(λ0) is negligible and D GCA reduces to standard cross-attention. As λ grows during training, the bias additively boosts the logits of tokens with high ∆t. A per-head λh lets different heads specialize at different bias intensities. The multi-head version applies H parallel heads with projections W Qh ∈ Rd×dk for the goal query and W Kh , W Vh ∈ Rdm×dk for the state tokens, 
+
+head h = softmax 
+
+ ϕ(g)W Qh (stok W Kh )⊤
+
+> √dk
+
++ ζ(λh)∆ 
+
+
+
+stok W Vh , attn _out = Concat h(head h) W O ,
+
+(6) with W O ∈ R(Hd k )×d and a per-head λh that permits different heads to adopt different bias intensities. The attention output is integrated into the goal representation through a gated residual block, followed by layer normalization and a feed-forward network with its own gated residual, 
+
+x = ϕ(g) + σ(αattn ) ⊙ attn _out , x ← LayerNorm( x), (7) 
+
+out = x + σ(αffn ) ⊙ FFN( x), out ← LayerNorm(out) , (8) Here σ is the elementwise sigmoid, ⊙ the Hadamard product, and FFN a two-layer network with GELU activation. The gate vectors αattn , α ffn ∈ Rd are initialized componentwise to −5, which yields σ(α) ≈ 0.0067 . Vector-valued gates permit each coordinate of the goal representation to be modulated independently. We write DGCA -Block T (ϕ(g), ψ (s), ψ g (g)) for the output of Equation (8). The gates start nearly closed, so ϕ(g | s) ≈ ϕ(g) and the temporal-distance structure of the base survives. They open during training only where doing so reduces the downstream losses, which yields an automatic curriculum from late fusion to state-conditioned refinement. 
+
+4.3 Multi-Scale Extension 
+
+A single token count T commits the module to one analysis granularity. In practice, the spatial scale at which state-goal discrepancies are informative varies across tasks. Navigation often hinges on coarse global offsets, while manipulation may depend on a small object-level mismatch. We therefore apply L independent D GCA blocks at decreasing token counts T1 > T 2 > · · · > T L, each with its own token projections and attention parameters, and combine them through learnable fusion weights, 
+
+level ℓ = DGCA -Block Tℓ
+
+ ϕ(g), ψ (s), ψ g (g), ϕDAGR (g | s) = 
+
+> L
+
+X
+
+> ℓ=1
+
+softmax( w)ℓ · level ℓ.
+
+(9) The fusion logits w ∈ RL are initialized to zero so that all scales contribute equally at the start. We use L = 3 with (T1, T 2, T 3) = (16 , 8, 4) throughout the paper. Fine scales (large T ) carry local information, coarse scales (small T ) aggregate global structure, and the data-driven w trades off between them based on the downstream loss. D AGR is trained jointly with the downstream offline GCRL algorithm through standard value and policy losses propagated through multi-scale D GCA 
+
+(MS-D GCA ), with the full procedure (Algorithm 1) given in Appendix A. 
+
+4.4 Theoretical Properties 
+
+We state five properties. Three are safety guarantees that hold on any task. Two tie the value of refinement to the following structural condition. 
+
+Definition 3 (Discrepancy Structure) . A goal-conditioned task with optimal policy π∗ has discrepancy structure if there exists a measurable function h : S × S → Z and a measurable function ρ : Z → 
+
+∆( A) such that 
+
+π∗(a | s, g ) = ρ h(s, g ) for all (s, g ) ∈ S × G , (10) and such that h is not a function of g alone. We call h the discrepancy map . A task admitting (10) with h a function of g alone is called goal-only .Throughout, we treat ϕ, ψ, and ψg as fixed and consider the map ϕ(g) 7 → ϕDAGR (g | s) for any fixed 
+
+s ∈ S . Full statements and proofs are deferred to Appendix D. A base representation that is already sufficient stays sufficient after refinement, because each scale block is an injective perturbation of the identity. 7Theorem 4.3 (Sufficiency Preservation) . Assume ϕ is sufficient (Definition 1), that the residual perturbation δℓ of each scale is Lℓ-Lipschitz in ϕ(g) with ∥σ(α)∥∞Lℓ < 1, and that the in-block normalization is injective on the range of ϕ. Then ϕDAGR (· | s) is sufficient. 
+
+The contraction condition holds on every run we instrument (Figure 5). The injectivity condition does not. Equations (7) and (8) normalize the output of each sub-block, and LayerNorm discards the mean and the scale of its input. Theorem 4.3 therefore certifies the gate and the attention but not the normalization we place after them. We flag the gap here and return to it in Section 6, where the same architectural detail turns out to be our leading explanation for the manipulation regression. Noise invariance carries over more cleanly. Every node of the MS-D GCA graph touches the goal observation only through ϕ and ψg , so their invariance propagates. 
+
+Theorem 4.4 (Noise Invariance Preservation) . Suppose goal observations decompose as og =(xg , ϵ g ) with ϵg task-irrelevant, and suppose the base encoders satisfy ϕ(og ) = ϕ(xg ) and ψg (og ) = 
+
+ψg (xg ) for all (xg , ϵ g ). Then ϕDAGR (og | s) = ϕDAGR (xg | s) for every ϵg and every s ∈ S .
+
+The third property bounds the worst-case cost of the added expressiveness. 
+
+Theorem 4.5 (Approximation Error Bound) . Let f : Rds × Rd → R be LV -Lipschitz in its second argument, and suppose ∥ϕDAGR (g | s) − ϕ(g)∥2 ≤ B holds uniformly over (s, g ) ∈ S × G . Define 
+
+εbase := sup (s,g )∈S×G |V ∗(s, g ) − f (ψ(s), ϕ (g)) | and ˆV (s, g ) := f (ψ(s), ϕ DAGR (g | s)) . Then 
+
+sup 
+
+> (s,g )∈S×G
+
+|V ∗(s, g ) − ˆV (s, g )| ≤ εbase + LV · B. (11) At initialization the gates are near zero, so B ≈ 0 and the bound reduces to that of the base. It grows only as the optimizer opens the gates. We claim no more than that the upper bound is gate-controlled, and Remark 4.8 shows why that is less than it sounds. The remaining two properties tie the value of refinement to Definition 3. 
+
+Proposition 4.6 (Tighter Sample-Complexity Bound on Discrepancy-Structured Tasks) . Suppose the task has discrepancy structure (10) with discrepancy map h, and suppose that the pair (ψ, ϕ DAGR )
+
+realizes h in the sense that there exists an Lh-Lipschitz ˜h : Rds × Rd → Z with ˜h(ψ(s), ϕ DAGR (g |
+
+s)) = h(s, g ), while no Lh-Lipschitz function on (ψ(s), ϕ (g)) realizes h. Let π∗ = ρ ◦ h with ρ
+
+Lipschitz. The standard Rademacher composition bound [Bartlett and Mendelson, 2002] then yields data-dependent upper bounds U late  
+
+> n
+
+and U DAGR  
+
+> n
+
+on Rn of the policy class that satisfy 
+
+U DAGR  
+
+> n
+
+≤ Lh · Lρ · Rn(Hρ), U late  
+
+> n
+
+≤ Lψ−1 · Lϕ−1 · Lh · Lρ · Rn(Hρ), (12) 
+
+where Lψ−1 , L ϕ−1 ≥ 1 are the Lipschitz constants of any measurable selections inverting ψ and ϕ,and Hρ denotes the policy class realizing ρ. The DAGR bound is therefore tighter by a multiplicative factor Lψ−1 Lϕ−1 .
+
+The proof extends Proposition 4.2 from h(s, g ) = s − g to arbitrary discrepancy maps, and the intuition is unchanged. D AGR exposes h at the representation level, while late fusion must recover it by inverting both encoders. The bound rests on a realizability assumption that we do not verify directly, and our gains are consistent with it but do not establish it. Appendix C states the assumption precisely and names the probe experiment that would settle it. 
+
+Proposition 4.7 (Reduction to Base on Goal-Only Tasks) . If the task is goal-only in the sense of Definition 3, that is, π∗(a | s, g ) = ρ(¯h(g)) for some ¯h depending only on g, and if the base representation ϕ is sufficient (Definition 1) for π∗ with ρ ◦ ¯h ∈ F late , then the global minimum of any value or policy loss in FDAGR that achieves the base error εbase is attained at gate parameters 
+
+α, λ h → −∞ , equivalently at B = 0 in Theorem 4.5 and at ϕDAGR (g | s) ≡ ϕ(g).
+
+The two propositions together mark the regime where D AGR formally helps and the regime where its best behavior is to reduce to the base. The next remark asks whether it does. 
+
+Remark 4.8 (What the Bound Does and Does Not Explain) . Read together, Proposition 4.7 and Theo-rem 4.5 predict that a goal-only task pays a penalty proportional to its converged gate. That prediction fails on our data, and we report the failure rather than force the fit. On Cube-Double the gates stay below 0.01 (Figure 6), so B and the certified surcharge LV · B are both small, yet the success rate falls by 25 points. Table 7 shows the mismatch from the other side. Opening the gates at initialization 8Table 1: Success rates (%) on state-based OGBench with GCIVL. Mean ± std over 8 seeds. The Orig, VIB, VIP, TRA, BYOL-γ, and Dual columns are reproduced from Park et al. [2026], Table 1. DAGR = Dual + MS-D GCA (ours). Orange = best, underline = second best. 
+
+Environment Orig VIB VIP TRA BYOL-γ Dual DAGR 
+
+Navigation 
+
+pointmaze-medium-navigate 78 ±8 69 ±13 0±1 3±6 37 ±7 76 ±7 87 ±8
+
+pointmaze-large-navigate 52 ±6 50 ±7 0±0 1±2 22 ±12 46 ±6 41 ±7
+
+antmaze-medium-navigate 71 ±4 68 ±4 31 ±5 22 ±15 39 ±5 75 ±4 95 ±1
+
+antmaze-large-navigate 16 ±3 9±3 9±2 22 ±12 11 ±5 28 ±11 82 ±3
+
+antmaze-giant-navigate 0±0 0±0 0±0 0±0 0±0 0±0 4±2
+
+humanoidmaze-medium-navigate 27 ±3 24 ±2 7±3 21 ±3 18 ±5 29 ±3 83 ±3
+
+humanoidmaze-large-navigate 3±0 3±1 1±0 2±1 2±1 3±2 62 ±4
+
+antsoccer-arena-navigate 47 ±4 34 ±4 2±1 8±2 11 ±4 31 ±3 58 ±4
+
+Manipulation 
+
+cube-single-play 52 ±3 90 ±3 40 ±7 40 ±5 51 ±11 89 ±3 87 ±2
+
+cube-double-play 35 ±5 33 ±3 3±2 7±2 6±4 60 ±4 35 ±2
+
+scene-play 46 ±3 58 ±1 23 ±6 46 ±6 44 ±9 72 ±6 59 ±2
+
+Discrete Reasoning 
+
+puzzle-3x3-play 5±1 14 ±3 3±1 5±1 0±0 5±1 5±1
+
+puzzle-4x4-play 14 ±1 6±3 1±1 10 ±3 1±2 23 ±3 14 ±3
+
+Average 34 ±1 35 ±2 9±1 15 ±2 19 ±2 41 ±2 55 
+
+raises B by two orders of magnitude and costs only 8 points. A large B therefore hurts less than a small one, which no monotone reading of Theorem 4.5 allows. The bound still does its job, since it certifies that the refinement cannot blow up at any gate value we observe. It is simply not the mechanism behind the regression, and we do not present it as one. Section 6 names the mechanism. 
+
+5 Experiments 
+
+We evaluate D AGR on OGBench [Park et al., 2025] along three axes. First, whether state-conditioned refinement improves goal reaching across diverse tasks. Second, whether the difference bias con-tributes beyond standard cross-attention. Third, on which tasks it does not help, and why. 
+
+Setup. We evaluate on 13 state-based tasks and 7 visual variants. The state-based tasks comprise navigation tasks (PointMaze, AntMaze, HumanoidMaze, and AntSoccer), manipulation tasks (Cube-Single, Cube-Double, and Scene), and discrete-reasoning tasks (Puzzle-3x3 and Puzzle-4x4). The base goal representation is Dual [Park et al., 2026] with bilinear (inner-product) parameterization, and the downstream offline GCRL algorithm is GCIVL [Park et al., 2025]. D AGR uses H = 4 heads with dk = 64 , scales (T1, T 2, T 3) = (16 , 8, 4) , FFN hidden dimension 256 , and one D GCA block per scale. All gate parameters and difference scalings are initialized to α0 = λ0 = −5, and fusion logits to zero. We use eight seeds for state-based tasks and four seeds for visual tasks. Full hyperparameters are in Table 5 of Appendix E. The Orig, VIB, VIP, TRA, BYOL-γ, and Dual numbers are reproduced from Park et al. [2026] under their own tuned settings. D AGR uses a single fixed configuration across all tasks rather than per-task tuning. The reported gains are therefore not attributable to task-specific hyperparameter search. 
+
+5.1 Main Results: State-Based Tasks 
+
+Table 1 reports the state-based results. The pattern is highly structured. On every navigation task except pointmaze-large, D AGR attains the best or tied-best score, with the largest absolute gains where Dual is weakest. These tasks fit Definition 3 with h(s, g ) = πxy (s) − πxy (g), the position offset. Proposition 4.6 therefore gives a tighter sample-complexity upper bound on these tasks, consistent with the early-training separation we observe in Figure 8. On manipulation the picture is mixed. Cube-Single matches Dual. Cube-Double and Scene fall below it. Neither of the latter two fits Definition 3. On Cube-Double the optimal action turns on a binary choice of which cube to move first. On Scene it turns on a multi-step ordering decision. Neither 9Table 2: Success rates (%) on visual OGBench with GCIVL. Mean ± std over 4 seeds. The Orig, VIB, VIP, TRA, BYOL-γ, and Dual columns are reproduced from Park et al. [2026], Table 2. The DAGR column is ours, and the bottom average row is our own aggregation. Orange = best, underline = second best. 
+
+Environment Orig VIB VIP TRA BYOL-γ Dual DAGR (Ours) 
+
+Navigation 
+
+visual-antmaze-medium-navigate 66 ±4 18 ±9 30 ±7 48 ±4 32 ±5 78 ±4 90 ±2
+
+visual-antmaze-large-navigate 26 ±5 5±2 9±1 13 ±3 9±4 40 ±4 52 ±2
+
+Manipulation 
+
+visual-cube-single-play 53 ±4 18 ±19 39 ±6 31 ±24 35 ±8 58 ±5 44 ±2
+
+visual-cube-double-play 9±2 0±0 0±0 3±2 2±1 9±2 11 ±4
+
+visual-scene-play 25 ±2 6±3 4±1 15 ±6 10 ±8 26 ±5 27 ±3
+
+Discrete Reasoning 
+
+visual-puzzle-3x3-play 22 ±2 0±0 0±0 0±0 0±0 0±0 0±0
+
+visual-puzzle-4x4-play 65 ±4 0±0 0±0 0±0 0±0 0±0 0±0
+
+Avg. (all 7 tasks) 38 7 12 16 13 30 32 
+
+Avg. (excl. puzzle) 36 9 16 22 18 42 45 
+
+factors through a discrepancy map h(s, g ), so Proposition 4.7 applies, and it predicts that the best DAGR can do on these tasks is to match Dual by closing its gates. The gates do stay nearly closed. Figure 6 shows σ(α) below 0.01 throughout. What Proposition 4.7 does not predict, and what we observe, is a 25 -point drop. Remark 4.8 works through why the gate-controlled bound of Theorem 4.5 cannot supply the missing 25 points. We therefore report the regression as an open failure of our account rather than as a confirmation of it. Section 6 gives our leading hypothesis. On puzzle the gap to Dual is essentially zero, because no late-fusion representation method we evaluate reaches a non-trivial success rate at all (Appendix F.4). Full training curves are in Figure 8. 
+
+5.2 Main Results: Visual Tasks 
+
+Table 2 reproduces the state-based pattern on navigation. D AGR is highest on both Visual-AntMaze variants, so the directional signal survives the pixel encoder. Visual manipulation splits. Cube-Double and Scene match Dual, whereas Cube-Single falls below it, and Section 5.3 identifies this as the one task on which state-conditioning helps but our attention rule does not. Visual-Puzzle remains at zero for every late-fusion method, an encoder-level bottleneck we examine in Appendix F.4. Curves are in Figure 9. 
+
+5.3 Ablation: Standard Cross-Attention vs. D GCA 
+
+Table 3 compares Dual, Dual with a standard cross-attention module ( +CA , single-scale, gate at 
+
+σ(0) = 0 .5, no difference bias), and Dual with the full D GCA . On navigation, D GCA clearly beats 
+
++CA , and the gap is widest where Dual is weakest. The two differ in two ways at once, since D GCA 
+
+adds the difference bias and it closes the gate at initialization. Table 6 separates them. Removing the difference bias from D GCA leaves AntMaze-Large at 84 .4, which is not below the full model at 82 .5.Removing the gated residual drops it to 59 .3. The gate, not the bias, is what +CA is missing. We state this plainly. The mechanism that names our method is not the mechanism that produces our navigation gains. Visual-Cube-Single is the sharpest counterexample in the paper, and we treat it as one. +CA reaches 
+
+80 there against 58 for Dual and 44 for D GCA . Two readings follow, and they point in opposite directions. State-conditioning helps a great deal on this task, and the +22 points +CA gains over Dual is the largest single-task gain any module produces anywhere in this paper, so the failure is not on the state-conditional axis. Yet the two ingredients that separate D GCA from +CA are jointly harmful here, and together they cost 36 points. We cannot separate their contributions with the ablations we have. One untested account is that single-object visual goal reaching is a template-matching problem, for which similarity-maximizing attention is the correct bias and a discrepancy-maximizing one is not. On Cube-Double and Scene both variants fall below Dual, consistent with Section 5.1. 10 Table 3: Standard cross-attention vs. D GCA , both applied to Dual. Success rate (%). Dual numbers from Park et al. [2026]. 
+
+Environment Dual +CA +D GCA 
+
+State-Based 
+
+antmaze-medium 75 ±4 84 ±6 95 ±1
+
+antmaze-large 28 ±11 33 ±4 82 ±3
+
+humanoidmaze-medium 29 ±3 41 ±7 83 ±3
+
+humanoidmaze-large 3±2 8±2 62 ±4
+
+antsoccer-arena 31 ±3 44 ±2 58 ±4
+
+cube-double 60 ±4 26 ±5 35 ±2
+
+scene 72 ±6 57 ±1 59 ±2
+
+Visual 
+
+visual-antmaze-medium 78 ±4 80 ±14 90 ±2
+
+visual-antmaze-large 40 ±4 41 ±9 52 ±2
+
+visual-cube-single 58 ±5 80 ±3 44 ±2
+
+visual-cube-double 9±2 10 ±2 11 ±4
+
+visual-scene 26 ±5 13 ±2 27 ±3
+
+visual-puzzle-3x3 0±0 0±0 0±0
+
+5.4 Component Attribution and Scope 
+
+Table 6 of Appendix F isolates each component of MS-D GCA . Three results matter here. Removing the gated residual drops AntMaze-Large from 82 .5 to 59 .3, which confirms that the near-identity initialization protects the base temporal-distance structure. Removing the difference bias leaves it at 
+
+84 .4, within one standard deviation of the full model. Removing the FFN drops it to 57 .7. The gate and the per-token projection therefore carry the navigation gain, and the difference bias does not. Table 9 of Appendix F explains why. The learned ζ(λ) remains at its initialization value on five of six tasks, so the bias never activates at convergence. Figure 5 shows the same for the gates, which stay below 0.01 throughout. D AGR therefore operates as a small, gated perturbation of ϕ(g), and the difference bias supplies an inductive prior at initialization rather than a converged contribution. Table 7 confirms the protective reading of the gate. Initializing α0 = 0 rather than −5 opens the gates from the first gradient step and costs 8 points on Cube-Double. Table 8 of Appendix F delimits the scope. Every late-fusion representation method, ours included, scores zero on Visual-Puzzle, whereas vanilla GCIVL under early fusion does not. The bottleneck lies in the encoder rather than in ϕ, since the IMPALA CNN pools away the pixel-level correspondence between the state and goal images before ϕ(g) is computed. A post-encoder module can only reweight what the encoder preserves. 
+
+6 Conclusion and Discussion 
+
+DAGR refines a static goal embedding into a gated, multi-scale, state-conditioned one. It preserves sufficiency and noise invariance, tightens the sample-complexity bound on discrepancy-structured tasks, and improves goal reaching on every navigation task that Definition 3 covers. The ablations attribute that improvement to the gated residual rather than to the difference bias the method is named for. The regression on Cube-Double and Scene is architectural. Equations (7) and (8) normalize each sub-block output, so a closed gate discards the norm of the base embedding, on which the bilinear temporal distance of Dual depends. Navigation reads direction alone and is unaffected, whereas manipulation is not. Table 6 supports this, since removing the normalization recovers Cube-Double while leaving AntMaze-Large within noise. Pre-normalizing each sub-block would restore exact identity and close the injectivity gap in Theorem 4.3. Two limitations remain. The token decomposition is not object-aware, which plausibly compounds the manipulation deficit, and the Visual-Puzzle failure lies in the encoder rather than the goal representation, where hierarchical planning [Park et al., 2023] is complementary. 11 References 
+
+Hongjoon Ahn, Heewoong Choi, Jisu Han, and Taesup Moon. Option-aware temporally abstracted value for offline goal-conditioned reinforcement learning. arXiv preprint arXiv:2505.12737 , 2025. Jean-Baptiste Alayrac, Jeff Donahue, Pauline Luc, Antoine Miech, Iain Barr, Yana Hasson, Karel Lenc, Arthur Mensch, Katherine Millican, Malcolm Reynolds, et al. Flamingo: A visual language model for few-shot learning. In Neural Information Processing Systems (NeurIPS) , 2022. Alexander A Alemi, Ian Fischer, Joshua V Dillon, and Kevin Murphy. Deep variational information bottleneck. In International Conference on Learning Representations (ICLR) , 2017. Erdemt Bao, Xing Lei, and Jun Chen. Nftr: From provable mode-averaging to geodesic subgoal selection in offline goal-conditioned rl. arXiv preprint arXiv:2607.07855 , 2026. Peter L Bartlett and Shahar Mendelson. Rademacher and gaussian complexities: Risk bounds and structural results. Journal of machine learning research , 3(Nov):463–482, 2002. Kevin Black, Noah Brown, Danny Driess, Adnan Esmail, Michael Equi, Chelsea Finn, Niccolo Fusai, Lachy Groom, Karol Hausman, Brian Ichter, et al. π0: A vision-language-action flow model for general robot control. arXiv preprint arXiv:2410.24164 , 2024. Anthony Brohan, Noah Brown, Justice Carbajal, Yevgen Chebotar, Xi Chen, Krzysztof Choromanski, Tianli Ding, Danny Driess, Avinava Dubey, Chelsea Finn, et al. Rt-2: Vision-language-action models transfer web knowledge to robotic control. arXiv preprint arXiv:2307.15818 , 2023a. Anthony Brohan, Noah Brown, Justice Carbajal, Yevgen Chebotar, Joseph Dabis, Chelsea Finn, Keerthana Gober, Karol Hausman, Alex Herzog, Jasmine Hsu, et al. Rt-1: Robotics transformer for real-world control at scale. In Robotics: Science and Systems (RSS) , 2023b. Nicolas Carion, Francisco Massa, Gabriel Synnaeve, Nicolas Usunier, Alexander Kirillov, and Sergey Zagoruyko. End-to-end object detection with transformers. In European Conference on Computer Vision (ECCV) , 2020. Lili Chen, Kevin Lu, Aravind Rajeswaran, Kimin Lee, Aditya Grover, Misha Laskin, Pieter Abbeel, Aravind Srinivas, and Igor Mordatch. Decision transformer: Reinforcement learning via sequence modeling. In Neural Information Processing Systems (NeurIPS) , 2021. Thomas M Cover. Elements of information theory . John Wiley & Sons, 1999. Benjamin Eysenbach, Ruslan Salakhutdinov, and Sergey Levine. Search on the replay buffer: Bridging planning and reinforcement learning. In Neural Information Processing Systems (NeurIPS) , 2019. Benjamin Eysenbach, Tianjun Zhang, Ruslan Salakhutdinov, and Sergey Levine. Contrastive learning as goal-conditioned reinforcement learning. In Neural Information Processing Systems (NeurIPS) ,2022. Kuan Fang, Jonathan Tompson, Nicholas Rhinehart, and Sergey Levine. Planning goals for explo-ration. In International Conference on Learning Representations (ICLR) , 2022. Dibya Ghosh, Abhishek Gupta, Ashwin Reddy, Justin Fu, Coline Manon Devin, Benjamin Eysenbach, and Sergey Levine. Learning to reach goals via iterated supervised learning. In International Conference on Learning Representations , 2021. Vittorio Giammarino and Ahmed H Qureshi. Goal reaching with eikonal-constrained hierarchical quasimetric reinforcement learning. In The Fourteenth International Conference on Learning Representations , 2026. Felix Hill, Andrew Lampinen, Rosalia Schneider, Stephen Clark, Matthew Botvinick, James L McClelland, and Adam Santoro. Environmental drivers of systematicity and generalization in a situated agent. In International Conference on Learning Representations (ICLR) , 2020. Noriaki Hirose, Dhruv Shah, Sanjay Sridhar, and Sergey Levine. Lelan: Learning latent navigation maps. In International Conference on Robotics and Automation (ICRA) , 2023. 12 Jie Huang et al. Early fusion of vision and language for robot manipulation. arXiv preprint , 2025. Andrew Jaegle, Felix Gimeno, Andy Brock, Andrew Zisserman, Oriol Vinyals, and Joao Carreira. Perceiver: General perception with iterative attention. In International Conference on Machine Learning (ICML) , 2021. Vineet Jain and Siamak Ravanbakhsh. Learning to reach goals via diffusion. In International Conference on Machine Learning , pages 21170–21195. PMLR, 2024. Eric Jang, Alex Irpan, Mohi Khansari, Daniel Kappler, Frederik Ebert, Corey Lynch, Sergey Levine, and Chelsea Finn. Bc-z: Zero-shot task generalization with robotic imitation learning. In 
+
+Conference on Robot Learning (CoRL) , 2022. Leslie Pack Kaelbling. Learning to achieve goals. In International Joint Conference on Artificial Intelligence (IJCAI) , 1993. Dmitry Kalashnikov, Alex Irpan, Peter Pastor, Julian Ibarz, Alexander Herzog, Eric Jang, Deirdre Quillen, Ethan Holly, Mrinal Kalakrishnan, Vincent Vanhoucke, and Sergey Levine. Qt-opt: Scalable deep reinforcement learning for vision-based robotic manipulation. In Conference on Robot Learning (CoRL) , 2018. Junseok Kim, Dohyeong Kim, Mineui Hong, and Songhwai Oh. Compositional transduc-tion with latent analogies for offline goal-conditioned reinforcement learning. arXiv preprint arXiv:2605.20609 , 2026. Moo Jin Kim, Karl Pertsch, Siddharth Karamcheti, Ted Xiao, Ashwin Balakrishna, Suraj Nair, Rafael Rafailov, Ethan Foster, Grace Lam, Pannag Sanketi, et al. Openvla: An open-source vision-language-action model. arXiv preprint arXiv:2406.09246 , 2024. Ilya Kostrikov, Ashvin Nair, and Sergey Levine. Offline reinforcement learning with implicit q-learning. In International Conference on Learning Representations (ICLR) , 2022. Aviral Kumar, Aurick Zhou, George Tucker, and Sergey Levine. Conservative q-learning for offline reinforcement learning. In Neural Information Processing Systems (NeurIPS) , 2020. Sascha Lange, Thomas Gabel, and Martin Riedmiller. Batch reinforcement learning. Reinforcement learning: State-of-the-art , pages 45–73, 2012. Dieter Lawson et al. Self-predictive goal representations with byol-γ for offline goal-conditioned rl. In International Conference on Learning Representations (ICLR) , 2025. Xing Lei, Wenyan Yang, Kaiqiang Ke, Shentao Yang, Xuetao Zhang, Joni Pajarinen, and Donglin Wang. Gchr: Goal-conditioned hindsight regularization for sample-efficient reinforcement learning. 
+
+arXiv preprint arXiv:2508.06108 , 2025. Xing Lei, Jincheng Wang, Xuetao Zhang, and Donglin Wang. QHyer: Q-conditioned hybrid attention-mamba transformer for offline goal-conditioned RL. In Forty-third International Conference on Machine Learning , 2026. Sergey Levine, Aviral Kumar, George Tucker, and Justin Fu. Offline reinforcement learning: Tutorial, review, and perspectives on open problems. arXiv preprint arXiv:2005.01643 , 2020. Minghuan Liu, Menghui Zhu, and Weinan Zhang. Goal-conditioned reinforcement learning: Problems and solutions. arXiv preprint arXiv:2201.08299 , 2022. Corey Lynch, Mohi Khansari, Ted Xiao, Vikash Kumar, Jonathan Tompson, Sergey Levine, and Pierre Sermanet. Learning latent plans from play. In Conference on Robot Learning (CoRL) , 2020. Yecheng Jason Ma, Jason Yan, Dinesh Jayaraman, and Osbert Bastani. How far i’ll go: Offline goal-conditioned reinforcement learning via f -advantage regression. arXiv preprint arXiv:2206.03023 ,2022a. Yecheng Jason Ma, Jason Yan, Dinesh Jayaraman, and Osbert Bastani. Offline goal-conditioned reinforcement learning via f -advantage regression. In Neural Information Processing Systems (NeurIPS) , 2022b. 13 Yecheng Jason Ma, Shagun Sodhani, Dinesh Jayaraman, Osbert Bastani, Vikash Kumar, and Amy Zhang. Vip: Towards universal visual reward and representation via value-implicit pre-training. In 
+
+International Conference on Learning Representations (ICLR) , 2023. Vivek Myers, Chongyi Zheng, Anca Dragan, Sergey Levine, and Benjamin Eysenbach. Learning temporal distances: Contrastive successor features can provide a metric structure for decision-making. In International Conference on Machine Learning (ICML) , 2024. Vivek Myers, Bill Zheng, Benjamin Eysenbach, and Sergey Levine. Offline goal-conditioned reinforcement learning with quasimetric representations. In The Thirty-ninth Annual Conference on Neural Information Processing Systems , 2025a. Vivek Myers, Chongyi Zheng, Anca Dragan, Sergey Levine, and Benjamin Eysenbach. Temporal representation alignment for offline goal-conditioned reinforcement learning. In International Conference on Learning Representations (ICLR) , 2025b. Ashvin V Nair, Vitchyr Pong, Murtaza Dalal, Shikhar Bahl, Steven Lin, and Sergey Levine. Visual reinforcement learning with imagined goals. In Neural Information Processing Systems (NeurIPS) ,2018. Seohong Park, Dibya Ghosh, Benjamin Eysenbach, and Sergey Levine. Hiql: Offline goal-conditioned rl with latent states as actions. In Neural Information Processing Systems (NeurIPS) , 2023. Seohong Park, Tobias Kreiman, and Sergey Levine. Foundation policies with hilbert representations. In International Conference on Machine Learning (ICML) , 2024. Seohong Park, Kevin Frans, Benjamin Eysenbach, and Sergey Levine. Ogbench: Benchmarking offline goal-conditioned rl. In International Conference on Learning Representations (ICLR) ,2025. Seohong Park, Deepinder Mann, and Sergey Levine. Dual goal representations. In The Fourteenth International Conference on Learning Representations , 2026. Ethan Perez, Florian Strub, Harm De Vries, Vincent Dumoulin, and Aaron Courville. Film: Visual reasoning with a general conditioning layer. In AAAI Conference on Artificial Intelligence , 2018. Silviu Pitis, Harris Chan, Kiarash Jamali, and Jimmy Ba. An inductive bias for distances: Neural nets that respect the triangle inequality. In International Conference on Learning Representations ,2020. Matthias Plappert, Marcin Andrychowicz, Alex Ray, Bob McGrew, Bowen Baker, Glenn Powell, Jonas Schneider, Josh Tobin, Maciek Chociej, Peter Welinder, et al. Multi-goal reinforcement learning: Challenging robotics environments and request for research. 2018. Zihan Qiu, Zekun Wang, Bo Zheng, Zeyu Huang, Kaiyue Wen, Songlin Yang, Rui Men, Le Yu, Fei Huang, Suozhi Huang, et al. Gated attention for large language models: Non-linearity, sparsity, and attention-sink-free. Advances in Neural Information Processing Systems , 38:100092–100118, 2026. Scott Reed, Konrad Zolna, Emilio Parisotto, Sergio Gomez Colmenarejo, Alexander Novikov, Gabriel Barth-Maron, Mai Gimenez, Yury Sulsky, Jackie Kay, Jost Tobias Springenberg, et al. A generalist agent. Transactions on Machine Learning Research , 2022. Tom Schaul, Daniel Horgan, Karol Gregor, and David Silver. Universal value function approximators. In International Conference on Machine Learning (ICML) , 2015. Max Schwarzer, Ankesh Anand, Rishab Goel, R Devon Hjelm, Aaron Courville, and Philip Bach-man. Data-efficient reinforcement learning with self-predictive representations. In International Conference on Learning Representations (ICLR) , 2021. Dhruv Shah, Benjamin Eysenbach, Gregory Kahn, Nicholas Rhinehart, and Sergey Levine. Ving: Learning open-world navigation with visual goals. In International Conference on Robotics and Automation (ICRA) , 2021a. 14 Dhruv Shah, Benjamin Eysenbach, Nicholas Rhinehart, and Sergey Levine. Relmogen: Leveraging motion generation in reinforcement learning for mobile manipulation. In International Conference on Robotics and Automation (ICRA) , 2021b. Harshit Sikchi, Qinqing Zheng, Amy Zhang, and Scott Niekum. Dual rl: Unification and new methods for reinforcement and imitation learning. In International Conference on Learning Representations (ICLR) , 2024. Octo Model Team, Dibya Ghosh, Homer Walke, Karl Pertsch, Kevin Black, Oier Mees, Sudeep Dasari, Joey Hejna, Tobias Xu, Jianlan Luo, et al. Octo: An open-source generalist robot policy. 
+
+arXiv preprint arXiv:2405.12213 , 2024. Naftali Tishby, Fernando C Pereira, and William Bialek. The information bottleneck method. arXiv preprint physics/0004057 , 2000. Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion Jones, Aidan N Gomez, Łukasz Kaiser, and Illia Polosukhin. Attention is all you need. In Neural Information Processing Systems (NeurIPS) , 2017. Lirui Wang, Xinlei Zhao, Jialiang Liu, Herke van Hoof, and Pieter Abbeel. Scaling proprioceptive-visual learning with heterogeneous pre-trained transformers. In Neural Information Processing Systems (NeurIPS) , 2024a. Mianchu Wang, Keiran Paster, Jimmy Ba, and Sheila Agrawal. Go-plan: Goal-conditioned offline reinforcement learning by planning with learned models. In International Conference on Machine Learning (ICML) , 2024b. Tongzhou Wang and Phillip Isola. Improved representation of asymmetrical distances with interval quasimetric embeddings. In NeurIPS 2022 Workshop on Symmetry and Geometry in Neural Representations , 2022a. Tongzhou Wang and Phillip Isola. On the learning and learnability of quasimetrics. In International Conference on Learning Representations , 2022b. Tongzhou Wang, Antonio Torralba, Phillip Isola, and Amy Zhang. Optimal goal-reaching reinforce-ment learning via quasimetric learning. In International Conference on Machine Learning (ICML) ,2023. Qiushui Xu, Yu-Hao Huang, Yushu Jiang, Wenliang Zheng, Lei Song, Jinyu Wang, and Jiang Bian. In-context compositional q-learning for offline reinforcement learning. In The Fourteenth International Conference on Learning Representations , 2026. Ge Yang, Zhang-Wei Hong, and Pulkit Agrawal. Bi-linear value networks for multi-goal reinforce-ment learning. In International Conference on Learning Representations , 2022a. Rui Yang, Yiming Lu, Wenzhe Li, Hao Sun, Meng Fang, Yali Du, Xiu Li, Lei Han, and Chongjie Zhang. Rethinking goal-conditioned supervised learning and its connection to offline rl. In 
+
+International Conference on Learning Representations (ICLR) , 2022b. Bill Zheng, Vivek Myers, Benjamin Eysenbach, and Sergey Levine. Scaling goal-conditioned reinforcement learning with multistep quasimetric distances. In The Fourteenth International Conference on Learning Representations , 2026. Chongyi Zheng, Benjamin Eysenbach, Homer Rich Walke, Patrick Yin, Kuan Fang, Ruslan Salakhut-dinov, and Sergey Levine. Stabilizing contrastive RL: Techniques for robotic goal reaching from offline data. In The Twelfth International Conference on Learning Representations , 2024a. Chongyi Zheng, Benjamin Eysenbach, Homer Walters, Ruslan Salakhutdinov, and Sergey Levine. Contrastive difference predictive coding. In International Conference on Learning Representations (ICLR) , 2024b. Linqing Zhong, Yi Liu, Yifei Wei, Ziyu Xiong, Maoqing Yao, Si Liu, and Guanghui Ren. Acot-vla: Action chain-of-thought for vision-language-action models. arXiv preprint arXiv:2601.11404 ,2026. John L Zhou and Jonathan C Kao. Flattening hierarchies with policy bootstrapping. arXiv preprint arXiv:2505.14975 , 2025. 15 Contents of Appendix 
+
+A Training Procedure 17 B Notation 18 C On the Realizability Assumption of Proposition 4.6 19 D Theoretical Proofs 19 
+
+D.1 Proof of Proposition 4.1 . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 19 D.2 Proof of Proposition 4.2 . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 19 D.3 Proof of Theorem 4.3 . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 20 D.4 Proof of Theorem 4.4 . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 20 D.5 Proof of Theorem 4.5 . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 21 D.6 Proof of Proposition 4.6 . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 21 D.7 Proof of Proposition 4.7 . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 22 
+
+E Experimental Details 22 
+
+E.1 Environment Details . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 22 E.2 Hyperparameters . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 22 E.3 Network Architecture Details . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 22 E.4 Computational Resources and Overhead Measurements . . . . . . . . . . . . . . . 24 
+
+F Additional Experimental Results 24 
+
+F.1 Component Ablation . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 24 F.2 Sensitivity Analyses . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 24 F.3 Where the Module Looks: Attention and Gate Analysis . . . . . . . . . . . . . . . 24 F.4 Why Visual-Puzzle Remains at Zero . . . . . . . . . . . . . . . . . . . . . . . . . 24 F.5 Computational Overhead . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 25 F.6 Per-Task Learned ζ(λ) . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 25 F.7 Per-Task Fusion Weights . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 26 F.8 Gate and λ Evolution on Additional Tasks . . . . . . . . . . . . . . . . . . . . . . 26 F.9 Learning Curves . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 26 16 A Training Procedure 
+
+DAGR is trained jointly with the downstream offline GCRL algorithm. The base representation loss Lrep produces ϕ(g) without cross-attention, exactly as in the underlying Dual method, so the temporal-distance structure of ϕ relied on by Theorems 4.3 and 4.4 is not perturbed. Only the value, Q, and policy losses propagate gradients through MS-D GCA . Its parameters comprise the per-scale to-ken projections {W (ℓ) 
+
+> s
+
+, W (ℓ) 
+
+> g
+
+} (Equation (3)), attention matrices {W Q, (ℓ) 
+
+> h
+
+, W K, (ℓ) 
+
+> h
+
+, W V, (ℓ) 
+
+> h
+
+, W O, (ℓ)}
+
+(Equation (6)), gate vectors {α(ℓ)
+
+> attn
+
+, α (ℓ) 
+
+> ffn
+
+} and per-head difference scalars {λ(ℓ) 
+
+> h
+
+} (Equations (5), (7) and (8)), per-scale FFN parameters, and fusion logits w ∈ RL (Equation (9)). Each call 
+
+MS -D GCA (ϕ(g), ψ (s), ψ g (g)) proceeds in four steps. Step (i) projects ψ(s), ψ g (g) into pseudo-tokens via Equation (3). Step (ii) computes the difference map via Equation (4). Step (iii) runs multi-head D GCA and the gated residual block via Equations (6) to (8) at each of L scales. Step (iv) fuses the scale outputs via Equation (9). The near-zero gate initialization ensures ˜ϕ ≈ ϕ(g)
+
+at step zero. Gates open only when doing so reduces the downstream losses, which realizes the late-fusion-to-refinement curriculum discussed in Section 4.2 and bounded by Theorem 4.5. 
+
+Algorithm 1 DAGR layered on top of the Dual goal representation [Park et al., 2026] with GCIVL [Kostrikov et al., 2022, Park et al., 2025] as the downstream offline GCRL algorithm. Lines highlighted in orange mark the differences from a plain Dual + GCIVL baseline. 
+
+Require: Dataset D, encoders ϕ, ψ, ψ g , MS-D GCA module, value VηV , Q-network QηQ , policy πθ ,AWR temperature β, expectile τ , discount γ, target rate τtgt . 
+
+> 1:
+
+Initialize α(ℓ)
+
+> attn
+
+, α (ℓ) 
+
+> ffn
+
+← − 5 (Equations (7) and (8)), λ(ℓ) 
+
+> h
+
+← − 5 (Equation (5)), w ← 0 (Equa-tion (9)).  
+
+> 2:
+
+for each gradient step do  
+
+> 3:
+
+Sample (s, a, s ′) ∼ D and future goal g (goal-sampling distribution in Table 5).  
+
+> 4:
+
+Update ϕ via Lrep on ϕ(g) alone, with MS-D GCA not in the graph.  
+
+> 5:
+
+˜ϕ ← MS -D GCA (ϕ(g), ψ (s), ψ g (g)) and ˜ϕ′ ← MS -D GCA (ϕ(g), ψ (s′), ψ g (g)) // 
+
+˜ϕ ≈ ϕDAGR (g | s) 
+
+> 6:
+
+yV ← r(s, g ) + γ ¯V (ψ(s′), ˜ϕ′) using EMA target ¯V . 
+
+> 7:
+
+Update VηV on LV = Lτ
+
+ Q(ψ(s), ˜ϕ, a ) − V (ψ(s), ˜ϕ) with Lτ (u) = |τ − 1[u <
+
+0] | u2 [Kostrikov et al., 2022].  
+
+> 8:
+
+Update QηQ on LQ =  Q(ψ(s), ˜ϕ, a ) − yV
+
+2. 
+
+> 9:
+
+A ← Q(ψ(s), ˜ϕ, a ) − V (ψ(s), ˜ϕ) (stop-gradient).  
+
+> 10:
+
+Update πθ on Lπ = − exp( A/β ) log πθ (a | ψ(s), ˜ϕ). 
+
+> 11:
+
+Soft-update target: ¯V ← (1 − τtgt ) ¯V + τtgt VηV . 
+
+> 12:
+
+end for  
+
+> 13:
+
+return πθ , ϕ, ψ, ψ g , MS -D GCA .17 B Notation 
+
+Table 4: Notation used in the proofs and not introduced in the main text. 
+
+Symbol Description 
+
+General notation 
+
+ϕ(g | s) Deterministic state-parameterized goal encoding; the bar de-notes parameter dependence, not a conditional distribution. Equivalently ϕ(g; s) or ϕs(g).
+
+φ∨(g), φ ∨ 
+
+> DAGR
+
+(g | s) Dual and D AGR goal functionals from S to R (Equations (1) and (2)); the latter is ∆s,g -weighted version of the former. 
+
+d∗(s, g ) Optimal temporal distance log γ V ∗(s, g ) (Section 3); equals shortest-path length in deterministic environments. 
+
+∆s,g (·) State-dependent weighting S → [0 , 1] in the D AGR functional (Equation (2)); approximated by the per-token discrepancy map ∆t of Equation (4). 
+
+Discrepancy structure (Definition 3) 
+
+h(s, g ), ρ Discrepancy map S × S → Z and corresponding policy factor 
+
+Z → ∆( A) such that π∗(a | s, g ) = ρ(h(s, g )) .
+
+Z Latent discrepancy space; concrete instances include Rk (e.g., 
+
+h(s, g ) = πxy (s) − πxy (g) for maze navigation). “goal-only” Task satisfying Equation (10) with h a function of g alone, that is, π∗(a | s, g ) = ρ(¯h(g)) for some ¯h.
+
+Information-theoretic quantities (Propositions 4.1, 4.2 and 4.6) 
+
+S, G, A ∗ Random variables for state, goal, and optimal action. 
+
+I(X; Y | Z) Conditional mutual information between X and Y given Z.
+
+X → Y → Z Markov chain, equivalently X ⊥⊥ Z | Y .
+
+Rn(·) Rademacher complexity of a function class on n samples; 
+
+Rlate  
+
+> n
+
+and RDAGR  
+
+> n
+
+denote the complexities under late-fusion and DAGR inputs respectively (Equation (12)). 
+
+Lg Lipschitz constant of a function g.
+
+Lψ−1 , L ϕ−1 Lipschitz constants of implicit encoder inverses required by late-fusion to recover (s, g ) (Proposition 4.6). 
+
+Sufficiency and noise invariance (Theorems 4.3 and 4.4) 
+
+Fℓ, δ ℓ Per-scale block map Fℓ(ϕ) = ϕ + δℓ(ϕ, s ) and its residual perturbation. 
+
+cℓ Contraction constant of scale ℓ, cℓ = ∥σ(α)∥∞ · Lℓ < 1.
+
+Recover s Inverse of the map ϕ(g) 7 → ϕDAGR (g | s) on its image. 
+
+og = ( xg , ϵ g ) Goal observation split into a task-relevant component xg and an exogenous noise component ϵg ∈ E .
+
+Approximation and conditional improvement (Theorem 4.5 and Propositions 4.6 and 4.7) 
+
+ˆV (s, g ) Approximated value ˆV (s, g ) = f (ψ(s), ϕ DAGR (g | s)) .
+
+εbase , B, L V Base approximation error, perturbation radius ∥ϕDAGR (g |
+
+s) − ϕ(g)∥2 ≤ B, and Lipschitz constant of f in its second argument. 
+
+Flate , FDAGR Function classes induced by late-fusion and D AGR encoders, re-spectively. The realizability inclusion Flate ⊆ F DAGR (proven inline in Appendix D.7) underlies the global-optimum analysis of Proposition 4.7. 18 C On the Realizability Assumption of Proposition 4.6 
+
+Proposition 4.6 assumes a realizability gap. There exists an Lh-Lipschitz ˜h with ˜h(ψ(s), ϕ DAGR (g |
+
+s)) = h(s, g ), and no Lh-Lipschitz function on (ψ(s), ϕ (g)) realizes h. We do not verify this, and we are explicit about what our experiments can and cannot say. The gains of Section 5.1 are consistent with the assumption. They are equally consistent with two alternatives that we cannot rule out, namely the added capacity of the module and a better-conditioned optimization path. Proposition 4.6 therefore motivates the architecture rather than explaining the result, and the ablation of Appendix F.1 is what constrains which part of the architecture does the work. The assumption is directly testable. Freeze the trained encoders, sample state-goal pairs with ground-truth h(s, g ) = πxy (s) − πxy (g), and fit two probes of matched capacity and matched spectral-norm budget, one on (ψ(s), ϕ (g)) and one on (ψ(s), ϕ DAGR (g | s)) . A lower held-out error for the second at equal Lipschitz budget is exactly the gap the proposition assumes. We identify this as the most direct open experiment our theory calls for. 
+
+D Theoretical Proofs 
+
+This appendix contains complete proofs for all results stated in Section 4. We restate each result before proving it. All notation follows Table 4. 
+
+D.1 Proof of Proposition 4.1 Proposition D.1 (Restated) . For any state-independent ϕ,
+
+I(A∗; ϕ(G) | S) ≤ I(A∗; G | S),
+
+with equality if and only if ϕ(G) retains all goal information relevant to A∗ given S.Proof. Because ϕ does not depend on S, conditioned on S = s the optimal action A∗ is determined by π∗(· | s, g ), which under the late-fusion architecture depends on g only through ϕ(g). This gives the Markov chain G → ϕ(G) → A∗ conditioned on S = s. The data processing inequality [Cover, 1999] states that for any Markov chain X → Y → Z, I(X; Z) ≤ I(X; Y ). Applying this with 
+
+X = A∗, Y = G, Z = ϕ(G) conditioned on S = s gives I(A∗; ϕ(G) | S = s) ≤ I(A∗; G | S = s).Taking expectation over S yields I(A∗; ϕ(G) | S) ≤ I(A∗; G | S). Equality holds if and only if 
+
+A∗ ⊥⊥ G | (ϕ(G), S ), that is, ϕ(G) is a sufficient statistic for G with respect to A∗ conditional on 
+
+S. For state-independent ϕ, the sufficient-statistic condition fails whenever the optimal action A∗
+
+depends on a joint property of (S, G ) that ϕ cannot resolve without access to S, which yields strict inequality in the data processing bound. 
+
+D.2 Proof of Proposition 4.2 Proposition D.2 (Restated) . Suppose π∗(a | s, g ) = f (s − g). Then realizing π∗ from the late-fusion inputs (ψ(s), ϕ (g)) requires composing f with measurable inverse selections of ψ and of ϕ. The composition property of Rademacher complexity [Bartlett and Mendelson, 2002] then yields an upper bound on the policy class that exceeds the corresponding bound under direct access to s − g by a factor Lψ−1 Lϕ−1 ≥ 1.Proof. Under late fusion, πθ (a | s, g ) = hθ (ψ(s), ϕ (g)) with fixed encoders ψ and ϕ. To realize 
+
+π∗ = f ◦subtract from these inputs, hθ must invert ψ to recover s, invert ϕ to recover g, compute s−g,and apply f . The composition property of Rademacher complexity [Bartlett and Mendelson, 2002] gives Rn(g1 ◦ g2) ≤ Lg2 · Rn(g1) for Lg2 -Lipschitz g2. Adding the inversion layers introduces extra Lipschitz factors Lψ−1 , L ϕ−1 in front of Rn(f ), increasing the bound on the effective complexity by a multiplicative factor relative to the case where s − g is directly available. A representation that exposes s − g to the policy therefore admits a strictly smaller upper bound on sample complexity for realizing the same π∗.19 D.3 Proof of Theorem 4.3 
+
+We first establish a key lemma. 
+
+Lemma D.3 (Injectivity of the Gated Residual Mapping) . Under the assumptions of Theorem 4.3, for any fixed s ∈ S and any scale ℓ, the map ϕ(g) 7 → DGCA -Block Tℓ (ϕ(g), ψ (s), ψ g (g)) is injective. Consequently, ϕ(g) is recoverable from the pair (s, ϕ DAGR (g | s)) .Proof. From Equations (7) and (8), the block output factors as 
+
+Fℓ(ϕ) := DGCA -Block Tℓ (ϕ, ψ (s), ψ g (g)) = ϕ + δℓ(ϕ, s ),
+
+where δℓ collects the contributions of the cross-attention, the two gated residuals, the layer normaliza-tions, and the FFN, modulated by σ(αattn ) and σ(αffn ). The assumed Lipschitz constant Lℓ of δℓ
+
+in ϕ, together with ∥σ(α)∥∞ · Lℓ < 1, implies ∥δℓ(ϕ1, s ) − δℓ(ϕ2, s )∥ ≤ cℓ ∥ϕ1 − ϕ2∥ with cℓ < 1.Hence 
+
+∥Fℓ(ϕ1) − Fℓ(ϕ2)∥ ≥ ∥ ϕ1 − ϕ2∥ − ∥ δℓ(ϕ1, s ) − δℓ(ϕ2, s )∥ ≥ (1 − cℓ) ∥ϕ1 − ϕ2∥ > 0
+
+whenever ϕ1̸ = ϕ2. Therefore Fℓ is injective. For the multi-scale composite (Equation (9)), ϕDAGR (g | s) = P 
+
+> ℓ
+
+softmax( w)ℓ · Fℓ(ϕ(g)) . Each 
+
+Fℓ(ϕ) = ϕ + δℓ(ϕ, s ) is a contraction perturbation of the identity with constant cℓ < 1. A direct calculation gives 
+
+⟨Fℓ(ϕ1)−Fℓ(ϕ2), ϕ 1 −ϕ2⟩ = ∥ϕ1 −ϕ2∥2 +⟨δℓ(ϕ1, s )−δℓ(ϕ2, s ), ϕ 1 −ϕ2⟩ ≥ (1 −cℓ)∥ϕ1 −ϕ2∥2,
+
+so Fℓ(ϕ1) − Fℓ(ϕ2) has a strictly positive inner product with ϕ1 − ϕ2 whenever ϕ1̸ = ϕ2, that is, the two vectors lie in a common open half-space. A convex combination of such vectors with strictly positive softmax weights also has strictly positive inner product with ϕ1 − ϕ2, hence cannot vanish, so ϕDAGR (g1 | s) = ϕDAGR (g2 | s) forces ϕ(g1) = ϕ(g2).Given (s, ϕ DAGR (g | s)) , ϕ(g) can be recovered by the contraction-mapping iteration 
+
+ϕ(k+1) = ϕDAGR (g | s) − X
+
+> ℓ
+
+softmax( w)ℓ · δℓ(ϕ(k), s ),
+
+which converges by the Banach fixed-point theorem since max ℓ cℓ < 1.
+
+Theorem D.4 (Restated) . Under the assumptions of Theorem 4.3, ϕDAGR (· | s) is sufficient: there exists ˜π such that V ˜π(·| s,ϕ DAGR (g|s)) (s, g ) = V ∗(s, g ).Proof. By the assumed sufficiency of ϕ, there exists π∗ : S × Rd → ∆( A) with V π∗(·| s,ϕ (g)) (s, g ) = 
+
+V ∗(s, g ). By Lemma D.3, the map ϕ(g) 7 → ϕDAGR (g | s) is invertible on its image with inverse 
+
+Recover s. Define ˜π(a | s, z ) := π∗(a | s, Recover s(z)) . Then for any trajectory generated by 
+
+˜π(· | st, ϕ DAGR (g | st)) , at each step 
+
+˜π(· | st, ϕ DAGR (g | st)) = π∗(· | st, Recover st (ϕDAGR (g | st))) = π∗(· | st, ϕ (g)) .
+
+The value attained by ˜π therefore matches V ∗(s, g ).
+
+D.4 Proof of Theorem 4.4 Theorem D.5 (Restated) . Under encoder noise invariance ( ϕ(o) = ϕ(x), ψ(o) = ψ(x), ψg (o) = 
+
+ψg (x)), ϕDAGR (og | s) = ϕDAGR (xg | s) for every ϵg ∈ E .Proof. Write og = ( xg , ϵ g ). The base encoder ϕ satisfies ϕ(og ) = ϕ(xg ) by assumption. We note that for the Dual representation [Park et al., 2026] this property follows from [Park et al., 2026, Theorem 3.2], so when D AGR is layered on top of Dual the assumption is satisfied without additional work. We now trace the MS-D GCA computation graph and verify that every intermediate quantity is independent of ϵg .The encoder outputs satisfy ϕ(og ) = ϕ(xg ) and ψg (og ) = ψg (xg ) by assumption, while ψ(s) is independent of og .The difference map ∆(ℓ) is a fixed function of s(ℓ) 
+
+> tok
+
+and g(ℓ) 
+
+> tok
+
+, both already ϵg -independent. 20 The queries Qh = ϕ(og )W Qh = ϕ(xg )W Qh are ϵg -independent. The keys Kh = s(ℓ) 
+
+> tok
+
+W Kh and values 
+
+Vh = s(ℓ) 
+
+> tok
+
+W Vh depend only on ψ(s). Therefore the attention logits QhK⊤ 
+
+> h
+
+/√dk + ζ(λh)∆ (ℓ) are 
+
+ϵg -independent, and so is attn _out .The gated residual in Equation (7) computes ϕ(og ) + σ(αattn ) ⊙ attn _out = ϕ(xg ) + σ(αattn ) ⊙
+
+attn _out , again ϵg -independent. The layer normalization and the FFN are deterministic functions of their inputs, so the independence propagates. The second gated residual is analogous. Each level ℓ is therefore ϵg -independent. The fusion weights softmax( w) are parameters, hence independent of og . Therefore 
+
+ϕDAGR (og | s) = 
+
+> L
+
+X
+
+> ℓ=1
+
+softmax( w)ℓ · level ℓ = ϕDAGR (xg | s).
+
+D.5 Proof of Theorem 4.5 Theorem D.6 (Restated) . Let f : Rds × Rd → R be LV -Lipschitz in its second argument, and suppose ∥ϕDAGR (g | s) − ϕ(g)∥2 ≤ B holds uniformly over (s, g ) ∈ S × G . Define εbase := sup (s,g )∈S×G |V ∗(s, g ) − f (ψ(s), ϕ (g)) | and ˆV (s, g ) := f (ψ(s), ϕ DAGR (g | s)) . Then 
+
+sup 
+
+> (s,g )∈S×G
+
+|V ∗(s, g ) − ˆV (s, g )| ≤ εbase + LV · B. 
+
+Proof. Fix (s, g ) and write Vϕ(s, g ) = f (ψ(s), ϕ (g)) . By the triangle inequality, 
+
+|V ∗(s, g ) − ˆV (s, g )| ≤ | V ∗(s, g ) − Vϕ(s, g )| + |Vϕ(s, g ) − ˆV (s, g )|.
+
+The first term is bounded by εbase by definition. For the second term, the Lipschitz assumption gives |f (ψ(s), ϕ (g)) − f (ψ(s), ϕ DAGR (g | s)) | ≤ LV ∥ϕ(g) − ϕDAGR (g | s)∥2 ≤ LV · B. Taking the supremum over (s, g ) yields the claim. 
+
+Remark D.7 (Behavior at initialization) . At the start of training, σ(α0) = σ(−5) ≈ 0.007 and the fusion weights are uniform. The norm of the attention contribution is bounded by ∥σ(α0)∥∞ ·∥W O ∥op · ∥ Vh∥∞, which makes B0 ≈ 0, and the additional error LV · B0 is negligible. The bound grows during training only because the optimizer increases the gate values in response to reductions in the downstream losses, so B grows only when it pays off. 
+
+D.6 Proof of Proposition 4.6 Proposition D.8 (Restated) . Under the assumptions of Proposition 4.6, the data-dependent Rademacher upper bounds U late  
+
+> n
+
+and U DAGR  
+
+> n
+
+on the policy class satisfy 
+
+U DAGR  
+
+> n
+
+≤ Lh · Lρ · Rn(Hρ), U late  
+
+> n
+
+≤ Lψ−1 · Lϕ−1 · Lh · Lρ · Rn(Hρ),
+
+so that the DAGR upper bound is tighter by a factor Lψ−1 Lϕ−1 ≥ 1.Proof. By the discrepancy structure assumption, π∗(a | s, g ) = ρ(h(s, g )) where ρ is Lρ-Lipschitz and h admits an Lh-Lipschitz realization. Any policy realizing π∗ on the respective encoder inputs computes ρ ◦ h as a function of those inputs. In the D AGR case, ˜h(ψ(s), ϕ DAGR (g | s)) = h(s, g ) with ˜h being Lh-Lipschitz by assumption, so the policy network realizes ρ ◦ ˜h. The composition property of Rademacher complexity [Bartlett and Mendelson, 2002] gives 
+
+U DAGR  
+
+> n
+
+≤ Lh · Lρ · Rn(Hρ).
+
+In the late-fusion case, (ψ, ϕ ) does not admit any Lh-Lipschitz realization of h by assumption. Hence any hlate : Rds × Rd → Z with hlate (ψ(s), ϕ (g)) = h(s, g ) must factor through measurable inverse selections ψ−1, ϕ −1, yielding hlate = h ◦ (ψ−1 × ϕ−1). The Lipschitz constant of hlate is at most 
+
+Lh · max( Lψ−1 , L ϕ−1 ), where Lψ−1 , L ϕ−1 ≥ 1 are the Lipschitz constants of the inverse selections 21 (they are ≥ 1 because ψ, ϕ are non-expansive reductions of dimension in any realistic offline GCRL encoder, hence their inverses are non-contracting). Applying the composition bound: 
+
+U late  
+
+> n
+
+≤ Lψ−1 · Lϕ−1 · Lh · Lρ · Rn(Hρ).
+
+The ratio U late  
+
+> n
+
+/U DAGR  
+
+> n
+
+= Lψ−1 · Lϕ−1 ≥ 1, with strict inequality whenever ψ or ϕ strictly reduces dimension, which is the case for every encoder considered in this paper. 
+
+D.7 Proof of Proposition 4.7 Proposition D.9 (Restated) . If the task is goal-only ( π∗(a | s, g ) = ρ(¯h(g)) ) and the base represen-tation ϕ is sufficient for π∗ with ρ ◦ ¯h ∈ F late , then any value or policy loss minimizer in FDAGR that attains εbase is attained at B = 0 , equivalently at ϕDAGR (g | s) ≡ ϕ(g).Proof. By assumption there exists f ∗ ∈ F late with f ∗(ψ(s), ϕ (g)) = ρ(¯h(g)) and downstream value error εbase . We first show f ∗ is realizable in FDAGR . Setting all gate parameters αattn , α ffn → −∞ 
+
+componentwise yields σ(αattn ), σ (αffn ) → 0 in Equations (7) and (8), so each D GCA -Block reduces to the identity out = ϕ(g). The multi-scale fusion of Equation (9) then yields ϕDAGR (g | s) = ϕ(g)
+
+for all (s, g ), and f ∗(ψ(s), ϕ DAGR (g | s)) = f ∗(ψ(s), ϕ (g)) achieves εbase . This corresponds to 
+
+B = 0 in Theorem 4.5. Now consider any D AGR configuration with B > 0, that is, ϕDAGR (g | s) = ϕ(g) + δ(s, g ) with 
+
+∥δ∥2 > 0 for some (s, g ). By the goal-only assumption, V ∗(s, g ) = f ∗(ψ(s), ϕ (g)) depends on g
+
+only through ϕ(g). For any f ∈ F DAGR that is LV -Lipschitz in its second argument: 
+
+|V ∗(s, g ) − f (ψ(s), ϕ (g) + δ(s, g )) | ≥ | V ∗(s, g ) − f (ψ(s), ϕ (g)) | − LV ∥δ(s, g )∥2.
+
+The first term on the right is at least εbase in the worst case over (s, g ). Therefore any minimizer attaining error exactly εbase must satisfy LV ∥δ(s, g )∥2 = 0 uniformly, that is, δ ≡ 0 and B = 0 .
+
+E Experimental Details 
+
+E.1 Environment Details 
+
+We follow the experimental setup of Park et al. [2026] on OGBench [Park et al., 2025]. The locomotion suite uses PointMaze, AntMaze, and HumanoidMaze with medium, large, and giant variants of increasing layout complexity and path length. The manipulation suite uses a 6-DoF UR5e robot arm on Cube (Single requires placing one cube at a target, Double requires coordinating two), Scene (multi-object interaction with a cube, drawer, window, and button locks, where evaluation tasks chain up to eight atomic behaviors), and Puzzle (a Lights-Out variant in which the 3 × 3 grid admits 
+
+29 = 512 button states and the 4 × 4 grid admits 216 = 65 ,536 ). Visual variants render the same tasks as 64 × 64 RGB images, with the arm made transparent and colors adjusted for full observability. 
+
+E.2 Hyperparameters 
+
+Table 5 lists all hyperparameters used for the D AGR module, the Dual base representation, GCIVL training, the visual encoder, goal sampling, and the value and policy networks across all experiments reported in this paper. 
+
+E.3 Network Architecture Details Base representation network. The Dual representation uses a GCBilinearValue network with separate state ( ψ) and goal ( ϕ) encoders, each consisting of a 3-layer MLP with hidden dimensions 
+
+(512 , 512 , 512) , GELU activations, and layer normalization. The temporal distance is parameterized as d(s, g ) = ψ(s)⊤ϕ(g) with output dimension 256 .
+
+MS-DGCA module. The module receives three inputs, namely the goal representation ϕ(g) ∈ R256 ,the state encoder output ψ(s) ∈ R512 for visual tasks (or Rds for state-based tasks), and the goal encoder output ψg (g) ∈ R512 . At each of the three scale levels, ψ(s) and ψg (g) are independently projected into Tℓ pseudo-tokens of dimension dm = 256 via separate learned linear projections. The 22 Table 5: Hyperparameters for all experiments. 
+
+Hyperparameter Value 
+
+DAGR Module (MS-DGCA )
+
+Scale levels L 3Token counts (T1, T 2, T 3) (16 , 8, 4) 
+
+Attention heads H per level 4Head dimension dk 64 Model dimension dm = H · dk 256 FFN hidden dimension 256 Gate initialization α0 −5
+
+Difference scaling initialization λ0 −5
+
+Fusion logit initialization w0 0
+
+DGCA blocks per scale 1
+
+Dual Representation 
+
+Representation type bilinear (inner product) Goal representation dimension 256 Representation hidden dims (512 , 512 , 512) 
+
+Representation expectile (state) 0.9 Representation expectile (visual) 0.7 
+
+GCIVL Training 
+
+Learning rate 3 × 10 −4
+
+Optimizer Adam Batch size (state / visual) 1024 / 256 Discount γ 0.99 Target network update rate τ 0.005 Value expectile 0.9 AWR temperature β 10.0 Training steps (state / visual) 10 6 / 5 × 10 5
+
+Seeds (state / visual) 8 / 4 
+
+Visual Encoder 
+
+Architecture IMPALA-small Stack sizes (16 , 32 , 32) 
+
+Residual blocks per stack 1MLP hidden dims (512 , )
+
+Layer normalization True Image augmentation probability 0.5 
+
+Goal Sampling 
+
+Value: current state pcur 0.2 Value: geometric future pgeom 0.5 Value: random prand 0.3 Actor: trajectory future ptraj 1.0 
+
+Value and Policy Networks 
+
+Hidden dimensions (512 , 512 , 512) 
+
+Activation GELU Layer normalization True difference map, attention, gated residual, and FFN then proceed as in Section 4.2. The three scale outputs are combined through softmax-weighted fusion as in Equation (9). 
+
+Downstream networks. The value and actor are standard MLPs with hidden dimensions 
+
+(512 , 512 , 512) . They receive the concatenation of ψ(s) and the D AGR -enhanced goal represen-tation ϕ(g | s). The value network uses an ensemble of two heads. The actor outputs a Gaussian with constant standard deviation. 23 Table 6: Component ablation on Cube-Double (state) and AntMaze-Large (state), 8 seeds. 
+
+Variant Cube-Double AntMaze-Large 
+
+DAGR (full) 35.4 ±5.5 82.5 ±4.5 
+
+w/o gated residual 21.5 ±3.9 59.3 ±10.6 
+
+w/o diff. bias ( ζ(λ) = 0 ) 35.4 ±3.0 84.4 ±2.1 
+
+w/o multi-scale ( L = 1 ) 37.4 ±5.5 72.4 ±8.5 
+
+w/o layer norm 36.4 ±10.8 80.5 ±3.9 
+
+w/o FFN 33.1 ±2.5 57.7 ±7.4 
+
+L = 2 blocks per scale 31.0 ±3.5 85.1 ±1.9 
+
+Table 7: Sensitivity of D AGR on Cube-Double-Play to token count T , attention heads H, and gate initialization α0.
+
+T Succ. H Succ. α0 Succ. 1 38.5 ±3.1 1 43.5 ±5.0 −5 36.8 ±7.9 
+
+4 37.4 ±3.6 2 39.8 ±5.1 −2 33.2 ±3.9 
+
+8 36.4 ±3.6 4 32.5 ±8.2 0 28.4 ±2.8 
+
+16 38.1 ±4.1 8 33.1 ±3.0 
+
+32 37.2 ±5.9 
+
+E.4 Computational Resources and Overhead Measurements 
+
+All experiments were conducted on NVIDIA A100 GPUs. State-based experiments require approxi-mately three hours per seed and visual experiments approximately five hours per seed. Empirical overhead measurements taken on a single A100 are summarized below: per-step training time on the state-based Cube-Double agent increases from 17 .1 ms (Dual) to 31 .4 ms (D AGR ), and per-step training time on the visual Cube-Double agent increases from 47 .6 ms to 73 .8 ms. Inference time per call increases from 1.6 ms to 4.0 ms (state-based) and from 4.1 ms to 5.9 ms (visual). The overhead is non-trivial in relative terms but the absolute training budget remains practical. 
+
+F Additional Experimental Results 
+
+F.1 Component Ablation 
+
+Table 6 reports the full component ablation. Section 5.4 discusses it. Two entries are not covered there. Removing the multi-scale extension costs 10 points on AntMaze-Large but slightly helps Cube-Double, and stacking two D GCA blocks per scale offers no benefit over one. 
+
+F.2 Sensitivity Analyses 
+
+Table 7 sweeps three parameters on Cube-Double. Section 5.4 discusses the gate initialization. The token count has no effect across the tested range, which is consistent with fine spatial decomposition not driving the manipulation behavior. The head count declines mildly, and H = 1 exceeds our default H = 4 . We retain H = 4 , because the configuration is held fixed across all twenty tasks and tuning it on the one task where the module underperforms would be the wrong trade. Our reported numbers therefore understate what per-task tuning would attain. 
+
+F.3 Where the Module Looks: Attention and Gate Analysis 
+
+Figure 4 compares the attention distributions of standard cross-attention and D GCA on four Cube-Double samples against the corresponding difference maps. Both are nearly one-hot. D GCA attends to a different token than cross-attention on every sample, so the bias does shift the attended position, yet neither method selects the argmax of ∆. On this task the difference map therefore acts as a soft regularizer that displaces the head from the similarity-maximizing token, rather than as a literal pointer to the misaligned region. Figure 5 plots the gate and ζ(λ) trajectories that Section 5.4 discusses. 
+
+F.4 Why Visual-Puzzle Remains at Zero 
+
+Table 8 supports the encoder-level account in Section 5.4. Two remedies would apply. Cross-attention inside the CNN [Huang et al., 2025] preserves the correspondence that pooling destroys, and hierarchical planning sidesteps the requirement for it. Both are complementary to D AGR , since they act upstream of ϕ.24 0 2 4 6 8 10 12 14 
+
+> 0.0
+> 0.5
+> 1.0
+> T=16
+> Δt
+
+Difference map Δ       
+
+> 0246810 12 14
+> 0.0
+> 0.1
+> 0.2
+
+Standard CA attention (head 0)        
+
+> 0246810 12 14
+> 0.0
+> 0.1
+> 0.2
+
+DGCA attention (head 0)                 
+
+> 0123
+> 0.0
+> 0.5
+> 1.0
+> T=4
+> Δt
+> 0123
+> 0.00
+> 0.25
+> 0.50
+> 0.75
+> 1.00
+> 0123
+> 0.00
+> 0.25
+> 0.50
+> 0.75
+> 1.00
+> 01234567
+
+Token index        
+
+> 0.0
+> 0.5
+> 1.0
+> T=8
+> Δt
+> 01234567
+
+Token index        
+
+> 0.0
+> 0.2
+> 0.4
+> 01234567
+
+Token index 
+
+> 0.0
+> 0.2
+> 0.4
+
+Attention Comparison: CA vs DGCA (cube-double-play-v0, sample 0) (a) Sample 0 0 2 4 6 8 10 12 14 
+
+> 0.0
+> 0.5
+> 1.0
+> T=16
+> Δt
+
+Difference map Δ       
+
+> 0246810 12 14
+> 0.0
+> 0.1
+> 0.2
+
+Standard CA attention (head 0)        
+
+> 0246810 12 14
+> 0.0
+> 0.1
+> 0.2
+
+DGCA attention (head 0)                 
+
+> 0123
+> 0.0
+> 0.5
+> 1.0
+> T=4
+> Δt
+> 0123
+> 0.00
+> 0.25
+> 0.50
+> 0.75
+> 1.00
+> 0123
+> 0.00
+> 0.25
+> 0.50
+> 0.75
+> 1.00
+> 01234567
+
+Token index        
+
+> 0.0
+> 0.5
+> 1.0
+> T=8
+> Δt
+> 01234567
+
+Token index        
+
+> 0.0
+> 0.2
+> 0.4
+> 01234567
+
+Token index 
+
+> 0.0
+> 0.2
+> 0.4
+
+Attention Comparison: CA vs DGCA (cube-double-play-v0, sample 1) (b) Sample 1 0 2 4 6 8 10 12 14 
+
+> 0.0
+> 0.5
+> 1.0
+> T=16
+> Δt
+
+Difference map Δ       
+
+> 0246810 12 14
+> 0.0
+> 0.1
+> 0.2
+
+Standard CA attention (head 0)        
+
+> 0246810 12 14
+> 0.0
+> 0.1
+> 0.2
+
+DGCA attention (head 0)                 
+
+> 0123
+> 0.0
+> 0.5
+> 1.0
+> T=4
+> Δt
+> 0123
+> 0.00
+> 0.25
+> 0.50
+> 0.75
+> 1.00
+> 0123
+> 0.00
+> 0.25
+> 0.50
+> 0.75
+> 1.00
+> 01234567
+
+Token index        
+
+> 0.0
+> 0.5
+> 1.0
+> T=8
+> Δt
+> 01234567
+
+Token index        
+
+> 0.0
+> 0.2
+> 0.4
+> 01234567
+
+Token index 
+
+> 0.0
+> 0.2
+> 0.4
+
+Attention Comparison: CA vs DGCA (cube-double-play-v0, sample 2) 
+
+(c) Sample 2 0 2 4 6 8 10 12 14 
+
+> 0.0
+> 0.5
+> 1.0
+> T=16
+> Δt
+
+Difference map Δ       
+
+> 0246810 12 14
+> 0.0
+> 0.1
+> 0.2
+
+Standard CA attention (head 0)        
+
+> 0246810 12 14
+> 0.0
+> 0.1
+> 0.2
+
+DGCA attention (head 0)                 
+
+> 0123
+> 0.0
+> 0.5
+> 1.0
+> T=4
+> Δt
+> 0123
+> 0.00
+> 0.25
+> 0.50
+> 0.75
+> 1.00
+> 0123
+> 0.00
+> 0.25
+> 0.50
+> 0.75
+> 1.00
+> 01234567
+
+Token index        
+
+> 0.0
+> 0.5
+> 1.0
+> T=8
+> Δt
+> 01234567
+
+Token index        
+
+> 0.0
+> 0.2
+> 0.4
+> 01234567
+
+Token index 
+
+> 0.0
+> 0.2
+> 0.4
+
+Attention Comparison: CA vs DGCA (cube-double-play-v0, sample 3) (d) Sample 3 
+
+Figure 4: Attention versus difference map on four Cube-Double samples. Each panel shows three rows (token counts T ∈ { 16 , 4, 8}), with ∆ in the first column (left bars), standard CA attention in the middle, and D GCA attention on the right. Both CA and D GCA place near-all attention mass on a single token. D GCA chooses a different token than CA on every sample, but neither systematically aligns with the argmax of ∆. On this manipulation task, attention concentration is sharp, but the choice of token is not driven by the difference map alone. 0.2 0.4 0.6 0.8 1.0 
+
+Training Step 1e6 
+
+0.0045 
+
+0.0050 
+
+0.0055 
+
+0.0060 
+
+0.0065 
+
+0.0070 
+
+> σ(αattn )
+
+(a) Attention Gate 
+
+T=16 
+
+T=4 
+
+T=8 
+
+0.2 0.4 0.6 0.8 1.0 
+
+Training Step 1e6 
+
+0.006 
+
+0.008 
+
+0.010 
+
+0.012 
+
+0.014 
+
+0.016 
+
+> σ(αffn )
+
+(b) FFN Gate 
+
+T=16 
+
+T=4 
+
+T=8 
+
+0.2 0.4 0.6 0.8 1.0 
+
+Training Step 1e6 
+
+0.006 
+
+0.007 
+
+0.008 
+
+> ζ(λh)
+
+(c) Diff Scaling (T=16) 
+
+Head 0 
+
+Head 1 
+
+Head 2 
+
+Head 3 
+
+Gate and λ evolution (averaged over 4 seeds) 
+
+Figure 5: Gate and difference-scaling evolution on AntMaze-Large. Both σ(αattn ) and σ(αffn )
+
+stay below a small threshold throughout the entire training run, and per-head ζ(λh) values remain within a narrow band. The state-conditioned refinement therefore operates as a small but consistent perturbation of ϕ(g) rather than as a wholesale replacement. 
+
+F.5 Computational Overhead 
+
+MS-D GCA roughly doubles per-step training time on Cube-Double and adds about 55% on Visual-Cube-Double, with a similar relative increase at inference time. The absolute budget remains practical. Detailed timings are in Appendix E. 
+
+F.6 Per-Task Learned ζ(λ)
+
+The learned ζ(λ) values stay at or barely above initialization on five of six tasks, with the only substantial deviation on Scene. The naive reading that manipulation needs more difference bias than navigation is not supported: AntMaze-Large and Cube-Double share essentially the same value. This 25 Table 8: Visual-Puzzle: representation-level methods are uniformly zero , whereas early fusion alone (Park et al. [2026], Table 3) already achieves substantial success. Hierarchical planning (HIQL) is also far above zero. 
+
+Method Puzzle-3 ×3 Puzzle-4 ×4
+
+Late Fusion (Dual) 0 0Dual + CA 0 0Dual + D AGR 0 0Early Fusion (Orig) 22 65 
+
+HIQL [Park et al., 2023] 73 60 Table 9: Per-task average ζ(λ) (mean across H = 4 heads and L = 3 scales at the end of training, one seed per task). Initial value ζ(λ0) = ζ(−5) ≈ 0.0067 .
+
+Task Average ζ(λ)
+
+Navigation (AntMaze-Large) 0.0066 Single-Object Manipulation (Cube-Single) 0.0227 Multi-Object Manipulation (Cube-Double) 0.0066 Scene Arrangement 0.0592 Visual Navigation (Visual-AntMaze-Large) 0.0074 Visual Manipulation (Visual-Cube-Double) 0.0069 is consistent with the component ablation result that removing the difference bias does not eliminate the navigation gains. Practically, the role of ∆ in MS-D GCA is best read as a structured inductive bias on the cross-attention scoring at initialization rather than as a heavily optimized contribution at convergence. 
+
+F.7 Per-Task Fusion Weights 
+
+Table 10: Learned fusion weights softmax( w) at the end of training. Fine = T1 = 16 , Medium 
+
+= T2 = 8 , Coarse = T3 = 4 . Initial weights are uniform at 1/3 ≈ 0.333 .
+
+Task Fine ( T1) Medium ( T2) Coarse ( T3)
+
+Navigation (AntMaze-Large) 0.360 0.257 0.383 Single-Object Manipulation (Cube-Single) 0.423 0.216 0.361 Multi-Object Manipulation (Cube-Double) 0.317 0.312 0.371 Scene Arrangement 0.224 0.144 0.632 Visual Navigation (Visual-AntMaze-Large) 0.683 0.137 0.180 Visual Manipulation (Visual-Cube-Double) 0.374 0.328 0.299 Fusion weights tell a less clean story than the design intuition in Section 4.3 alone would suggest. Scene drifts strongly toward the coarse scale, Visual Navigation toward the fine scale, and the remaining tasks stay close to uniform. We take this as evidence that the optimal analysis granularity is genuinely data-driven and that the role of the multi-scale architecture is to let the model select rather than to enforce a particular bias. 
+
+F.8 Gate and λ Evolution on Additional Tasks F.9 Learning Curves 
+
+Figures 8 and 9 show the full training trajectories on the state-based and visual OGBench suites. The two views tell consistent stories, and together they sharpen the picture from the aggregate tables. On the state-based suite (Figure 8), the navigation panels share a clear shape. D AGR departs from the two baselines early, typically within the first fifth of training, and the gap widens or stabilizes rather than closing. The most pronounced separation occurs on HumanoidMaze-large, AntMaze-large, and AntSoccer-arena, where the Dual baseline plateaus low and D AGR continues to climb. Standard CA 26 0.2 0.4 0.6 0.8 1.0              
+
+> Training Step 1e6
+> 0.006
+> 0.008
+> 0.010
+> σ(αattn )
+> (a) Attention Gate
+> T=16
+> T=4
+> T=8
+> 0.2 0.4 0.6 0.8 1.0
+> Training Step 1e6
+> 0.004
+> 0.006
+> 0.008
+> 0.010
+> σ(αffn )
+> (b) FFN Gate
+> T=16
+> T=4
+> T=8
+> 0.2 0.4 0.6 0.8 1.0
+> Training Step 1e6
+> 0.005
+> 0.006
+> 0.007
+> 0.008
+> ζ(λh)
+> (c) Diff Scaling (T=16)
+> Head 0
+> Head 1
+> Head 2
+> Head 3
+> Gate and λevolution (averaged over 4 seeds)
+
+Figure 6: Gate and difference-scaling evolution on Cube-Double. The same pattern as on AntMaze-Large (Figure 5, main text) holds: all gates and per-head ζ(λh) values move only marginally from their initial values throughout training. 100000 200000 300000 400000 500000           
+
+> Training Step
+> 0.0040
+> 0.0045
+> 0.0050
+> 0.0055
+> 0.0060
+> 0.0065
+> σ(αattn )
+> (a) Attention Gate
+> T=16
+> T=4
+> T=8
+> 100000 200000 300000 400000 500000
+> Training Step
+> 0.008
+> 0.010
+> 0.012
+> σ(αffn )
+> (b) FFN Gate
+> T=16
+> T=4
+> T=8
+> 100000 200000 300000 400000 500000
+> Training Step
+> 0.006
+> 0.007
+> 0.008
+> ζ(λh)
+> (c) Diff Scaling (T=16)
+> Head 0
+> Head 1
+> Head 2
+> Head 3
+> Gate and λevolution (averaged over 4 seeds)
+
+Figure 7: Gate and difference-scaling evolution on Visual-Cube-Double. The pattern is qualitatively identical to the state-based case. tracks Dual closely on most navigation tasks, sometimes with a modest lift. Introducing a state-goal interaction is therefore not sufficient on its own. What separates D AGR from CA is the gated residual, as Table 6 shows, and the curves confirm that the separation opens from the very first evaluation rather than emerging late. On PointMaze-medium and PointMaze-large the state space is small enough that the late-fusion bottleneck does not bite, and all three methods converge to similar curves. The manipulation panels (Cube-Single, Cube-Double, Scene) show no consistent ordering among the three methods, with curves overlapping inside the confidence band. This matches the aggregate table and is now shown to be stable across training rather than an artifact of the final checkpoint. The puzzle panels (Puzzle-3x3, Puzzle-4x4) stay flat near zero for all three methods throughout training, with no sign of a late breakthrough. We attribute this outcome to encoder-level rather than representation-level limitations in Appendix F.4. On the visual suite (Figure 9), the navigation behavior of Figure 8 reproduces: on both Visual-AntMaze variants, D AGR pulls away from Dual and CA within the first quarter of training and the separation persists to the end. Visual manipulation curves cluster tightly, with no clear separation in either direction across the three methods, again consistent with the aggregate result. Visual-Puzzle remains at zero throughout training for every method, which is the strongest evidence we have that the bottleneck on these tasks is not something a goal-representation refinement, however structured, can fix. Two cross-cutting observations emerge from comparing the two figures. First, the gains from D AGR 
+
+appear early and grow with training rather than emerging only at convergence. This is consistent with the gated-residual design that opens slowly. As the gates lift and B in Theorem 4.5 grows, the value approximation gains room to improve when the state-conditioned signal actually helps. Second, where D AGR does not improve over Dual the behavior splits into two regimes. On the navigation tasks with small state spaces the three curves overlap. On Cube-Double and Scene D AGR settles below Dual from early in training and stays there, which rules out a late-stage optimization artifact and points at the architectural cause identified in Section 6. 27 0.0 0.2 0.4 0.6 0.8 1.0 
+
+Training Step 1e6 
+
+> 0
+> 25
+> 50
+> 75
+> 100
+> Success Rate (%)
+
+pointmaze-medium-navigate      
+
+> 0.0 0.2 0.4 0.6 0.8 1.0
+
+Training Step 1e6 
+
+> 0
+> 25
+> 50
+> 75
+> 100
+> Success Rate (%)
+
+pointmaze-large-navigate      
+
+> 0.0 0.2 0.4 0.6 0.8 1.0
+
+Training Step 1e6 
+
+> 0
+> 25
+> 50
+> 75
+> 100
+> Success Rate (%)
+
+antmaze-medium-navigate      
+
+> 0.0 0.2 0.4 0.6 0.8 1.0
+
+Training Step 1e6 
+
+> 0
+> 25
+> 50
+> 75
+> 100
+> Success Rate (%)
+
+antmaze-large-navigate      
+
+> 0.0 0.2 0.4 0.6 0.8 1.0
+
+Training Step 1e6 
+
+> 0
+> 25
+> 50
+> 75
+> 100
+> Success Rate (%)
+
+antmaze-giant-navigate      
+
+> 0.0 0.2 0.4 0.6 0.8 1.0
+
+Training Step 1e6 
+
+> 0
+> 25
+> 50
+> 75
+> 100
+> Success Rate (%)
+
+humanoidmaze-medium-navigate      
+
+> 0.0 0.2 0.4 0.6 0.8 1.0
+
+Training Step 1e6 
+
+> 0
+> 25
+> 50
+> 75
+> 100
+> Success Rate (%)
+
+humanoidmaze-large-navigate      
+
+> 0.0 0.2 0.4 0.6 0.8 1.0
+
+Training Step 1e6 
+
+> 0
+> 25
+> 50
+> 75
+> 100
+> Success Rate (%)
+
+antsoccer-arena-navigate      
+
+> 0.0 0.2 0.4 0.6 0.8 1.0
+
+Training Step 1e6 
+
+> 0
+> 25
+> 50
+> 75
+> 100
+> Success Rate (%)
+
+cube-single-play      
+
+> 0.0 0.2 0.4 0.6 0.8 1.0
+
+Training Step 1e6 
+
+> 0
+> 25
+> 50
+> 75
+> 100
+> Success Rate (%)
+
+cube-double-play      
+
+> 0.0 0.2 0.4 0.6 0.8 1.0
+
+Training Step 1e6 
+
+> 0
+> 25
+> 50
+> 75
+> 100
+> Success Rate (%)
+
+scene-play      
+
+> 0.0 0.2 0.4 0.6 0.8 1.0
+
+Training Step 1e6 
+
+> 0
+> 25
+> 50
+> 75
+> 100
+> Success Rate (%)
+
+puzzle-3x3-play      
+
+> 0.0 0.2 0.4 0.6 0.8 1.0
+
+Training Step 1e6 
+
+> 0
+> 25
+> 50
+> 75
+> 100
+> Success Rate (%)
+
+puzzle-4x4-play   
+
+> DAGR Dual CA
+
+Figure 8: Learning curves on the thirteen state-based OGBench tasks. DAGR (red), Dual (gray), and standard CA (blue) trained for 10 6 steps with four seeds; shaded band is the 95% confidence interval. Navigation tasks (top two rows) show a clean separation between D AGR and the two baselines that opens early in training and persists. Manipulation tasks (bottom-left) show no consistent ordering, with Dual ahead on Cube-Double and Scene, and puzzle tasks (bottom-right) stay near zero for all three methods. 28 0 1 2 3 4 5
+
+Training Step 1e5 
+
+> 0
+> 25
+> 50
+> 75
+> 100
+> Success Rate (%)
+
+visual-antmaze-medium-navigate      
+
+> 012345
+
+Training Step 1e5 
+
+> 0
+> 25
+> 50
+> 75
+> 100
+> Success Rate (%)
+
+visual-antmaze-large-navigate      
+
+> 012345
+
+Training Step 1e5 
+
+> 0
+> 25
+> 50
+> 75
+> 100
+> Success Rate (%)
+
+visual-cube-single-play      
+
+> 012345
+
+Training Step 1e5 
+
+> 0
+> 25
+> 50
+> 75
+> 100
+> Success Rate (%)
+
+visual-cube-double-play      
+
+> 012345
+
+Training Step 1e5 
+
+> 0
+> 25
+> 50
+> 75
+> 100
+> Success Rate (%)
+
+visual-scene-play      
+
+> 012345
+
+Training Step 1e5 
+
+> 0
+> 25
+> 50
+> 75
+> 100
+> Success Rate (%)
+
+visual-puzzle-3x3-play      
+
+> 012345
+
+Training Step 1e5 
+
+> 0
+> 25
+> 50
+> 75
+> 100
+> Success Rate (%)
+
+visual-puzzle-4x4-play   
+
+> DAGR Dual CA
+
+Figure 9: Learning curves on the seven visual OGBench tasks. Same color scheme as Figure 8, trained for 5 × 10 5 steps with four seeds. Visual-AntMaze (left two panels) reproduces the navigation pattern observed in the state-based setting, with D AGR separating from both baselines within the first quarter of training. Visual manipulation panels track each other closely. Visual-Puzzle tasks (rightmost two panels) remain at zero for every method. 29

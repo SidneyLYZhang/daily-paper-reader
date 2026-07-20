@@ -6,83 +6,85 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-07-19
-- 运行时间：2026-07-19 21:41:05 UTC
+- 最新运行日期：2026-07-20
+- 运行时间：2026-07-20 21:04:55 UTC
 - 运行状态：成功
 - 本次总论文数：21
 - 精读区：8
 - 速读区：13
 
 ### 今日简报（AI）
-今日共处理21篇论文，精读8篇，重点关注优化与统计几何领域。推荐优先阅读《Spectral Signatures of Replica Symmetry Breaking》与《A Tractable Pseudo-Metric on Non-Parametric Exponential Statistical Manifolds》，分别揭示随机矩阵谱特征与SPD几何新度量。建议后续关注速读中控制理论、算子视角与极值方法的相关应用拓展。
-- 详情：[/202607/19/README](/202607/19/README)
+今日精选21篇论文，重点关注机器人学习与认知地图构建的前沿进展。  
+精读推荐中，两项9分工作分别聚焦机器人学习的预测、对齐与可扩展性，以及可微分因果图实现端到端认知地图学习，是本周亮点。  
+建议普通读者优先阅读精读列表中的这两篇高分论文，速读列表中的环境依赖动作表示（EDAR）也值得关注。
+- 详情：[/202607/20/README](/202607/20/README)
 
 ### 精读区论文标签
-1. [Spectral Signatures of Replica Symmetry Breaking in Optimization-Induced Random Matrices](/202607/19/2607.10513v1-spectral-signatures-of-replica-symmetry-breaking-in-optimization-induced-random-matrices)  
+1. [Towards Predictive, Aligned, and Scalable Robot Learning](/202607/20/2607.11270v1-towards-predictive-aligned-and-scalable-robot-learning)  
+   标签：评分：9.0/10、query:rl-semantic
+   evidence：在潜在空间中推理世界动态以生成控制动作
+2. [Differentiable Clone-Structured Causal Graphs for End-to-End Cognitive Map Learning from Image Sequences](/202607/20/2607.12382v1-differentiable-clone-structured-causal-graphs-for-end-to-end-cognitive-map-learning-from-image-sequences)  
+   标签：评分：9.0/10、query:rl-semantic
+   evidence：潜在空间表示，认知地图学习
+3. [DAGR: State-Conditioned Goal Representations via Difference-Aware Goal Cross-Attention](/202607/20/2607.13731v1-dagr-state-conditioned-goal-representations-via-difference-aware-goal-cross-attention)  
+   标签：评分：9.0/10、query:rl-semantic
+   evidence：目标条件强化学习中的状态条件化目标表示，直接涉及状态表示学习
+4. [Spectral Concentration and Recovery in Sparse High-Dimensional Random Geometric Graphs](/202607/20/2607.14304v1-spectral-concentration-and-recovery-in-sparse-high-dimensional-random-geometric-graphs)  
    标签：评分：9.0/10、query:ml-theory
-   evidence：机器学习中的随机矩阵理论
-2. [A Tractable Pseudo-Metric on Non-Parametric Exponential Statistical Manifolds via SPD Geometry](/202607/19/2607.11092v1-a-tractable-pseudo-metric-on-non-parametric-exponential-statistical-manifolds-via-spd-geometry)  
+   evidence：随机几何图、谱集中性、高维统计
+5. [Risk-Aware Preference Learning for Stochastic Outcomes](/202607/20/2607.15483v1-risk-aware-preference-learning-for-stochastic-outcomes)  
    标签：评分：9.0/10、query:npl-bdl-saig
-   evidence：指数流形上的信息几何与SPD几何
-3. [On the Policy Convergence of Policy Mirror Descent Methods](/202607/19/2607.11626v1-on-the-policy-convergence-of-policy-mirror-descent-methods)  
-   标签：评分：9.0/10、query:npl-bdl-saig
-   evidence：马尔可夫决策过程中策略镜像下降的策略收敛性
-4. [Invariant Learning Dynamics of Transformers in Inductive Reasoning Tasks](/202607/19/2607.11875v1-invariant-learning-dynamics-of-transformers-in-inductive-reasoning-tasks)  
+   evidence：通过累积前景理论实现非线性概率加权
+6. [On the Geometry of Learned Representations in Event-Based Multi-Modal Egomotion Estimation](/202607/20/2607.15794v1-on-the-geometry-of-learned-representations-in-event-based-multi-modal-egomotion-estimation)  
    标签：评分：9.0/10、query:ml-theory
-   evidence：Transformer学习动力学在不变流形上的理论框架，与几何深度学习理论相关
-5. [When Does Reward Teach State? A Hidden-Automaton Instrument and the Group-Language Boundary](/202607/19/2607.11953v1-when-does-reward-teach-state-a-hidden-automaton-instrument-and-the-group-language-boundary)  
-   标签：评分：9.0/10、query:rl-semantic
-   evidence：基于隐藏自动机的强化学习状态表示分析
-6. [When Does Reward Teach State? A Hidden-Automaton Instrument and the Group-Language Boundary](/202607/19/2607.11953v2-when-does-reward-teach-state-a-hidden-automaton-instrument-and-the-group-language-boundary)  
-   标签：评分：9.0/10、query:rl-semantic
-   evidence：通过隐藏自动机探测RL中的潜在状态表示
-7. [Factorized Spectral Representations for Reinforcement Learning](/202607/19/2607.13498v1-factorized-spectral-representations-for-reinforcement-learning)  
-   标签：评分：9.0/10、query:rl-semantic
-   evidence：强化学习中状态表示的分解谱方法
-8. [Multi-Axis Max@K Reinforcement Learning for Representative Diversity in Text-to-Image Generation](/202607/19/2607.14962v1-multi-axis-maxk-reinforcement-learning-for-representative-diversity-in-text-to-image-generation)  
-   标签：评分：9.0/10、query:rl-semantic
-   evidence：强化学习优化文本到图像生成的语义模式覆盖
+   evidence：潜在空间几何与低维流形
+7. [Metric tensors and two-forms in information geometry from the GNS construction](/202607/20/2607.15800v1-metric-tensors-and-two-forms-in-information-geometry-from-the-gns-construction)  
+   标签：评分：9.0/10、query:npl-bdl-saig
+   evidence：信息几何与统计推断
+8. [Learning as a Geometric Phase Transition: Renormalization Group Flow and Anisotropic Symmetry Breaking in Deep Networks](/202607/20/2607.10770v1-learning-as-a-geometric-phase-transition-renormalization-group-flow-and-anisotropic-symmetry-breaking-in-deep-networks)  
+   标签：评分：8.0/10、query:ml-theory
+   evidence：将特征学习表述为几何相变，重整化群流，推动几何深度学习理论
 
 ### 速读区论文标签
-1. [A Control Theory of Predictability in Latent World Models](/202607/19/2607.10362v1-a-control-theory-of-predictability-in-latent-world-models)  
+1. [EDAR: Learning Environment-Dependent Action Representations for Robotic Manipulation](/202607/20/2607.11427v1-edar-learning-environment-dependent-action-representations-for-robotic-manipulation)  
    标签：评分：8.0/10、query:rl-semantic
-   evidence：强化学习中潜在世界模型的状态表示
-2. [From Self-Attention to Connection Laplacian: A Unified Operator View of Transformers](/202607/19/2607.10677v1-from-self-attention-to-connection-laplacian-a-unified-operator-view-of-transformers)  
+   evidence：使用强化学习将动作与环境视觉后果耦合来构建语义表示
+2. [Invariant Learning Dynamics of Transformers in Inductive Reasoning Tasks](/202607/20/2607.11875v2-invariant-learning-dynamics-of-transformers-in-inductive-reasoning-tasks)  
    标签：评分：8.0/10、query:ml-theory
-   evidence：连接拉普拉斯算子视角的自注意力机制，属于几何深度学习理论
-3. [An Extreme Value Perspective on Learning Stress Laws](/202607/19/2607.10700v1-an-extreme-value-perspective-on-learning-stress-laws)  
-   标签：评分：8.0/10、query:npl-bdl-saig
-   evidence：利用自相似生成估计进行罕见事件概率估计，属于非线性概率方法
-4. [GNet: A scalable and flexible Gaussian process network with nonparametric neurons](/202607/19/2607.10735v2-gnet-a-scalable-and-flexible-gaussian-process-network-with-nonparametric-neurons)  
-   标签：评分：8.0/10、query:npl-bdl-saig
-   evidence：贝叶斯深度学习方法
-5. [Parameter-Free Cubic-Regularized Newton Method: Sharp Complexity and Generalized Smoothness](/202607/19/2607.10741v1-parameter-free-cubic-regularized-newton-method-sharp-complexity-and-generalized-smoothness)  
+   evidence：变压器学习动力学在不变流形上的几何分析
+3. [How the Hessian-Spectrum of Neural Networks Depends on Data](/202607/20/2607.13631v1-how-the-hessian-spectrum-of-neural-networks-depends-on-data)  
    标签：评分：8.0/10、query:ml-theory
-   evidence：非凸优化在深度学习训练中的应用
-6. [Beyond Euclidean Clipping: Overcoming Exploration Collapse in LLM RL via Riemannian Isometric Policy Optimization](/202607/19/2607.10169v1-beyond-euclidean-clipping-overcoming-exploration-collapse-in-llm-rl-via-riemannian-isometric-policy-optimization)  
+   evidence：神经网络Hessian谱分析用于优化
+4. [Algebraic Representability as the Limiting Regime of Grokking: An Exactly Solvable Model with Holomorphic Activations](/202607/20/2607.13749v1-algebraic-representability-as-the-limiting-regime-of-grokking-an-exactly-solvable-model-with-holomorphic-activations)  
+   标签：评分：8.0/10、query:ml-theory
+   evidence：神经网络grokking现象的代数几何模型
+5. [Sharp Concentration Bounds for Bundle-Valued Statistics on Manifolds](/202607/20/2607.10592v1-sharp-concentration-bounds-for-bundle-valued-statistics-on-manifolds)  
    标签：评分：7.0/10、query:ml-theory
-   evidence：利用策略流形内蕴几何的黎曼等距策略优化
-7. [PnP-IPA: A Provably Convergent Plug-and-Play Inexact Proximal Algorithm for Nonconvex Imaging Problems](/202607/19/2607.10223v1-pnp-ipa-a-provably-convergent-plug-and-play-inexact-proximal-algorithm-for-nonconvex-imaging-problems)  
-   标签：评分：7.0/10、query:ml-theory
-   evidence：用于成像问题的非凸优化算法
-8. [Neural feedback approximation for stochastic control with degenerate diffusions: error estimates and numerical analysis](/202607/19/2607.10254v1-neural-feedback-approximation-for-stochastic-control-with-degenerate-diffusions-error-estimates-and-numerical-analysis)  
+   evidence：为流形上的几何统计量发展集中界，适用于几何深度学习
+6. [Separatrix structure and the geometry of reset distributions](/202607/20/2607.10717v1-separatrix-structure-and-the-geometry-of-reset-distributions)  
    标签：评分：7.0/10、query:npl-bdl-saig
-   evidence：随机控制、策略学习、神经反馈近似
-9. [GRASP: GRanularity-Aware Search Policy for Agentic RAG](/202607/19/2607.10463v1-grasp-granularity-aware-search-policy-for-agentic-rag)  
+   evidence：重置分布的几何结构及谱对偶性
+7. [VistaVLA: Geometry- and Semantic-Aware 3D Gaussian-Grounded VLA for Robotic Manipulation](/202607/20/2607.12356v1-vistavla-geometry--and-semantic-aware-3d-gaussian-grounded-vla-for-robotic-manipulation)  
    标签：评分：7.0/10、query:rl-semantic
-   evidence：强化学习框架用于自适应语义搜索，使用嵌入空间进行检索
-10. [Learning from Noise: Effective-Rank Collapse and Out-of-Distribution Rejection in Restricted Boltzmann Machines](/202607/19/2607.10506v1-learning-from-noise-effective-rank-collapse-and-out-of-distribution-rejection-in-restricted-boltzmann-machines)  
+   evidence：用于机器人强化学习的3D状态表示
+8. [Knowledge- and Gradient-Guided Reinforcement Learning for Parametrized Action Markov Decision Processes](/202607/20/2607.12924v2-knowledge--and-gradient-guided-reinforcement-learning-for-parametrized-action-markov-decision-processes)  
+   标签：评分：7.0/10、query:rl-semantic
+   evidence：提出一种新的强化学习算法（KGRL）用于参数化动作MDP
+9. [Semantic Anchoring for Robotic Action Representations](/202607/20/2607.13597v1-semantic-anchoring-for-robotic-action-representations)  
+   标签：评分：7.0/10、query:rl-semantic
+   evidence：语义锚定方法保留机器人动作表示中的语义结构
+10. [Traj-VLN: Learning Pixel-Space Interaction via Autoregressive Trajectory Generation](/202607/20/2607.10744v2-traj-vln-learning-pixel-space-interaction-via-autoregressive-trajectory-generation)  
+   标签：评分：6.0/10、query:rl-semantic
+   evidence：将视觉嵌入投影到语言空间中以实现导航
+11. [Backpropagation as a Nilpotent Linear System](/202607/20/2607.11289v1-backpropagation-as-a-nilpotent-linear-system)  
    标签：评分：6.0/10、query:ml-theory
-   evidence：RBM谱分析中的随机矩阵理论
-11. [Gradient Flow Dynamics and Implicit Bias of Diagonal Linear Networks under Infinitesimal Initialization](/202607/19/2607.12332v1-gradient-flow-dynamics-and-implicit-bias-of-diagonal-linear-networks-under-infinitesimal-initialization)  
+   evidence：反向传播的幂零线性系统代数结构
+12. [How to Tame Grokking: Representation Geometry as a Control Signal](/202607/20/2607.11666v1-how-to-tame-grokking-representation-geometry-as-a-control-signal)  
    标签：评分：6.0/10、query:ml-theory
-   evidence：非凸优化中的梯度流动力学与隐式偏差
-12. [Non-vacuous Generalization Bounds for Reinforcement Learning with Verifiable Rewards](/202607/19/2607.14506v1-non-vacuous-generalization-bounds-for-reinforcement-learning-with-verifiable-rewards)  
-   标签：评分：6.0/10、query:npl-bdl-saig
-   evidence：针对强化学习微调的PAC-Bayes界，属于贝叶斯深度学习方法
-13. [Statistical Inference for Scenario-Based Dynamic Optimization under Uncertainty](/202607/19/2607.14965v1-statistical-inference-for-scenario-based-dynamic-optimization-under-uncertainty)  
-   标签：评分：6.0/10、query:npl-bdl-saig
-   evidence：随机分析及其应用
+   evidence：研究表征几何作为延迟泛化的控制信号，提出了几何维度正则化
+13. [Contrastive-Collapsed Loss for Flexible and Geometrically Optimal Embeddings and Faster Convergence](/202607/20/2607.12916v1-contrastive-collapsed-loss-for-flexible-and-geometrically-optimal-embeddings-and-faster-convergence)  
+   标签：评分：6.0/10、query:ml-theory
+   evidence：用于几何最优嵌入的损失函数，具有大角度类间分离
 
 
 <div class="dpr-home-promo-card">
