@@ -6,83 +6,74 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-07-26
-- 运行时间：2026-07-26 21:40:28 UTC
+- 最新运行日期：2026-07-27
+- 运行时间：2026-07-27 21:04:07 UTC
 - 运行状态：成功
-- 本次总论文数：21
-- 精读区：8
-- 速读区：13
+- 本次总论文数：18
+- 精读区：7
+- 速读区：11
 
 ### 今日简报（AI）
-今日处理21篇论文，精读2篇高分论文、速读3篇。最值得关注黎曼深度学习模块和Fisher宽度几何分析两个方向。建议优先精读9分论文，速读部分关注强化学习与元学习应用。
-- 详情：[/202607/26/README](/202607/26/README)
+今天共收录18篇文献，精读2篇高分论文，分别关注非凸优化的Langevin方法及可控世界模型的可辨识性。最值得优先阅读的是非凸优化中的精确与零阶Langevin算法，以及控制世界模型的辨识理论。建议从这两篇9.0分论文入手，快速把握理论优化与因果建模的前沿进展。
+- 详情：[/202607/27/README](/202607/27/README)
 
 ### 精读区论文标签
-1. [Riemannian Deep Learning: Modules, Networks, and Geometries](/202607/26/2607.19305v2-riemannian-deep-learning-modules-networks-and-geometries)  
+1. [Langevin for Nonconvex Optimization: Exact, Inexact and Zeroth-Order](/202607/27/2607.22353v1-langevin-for-nonconvex-optimization-exact-inexact-and-zeroth-order)  
    标签：评分：9.0/10、query:ml-theory
-   evidence：黎曼深度学习框架，支持流形上的神经网络
-2. [Fisher Widths: Local Learning Geometry and Anisotropic Recovery](/202607/26/2607.20578v1-fisher-widths-local-learning-geometry-and-anisotropic-recovery)  
-   标签：评分：9.0/10、query:npl-bdl-saig
-   evidence：通过统计流形上的Fisher宽度研究信息几何
-3. [Offline RL with Hierarchical Action Chunking](/202607/26/2607.20834v1-offline-rl-with-hierarchical-action-chunking)  
+   evidence：非凸优化的Langevin方法
+2. [On the Identifiability of Controlled World Models](/202607/27/2607.22430v1-on-the-identifiability-of-controlled-world-models)  
    标签：评分：9.0/10、query:rl-semantic
-   evidence：使用高层潜在规划和低层动作分块进行离线目标条件RL
-4. [Compact Latent Coordination for Autonomous Vehicles at Unsignalized Intersections](/202607/26/2607.21488v1-compact-latent-coordination-for-autonomous-vehicles-at-unsignalized-intersections)  
-   标签：评分：9.0/10、query:rl-semantic
-   evidence：在MARL中使用紧凑潜在嵌入进行协调
-5. [Asymptotic Analysis of Empirical Dynamic Programming in Infinite-Horizon Stochastic Optimal Control](/202607/26/2607.21520v1-asymptotic-analysis-of-empirical-dynamic-programming-in-infinite-horizon-stochastic-optimal-control)  
-   标签：评分：9.0/10、query:npl-bdl-saig
-   evidence：经验动态规划的渐近分析，涉及策略极限
-6. [Deep Adaptive Bayesian Screening](/202607/26/2607.16927v1-deep-adaptive-bayesian-screening)  
+   evidence：强化学习中的潜在空间表示
+3. [Dreamer-CPC: Message Learning with World Models for Decentralized Multi-agent Reinforcement Learning](/202607/27/2607.19809v1-dreamer-cpc-message-learning-with-world-models-for-decentralized-multi-agent-reinforcement-learning)  
+   标签：评分：8.0/10、query:rl-semantic
+   evidence：利用世界模型的潜在状态进行多智能体消息学习
+4. [Adaptive Bayesian Online Learning via Expert Aggregation](/202607/27/2607.20239v1-adaptive-bayesian-online-learning-via-expert-aggregation)  
    标签：评分：8.0/10、query:npl-bdl-saig
-   evidence：贝叶斯深度学习结合自适应筛选和策略学习
-7. [Fluid-SDF: Ultra-Lightweight and Editable Implicit Shape Representation via Differentiable Primitives](/202607/26/2607.18646v1-fluid-sdf-ultra-lightweight-and-editable-implicit-shape-representation-via-differentiable-primitives)  
+   evidence：通过专家聚合的贝叶斯在线学习
+5. [Learning Population-Level Dynamics through a Latent Fokker--Planck Model and Discrepancy Transport Maps](/202607/27/2607.21921v1-learning-population-level-dynamics-through-a-latent-fokker--planck-model-and-discrepancy-transport-maps)  
+   标签：评分：8.0/10、query:npl-bdl-saig
+   evidence：从分布快照学习潜在随机动态
+6. [Interior interpretability with attention rollout: contraction and propagation profiles in Transformers](/202607/27/2607.22367v1-interior-interpretability-with-attention-rollout-contraction-and-propagation-profiles-in-transformers)  
+   标签：评分：8.0/10、query:npl-bdl-saig
+   evidence：应用Doeblin-Dobrushin压缩理论于注意力传播
+7. [Fully Convergent Projection-based Methods with Momentum under Nonconvex Geometric](/202607/27/2607.22510v1-fully-convergent-projection-based-methods-with-momentum-under-nonconvex-geometric)  
    标签：评分：8.0/10、query:ml-theory
-   evidence：基于可微构造实体几何的几何深度学习方法
-8. [Riemannian Deep Learning:Modules, Networks, and Geometries](/202607/26/2607.19305v1-riemannian-deep-learningmodules-networks-and-geometries)  
-   标签：评分：8.0/10、query:ml-theory
-   evidence：黎曼深度学习框架，属于几何深度学习理论
+   evidence：带动量的投影方法用于非凸优化，直接适用于深度学习训练
 
 ### 速读区论文标签
-1. [Predictive Training with Latent Imagination for Visual Quadruped Navigation](/202607/26/2607.17574v1-predictive-training-with-latent-imagination-for-visual-quadruped-navigation)  
-   标签：评分：8.0/10、query:rl-semantic
-   evidence：使用潜在想象（JEPA预测器）训练强化学习导航策略
-2. [Information-Based Exploration via Random Features for Reinforcement Learning](/202607/26/2607.17981v1-information-based-exploration-via-random-features-for-reinforcement-learning)  
-   标签：评分：8.0/10、query:rl-semantic
-   evidence：随机特征信息增益用于强化学习中的表示学习与探索
-3. [Variational meta-learning inference for low dimensional neural system identification](/202607/26/2607.18965v1-variational-meta-learning-inference-for-low-dimensional-neural-system-identification)  
-   标签：评分：8.0/10、query:npl-bdl-saig
-   evidence：使用变分推断的流形元学习完全概率化扩展
-4. [Trace: A Taxonomy-Guided Environment for Multidomain Visual Reasoning](/202607/26/2607.19790v1-trace-a-taxonomy-guided-environment-for-multidomain-visual-reasoning)  
-   标签：评分：8.0/10、query:rl-semantic
-   evidence：强化学习环境，具有共享语义状态，用于视觉推理
-5. [Expert Behavior Prior Reinforcement Learning](/202607/26/2607.21302v1-expert-behavior-prior-reinforcement-learning)  
-   标签：评分：8.0/10、query:rl-semantic
-   evidence：使用Q引导条件VAE进行强化学习中的状态表示学习
-6. [PAVXploreRL: Physical-Action-Visual World Model Reinforcement Learning with Action Exploration](/202607/26/2607.16602v2-pavxplorerl-physical-action-visual-world-model-reinforcement-learning-with-action-exploration)  
-   标签：评分：7.0/10、query:rl-semantic
-   evidence：基于动作探索的世界模型强化学习的潜空间表示
-7. [The Value of Depth in Message Passing on Sparse Graphs: A Kesten-Stigum Dichotomy](/202607/26/2607.16676v1-the-value-of-depth-in-message-passing-on-sparse-graphs-a-kesten-stigum-dichotomy)  
+1. [Chebyshev Manifold Adaptation](/202607/27/2607.17377v1-chebyshev-manifold-adaptation)  
    标签：评分：7.0/10、query:ml-theory
-   evidence：研究稀疏图上GNN的深度，使用Kesten-Stigum比率，与几何深度学习中的图神经网络理论相关
-8. [Approximate Relative Entropy Constraints for Nonlinear Covariance Steering Under Distribution Ambiguity](/202607/26/2607.16914v1-approximate-relative-entropy-constraints-for-nonlinear-covariance-steering-under-distribution-ambiguity)  
-   标签：评分：7.0/10、query:npl-bdl-saig
-   evidence：使用相对熵（KL散度）的分布鲁棒协方差控制
-9. [Reasoning Fine-Tuning Induces Persistent Latent Policy States](/202607/26/2607.18532v1-reasoning-fine-tuning-induces-persistent-latent-policy-states)  
+   evidence：切比雪夫流形适应方法实现高效微调
+2. [Organization of computation in reservoir computing](/202607/27/2607.17858v1-organization-of-computation-in-reservoir-computing)  
    标签：评分：7.0/10、query:rl-semantic
-   evidence：推理模型中的潜在策略状态发现，类似于强化学习中的潜在空间表示
-10. [PAVXploreRL: Physical-Action-Visual World Model Reinforcement Learning with Action Exploration](/202607/26/2607.16602v1-pavxplorerl-physical-action-visual-world-model-reinforcement-learning-with-action-exploration)  
+   evidence：储层计算状态空间表示分析用于表示学习
+3. [A Geometric Perspective on Stabilizing Value Conflict Resolution](/202607/27/2607.17946v1-a-geometric-perspective-on-stabilizing-value-conflict-resolution)  
+   标签：评分：7.0/10、query:ml-theory
+   evidence：从几何视角分析RLHF损失景观
+4. [Information-Based Exploration via Random Features for Reinforcement Learning](/202607/27/2607.17981v1-information-based-exploration-via-random-features-for-reinforcement-learning)  
+   标签：评分：7.0/10、query:rl-semantic
+   evidence：使用随机傅里叶特征进行RL探索中的表示学习
+5. [Active Inference as a Convex Markov Decision Process](/202607/27/2607.20152v1-active-inference-as-a-convex-markov-decision-process)  
+   标签：评分：7.0/10、query:rl-semantic
+   evidence：将主动推理公式化为含有潜在状态表示的凸MDP
+6. [New Complexity-Theoretic Frontiers of Tractability for Neural Network Training](/202607/27/2607.20811v1-new-complexity-theoretic-frontiers-of-tractability-for-neural-network-training)  
+   标签：评分：7.0/10、query:ml-theory
+   evidence：深度学习训练中的非凸优化
+7. [Local-Global Geometric Insights for Graph Neural Networks via Entropic Curvature](/202607/27/2607.22381v1-local-global-geometric-insights-for-graph-neural-networks-via-entropic-curvature)  
+   标签：评分：7.0/10、query:ml-theory
+   evidence：几何深度学习理论
+8. [Learning Ergodic Dynamical Systems from a Finite Trajectory](/202607/27/2607.22399v1-learning-ergodic-dynamical-systems-from-a-finite-trajectory)  
+   标签：评分：7.0/10、query:npl-bdl-saig
+   evidence：学习遍历随机动力系统并给出高概率保证
+9. [Reward-Driven LLM Agent Workflows: Synthesizing POMDP Routing and Self-Correction for Autonomous Decision-Making](/202607/27/2607.17038v1-reward-driven-llm-agent-workflows-synthesizing-pomdp-routing-and-self-correction-for-autonomous-decision-making)  
    标签：评分：6.0/10、query:rl-semantic
-   evidence：世界模型强化学习中的状态表示学习
-11. [Principled Direction-Free Intrinsic Motivation through Model-Free Epistemic Free-Energy Estimators](/202607/26/2607.16858v1-principled-direction-free-intrinsic-motivation-through-model-free-epistemic-free-energy-estimators)  
+   evidence：使用部分可观测马尔可夫决策过程路由和奖赏驱动的自校正机制的LLM智能体决策
+10. [AttriMem: Attribution-Guided Process Feedback for Agent Memory Learning](/202607/27/2607.21106v1-attrimem-attribution-guided-process-feedback-for-agent-memory-learning)  
    标签：评分：6.0/10、query:rl-semantic
-   evidence：提出基于自由能的强化学习内在奖励用于探索
-12. [Organization of computation in reservoir computing](/202607/26/2607.17858v1-organization-of-computation-in-reservoir-computing)  
+   evidence：基于强化学习的LLM智能体记忆构建策略
+11. [FedAgentKE: Federated Semantic Knowledge Evolution for Heterogeneous Agents](/202607/27/2607.21361v1-fedagentke-federated-semantic-knowledge-evolution-for-heterogeneous-agents)  
    标签：评分：6.0/10、query:rl-semantic
-   evidence：储层计算状态空间组织框架可迁移至强化学习语义空间构建
-13. [RAMP: Recognition parametrisation by Amortised Message Passing](/202607/26/2607.18883v1-ramp-recognition-parametrisation-by-amortised-message-passing)  
-   标签：评分：6.0/10、query:rl-semantic
-   evidence：通过摊销消息传递学习隐结构，可用于潜在空间表示
+   evidence：联邦语义知识演化
 
 
 <div class="dpr-home-promo-card">

@@ -1,0 +1,2959 @@
+Title: Local-Global Geometric Insights for Graph Neural Networks via Entropic Curvature
+
+URL Source: https://arxiv.org/pdf/2607.22381v1
+
+Published Time: Mon, 27 Jul 2026 01:01:27 GMT
+
+Number of Pages: 42
+
+Markdown Content:
+# Local–Global Geometric Insights for Graph Neural Networks via Entropic Curvature 
+
+Rachid Caich ∗
+
+Centre de recherches mathématiques (CRM) Université de Montréal Montréal, Canada 
+
+rachid.caich@umontreal.ca 
+
+Yassine Abbahaddou ∗
+
+LIX, École Polytechnique 
+
+IP Paris 
+
+Palaiseau, France 
+
+yassine.abbahaddou@polytechnique.edu 
+
+## Abstract 
+
+Curvature notions on graphs, particularly Ollivier–Ricci and Forman, have emerged as powerful tools for addressing fundamental issues in Graph Neural Networks (GNNs) such as oversmoothing and oversquashing, but rely almost exclusively on local edge-level comparisons and therefore fail to certify how information actually propagates over long distances. We introduce Entropic Curvature , a global, transport-based curvature obtained by extending the Lott–Sturm–Villani framework to graphs through the displacement convexity of entropy along W1-Wasserstein geodesics. We define a tractable Weak Entropic Curvature proxy κw
+
+that lower-bounds the global entropic curvature, and from it derive (i) a Poincaré-type inequality controlling oversmoothing, (ii) a transport–entropy generalization bound, and (iii) an expansion paradox proving that sparsity, strong spectral ex-pansion, and positive entropic curvature cannot coexist in large graphs, unifying oversmoothing and oversquashing as opposite ends of a single curvature spectrum. We translate the theory into three practical mechanisms, the E-Gate aggregator, the ENT structural encoding, and Midpoint-Completion Rewiring (MCR), and benchmark them against SDRF, FoSR, BORF, LCP, and Graph Ricci Flow on six node-classification benchmarks, and graph-classification. 
+
+## 1 Introduction 
+
+Graphs are increasingly analyzed through the lens of geometry, with curvature emerging as a key concept in understanding graph structure and dynamics [ 9, 7, 8, 49 , 16 , 17 , 35 , 44 , 45 ]. Recently, attention has shifted to incorporating geometric insights into GNNs: graph curvature offers an efficient way to capture phenomena such as bottlenecks [ 67 , 23 ], characterise community structure [ 53 , 37 , 47 ], and inspire new architectures [15, 42, 5]. Discrete graph curvatures, e.g. Ollivier–Ricci [ 55 ] and Forman [ 30 ], have been used to analyze fundamental GNN problems [ 68 ] such as oversmoothing [ 52 ], where deep GNN layers produce indis-tinguishable node features, and oversquashing [ 67 , 38 ], where long-range information is compressed through bottlenecks. However, existing graph curvatures are inherently local: they evaluate edges or one-hop neighborhoods, and therefore cannot certify how information actually propagates over long distances or quantify the trade-off between oversmoothing and oversquashing in a single framework. 
+
+As a result, oversmoothing and oversquashing are diagnosed by separate, often-incompatible local quantities. This work introduces entropic curvature on graphs, a global, transport-theoretic curvature grounded in the Lott–Sturm–Villani framework [ 46 , 65 ]. Unlike edge-based curvatures, entropic curvature evaluates a graph as a metric-measure space by examining how probability distributions evolve along 
+
+W1-Wasserstein geodesics. From a single non-negativity assumption on entropic curvature we derive 
+
+> ∗Equal contribution, order determined by coin flip. Preprint. arXiv:2607.22381v1 [cs.LG] 24 Jul 2026
+
+(a) a Poincaré inequality controlling Dirichlet-energy decay (oversmoothing), (b) a transport–entropy generalization bound, and (c) the impossibility of simultaneously achieving sparsity, strong spectral expansion, and positive entropic curvature (the expansion paradox , governing oversquashing). The same theory directly produces curvature-aware GNN building blocks, an aggregator (E-Gate), a structural encoding (ENT), and a rewiring rule (MCR), which we evaluate against the most relevant curvature-aware baselines including SDRF [67], FoSR [38], BORF [52], and LCP [27]. Our main contributions are: • Rigorous Discrete Reformulation (Section 3): We adapt Lott–Sturm–Villani to graphs via convexity of entropy along W1-Wasserstein geodesics, and introduce a tractable Weak Entropic Curvature proxy κw computable in O(kiter d2max ) per node that provably lower-bounds the global entropic curvature (Theorem 3.3). • Expansion Paradox (Section 4): Sparsity, strong spectral expansion, and positive entropic curvature cannot coexist in large graphs (Theorem 4.2). This unifies oversmoothing and oversquashing as opposite ends of a single curvature spectrum. • Curvature-Controlled Generalization (Section 5): The train–test risk gap is bounded by 
+
+κw via a transport-entropy inequality, in both positive- (Theorem 5.2) and negative-curvature (Theorem 5.3) regimes. • Curvature-Monotonic Rewiring (MCR, Section 4): We give a rewiring rule that provably non-decreases κw at the rewired node (Theorem 4.3), outperforms ORC and FRC rewiring in spectral-gap improvement on six random-graph families, and translates to downstream accuracy gains over SDRF/FoSR/BORF. • Architectures and Empirical Validation (Sections 4, 6): The E-Gate aggregator im-proves its backbone in 16 of 20 (backbone, dataset) pairs at p < 0.05 (paired Wilcoxon, Holm–Bonferroni). ENT encodings outperform LCP, LAPE, RWPE, and EGO on 4 of 5 benchmarks. We additionally benchmark against other baslines such as SDRF and FoSR, and on graph classification. 
+
+## 2 Background and Related Work 
+
+Ricci Curvature. Ricci curvature is a fundamental concept in differential geometry that describes how a manifold deviates from being flat. One way to detect curvature is through holonomy [ 41 ], which measures how parallel transport around closed loops fails to preserve the geometrical data being carried, thereby revealing twists intrinsic to the manifold. Another approach involves geodesic dispersion ; if nearby geodesics with identical initial velocities diverge, the space is positively curved; if they remain parallel, it is flat; and if they converge, it is negatively curved [ 22 ]. A major advance in extending Ricci curvature to more general metric measure spaces beyond smooth manifolds was provided by Sturm [ 65 ] and Lott and Villani [ 46 ] in two independent works. Building on McCann’s pioneering work [ 48 ], they established a synthetic definition of Ricci curvature via optimal transport and entropy. Specifically, let (Ω , d ) be a complete and separable metric space, and let P(Ω) be the space of Borel probability measures on Ω. For 1 ≤ p < ∞ and μ, ν ∈ P (Ω) we consider the Monge-Kantorovich (Wasserstein) distance Wp is defined by, 
+
+Wp(μ, ν ) := inf 
+
+> Γ∈Π( μ,ν )
+
+Z 
+
+> Ω×Ω
+
+d(x, y )pdΓ( x, y )
+
+1/p 
+
+,
+
+where Π( μ, ν ) denotes the set of all couplings of μ and ν. Wp(μ, ν )p can be interpreted as the minimal cost required to transfer a distribution of mass from an initial configuration μ to another configuration ν, where the transportation cost per unit mass is given by d(x, y )p. In this synthetic framework, relative entropy plays a key role in capturing curvature lower bounds. With a measure 
+
+ν ∈ P (Ω) and a probability measure μ that is absolutely continuous with respect to ν, the relative entropy of μ with respect to ν is defined by Ent ν (μ) := R 
+
+> Ω
+
+ρ(x) log ρ(x)d ν(x), where ρ = d μ/ dν.The following result, proved in [ 20 , 56 , 61 ], characterizes Ricci curvature lower bounds on Rieman-nian manifolds in terms of convexity properties of the relative entropy (with respect to the volume measure vol ) and optimal transport. 
+
+Theorem 2.1 (Characterisation of Ricci lower bounds) . Let κ ∈ R. For a complete Riemannian manifold M with a Ricci Curvature Ric , the following assertions are equivalent, 
+
+21. Ric ≥ κ on M.2. Each pair of probability measures μ0, μ 1 ∈ P 2(M) can be connected by a constant speed W2-geodesic (μt)t∈[0 ,1] , i.e., W2(μs, μ t) = |t − s| · W2(μ0, μ 1), along which the entropy satisfies the 
+
+κ-convexity inequality, 
+
+Ent vol (μt) ≤ (1 − t) Ent vol (μ0) + t Ent vol (μ1) − κ
+
+2 t(1 − t)W 2(μ0, μ 1)2. (1) This inequality establishes a connection between the Ricci curvature Ric of a Riemannian manifold and the convexity of entropy along optimal transport paths. This means positive curvature enhances the convexity of entropy, while negative curvature weakens it, reflecting how the manifold’s geometry influences the behavior of entropy under optimal transport. 
+
+Graph Curvatures. Since graphs are discrete, and non-differentiable structures, the classical notion of Ricci curvature from differential geometry cannot be directly applied. Instead, discrete analogues of curvature have been introduced to mimic aspects of Ricci curvature. One such measure is Forman curvature [ 30 ] which assigns scalar weights to edges or nodes, providing a purely combinatorial curvature notion and offering insights primarily into local topology or geometry. By contrast, Ollivier-Ricci curvature [ 55 ] uses a probabilistic viewpoint by comparing single-step neighborhood mass transport between adjacent vertices, capturing local bottlenecks and concentration but ignoring how measures evolve over longer paths. Another Ricci-type notion is Bakry-Émery curvature [ 6 ], which is evaluated at vertices rather than edges. It measures the local cohesion of a network around each vertex, so that higher cohesion corresponds to more positive curvature. Finally, the Balanced Forman curvature refines the original Forman curvature by incorporating symmetrical weighting factors [ 67 ], aiming to balance the contributions of vertices and edges in a way that can provide a more nuanced assessment of a graph’s local and global curvature-like properties. 
+
+Graph Neural Networks (GNNs). A graph is denoted by G = ( V, E, X), where V is the node set, 
+
+E is the edge set, and X contains node features. Each node u ∈ V is initialized with h(0)  
+
+> u
+
+= xu.A broad class of message-passing GNNs updates node representations through two operations: an aggregation step m(ℓ) 
+
+> u
+
+= AGG (ℓ)({h(ℓ) 
+
+> v
+
+: v ∈ N (u) ∪ { u}} ), and an update step h(ℓ+1)  
+
+> u
+
+=UPDATE (ℓ)(h(ℓ) 
+
+> u
+
+, m (ℓ) 
+
+> u
+
+). Here, AGG (ℓ) collects information from the local neighborhood, while 
+
+UPDATE (ℓ) combines the aggregated message with the current node representation. 
+
+Generalization of GNNs. A fundamental GNN challenge in GNNs is characterizing their gen-eralization capabilities, particularly when the training and testing data arise from distinct topo-logical distributions on the graph [ 66 ]. In the standard node classification setting, we treat the training and evaluation sets not merely as indices, but as discrete probability measures supported on the vertex set V. Let Vtrain , Vtest ⊂ V denote the labeled training and testing node sets, respec-tively. We define the empirical training distribution μtrain and the evaluation distribution μtest as, 
+
+μtrain := 1
+
+> |V train |
+
+P 
+
+> u∈V train
+
+δu, and μtest := 1
+
+> |V test |
+
+P 
+
+> u∈V test
+
+δu, where δu represents the Dirac mea-sure centered at node u. Consider a GNN fθ : ( V, E, X ) → Y parameterized by θ, and a pointwise loss function J (·, ·). The expected risk with respect to an arbitrary node distribution μ is given by, 
+
+Lμ(fθ ) = Eu∼μ[J (fθ (u), y u)] .
+
+While the optimization objective is to minimize the empirical risk Lμtrain (fθ ), the ultimate goal is to minimize the risk on the test distribution. The generalization gap quantifies the discrepancy between these risks for the learned parameters ˆθ = arg min θ Lμtrain (fθ ). Formally, this gap is defined as the absolute deviation between the test and training risks, 
+
+∆L(fˆθ ) := Lμtest (fˆθ ) − L μtrain (fˆθ ) .
+
+As shown in Section 5, the entropic curvature of the underlying graph imposes strict bounds on this sensitivity via transport-entropy inequalities. 
+
+## 3 Entropic Curvature on Graphs 
+
+Notations and Assumptions. We consider a connected, undirected graph G = ( V, E, X) . We denote the combinatorial distance between vertices u, v ∈ V by d(u, v ), defined as the length of the shortest path connecting them. We assume G is locally finite , meaning every vertex has a finite 3degree. For any node u ∈ V , we define the local 2-ball as the subgraph induced by nodes within a distance of at most two, denoted B2(u) := {y ∈ V | d(u, y ) ≤ 2}. The 2-sphere is the set of nodes at a distance of exactly two from u, denoted S2(u) := {w ∈ V | d(u, w ) = 2 }. Let G(x, y ) be the set of all geodesic paths joining x to y (i.e. all shortest paths from x to y). For any pair of vertices 
+
+u, v ∈ V , we denote by [u, v ] := {z ∈ V| z ∈ γ, γ ∈ G(u, v )} and ]u, v [:= [ u, v ]\{ u, v } the set of 
+
+strict midpoints lying on any shortest path between them. A graph space is defined as the tuple 
+
+(V, d, m, L), where m : V → R+ is a positive reference measure and L : V × V → R is a generator encoding the jump rates of a reversible Markov process on V. The operator L is constructed to satisfy three key properties, (i) Conservation: The diagonal terms ensure probability conservation, i.e., L(u, u ) =
+
+− P  
+
+> v̸=u
+
+L(u, v ).
+
+(ii) Sparsity: We require L(u, v ) > 0 if and only if u ∼ v. This ensures that L acts as a Graph Shift Operator (GSO) [21, 34, 1], preserving the sparsity of G.(iii) Reversibility: The measure m satisfies the detailed balance condition, i.e., m(u)L(u, v ) = 
+
+m(v)L(v, u ) ∀u, v ∈ V . This constraint implies that L is self-adjoint with respect to the inner product induced by m, guaranteeing a real spectrum. The selection of the reference measure m inherently dictates the structure of the generator L through the reversibility condition. This relationship is illustrated in Example 1. While derivations for genera-tors under general positive measures and concentrated approximations are provided in Appendices O and P, the present work focuses on the canonical pair (m 0, L0).
+
+Example 1 (Uniform Measure) . Let C ⊆ V . In the standard case where C = ∅ or C = V, we adopt the uniform measure m0(u) = 1 . To satisfy detailed balance, the corresponding generator is simply the unnormalized Combinatorial Laplacian adjacency weights, i.e., L0(u, v ) := 1{u,v }∈E for u̸ = v. 
+
+Theoretical Definition of Entropic Curvature. The concept of entropic curvature provides a powerful way to extend Ricci-type geometric ideas to discrete spaces, particularly graphs. Recall from the Sturm, Lott and Villani framework, c.f. Section 2, that lower bounds on Ricci curvature can be captured by the convexity of the entropy functional along Wasserstein geodesics. This carries over to the discrete setting via the following definition, 
+
+Definition 3.1 (Entropic Curvature) . The entropic curvature κ ∈ R is the largest constant such that for every pair of probability measures μ0, μ 1 on V, there exists a constant-speed W1-geodesic 
+
+(μt)t∈[0 ,1] , i.e., W1(μs, μ t) = |t − s| · W1(μ0, μ 1), for which the entropy functional satisfies the 
+
+κ-convexity inequality, 
+
+Ent m(μt) ≤ (1 − t) Ent m(μ0) + t Ent m(μ1) − κ
+
+2 t(1 − t)W 1(μ0, μ 1)2. (2) This definition mirrors the role of Ricci curvature in smooth geometry; if κ > 0, then the entropy is uniformly displacement convex, which in turn imposes geometric rigidity on the space. To make the computation of curvature feasible in large graphs, we build on the work of [ 63 ], introducing a local proxy for κ, known as the weak entropic curvature . This approximation relies on evaluating the behavior of entropy in neighborhoods of radius two. The classical Lott–Sturm–Villani framework characterises Ricci curvature lower bounds on smooth Riemannian manifolds via displacement convexity along constant-speed W2-geodesics (Theorem 2.1). In the discrete graph setting, W2-geodesics require interpolating measures that generally lack com-binatorial interpretations and are computationally intractable. Following [ 60 ], we instead use W1-geodesics, which are well-defined on finite graphs via linear programming and are computable in polynomial time. This substitution is theoretically grounded: on smooth manifolds, a Ricci lower bound is equivalent to displacement convexity along both W1- and W2-geodesics [ 46 ]. In the discrete regime, the W1 metric directly enables the transport-entropy inequality (Lemma F.2) which underpins all downstream theoretical results. 
+
+Formal definition of Weak Entropic Curvature. Let z ∈ V be a vertex and W ⊆ V a target set, typically the 2-sphere S2(z). For any z′′ ∈ W , we define the two-step transition weight 
+
+L2(z, z ′′ ) := P 
+
+> v
+
+L(z, v )L(v, z ′′ ) and the relative path weight ℓ(z, z ′, z ′′ ) := L(z,z ′)L(z′,z ′′ ) 
+
+> L2(z,z ′′ )
+
+. The 4local functional HL(z, W) is defined as, 
+
+HL(z, W) := sup 
+
+> α∈P
+
+X
+
+> z′′ ∈W
+
+L2(z, z ′′ ) · Y
+
+> z′∈]z,z ′′ [
+
+ α(z′)
+
+L(z, z ′)
+
+2ℓ(z,z ′,z ′′ )
+
+ , (3) Here, ]z, W [:= S 
+
+> z′′ ∈W
+
+]z, z ′′ [ denotes the union of all midpoints. The supremum is taken over all functions α :] z, W [→ R+ satisfying the normalization condition P  
+
+> v∈]z,W [
+
+α(v) = 1 . Beyond this formal definition, weak entropic curvature admits a useful geometric interpretation in terms of local transport redundancy. In Appendix A, we show that the local functional HL can be viewed through an entropy/KL-divergence lens: it measures how well the graph’s two-hop geodesic structure supports the optimal redistribution of mass across intermediate nodes. This perspective reveals that high-curvature regions correspond to locally redundant, diffusion-friendly neighborhoods, whereas low-or negative-curvature regions indicate bottleneck-like structures where transport is forced through fewer fragile paths. We also relate this interpretation to a Motzkin–Straus-type characterization [ 51 ], showing how local clique density influences the curvature proxy. Inspired by the functional form of Boltzmann Entropy , we define the local weak entropic curvature , a tractable local proxy for the entropic curvature defined, c.f., Definition 3.2. 
+
+Definition 3.2 (Weak Entropic Curvature) . Let u ∈ V . We define the local weak entropic curvature 
+
+at node z as, κw(u) := −2 log H L(u, S2(u)) , and the weak entropic curvature of the graph as the infimum over all vertices, i.e., κw(G) := inf u∈V κw(u).
+
+While the global curvature examines the convexity of entropy along the entire Wasserstein space, the local weak entropic curvature focuses on the displacement of mass within a controlled two-hop neighborhood. This approximation allows for efficient computation while preserving the core geometric insights of the Lott-Sturm-Villani framework. The formal link between this local proxy and the global entropic curvature is established in Theorem 3.3. 
+
+Theorem 3.3. The weak entropic curvature κw provides a rigorous lower bound for the global entropic curvature κ, i.e., κ ≥ κw.
+
+Proof. See Appendix E. Theorem 3.3 shows that the computable κw is not merely a heuristic local statistic: it is a certified lower bound on the global entropic curvature κ. Thus, although κ is defined through entropy convexity over the full Wasserstein space, its geometric effect can already be detected through two-hop transport structure. Intuitively, large positive values of κw arise in locally redundant regions where mass can be redistributed through many alternative midpoints, while low or negative values indicate bottleneck-like neighborhoods in which transport is forced through a small number of fragile paths. To illustrate this, Appendix B reports κw on canonical graph motifs, ranging from dense clustered structures to sparse trees. These examples show that weak entropic curvature separates diffusion-friendly local traps from negatively curved expansion and bottleneck regimes, providing the geometric intuition behind the oversmoothing and oversquashing results developed in the following sections. 
+
+Algorithmic Implementation. We evaluate the practical utility of entropic curvature through a node-wise implementation of the weak entropic curvature proxy. Algorithm 2 in Appendix M.1 operationalizes this by transforming the theoretical displacement convexity requirement into a constrained optimization problem. Specifically, for each node, we precompute the relative path weights ℓ(z, u, w ), which represent the local transport efficiency across two-hop geodesics. The core of the algorithm involves solving a smooth concave maximization for the local functional HL
+
+over the probability simplex ∆|S1(z)|. To achieve high-fidelity convergence at scale, we use the Sequential Least Squares Programming (SLSQP) solver [ 54 ]. This gradient-based approach leverages the smoothness of the objective function J( α), typically reaching a stable curvature estimate within a small number of iterations. A detailed analysis of the algorithm is provided in Appendices M and Q. 
+
+## 4 Expansion Paradox and Rewiring 
+
+A central question in GNN design is whether a graph can simultaneously achieve three desirable properties: sparsity (bounded degree, ensuring scalable message-passing), spectral expansion (fast 5mixing, preventing oversquashing), and positive entropic curvature (geometric regularity, preventing oversmoothing). Our main result of this section shows these three properties are fundamentally incompatible in the large-graph limit, a structural impossibility theorem with direct consequences for GNN design. To state it precisely, let PG denote the transition matrix of the lazy simple random walk on G, PG (u, v ) = 12 δuv + 1{u,v }∈E 
+
+2 deg( u) , and let λ2(G) be its second-largest eigenvalue. A small λ2
+
+indicates strong mixing; a large λ2 (close to 1) signals slow convergence and bottlenecks. 
+
+Definition 4.1 (Perfect Graph) . Given constants ∆ ≥ 1 and ρ < 1, a graph G is called perfect with respect to (∆ , ρ ) if it simultaneously satisfies: (A) Sparsity , ∆( G) ≤ ∆; (B) Spectral expansion ,
+
+λ2(G) ≤ ρ; and (C) Non-negative curvature , κw(G) ≥ 0.A perfect graph, as defined in 4.1, would be ideal for a GNN: cheap to run, free of bottlenecks, and geometrically stable. The following result, which extends [ 62 ] to our entropic curvature framework, proves that no sufficiently large graph can be perfect. 
+
+Theorem 4.2 (Expansion Paradox) . Let (Gn)n≥1 be a sequence of finite graphs satisfying the sparsity condition sup n≥1
+
+n 1
+
+|V n|
+
+P
+
+x∈V n deg Gn (x) log deg Gn (x)
+
+o
+
+< ∞, and suppose that κGn (x) ≥ a > 0
+
+for all but o(|V n|) vertices. Then, for all ρ < 1, lim inf n→∞ 1
+
+|V n| #i : λi(Gn) ≥ ρ > 0.
+
+Proof. See Appendix I. Theorem 4.2 resolves a long-standing tension in GNN design. Graphs that are sparse and spectrally well-connected, exactly those that appear in standard benchmarks such as citation, social, and web networks, must exhibit negative entropic curvature. Since negative κw permits rapid diffusion of probability mass, it explains why long-range message-passing on these graphs is prone to oversquash-ing. Conversely, positive curvature controls this diffusion via the Poincaré inequality of Theorem S.1, preventing oversmoothing. The paradox thus unifies oversmoothing and oversquashing as two mani-festations of the same geometric trade-off: they are not independent failure modes, but opposite ends of a single curvature spectrum. 2 4 6 8 10                     
+
+> Edges Added
+> 0.00
+> 0.05
+> 0.10
+> 0.15
+> 0.20
+> 0.25
+> 0.30
+> 0.35
+> 0.40
+> 2
+> Cayley
+> Entropic (Ours)
+> Ollivier
+> Forman
+> 246810
+> Edges Added
+> 0.1
+> 0.2
+> 0.3
+> 0.4
+> 0.5
+> 0.6
+> 0.7
+> 2
+> SBM
+> Entropic (Ours)
+> Ollivier
+> Forman
+> 246810
+> Edges Added
+> 0.00
+> 0.05
+> 0.10
+> 0.15
+> 0.20
+> 0.25
+> 0.30
+> 2
+> Small-World
+> Entropic (Ours)
+> Ollivier
+> Forman
+> 246810
+> Edges Added
+> 0.0
+> 0.1
+> 0.2
+> 0.3
+> 0.4
+> 2
+> RGG
+> Entropic (Ours)
+> Ollivier
+> Forman
+> 246810
+> Edges Added
+> 0.00
+> 0.05
+> 0.10
+> 0.15
+> 0.20
+> 2
+> Barabási-Albert
+> Entropic (Ours)
+> Ollivier
+> Forman
+> 246810
+> Edges Added
+> 0.00
+> 0.05
+> 0.10
+> 0.15
+> 0.20
+> 0.25
+> 2
+> Config
+> Entropic (Ours)
+> Ollivier
+> Forman
+> Edge Addition: Curvature-Based Rewiring on Random Graphs
+
+Figure 1: Spectral gap improvement ∆λ2 under curvature-guided edge addition (10 edges, 10 seeds, shaded ±1 std). MCR (ours) consistently outperforms ORC and FRC across all six graph families. 
+
+Curvature-Based Rewiring. The expansion paradox shows that sparse graphs cannot simultaneously be strongly expanding and positively curved in the large-graph regime. This does not mean, however, that negative curvature is fixed by the input topology. Since κw is determined by the two-hop transport geometry around each node, one can locally modify the graph by adding edges that create additional geodesic midpoints. The purpose of curvature-based rewiring is therefore not to make the graph uniformly positively curved, but to reduce the severity of negative-curvature bottlenecks 6while preserving sparsity. The following result gives the local principle behind our rewiring strategy: adding alternative two-hop routes cannot decrease the weak entropic curvature at the rewired node. 
+
+Theorem 4.3 (Curvature Monotonicity Under Rewiring) . Let G+ be obtained from G by adding edges that create new two-hop geodesics from z ∈ V to nodes in S2(z), without removing any existing two-hop geodesic. Define the midpoint set MG (z, w ) := {m ∈ V : z ∼ m, m ∼ w}.
+
+If MG (z, w ) ⊆ MG+ (z, w ) for every w ∈ S2(z), then κG+ 
+
+> w
+
+(z) ≥ κG
+
+> w
+
+(z), with strict improvement whenever |MG+ (z, w )| > |MG (z, w )| for some w.Proof. See Appendix L. The theorem formalizes a simple geometric mechanism: increasing the number of admissible midpoints makes two-hop transport less concentrated, thereby improving the local entropic-curvature certificate. Based on this principle, our Midpoint-Completion Rewiring (MCR) procedure repeatedly targets the most negatively curved region and adds an edge that creates an additional midpoint for a poorly supported two-hop connection. We give the implementation details in Appendix C. This monotonicity result gives a local curvature certificate for each accepted rewiring step. Its downstream consequences follow from the earlier theory: when rewiring increases the graph-level lower bound κw, Theorem 3.3 yields a tighter certificate for the global entropic curvature, and in the positive-curvature regime Theorem 5.2 gives a sharper transport–entropy generalization bound. The effect on spectral expansion is evaluated empirically, since the expansion paradox identifies a structural trade-off rather than a stepwise monotonicity guarantee. Figure 1 shows that MCR consistently improves the spectral gap more than Ollivier–Ricci (ORC) and Forman–Ricci (FRC) rewiring across all six random graph families. The gains are especially pronounced on community-structured graphs, where adding midpoint-completion edges directly targets transport bottlenecks between regions rather than relying only on one-hop or degree-based curvature information. 
+
+## 5 Entropic Curvature and Generalization 3.50 3.25 3.00 2.75 2.50 2.25 2.00 1.75 
+
+> Average Weak Entropic Curvature
+> 0.1
+> 0.0
+> 0.1
+> 0.2
+> 0.3
+> 0.4
+> 0.5
+> 0.6
+> Generalization Gap
+> (Lower is Better)
+> Weak Entropic Curvature vs. Generalization Gap
+> Trend
+
+Figure 2: Empirical correlation between ¯κw and the GNN generalization gap on SBM graphs. A central question in GNN theory is how well a model trained on one part of a graph transfers to an-other, especially when the training and test nodes occupy different re-gions of the topology [ 70 ]. We for-malize this discrepancy by viewing the training and test sets as probabil-ity measures μtrain and μtest on V.The generalization gap ∆L(fθ ) := 
+
+|L μtest (fθ ) − L μtrain (fθ )| then mea-sures the sensitivity of the learned pre-dictor to a distributional shift over the graph. 
+
+Remark 5.1 (Entropy finiteness and ap-plicability) . Theorems 5.2 and 5.3 re-quire that Ent μtrain (μtest ) < ∞. This holds whenever μtest is absolutely continuous with respect to μtrain , i.e., 
+
+supp( μtest ) ⊆ supp( μtrain ). In the standard node classification setting with disjoint train/test splits, this condition is not automatically satisfied (since the splits are disjoint), and the relative entropy is infinite. The theorems therefore apply in the overlapping or soft-split 
+
+regime, or when μtrain and μtest are defined as smoothed distributions over the node set (e.g., with a small positive mass on every node). In our empirical analysis (Figure 2), we use a random split with overlap to ensure finiteness. We further note that the transport-entropy inequality (Lemma F.2) is derived using the graph’s invariant reference measure m as guaranteed by the positive curvature condition; the generalization bound then applies with μ0 = μtrain playing the role of a reference 7measure for the relative entropy term, which is a standard application of the Kantorovich-Rubinstein duality and does not require μtrain = m.Entropic curvature provides a natural way to control this sensitivity: through transport–entropy inequalities, curvature bounds convert the cost of moving from μtrain to μtest into an explicit bound on the change in risk. 
+
+Theorem 5.2 (Generalization Bound under Positive Entropic Curvature; Proof in Appendix F) .
+
+Assume that G has weak entropic curvature bounded below by κw > 0. Suppose the loss J
+
+is σ-Lipschitz and the GNN fθ is globally Λ-Lipschitz with respect to the graph distance d, i.e., 
+
+∥fθ (x) − fθ (y)∥ ≤ Λd(x, y ) ∀x, y ∈ V . Then, for any test distribution μtest ,
+
+|L μtest (fθ ) − L μtrain (fθ )| ≤ σΛ
+
+r 2
+
+κw
+
+Ent μtrain (μtest ).
+
+Proof. See Appendix F. Theorem 5.2 separates the generalization gap into three interpretable factors. The product σΛ captures the sensitivity of the loss and the model, while Ent μtrain (μtest ) measures the informational cost of shifting from the training distribution to the test distribution. The curvature term 1/√κw acts as a geometric amplifier: larger positive curvature yields a tighter certificate, making the model less sensitive to the same train–test distributional shift. Positive curvature gives the cleanest transport– entropy bound, but many sparse real-world graphs contain negatively curved regions. The next result shows that a meaningful generalization certificate still holds when curvature is negative, at the cost of a diameter-dependent factor. 
+
+Theorem 5.3 (Generalization Bound under Negative Entropic Curvature; ) . Suppose G is finite and connected with diameter D < ∞, and assume its weak entropic curvature satisfies κw ≥ − K for some K > 0. Let the loss be L-Lipschitz with respect to the predictions fθ (x), and let fθ be globally 
+
+Λ-Lipschitz with respect to the graph distance d. Then, 
+
+|L μtest (fθ ) − L μtrain (fθ )| ≤ LΛ
+
+r 4
+
+K
+
+ eKD 2/8 − 1 Ent μtrain (μtest ).
+
+Proof. See Appendix G. Together, Theorems 5.2 and 5.3 show that entropic curvature controls generalization in both curvature regimes. When κw > 0, the dependence scales as 1/√κw. When κw ≥ − K, the bound remains finite but deteriorates with both the negative-curvature scale K and the graph diameter D, reflecting the greater sensitivity of negatively curved, expansive regions to distributional shift. 
+
+Empirical Analysis of Generalization and Curvature. To empirically evaluate the relationship between graph geometry and learning performance, we analyze the correlation between the Average Weak Entropic Curvature ( κw) and the Generalization Gap. Following the framework in Theorem 5.2, we define the generalization gap as the absolute difference between training and testing accuracies 
+
+∆A = Acc train − Acc test . This experiment tests the hypothesis that positive curvature lower bounds effectively tighten the model’s sensitivity to distributional shifts between the training and testing measures. Our pipeline utilizes a Stochastic Block Model (SBM) to generate 30 distinct graphs, each containing 100 nodes divided into two equal communities. We systematically modulate the graph’s curvature by varying the intra-community edge probability pin on a sliding scale from 5% 
+
+to 10% , while maintaining a fixed inter-community probability pout = 5% . This transitions the topology from sparse, tree-like regimes to dense, clustered configurations. We note that varying pin 
+
+simultaneously increases both graph curvature and community signal-to-noise ratio; as a result, the observed correlation between curvature and generalization gap may be partially driven by the task becoming easier on denser graphs. This is an acknowledged confound: the experiment provides correlational evidence consistent with the theory, but should not be interpreted as a controlled causal test. For each graph, we compute the node-wise weak entropic curvature by solving the exact optimization for the local functional HL. The global signature is defined as the mean curvature across all vertices: ¯κw = 1
+
+> |V|
+
+P 
+
+> z∈V
+
+κw(z). We use a standard 2-layer GCN [ 40 ], and the node features are initialized as an identity matrix. The model is trained for 200 epochs using Adam optimizer to predict community membership [39]. 8Table 1: Test accuracy (%, mean ± std) of baseline backbones and their E-Gate variants across five node classification benchmarks. Best results between baseline and E-Gate are shown in bold. Cora CiteSeer PubMed Cornell Wisconsin Backbone Base E-Gate Base E-Gate Base E-Gate Base E-Gate Base E-Gate GCN 86.68 ± 1.07 88.08 ± 1.04 76.23 ± 0.76 75.21 ± 1.41 87.29 ± 0.47 87.16 ± 0.49 41.35 ± 6.05 44.86 ± 6.53 43.73 ± 4.81 44.51 ± 6.20                                                                                           
+
+> SAGE 86.77 ±1.78 87.56 ±1.58 75.11 ±1.95 74.65 ±1.36 88.45 ±0.27 89.03 ±0.52 61.89 ±3.51 67.84 ±8.33 75.10 ±5.95 79.22 ±5.35
+> GIN 82.58 ±2.08 83.03 ±2.53 69.55 ±2.25 69.47 ±1.67 84.45 ±4.85 85.81 ±0.60 42.16 ±8.39 49.46 ±7.26 53.33 ±5.67 53.33 ±7.58 GAT 86.29 ±1.73 86.77 ±1.27 74.79 ±1.28 74.71 ±1.58 86.26 ±0.37 86.44 ±0.40 40.00 ±8.09 46.22 ±10.36 47.84 ±6.27 49.22 ±7.15
+
+Table 2: Structural encoding accuracy (%, mean ±std, GCN backbone). Best results are shown in bold 
+
+Dataset ENT (ours) LCP LAPE RWPE EGO 
+
+Cornell 42 .60 ± 3.54 41 .96 ± 4.44 38 .91 ± 2.42 38 .47 ± 3.53 41 .09 ± 3.81 
+
+Wisconsin 44 .28 ± 3.22 47 .14 ± 3.42 42 .22 ± 2.95 43 .65 ± 5.24 42 .70 ± 2.67 
+
+PubMed 86 .18 ± 0.23 85 .76 ± 0.20 85 .37 ± 0.18 85 .77 ± 0.18 85 .71 ± 0.26 
+
+Texas 46 .95 ± 4.48 43 .04 ± 1.92 43 .48 ± 4.52 43 .04 ± 3.52 45 .43 ± 3.86 
+
+CiteSeer 71 .86 ± 0.93 71 .13 ± 0.78 71 .34 ± 0.92 71 .63 ± 1.08 70 .97 ± 0.98 
+
+As illustrated in Figure 2, the empirical results reveal a significant negative correlation: higher average weak entropic curvature consistently corresponds to a lower generalization gap. Since the curvature values in this experiment are strictly negative (ranging from approximately −2.5 to −1.75 ), the evaluated graphs fall in the negative-curvature regime. The observed trend is therefore consistent with Theorem 5.3: as κw increases toward zero (i.e., K decreases), the bound tightens, limiting how much the testing distribution can stray from the training configuration. The trend also aligns directionally with Theorem 5.2 as the curvature approaches the positive regime, confirming a monotone geometric effect across both regimes. 
+
+## 6 Entropic Curvature-Based Architectures 
+
+Adapting GNN Dynamics to Entropic Geometry. We evaluate κw as a lightweight geometric prior for standard GNNs on six node-classification benchmarks spanning homophilic regimes (Cora, CiteSeer, PubMed [ 72 ]) and heterophilic regimes (Cornell, Wisconsin [ 58 ]). Motivated by Theo-rem S.1, we introduce E-Gate , a node-wise modulation h(ℓ+1)  
+
+> u
+
+= UPDATE (ℓ)(h(ℓ) 
+
+> u
+
+, R(u) AGG (ℓ) 
+
+> u
+
+)
+
+with R(u) = σ(−τ κ w(u)) , where τ is a learnable temperature, and σ(·) is the Sigmoid function. The current framework is motivated by Lemma F.2: σ(−τ κ w) attenuates aggregation in proportion to the node’s curvature-induced transport resistance, cooling positively curved regions and amplifying negatively curved ones. Table 1 shows that E-Gate generally improves performance across backbones and graph regimes, with the largest gains on heterophilic datasets (Cornell, Wisconsin) where standard aggregation struggles with bottlenecks; on homophilic citation graphs the improvements are smaller but mostly positive. Appendix R reports additional experiments for the graph classification task. 
+
+Entropic Curvature as a Structural Encoding. GNN expressivity is bounded by the 1-Weisfeiler-Lehman test [ 26 ], motivating structural encodings derived from spectral properties or discrete geometry. Local Curvature Profiles (LCP) inject Ollivier–Ricci curvature statistics [ 27 ], but discrete curvatures primarily capture local clustering and may miss broader transport bottlenecks. We hypothesize that κw, derived from the convexity of entropy along Wasserstein geodesics, provides a more globally-aware structural prior. We evaluate ENT against Laplacian Eigenmaps (LAPE) [ 10 ], Random Walk PE (RWPE) [ 24 ], Ego-Network encodings (EGO) [ 3], and LCP [ 27 ]. Following the LCP protocol, we augment X with a 3-dimensional curvature signature; details in Appendix N. Table 2 reports node-classification accuracy across five benchmarks. ENT achieves the best perfor-mance on 4 of 5 datasets, outperforming spectral and discrete-curvature baselines. ENT underper-forms LCP on Wisconsin ( 44 .28 vs. 47 .14 , within 1 std). On heterophilic graphs Texas (+3.9% vs. LCP) and Cornell (+0.6%), where bottlenecks are frequent, the entropic prior is significantly more informative than local metrics. On homophilic graphs ENT maintains a consistent lead. 97 Conclusion. 
+
+This work introduces entropic curvature as a global and theoretical measure to analyze GNNs. In particular, a positive entropic-curvature lower bound yields log-Sobolev and transport–entropy inequalities that directly control information propagation in message-passing architectures. These inequalities translate into quantitative guarantees against oversmoothing, limits on distributional shift, and provable generalization. Entropic curvature offers a unifying geometric principle that enhance our theoretical understanding of GNN dynamics and yields concrete algorithmic benefits. We hope this framework will inspire further exploration of global geometric insights, not only for generalization and oversmoothing, but also for curriculum learning on evolving graphs, principled regularization of large-scale graph models, and the broader integration of optimal-transport ideas into machine learning. As for limitations, Entropic curvature depends on the choice of reference measure 
+
+m; learning the measure that maximises κw is a promising open direction that could clarify how global geometry interacts with mass distribution and guide curvature-aware learning algorithms. An interesting research direction would be to approximate the measure which maximises the Entropic Curvature. Answering this would clarify how global geometry interacts with mass distribution and could guide curvature-aware learning algorithms. 10 References 
+
+[1] Yassine Abbahaddou. Which graph shift operator? a spectral answer to an empirical question. 
+
+arXiv preprint arXiv:2602.06557 , 2026. [2] Réka Albert and Albert-László Barabási. Statistical mechanics of complex networks. Reviews of modern physics , 74(1):47, 2002. [3] Nurudin Alvarez-Gonzalez, Andreas Kaltenbrunner, and Vicenç Gómez. Beyond weisfeiler– lehman with local ego-network encodings. Machine Learning and Knowledge Extraction ,5(4):1234–1265, 2023. [4] László Babai. Spectra of cayley graphs. Journal of Combinatorial Theory, Series B , 27(2):180– 189, 1979. [5] Gregor Bachmann, Gary Bécigneul, and Octavian Ganea. Constant curvature graph convo-lutional networks. In International conference on machine learning , pages 486–496. PMLR, 2020. [6] Dominique Bakry and Michel Émery. Diffusions hypercontractives. In Séminaire de Probabilités XIX 1983/84: Proceedings , pages 177–206. Springer, 2006. [7] F. Bauer, B. Hua, and S.-T. Yau. Davies-Gaffney-Grigor’yan lemma on graphs. Comm. Anal. Geom. , 23(5):1031–1068, 2015. [8] F. Bauer, B. Hua, and S.-T. Yau. Sharp Davies-Gaffney-Grigor’yan lemma on graphs. Math. Ann. , 368(3-4):1429–1437, 2017. [9] F. Bauer, Y. Horn P. Lin, G. Lippner, D. Mangoubi, and S.-T. Yau. Li-Yau inequality on graphs. 
+
+J. Differential Geom. , 99(3):359–405, 2015. [10] Mikhail Belkin and Partha Niyogi. Laplacian eigenmaps for dimensionality reduction and data representation. Neural computation , 15(6):1373–1396, 2003. [11] Jean-David Benamou and Yann Brenier. A computational fluid mechanics solution to the monge-kantorovich mass transfer problem. Numerische Mathematik , 84(3):375–393, 2000. [12] Itai Benjamini, Russell Lyons, and Oded Schramm. Unimodular random trees. Ergodic Theory Dynam. Systems , 35(2):359–373, 2015. [13] Lewis Bowen, Michael Chapman, Alexander Lubotzky, and Thomas Vidick. The aldous–lyons conjecture i: Subgroup tests. arXiv preprint arXiv:2408.00110 , 2024. [14] Chen Cai and Yusu Wang. A note on over-smoothing for graph neural networks. arXiv preprint arXiv:2006.13318 , 2020. [15] Jialong Chen, Bowen Deng, Chuan Chen, Zibin Zheng, et al. Graph neural ricci flow: Evolving feature from a curvature perspective. In The Thirteenth International Conference on Learning Representations , 2025. [16] F. Chung, Y. Lin, and S.-T. Yau. Harnack inequalities for graphs with nonnegative Ricci curvature. J. Math. Anal. Appl. , 415(1):25–32, 2014. [17] F. Chung and S.-T. Yau. A strong Harnack inequality for graphs. Comm. Anal. Geom. ,25(3):557–588, 2017. [18] Fan RK Chung. Spectral graph theory , volume 92. American Mathematical Soc., 1997. [19] Tobias Holck Colding and William P Minicozzi II. Liouville properties. arXiv preprint arXiv:1902.09366 , 2019. [20] Dario Cordero-Erausquin, Robert J McCann, and Michael Schmuckenschläger. A riemannian interpolation inequality à la borell, brascamp and lieb. Inventiones mathematicae , 146(2):219– 257, 2001. 11 [21] George Dasoulas, Johannes F Lutzeyer, and Michalis Vazirgiannis. Learning parametrised graph shift operators. In International Conference on Learning Representations .[22] Manfredo Perdigao Do Carmo and J Flaherty Francis. Riemannian geometry , volume 2. Springer, 1992. [23] Ahmed AA Elhag, Gabriele Corso, Hannes Stärk, and Michael M Bronstein. Graph anisotropic diffusion for molecules. In ICLR2022 Machine Learning for Drug Discovery , 2022. [24] Moshe Eliasof, Fabrizio Frasca, Beatrice Bevilacqua, Eran Treister, Gal Chechik, and Haggai Maron. Graph positional encoding via random feature propagation. In International conference on machine learning , pages 9202–9223. PMLR, 2023. [25] Michael Fekete. Über die verteilung der wurzeln bei gewissen algebraischen gleichungen mit ganzzahligen koeffizienten. Mathematische Zeitschrift , 17(1):228–249, 1923. [26] Jiarui Feng, Yixin Chen, Fuhai Li, Anindya Sarkar, and Muhan Zhang. How powerful are k-hop message passing graph neural networks. Advances in Neural Information Processing Systems ,35:4776–4790, 2022. [27] Lukas Fesser and Melanie Weber. Effective structural encodings via local curvature profiles. In 
+
+The Twelfth International Conference on Learning Representations .[28] Lukas Fesser and Melanie Weber. Mitigating over-smoothing and over-squashing using aug-mentations of forman-ricci curvature. In Learning on Graphs Conference , pages 19–1. PMLR, 2024. [29] Matthias Fey and Jan E. Lenssen. Fast graph representation learning with PyTorch Geometric. In ICLR Workshop on Representation Learning on Graphs and Manifolds , 2019. [30] Robin Forman. Bochner’s method for cell complexes and combinatorial ricci curvature. Discrete & Computational Geometry , 29:323–374, 2003. [31] Robin Forman. Bochner’s Method for Cell Complexes and Combinatorial Ricci Curvature. 
+
+Discrete & Computational Geometry , 29(3):323–374, 2003. [32] Bailey K Fosdick, Daniel B Larremore, Joel Nishimura, and Johan Ugander. Configuring random graph models with fixed degree sequences. Siam Review , 60(2):315–355, 2018. [33] Shmuel Friedland and Hans Schneider. Spectra of expansion graphs. The Electronic Journal of Linear Algebra , 6:2–10, 1999. [34] Adnan Gavili and Xiao-Ping Zhang. On the shift operator, graph frequency, and optimal filtering in graph signal processing. IEEE Transactions on Signal Processing , 65(23):6303–6318, 2017. [35] C. Gong, Y. Lin, S. Liu, and S.-T. Yau. Li-Yau inequality for unbounded Laplacian on graphs. 
+
+Adv. Math. , 357:33pp, 2019. [36] Paul W Holland, Kathryn Blackmond Laskey, and Samuel Leinhardt. Stochastic blockmodels: First steps. Social networks , 5(2):109–137, 1983. [37] Jürgen Jost and Shiping Liu. Ollivier’s ricci curvature, local clustering and curvature-dimension inequalities on graphs. Discrete & Computational Geometry , 51(2):300–322, 2014. [38] Kedar Karhadkar, Pradeep Kr Banerjee, and Guido Montufar. FoSR: First-order spectral rewiring for addressing oversquashing in GNNs. In The Eleventh International Conference on Learning Representations , 2023. [39] Diederik P Kingma. Adam: A method for stochastic optimization. arXiv preprint arXiv:1412.6980 , 2014. [40] Thomas N. Kipf and Max Welling. Semi-supervised classification with graph convolutional networks. In International Conference on Learning Representations , 2017. 12 [41] Shoshichi Kobayashi and Katsumi Nomizu. Foundations of Differential Geometry , volume 2. John Wiley & Sons, 1996. [42] Haifeng Li, Jun Cao, Jiawei Zhu, Yu Liu, Qing Zhu, and Guohua Wu. Curvature graph neural network. Information Sciences , 592:50–66, 2022. [43] Qimai Li, Zhichao Han, and Xiao-Ming Wu. Deeper insights into graph convolutional networks for semi-supervised learning. In Proceedings of the AAAI conference on artificial intelligence ,volume 32, 2018. [44] Y. Lin, L. Lu, and S.-T. Yau. Ricci curvature of graphs. Tohoku Math. J (2) , 63(4):605–627, 2011. [45] Y. Lin and S.-T. Yau. Ricci curvature and eigenvalue estimate on locally finite graphs. Math. Res. Lett. , 17(2):343–356, 2010. [46] J. Lott and C. Villani. Ricci curvature for metric-measure spaces via optimal transport. Ann. of Math. , 169(3):903–991, 2009. [47] Zachary Lubberts, Yu Tian, and Melanie Weber. Curvature-based clustering on graphs. In 2024 Joint Mathematics Meetings (JMM 2024) . AMS. [48] R. J. McCann. A convexity principle for interacting gases. Adv. Math. , 128(1):153–179, 1997. [49] B. Mohar. Isoperimetric numbers of graphs. Journal of Combinatorial Theory , Series B 47(3):274–291, 1989. [50] Christopher Morris, Nils M Kriege, Franka Bause, Kristian Kersting, Petra Mutzel, and Marion Neumann. TUDataset: A collection of benchmark datasets for learning with graphs. ICML 2020 GRL+ Workshop , 2020. [51] Theodore S Motzkin and Ernst G Straus. Maxima for graphs and a new proof of a theorem of turán. Canadian Journal of Mathematics , 17:533–540, 1965. [52] Khang Nguyen, Nong Minh Hieu, Vinh Duc Nguyen, Nhat Ho, Stanley Osher, and Tan Minh Nguyen. Revisiting over-smoothing and over-squashing using ollivier-ricci curvature. In 
+
+International Conference on Machine Learning , pages 25956–25979. PMLR, 2023. [53] Chien-Chun Ni, Yu-Yao Lin, Feng Luo, and Jie Gao. Community detection on networks with ricci flow. Scientific reports , 9(1):9984, 2019. [54] Jorge Nocedal and Stephen J Wright. Numerical optimization . Springer, 2006. [55] Yann Ollivier. Ricci curvature of markov chains on metric spaces. Journal of Functional Analysis , 256(3):810–864, 2009. [56] F. Otto and C. Villani. Generalization of an inequality by Talagrand and links with the logarithmic Sobolev inequality. J. Funct. Anal. , 173(2):361–400, 2000. [57] Louis M Pecora and Thomas L Carroll. Master stability functions for synchronized coupled systems. Physical review letters , 80(10):2109, 1998. [58] Hongbin Pei, Bingzhe Wei, Kevin Chen Chuan Chang, Yu Lei, and Bo Yang. Geom-gcn: Geometric graph convolutional networks. In 8th International Conference on Learning Repre-sentations, ICLR 2020 , 2020. [59] Mathew Penrose. Random geometric graphs , volume 5. OUP Oxford, 2003. [60] Martin Rapaport and Paul-Marie Samson. Criteria for entropic curvature on graph spaces. ArXiv preprint: 2303.15874 , 2024. [61] M.-K. Von Renesse and K.-Th. Sturm. Transport inequalities, gradient estimates, entropy, and Ricci curvature. Comm. Pure Appl. Math. , 58(7):923–940, 2005. [62] Justin Salez. Sparse expanders have negative curvature. Geom. Funct. Anal , 32:1486–1513, 2022. 13 [63] Paul-Marie Samson. Entropic curvature on graphs along schrödinger bridges at zero temperature. 
+
+Probability Theory and Related Fields , 184(3):859–937, 2022. [64] Daniel A Spielman. Algorithms, graph theory, and linear equations in laplacian matrices. In 
+
+Proceedings of the International Congress of Mathematicians 2010 (ICM 2010) (In 4 Volumes) Vol. I: Plenary Lectures and Ceremonies Vols. II–IV: Invited Lectures , pages 2698–2722. World Scientific, 2010. [65] K.-Th. Sturm. On the geometry of metric measure spaces. I and II. Acta Math. , 196(1):65–177, 2006. [66] Huayi Tang and Yong Liu. Towards understanding generalization of graph neural networks. In 
+
+International Conference on Machine Learning , pages 33674–33719. PMLR, 2023. [67] Jake Topping, Francesco Di Giovanni, Benjamin Paul Chamberlain, Xiaowen Dong, and Michael M. Bronstein. Understanding over-squashing and bottlenecks on graphs via curvature. In International Conference on Learning Representations , 2022. [68] Floriano Tori, Vincent Holst, and Vincent Ginis. The effectiveness of curvature-based rewiring and the role of hyperparameters in gnns revisited. In The Thirteenth International Conference on Learning Representations .[69] Pauli Virtanen, Ralf Gommers, Travis E Oliphant, Matt Haberland, Tyler Reddy, David Courna-peau, Evgeni Burovski, Pearu Peterson, Warren Weckesser, Jonathan Bright, et al. Scipy 1.0: fundamental algorithms for scientific computing in python. Nature methods , 17(3):261–272, 2020. [70] Zhiyang Wang, Juan Cervino, and Alejandro Ribeiro. A manifold perspective on the statistical generalization of graph neural networks. In Forty-second International Conference on Machine Learning .[71] Ethan Wolfe. The effect of watts-strogatz and barabási-albert graphs on memory formation. Master’s thesis, California Polytechnic State University, 2024. [72] Zhilin Yang, William Cohen, and Ruslan Salakhudinov. Revisiting semi-supervised learning with graph embeddings. In International conference on machine learning , pages 40–48. PMLR, 2016. 14 A Interpreting Weak Entropic Curvature via Local Transport 
+
+Interpretation of the Local Functional. To provide a geometric interpretation of HL, it is instructive to specialize the functional to the case where the target set is a singleton, W = {z′′ }, for some 
+
+z′′ ∈ S2(z). The support of the optimization restricts to the set of strict midpoints ]z, z ′′ [. In this setting, the functional HL(z, {z′′ }) simplifies to, 
+
+HL(z, {z′′ }) = L2(z, z ′′ ) sup 
+
+> α
+
+Y
+
+> z′∈]z,z ′′ [
+
+ α(z′)
+
+L(z, z ′)
+
+2ℓ(z,z ′,z ′′ )
+
+.
+
+By applying the transformation −2 log( ·). We convert the product maximization into a summation minimization. This yields the following energy functional, 
+
+−2 log H L(z, z ′′ ) = inf 
+
+> α
+
+"
+
+− 4 X
+
+> z′∈]z,z ′′ [
+
+ℓ(z, z ′, z ′′ ) × log 
+
+ α(z′)
+
+L(z, z ′)
+
+ #
+
++ C L, (4) where CL = −2 log L(2) (z, z ′′ ) is a constant independent of α (here L(2) (z, z ′′ ) denotes the 2-step transition weight). The factor of −4 arises because −2 log( ·) applied to (α(z′)/L(z, z ′)) 2ℓ yields 
+
+−2 · 2ℓ · log( α(z′)/L(z, z ′)) = −4ℓ log( α(z′)/L(z, z ′)) . Recall that P 
+
+> z′
+
+ℓ(z, z ′, z ′′ ) = 1 and P 
+
+> z′
+
+α(z′) = 1 . By introducing the entropy of the geometric weights ℓ(z, ·, z ′′ ) into the sum, the equation (4) can be rewritten directly in terms of the Kullback–Leibler divergence KL (· ∥ · ),
+
+inf 
+
+> α
+
+4 X
+
+> z′∈]z,z ′′ [
+
+ℓ(z, z ′, z ′′ ) log 
+
+ ℓ(z, z ′, z ′′ )
+
+α(z′)
+
+ + C ′ 
+
+> L
+
+= 4 inf  
+
+> α
+
+KL 
+
+
+
+ℓ(z, ·, z ′′ ) ∥ α(·)
+
+
+
++ C ′
+
+> L
+
+,
+
+where C′ 
+
+> L
+
+is a constant independent from α(·). Here, we use the property that both the path weights 
+
+ℓ and the transport plan α sum to unity over the midpoints. This derivation reveals that the weak entropic curvature locally penalizes the divergence between the geometry of the graph (encoded by the relative path weights ℓ) and the optimal transport plan ( α). When we return to the full definition where W = S 2(z), the functional HL(z, S2(z)) acts as a weighted regularization of these pairwise divergences over all possible targets z′′ .
+
+Geometric Characterization via the Motzkin–Straus Theorem. To provide more geometric intuition for the local functional HL, we establish a link between local graph density and its optimiza-tion landscape. The key tool for this characterization is the Motzkin–Straus Theorem [51 ], which relates the clique number of a graph to a quadratic optimization problem over the probability simplex. In their work, [ 51 ], established this elegant link between the size of the maximum clique, defined as the cardinality of the maximum complete subgraph g(G), and the global maxima of a quadratic optimization problem on the standard simplex. By relating these global maxima to the functional 
+
+HL0 (z, S2(z)) , we can interpret the graph’s local geometry in a useful way that captures the branching of the space and the local expansion or contraction of the metric structure. Consider a vertex u ∈ V where the local geometry satisfies a specific regularity condition: every node in the 2-sphere S2(u) shares exactly two midpoints with the central node u, as visualized in Figure 5. Under the L0 generator and uniform measure, the weak entropic curvature directly reflects the density of the local neighborhood through the following structural characterization, 
+
+Theorem A.1 (Motzkin–Straus Type Identity; Proof in Appendix D) . Let u be a node in G and assume that B2(u) satisfies the condition that any v ∈ S2(u) shares exactly two midpoints with u.Then, 
+
+HL0 (z, S2(u)) = 1 − 1
+
+g(B 2(u)) . (5) This identity reveals that the magnitude of the local functional HL0 serves as a signature of local redundancy and clustering. As the maximum clique size within the 2-hop neighborhood increases, the optimization value reflects a geometry that supports highly efficient, isotropic diffusion. Geomet-rically, these high-density regions act as local traps or dense communities where probability mass spreads uniformly. Conversely, as the clique number decreases, approaching tree-like regime, the functional value shifts, signaling the presence of structural bottlenecks where information flow is constrained to fewer, more fragile paths. 15 B Explicit Computation of Weak Entropic Curvature 
+
+B.1 Bridging Local Computation and Global Topology 
+
+A key advantage of our framework is its ability to control global graph properties through local opti-mization. While Entropic Curvature is defined by the convexity of entropy along global Wasserstein geodesics, we derive a tractable local proxy, κw, computed strictly within 2-hop neighborhoods. This proxy acts as a lower bound for the global curvature. Consequently, by locally rewiring edges to maximize κw, we rigorously improve the global spectral gap and alleviate the bottleneck phenomena without incurring the prohibitive cost of global spectral analysis. 
+
+B.2 Canonical Motifs and Entropic Curvature Regimes 
+
+Figure 3 visualizes the local weak entropic curvature κw across several canonical graph motifs. Dense or highly redundant neighborhoods exhibit larger curvature because two-hop mass transport can be spread across multiple intermediate nodes. In contrast, stars, trees, and bottleneck-like structures have lower or negative curvature, reflecting the limited number of available geodesic midpoints and the resulting concentration of transport mass. These examples provide concrete intuition for the role of κw as a proxy for local transport redundancy. Dutch Windmill       
+
+> (Local Traps)
+> Barbell
+> (Bottleneck)
+> Star Euclidean Tree
+> 1.0 0.5 0.0 0.5 1.0
+> Local Weak Entropic Curvature ( )
+> Entropic Curvature Regimes
+
+Figure 3: Local weak entropic curvature across various graph motifs. 
+
+B.3 Theoretical Calculation of Some Examples of Weak Entropic Curvature 
+
+Figure 4: Characterization of discrete geometric regimes via Weak Entropic Curvature ( κw)under the uniform generator L0. (a) Spherical ( κw > 0): High local clustering results in positive curvature, satisfying the lower bound κw(z) ≥ − 2 log(1 − 1deg( z) ). (b) Flat ( κw = 0 ): The Euclidean grid exhibits zero curvature, corresponding to a local functional value HL0 (z, S 2(z)) = 1 .(c) Hyperbolic ( κw < 0): Tree-like structures characteristic of exponential expansion yield strictly negative curvature, specifically κw(z) = −2 log 2 ≈ − 1.386 .In this appendix, we provide a theoretical computation of the weak entropic curvature in some specific configurations. Throughout, we work with the L0 generator (see (1)). 
+
+Spherical configuration : Case (a) in figure 4. 16 Let z denote the center. We consider 
+
+HL0 (z, S2(z)) := sup 
+
+> α
+
+X
+
+> z′′ ∈S2(z)
+
+#] z, z ′′ [ Y
+
+> z′∈]z,z ′′ [
+
+(α(z′)) 2#] z,z ′′ [
+
+ (6) such that P 
+
+> z′∈S1(z)
+
+α(z′) = 1 . In this geometry we have #] z, z ′′ [= 2 for every z′′ ∈ S2(z).Hence, P 
+
+> z′′ ∈S2(z)
+
+#] z, z ′′ [Q 
+
+> z′∈]z,z ′′ [
+
+(α(z′)) 2#] z,z ′′ [ ≤ (P 
+
+> z′∈S1(z)
+
+α(z′)) 2 − P 
+
+> z′∈S1(z)
+
+α(z′)2 ≤
+
+ 1 − 1
+
+> deg (z)
+
+.We therefore obtain in this case the following lower bound for the weak entropic curvature, κw(z) ≥−2 log 
+
+
+
+1 − 1deg( z)
+
+
+
+.
+
+Observe that this quantity becomes positive once deg( z) is sufficiently large ( deg (z) ≥ 2). 
+
+Flat configuration: Case (b) in figure 4. Let z be an arbitrary node. In this configuration, the quantity #] z, z ′′ [ takes values either 1 or 2.Enumerate the vertices of S1(z) as z1, z 2, . . . , z N , and set zN +1 = z1 for convenience. Repeating the same computation as before, the expression inside the braces in (6) becomes 
+
+X
+
+> i
+
+α(zi)2 + 2 X
+
+> i
+
+α(zi)α(zi+1 ) ≤ X
+
+> i
+
+α(zi)
+
+!2
+
+= 1 .
+
+Moreover, choosing α(zi) = 1 for some fixed i and α(zj ) = 0 for every j̸ = i, gives 
+
+X
+
+> i
+
+α(zi)2 + 2 X
+
+> i
+
+α(zi)α(zi+1 ) = 1 .
+
+Hence, in this case we obtain HL0 (z, S2(z)) = 1 , which implies that κw(z) = 0 .
+
+Hyperbolic Configuration : Case (c) in figure 4. Let z be the center of the figure. Repeating the same calculation we get the expression inside the braces in (6) becomes 2 P 
+
+> z′∈S1(z)
+
+α(z′)2. The supremum of this expression under the condition 
+
+P 
+
+> z′∈S1(z)
+
+α(z′) = 1 is 2 which implies κw(z) = −2 log(2) < 0.
+
+## C Spectral Gap Enhancement via Curvature-Based Rewiring 
+
+C.1 Motivation 
+
+The spectral gap of the graph Laplacian, denoted as λ2 (also known as the algebraic connectivity, is a fundamental metric in spectral graph theory [ 18 , 33 ]. It governs the rate of convergence of diffusion processes, the robustness of the network to bisection, and the expansion properties of the graph. In many real-world applications, such as synchronization in power grids or information flow in communication networks, maximizing λ2 is desirable [57]. Traditional edge addition strategies often rely on global metrics or random heuristics. However, recent advances in discrete geometry suggest that graph curvature, specifically bottleneck regions characterized by negative curvature, dictates structural vulnerabilities [ 67 ]. This experiment aims to demonstrate that a curvature-based rewiring strategy, i.e., targeting nodes with the lowest (most negative) curvature to be connected to the most distant nodes in the network, provides a more efficient path to spectral gap enhancement than traditional discrete curvatures across various synthetic graph topologies. 
+
+C.2 Experimental Setup 
+
+We evaluate the performance of our proposed Weak Entropic Curvature against two established discrete Ricci curvatures: Ollivier-Ricci Curvature (ORC) and Forman-Ricci Curvature (FRC). The experimental setup is as follows, 17 1. Graph Generation: We initialize six distinct random graph models to ensure topological diversity, • Cayley: Dihedral group-based graphs representing highly symmetric structures [4]. • SBM: Stochastic Block Models representing community-structured networks [36]. • Small-World: Watts-Strogatz graphs characterized by high clustering and short path lengths [71]. • RGG: Random Geometric Graphs where connectivity is distance-dependent [59]. • Barabási-Albert: Scale-free networks with preferential attachment [2]. • Config: Configuration model graphs with fixed degree sequences [32]. 2. Iterative Rewiring: For each model, we perform 10 iterative edge additions. In each step, • The curvature of all nodes is computed using the three respective metrics. For our Weak Entropic Curvature, κw(z) is computed directly at the node level via Algorithm 2. For Ollivier-Ricci Curvature (ORC) and Forman-Ricci Curvature (FRC), which are funda-mentally defined as edge-level quantities, node-level curvature is obtained by aggregat-ing over incident edges using the minimum function: κORC (u) = min v∼u κORC (u, v )
+
+and κFRC (u) = min v∼u κFRC (u, v ). Using the minimum identifies the most bottle-necked incident edge, consistent with the rewiring objective of targeting structural vulnerabilities. • The node u with the minimum curvature value is selected. • An edge is added between u and the node v that is furthest from it in terms of shortest-path distance. 3. Statistical Rigor: Each experiment is repeated over 10 different random seeds. We report the mean change in spectral gap, ∆λ2 = λ(t)2 − λ(0) 2 , where t is the number of added edges. Shaded regions in the figures represent the standard deviation across seeds. 
+
+C.3 Results and Discussion 
+
+The results of the edge addition experiment are illustrated in Figure 1 (main paper). Across all six graph topologies, the Entropic Curvature (Ours) strategy consistently outperforms both Ollivier and Forman Ricci curvatures in maximizing the spectral gap. • Symmetry and Structure (Cayley & SBM): In the Cayley and SBM models, Entropic curvature shows a significantly steeper trajectory. In the SBM case specifically, Entropic curvature bridges communities more effectively, reaching a ∆λ2 ≈ 0.6 after 10 edges, while Forman and Ollivier remain below 0.4.• Expansion in Scale-Free and Small-World Graphs: For Barabási-Albert and Small-World graphs, our metric demonstrates superior sensitivity to the bottlenecks that limit algebraic connectivity. While Forman and Ollivier often track closely together, Entropic curvature identifies superior edges that lead to faster global integration. • Robustness (RGG & Config): Even in Random Geometric Graphs, where spatial con-straints often limit rewiring efficacy, our method maintains a lead. The Entropic curvature’s ability to optimize a local distribution of weights allows it to identify critical bridge nodes that coarser metrics like Forman (based primarily on degrees) or Ollivier (based on 1-hop neighborhoods) may overlook. 
+
+C.4 Midpoint-Completion Rewiring (MCR) Algorithm 
+
+The Midpoint-Completion Rewiring strategy is motivated by the geometric interpretation of weak entropic curvature: κw(z) measures how efficiently probability mass can be displaced from z to its 2-sphere S2(z) via two-hop paths. A bottleneck node, one with highly negative κw(z), has few midpoints connecting it to its 2-hop neighbours, forcing probability mass through a small number of fragile paths. Adding edges that create new two-hop paths enriches the local transport geometry, increases |MG (z, w )|, and thereby raises curvature, as certified by Theorem 4.3. 18 Algorithm 1: Midpoint-Completion Rewiring (MCR) 
+
+Input: Graph G = ( V, E), generator L, edge budget T ∈ N
+
+Output: Rewired graph GT
+
+for t = 1 , . . . , T do 
+
+Compute κw(z) for all z ∈ V ; // Algorithm 2 
+
+z⋆ ← arg min z∈V κw(z) ; // Most negative bottleneck node 
+
+w⋆ ← arg min w∈S2(z⋆) |MG (z⋆, w )| ; // Two-hop target with fewest midpoints 
+
+m⋆ ← arg min m∈S1(z⋆)\S1(w⋆) d(m, w ⋆) ; // Best new midpoint candidate 
+
+E ← E ∪ { (m⋆, w ⋆)}; update G, recompute S2(z⋆);
+
+end for return GT ;
+
+Algorithm. The MCR procedure is summarised in Algorithm 1. At each step, we select the node with the most negative κw value, identify the two-hop target w⋆ with the fewest existing midpoints (the most bottlenecked two-hop connection), and then add the edge (z⋆, w ⋆) directly. This choice is certified by Theorem 4.3: adding an edge that creates a new midpoint for w⋆ ∈ S2(z⋆) strictly increases |MG (z⋆, w ⋆)| and therefore non-decreasingly updates κw(z⋆).In the rewiring experiments of Appendix C, we additionally explore a spectral variant of MCR in which the new edge is drawn to the most geographically distant vertex v⋆ (identified by BFS) rather than directly to w⋆. This spectral variant is a heuristic motivated by the observation that bridging topologically distant nodes tends to most rapidly increase λ2 [64 ]. It does not in general satisfy the premise of Theorem 4.3 (since v⋆ may be far from S2(z⋆)), but is empirically effective for spectral gap maximization and is clearly labelled as a spectral heuristic in the experiments. 
+
+Connection to Theorem 4.3. Each edge addition in Algorithm 1 is guaranteed by Theorem 4.3 to be non-decreasing in κw(z⋆): by adding the edge (m⋆, w ⋆), we introduce m⋆ as a new shared midpoint for the pair (z⋆, w ⋆), strictly increasing |MG (z⋆, w ⋆)| and thereby raising the pairwise curvature contribution. By Theorem 4.3, this can only improve or maintain κw(z⋆). Moreover, each such step tightens the generalization bound (Theorem 5.2) when the graph-level curvature lower bound increases. 
+
+Why target the least-supported two-hop connection? The choice w⋆ =arg min w∈S2(z⋆) |MG (z⋆, w )| selects the two-hop neighbor of the bottleneck node whose transport is most concentrated on a single fragile midpoint. Adding a new midpoint for this pair provides the largest marginal improvement in HL0 (z⋆, S2(z⋆)) and thus the largest curvature gain, since the functional is most sensitive to changes in terms with the smallest kw.
+
+Complexity. Each iteration of Algorithm 1 requires: (i) computing κw for all nodes, O(n · kiter ·
+
+d2max ) (see Appendix Q); (ii) finding z⋆, O(n); (iii) finding w⋆ by scanning S2(z⋆), O(d2max ); (iv) finding the new midpoint candidate m⋆, O(dmax ). The dominant cost per iteration is therefore 
+
+O(n · kiter · d2max ).
+
+## D Geometric Characterization and Proof of Theorem A.1 
+
+D.1 Geometric Interpretation via the Motzkin-Straus Theorem 
+
+We leverage the Motzkin-Straus Theorem to link local graph density to the optimization landscape of 
+
+HL. Consider a node u where every 2-hop neighbor shares exactly two midpoints with u, as illustrated in Figure 5. 
+
+D.2 Proof of Theorem A.1 
+
+In our set-up of Theorem A.1, we have, by definition of HL0 (u, S2(u)) ,19 Figure 5: A positively curved motif where the entropic functional serves as a signature of local density and clustering. 
+
+HL0 (u, S2(u)) = 2 max 
+
+> α
+
+X
+
+> z′∈S2(u)
+
+Y
+
+> z′′ ∈]u,z ′[
+
+α(z′′ )
+
+ = 2 max 
+
+> α
+
+X
+
+> {i,j }∈E u
+
+αiαj
+
+
+
+such that {z′, w ′} is an edge of Eu if {z′, w ′} =] u, z ′[ for some z′ ∈ S2(u). Note that the clique in the auxiliary midpoint graph Eu (whose vertices are midpoints in S1(u)) corresponds to a set of midpoints that pairwise share a common 2-hop target; its clique number ω(Eu) captures the maximum local clustering in the 2-hop neighborhood of u, and is related to g(B 2(u)) under the structural regularity assumption of the theorem. Thus, Theorem A.1 is a direct consequence of the following theorem. 
+
+Theorem D.1 (Motzkin-Straus Theorem [ 51 ]) . Let G = ( V, E) be a simple undirected graph with clique number ω(G). Then the following relation holds: 
+
+2 max 
+
+> α
+
+X
+
+> {i,j }∈E
+
+αiαj
+
+ = 1 − 1
+
+ω(G) .
+
+## E Proof of Theorem 3.3 
+
+Proof of Theorem 3.3. From Theorem 2 in [ 60 ], we have κ ≥ inf  
+
+> S
+
+−2 log(K(S)) where K is defined in (15) in [ 60 ] and S ⊂ X × X is d-cyclically monotone i.e. For every finite collection of points 
+
+(x1, y 1), . . . , (xN , y N ) in S, the following inequality holds: 
+
+> N
+
+X
+
+> i=1
+
+d(xi, y i) ≤
+
+> N
+
+X
+
+> i=1
+
+d(xi, y i+1 ),
+
+where yN +1 ≡ y1 by convention. However, from (16) in [60], we have 
+
+sup 
+
+> S
+
+K(S) ≤ sup 
+
+> z∈V
+
+HL(z, S2(z)) ,
+
+which means that inf  
+
+> S
+
+−2 log(K(S)) ≥ κw. This ends the proof. 
+
+## F Proof of Theorem 5.2 
+
+Remark F.1 (Global Lipschitz constant and non-vacuousness) . The Lipschitz assumption is global with respect to graph distance, not merely local over adjacent nodes. For a K-layer GCN with weight matrices W(1) , . . . , W(K) and Lσ -Lipschitz activations, one obtains on bounded-degree graphs 
+
+Λ ≤ LKσ
+
+QKk=1 ∥W(k)∥op . Thus, Λ is finite for fixed architectures with bounded weights, and can be controlled in practice through spectral normalization or weight regularization. First, we will use the following lemma, necessarily for proving our generalization bound. 20 Lemma F.2. The graph (V, d, m, L) having weak entropic curvature κw > 0 implies a transport-entropy inequality of the form, 
+
+W1(ν, m)2 ≤ 2
+
+κw
+
+Ent m(ν). (7) 
+
+Proof. Indeed from (1) by replacing μ0 by m and μ1 by ν we get 
+
+0 ⩽ Ent m(νt) ≤(1 − t) Ent m(m) + t Ent m(ν) (8) 
+
+− κw
+
+2 t(1 − t)W 1(m, ν )2. (9) Since Ent m(m) = 0 and by simplifying by t we get (1 − t)W 1(ν, m)2 ≤ 2 
+
+> κw
+
+Ent m(ν). By taking 
+
+t = 0 we get (7). This inequality constrains how far, in Wasserstein distance W1, any distribution ν can stray without incurring large relative entropy. Now, we will use Lemma F.2 and prove Theorem 5.2. We first express 
+
+Lμ1 (fθ ) − L μ0 (fθ ) = Ex∼μ1 [ℓ(fθ (x))] − Ey∼μ0 [ℓ(fθ (y))] .
+
+By the definition of the 1-Wasserstein distance, let Γ∗ ∈ Π( μ1, μ 0) be an optimal coupling between 
+
+μ1 and μ0. Then 
+
+Lμ1 (fθ ) − L μ0 (fθ ) ≤
+
+Z
+
+> V×V
+
+ℓ(fθ (x)) − ℓ(fθ (y)) dΓ ∗(x, y ).
+
+By the Lipschitz property of ℓ, specifically σ - Lipschitz in its first argument, we get 
+
+ℓ(fθ (x)) − ℓ(fθ (y)) ≤ σ fθ (x) − fθ (y) .
+
+Lipschitz of the GNN’s Embedding or Output Assume the GNN output ∥fθ (x) − fθ (y)∥ is at most Λ · d(x, y ) for neighbors x, y ∈ V , or more generally in the sense of a local Lipschitz constant. Then 
+
+∥fθ (x) − fθ (y)∥ ≤ Λ d(x, y ).
+
+Hence, 
+
+ℓ(fθ (x)) − ℓ(fθ (y)) ≤ σ Λ d(x, y ).
+
+Substituting into the integral and recognizing the infimum over all couplings Γ∗,
+
+Lμ1 (fθ ) − L μ0 (fθ ) ≤ σ Λ
+
+Z
+
+> V×V
+
+d(x, y ) dΓ ∗(x, y ) = σ Λ W 1(μ1, μ 0).
+
+Transport-Entropy Inequality from Positive Curvature Because the graph satisfies κ-bounded entropic curvature, there is a classical transport-entropy inequality of the form 
+
+W1(μ1, μ 0)2 ≤ 2
+
+κ Ent μ0 (μ1).
+
+Therefore 
+
+W1(μ1, μ 0) ≤
+
+r 2
+
+κ Ent μ0 (μ1).
+
+Combining with the Lipschitz bound above yields the final inequality: 
+
+Lμ1 (fθ ) − L μ0 (fθ ) ≤ σ Λ
+
+r 2
+
+κ Ent μ0 (μ1).
+
+Thus, the GNN’s loss can only degrade significantly if the adversarially modified distribution μ1 is far from μ0 in Wasserstein distance, a distance that is itself controlled by the entropic curvature κ.21 G Proof of Theorem 5.3 
+
+Proof. The proof proceeds in two main phases: first, bounding the generalization gap by the optimal transport distance W1(μtest , μ train ), and second, establishing a Transport-Entropy inequality derived from the negative curvature and diameter constraints using the Benamou-Brenier formalism [ 11 ]. We denote the expected generalization gap as, 
+
+∆L = |L μtest (fθ ) − L μtrain (fθ )|.
+
+Let Γ∗ ∈ Π( μtest , μ train ) be the optimal transport coupling between the two distributions. We rewrite the difference as an integral over the joint distribution: 
+
+∆L ≤ 
+
+Z
+
+> V×V
+
+|J (fθ (u), y u) − J (fθ (v), y v )| dΓ ∗(u, v ).
+
+Given that the loss is L-Lipschitz and the GNN representation is Λ-Lipschitz with respect to the graph distance d, the composition is (L · Λ) -Lipschitz. Applying this yields, 
+
+∆L ≤ L · Λ
+
+Z
+
+> V×V
+
+d(u, v ) dΓ ∗(u, v ) = L · Λ · W1(μtest , μ train ). (10) To bound W1(μtest , μ train ), we analyze the entropy along a geodesic. Let (μt)t∈[0 ,1] be a constant-speed optimal transport geodesic connecting μ0 = μtrain to μ1 = μtest . Let u(t) = Ent μtrain (μt).By the assumption of weak entropic curvature κw ≥ − K, the entropy functional satisfies the displacement convexity inequality, 
+
+u(t) ≤ (1 − t)u(0) + tu (1) + K2 t(1 − t)W 1(μtrain , μ test )2.
+
+This integral inequality implies a lower bound on the second derivative (the curvature "deficit"), 
+
+u′′ (t) ≥ − K · W1(μtrain , μ test )2. (11) Next, we relate the entropy at the endpoints using a Taylor expansion with integral remainder centered at t = 1 ,
+
+u(0) = u(1) − u′(1) + 
+
+Z 10
+
+s · u′′ (s) ds. 
+
+Substituting the curvature bound (11) into the integral gives, 
+
+u(0) ≥ u(1) − u′(1) − K · W21
+
+Z 10
+
+s ds = u(1) − u′(1) − K
+
+2 W21.
+
+Since u(0) = Ent μtrain (μtrain ) = 0 and u(1) = Ent μtrain (μtest ), rearranging yields, 
+
+Ent μtrain (μtest ) ≤ u′(1) + K2 W21. (12) To bound the derivative u′(1) , we employ the Benamou-Brenier continuity equation: ∂ρ t 
+
+> ∂t
+
++ ∇ · 
+
+(ρtvt) = 0 , where ρt is the density and vt is the optimal velocity field. Differentiating the entropy: 
+
+u′(t) = 
+
+Z
+
+> V
+
+(1 + log ρt) ∂ρ t
+
+∂t dμ train = −
+
+Z
+
+> V
+
+(1 + log ρt)∇ · (ρtvt) dμ train 
+
+=
+
+Z
+
+> V
+
+∇(log ρt) · (ρtvt) dμ train =
+
+Z
+
+> V
+
+⟨∇ log ρt, v t⟩ dμ t.
+
+Evaluating at t = 1 and applying the Cauchy-Schwarz inequality: 
+
+u′(1) ≤
+
+sZ
+
+> V
+
+|∇ log ρ1|2 dμ test ·
+
+sZ
+
+> V
+
+|v1|2 dμ test =
+
+q
+
+Iμtrain (μtest ) · W2(μtrain , μ test ),
+
+where I is the Fisher Information. Since W1 ≤ W2, we substitute this back into (12) to obtain the HWI inequality: 
+
+Ent μtrain (μtest ) ≤
+
+q
+
+Iμtrain (μtest ) · W1 + K2 W21.
+
+22 Because negative curvature allows distances to grow indefinitely, we impose the graph diameter constraint W1 ≤ D. Standard metric-measure theory establishes that a space with curvature bounded by −K and diameter D satisfies a Logarithmic Sobolev Inequality (LSI) with constant 
+
+λ ≈ K2( eKD 2/8−1) such that Ent ≤ 12λ I.By the Otto-Villani theorem, satisfying LSI with constant λ implies the Transport-Entropy inequality 
+
+W 21 ≤ 2 
+
+> λ
+
+Ent . Substituting our explicit λ:
+
+W1(μtest , μ train )2 ≤ 4K
+
+
+
+e KD 28 − 1
+
+
+
+Ent μtrain (μtest ). (13) Finally, substituting the Wasserstein bound (13) into our generalization gap inequality (10) yields the desired result: 
+
+|L μtest (fθ ) − L μtrain (fθ )| ≤ L · Λ
+
+r 4K
+
+
+
+e KD 28 − 1
+
+
+
+Ent μtrain (μtest ).
+
+This establishes that under negative curvature, adversarial robustness degrades exponentially with the graph diameter, highlighting a fundamental trade-off between mitigating oversmoothing and maintaining model stability. 
+
+## H Datasets Statistics & Implementation Details 
+
+Our implementation is available in the supplementary materials (and will be publicly available afterwards). It is built using the open-source library PyTorch Geometric (PyG) under the MIT license [ 29 ]. Note that we additionally utilized the PyTorch DeepRobust package 2 to implement the adversarial attacks used in this study. The curvature pre-computation experiments were run on NVIDIA A100 and RTX A6000 GPUs; the GNN training experiments were executed on NVIDIA RTX 3090 GPUs. 
+
+H.1 Benchmark Datasets 
+
+We evaluate our framework on six widely recognized graph benchmarks that represent distinct structural and homophilic regimes [72, 58]. These are categorized as follows: • Homophilic Datasets: Cora , CiteSeer , and PubMed are citation networks where nodes represent documents and edges represent citations. In these graphs, nodes with the same label (research topic) are highly likely to be connected, a property that generally corresponds to more regular local geometries. • Heterophilic Datasets: Cornell , Texas , and Wisconsin are webpage networks from computer science departments. These graphs exhibit high heterophily, meaning connected nodes often belong to different classes. Such topologies typically contain more structural bottlenecks and negative curvature regions, providing a rigorous test for our E-Gate mechanism. The statistics for these datasets are summarized in Table 3. Table 3: Dataset Statistics 
+
+Dataset Nodes Edges Features Classes Homophily 
+
+Cora 2,708 5,429 1,433 7 0.81 CiteSeer 3,327 4,732 3,703 6 0.74 PubMed 19,717 44,338 500 3 0.80 Cornell 183 295 1,703 5 0.30 Texas 183 309 1,703 5 0.11 Wisconsin 251 499 1,703 5 0.21 
+
+> 2https://github.com/DSE-MSU/DeepRobust
+
+23 H.2 Experimental Protocol and Data Splits 
+
+For all datasets, we adopt a random splitting strategy to evaluate the model’s generalization under distributional variance. For each of the 10 independent runs, we randomly sample 60% of the nodes for training, 20% for validation (to monitor convergence), and 20% for testing. This protocol ensures that the reported mean accuracy and standard deviation reflect the model’s robustness to specific topological samplings. 
+
+H.3 Implementation Details 
+
+We utilize a two-layer GNN, e.g. GCN or GIN etc., backbone with 64 hidden units. The model is trained for 200 epochs using the Adam optimizer with a learning rate of 0.01 and weight decay of 
+
+5 × 10 −4. For the E-Gate mechanism, the temperature parameter τ is initialized at 1.0 and learned during training via backpropagation. To ensure statistical robustness, we report the mean and standard deviation across 10 independent runs using distinct random splits for each dataset. All experiments were implemented using PyTorch Geometric and executed on NVIDIA RTX 3090 GPUs. 
+
+## I Proof of Theorem 4.2 
+
+The proof of this theorem adapts techniques from the work in [62]. 
+
+I.1 Random Rooted Graphs 
+
+All graphs considered here are simple, undirected, countable, and locally finite. A rooted graph is a pair (G, o ), where G is a graph and o is a distinguished vertex called the root . Two rooted graphs 
+
+(G, o ) and (G′, o ′) are isomorphic , denoted G ≃ G ′, if there exists a bijection ϕ : VG → V G′ that preserves the root ( ϕ(o) = o′) and the edges: 
+
+∀x, y ∈ V G , {x, y } ∈ E G ⇐⇒ { ϕ(x), ϕ (y)} ∈ E G′ .
+
+Let G• denote the set of connected rooted graphs, considered up to the isomorphism relation ≃. For brevity, we use (G, o ) to denote both the rooted graph and its equivalence class. We write Bt(G, o )
+
+for the ball of radius t around the root in G, i.e., the finite rooted subgraph induced by the vertices 
+
+{x ∈ V G : dG (o, x ) ≤ t}.The space G• is equipped with the local metric dLOG : G• × G • → [0 , 1] , defined as: 
+
+dLOG 
+
+ (G, o ), (G′, o ′) := 11 + r , where r = sup {t ≥ 0 : Bt(G, o ) ≃ Bt(G′, o ′)}.
+
+Intuitively, two rooted graphs are close if their local structures agree up to a large radius r. The metric space (G•, d LOG ) is complete and separable. We equip it with its Borel σ-algebra, and any G•-valued random variable is called a random rooted graph .Let P(G•) denote the space of Borel probability measures on G•, equipped with the topology of weak convergence. For a finite graph G, its local profile SG ∈ P (G•) is the empirical distribution of all possible rootings of G:
+
+SG := 1
+
+|V G |
+
+X
+
+> x∈V G
+
+δ(G,x ),
+
+where δ(G,x ) is the Dirac measure at (G, x ).
+
+I.2 Local Weak Limit of Graph Sequences 
+
+For a finite graph G, the pair (G, x ) is implicitly restricted to the connected component of x if G is not connected. Given a sequence of finite graphs Gn = ( Vn, En) for n ≥ 1, if their local profiles 
+
+(SGn )n≥1 converge to a limit S in P(G•), we call S the local weak limit of the sequence (Gn)n≥1
+
+and denote this convergence by: 
+
+Gn −−−−→ 
+
+> n→∞
+
+S.
+
+24 Intuitively, S represents the law of a random rooted graph that captures the asymptotic local structure of Gn when viewed from a uniformly random root. Formally, for any continuous and bounded observable f : G• → R, the following holds: 
+
+1
+
+|V n|
+
+X
+
+> x∈V n
+
+f (Gn, x ) −−−−→ 
+
+> n→∞
+
+S[f (G, o )] .
+
+The left-hand side is a spatial average of local contributions from the vertices of Gn. Local weak convergence thus simplifies asymptotic analysis by replacing such averages with expectations over a limiting random rooted graph. 
+
+Local Observables 
+
+The class of continuous functions on G• includes, but is not limited to, all t-local observables ( t ≥ 0). Here, a function f : G• → R is called t-local if its value f (G, o ) depends only on the isomorphism class of the finite ball Bt(G, o ). Below is a list of key examples that will be used throughout this paper without further mention: • The root degree (G, o ) 7 → deg G (o) is 1-local. • The minimum curvature at o, (G, o ) 7 → κw(G)( o), is 2-local. 
+
+I.3 Tightness, Unimodularity, and Stationarity I.3.1 Tightness of Graph Sequences 
+
+One of the key advantages of the local weak convergence framework is that every "reasonable" sequence of sparse graphs admits a local weak limit. The following tightness criterion by Benjamini, Lyons, and Schramm makes this precise (note that passing to subsequences may be necessary): 
+
+Theorem I.1. Let Gn = ( Vn, En), n ≥ 1, be finite graphs such that 
+
+sup 
+
+> n≥1
+
+(
+
+1
+
+|V n|
+
+X
+
+> x∈V n
+
+ϕ(deg Gn (x)) 
+
+)
+
+< ∞,
+
+where ϕ : Z+ → R+ satisfies ϕ(d) ≫ d as d → ∞ . Then, (Gn)n≥1 has a subsequence that admits a local weak limit. Proof. See Theorem 3.1 in [12]. In particular, this criterion applies to the sequence (Gn)n≥1 in Theorem 3 with ϕ(d) = d log d. This ensures we can study the existence of non-negatively curved expanders directly at the level of local weak limits. 
+
+I.3.2 Unimodularity 
+
+Local weak limits of finite graphs inherit a powerful distributional invariance called unimodularity ,stemming from the uniform randomness of the root in the local profile. Formally, a measure 
+
+S ∈ P (G•) is unimodular if it satisfies the Mass Transport Principle :
+
+S
+
+ X
+
+> x∈V G
+
+f (G, o, x )
+
+ = S
+
+ X
+
+> x∈V G
+
+f (G, x, o )
+
+ ,
+
+for every Borel function f : G•• → [0 , ∞], where G•• is the space of graphs with two distinguished roots (instead of one). • Interpretation : If f (G, o, x ) represents "mass" sent from o to x, (6) states that the expected mass sent and received by the root o under S must balance. • Preservation : This principle holds for the local profile of any finite graph and is preserved under weak convergence. Thus, all local weak limits of finite graphs are unimodular. 25 I.4 Properties of Local Weak Limits I.4.1 Unimodularity of Limits Theorem I.2 (Inherited Unimodularity) . All local weak limits of finite graphs are unimodular. 
+
+I.4.2 Consequences of Unimodularity Lemma I.3 (Everything Shows at the Root, Lemma 2.3 in [ 13 ]) . Let S ∈ P (G•) be unimodular, and 
+
+B ⊆ G • a Borel set with S(B) = 1 . Then: 
+
+S {(G, o ) : ∀x ∈ V G , (G, x ) ∈ B} = 1 .
+
+Proof. Apply the Mass Transport Principle with f (G, o, x ) = 1(G,o ) /∈B .
+
+I.4.3 Stationarity Definition I.4 (Stationary Measure) . A law S ∈ P (G•) is stationary if it’s invariant under the Markov chain that moves the root according to PG :
+
+S
+
+ X
+
+> x∈V G
+
+P t 
+
+> G
+
+(o, x )h(G, x )
+
+ = S[h(G, o )] , ∀t ≥ 0,
+
+for all Borel h : G• → [0 , ∞].
+
+Lemma I.5 (Degree-Biasing Transformation) . For any unimodular S ∈ P (G•) with deg( S) := 
+
+S[deg G (o)] < ∞, the measure: 
+
+d ˆS(G, o ) := deg G (o)deg( S) dS(G, o )
+
+is stationary. Proof. Apply the Mass Transport Principle to S with f (G, o, x ) = h(G, o )1{x,o }∈E G .
+
+I.5 Spectral Radius, Entropy, and the Liouville Property I.5.1 Mutual Absolute Continuity 
+
+Remark I.6 (Mutual Absolute Continuity) . From the degree-biasing transformation (8), the original law S and its biased version bS satisfy: 
+
+S(B) = 1 ⇐⇒ bS(B) = 1 ,
+
+for any Borel set B ⊆ G •. This equivalence allows transferring results between the two measures. 
+
+I.5.2 Asymptotic Entropy Lemma I.7 (Random Walk Entropy) . Let S ∈ P (G•) be stationary with S[log deg G (o)] < ∞. Then the limit 
+
+H(G) := lim 
+
+> t→∞
+
+1
+
+t
+
+X
+
+> x∈V G
+
+P t 
+
+> G
+
+(o, x ) log 1
+
+P t 
+
+> G
+
+(o, x )
+
+exists S-almost surely and in L1(G•, S), and is root-independent. Proof. See Lemma 8 in [62]. 26 I.6 The Liouville Property Definition I.8. A function f : VG → R is harmonic if: 
+
+PG f = f where (PG f )( x) := X
+
+> y∈V G
+
+PG (x, y )f (y)
+
+Definition I.9 (Harmonic Functions) . A function f : VG → R is harmonic if it satisfies PG f = f ,where (PG f )( x) := P 
+
+> y∈V G
+
+PG (x, y )f (y).• Trivial case : All constant functions are automatically harmonic. • Non-trivial case : The existence of non-constant bounded harmonic functions reflects rich geometric structure. 
+
+Definition I.10 (Liouville Property [ 19 ]) . A graph G has the Liouville property if every bounded harmonic function on G is constant. 
+
+Remark I.11 (Entropic Characterization) . For stationary random graphs, this functional-analytic prop-erty admits a profound probabilistic characterization through asymptotic entropy H(G). Specifically: • The Liouville property corresponds to vanishing entropy ( H(G) = 0 )• Non-zero entropy detects the existence of non-constant bounded harmonic functions This bridges geometric, analytic, and probabilistic aspects of random graphs. 
+
+Theorem I.12 (Entropic Characterization of Liouville Property) . For any stationary law S ∈ P (G•)
+
+with S[log deg G (o)] < ∞, the following equivalence holds S-almost surely: 
+
+H(G) = 0 ⇐⇒ G has the Liouville property .
+
+Proof. See theorem 9 in [62]. 
+
+I.7 Spectral Radius and Its Connections I.7.1 Definition and Basic Properties 
+
+The entropy H(G) relates to several fundamental graph quantities including speed , growth , and 
+
+spectral radius .For any rooted graph (G, o ) ∈ G • and t, s ≥ 0, the inequality 
+
+P t+s 
+
+> G
+
+(o, o ) ≥ P t 
+
+> G
+
+(o, o )P s 
+
+> G
+
+(o, o )
+
+holds. By Fekete’s lemma [25], the limit 
+
+ρ(G) := lim 
+
+> t→∞
+
+ P t 
+
+> G
+
+(o, o )1/t (13) exists in (0 , 1] . Furthermore, graph connectivity and the inequality 
+
+P t+2 s 
+
+> G
+
+(o, o ) ≥ P s 
+
+> G
+
+(o, x )P t 
+
+> G
+
+(x, x )P s 
+
+> G
+
+(x, o )
+
+together imply that ρ(G) is independent of the root choice o.
+
+I.7.2 Relation to Entropy Lemma I.13 (Spectral Radius vs Entropy) . For any stationary law S with S[log deg G (o)] < ∞, the inequality 
+
+H(G) ≥ 2 log 1
+
+ρ(G)
+
+holds S-almost surely. Proof. See lemma 10 in [62]. 27 I.8 Proof of Theorem 4.2 
+
+Let a > 0 and Gn := ( Vn, En), n ≥ 1 be a sequence of finite graphs such that 
+
+sup 
+
+> n≥1
+
+(
+
+1
+
+|V n|
+
+X
+
+> x∈V n
+
+deg Gn (x) log deg Gn (x)
+
+)
+
+< ∞ (14) and 
+
+∀ε > 0, 1
+
+|V n| # {x ∈ V n : κw(x) < a } − −−−→ 
+
+> n→∞
+
+0. (15) The goal is to prove that 
+
+∀ρ < 1, lim inf 
+
+> n→∞
+
+ 1
+
+|V n| # {i : λi(Gn) ≥ ρ}
+
+
+
+> 0. (16) In view of (14) and Theorem I.1, we can, after extracting a subsequence if necessary, assume that 
+
+Gnn→∞ 
+
+−−−−→ S (17) For some S ∈ P (G•), note that S is automatically unimodular by Theorem I.2, and satisfies 
+
+S deg G (o) log deg G (o) < ∞. (18) Since curvature is a local property like the degree, it also “passes to the limit,” meaning 
+
+S (κw(G) ≥ a) = 1 . (19) 
+
+Proof. As previously noted, the observable f : ( G, o ) 7 → κw(o) is 2-local, and therefore continuous on G•. Applying the Portmanteau Theorem yields that 
+
+S(f < a ) ≤ lim inf  
+
+> n→∞
+
+SGn (f < a )= lim inf 
+
+> n→∞
+
+ 1
+
+|V n| #{o ∈ V n : f (Gn, o ) < a }
+
+
+
+= 0 .
+
+This implies S(f < a ) = 0 by (15) . By applying Lemma I.3 to the event B = {f ≥ a} we get The desired result. The first key step in our proof is to deduce from (19) that the entropy under S is zero. This is established in the following theorem. 
+
+Theorem I.14 (positive curvature implies zero-entropy) . Let a > 0. Assume that S[log deg G (o)] <
+
+∞, the we have almost-surely under any stationary law S ∈ P (G•)
+
+κw(G) ≥ a =⇒ H (G) = 0 .
+
+Proof. Let f : V → R be a harmonic function i.e., 
+
+Lf (x) = 0 ∀x ∈ V .
+
+Assume in addition that f is bounded. We want that f must be constant. By using Modified Logarithmic Sobolev Inequality (MLSI) (from Theorem S.1): If κw > 0, then For any f ,Var μ(f ) ≤ 1
+
+κw
+
+Z X
+
+> y∈V
+
+L(x, y )( f (y) − f (x)) 2dμ (x).
+
+We have, 
+
+Z X
+
+> y∈V
+
+L(x, y )( f (y) − f (x)) 2dμ (x) = X
+
+> x,y ∈V
+
+L(x, y )( f (y) − f (x)) 2μ(x)= X
+
+> x,y ∈V
+
+L(x, y )f (y)2μ(x) − 2 X
+
+> x,y ∈V
+
+L(x, y )f (y)f (x)μ(x)+ X
+
+> x,y ∈V
+
+L(x, y )f (x)2μ(x)
+
+28 Since P 
+
+> y
+
+L(x, y ) = 0 (rows sum to zero, see 3), we have: 
+
+X
+
+> x,y
+
+f (x)2L(x, y )μ(x) = X
+
+> x
+
+f (x)2 X
+
+> y
+
+L(x, y )
+
+!
+
+μ(x) = 0 .
+
+For the last term, since L(x, y )μ(x) = L(y, x )μ(y) (see 3), we have 
+
+X
+
+> x,y
+
+f (y)2L(x, y )μ(x) = X
+
+> x,y
+
+f (y)2L(y, x )μ(y) = X
+
+> y
+
+f (y)2 X
+
+> x
+
+L(y, x )
+
+!
+
+μ(y) = 0 .
+
+Thus Z X
+
+> y∈V
+
+L(x, y )( f (y) − f (x)) 2dμ (x) = −2 X
+
+> x,y ∈V
+
+L(x, y )f (y)f (x)μ(x)= −2 X
+
+> x∈V
+
+f (x)
+
+ X
+
+> y∈V
+
+L(x, y )( f (y) − f (x)) 
+
+
+
+μ(x).
+
+Recall that f is harmonic function, thus P 
+
+> y∈V
+
+L(x, y )( f (y) − f (x)) = 0. Then 
+
+R P  
+
+> y∈V
+
+L(x, y )( f (y) − f (x)) 2dμ (x) = 0 . From this, we deduce Var μ(f ) = 0 ,
+
+This implies that f is a constant. Thus κw(G) implies that G satisfies the Liouville properties and using Theorem I.12 we get the zero-entropy property: H(G) = 0 .In view of Remark I.6, this result extends to any unimodular law S ∈ P (G•) satisfying 
+
+S[deg G (o) log deg G (o)] < ∞,
+
+and in particular applies to the limit S in (17) . Combining this observation with Lemma I.13, we immediately conclude that our local weak limit satisfies 
+
+S(ρ(G) = 1) = 1 .
+
+Remarkably, this simple condition suffices to establish (16) . The following theorem formalizes this claim and completes the proof of our main result. 
+
+Theorem I.15 (Zero-entropy implies poor spectral expansion) . Let {G n = ( Vn, En)}n≥1 be finite graphs with local weak limit S, and suppose that S(ρ(G) = 1) = 1 . Then, for any ρ < 1,
+
+lim inf 
+
+> n→∞
+
+ 1
+
+|V n| #{i : λi(Gn) > ρ }
+
+
+
+> 0.
+
+Proof. See Theorem 12 in [62]. 
+
+## J Proof of Theorem S.1 
+
+We first establish an auxiliary functional inequality that will be used to derive the desired Poincaré-type estimate. In particular, positive weak entropic curvature implies a modified logarithmic Sobolev inequality for exponential graph signals. The proof of Theorem S.1 then follows by applying this inequality to a small perturbation g = ε(f − ¯f ) and passing to the limit as ε → 0.
+
+Lemma J.1 (Modified logarithmic Sobolev inequality) . Let (V, d, m, L ) be a finite connected graph space with weak entropic curvature lower bound κw > 0, and let μ := m/m (V ). Then, for every 
+
+g : V → R,
+
+Ent μ(eg ) ≤ 12κw
+
+Z
+
+> V
+
+|∇ +g|2(u)eg(u) dμ (u),
+
+where 
+
+|∇ +g|2(u) := sup 
+
+> v∼u
+
+[g(u) − g(v)] 2+
+
+and 
+
+Ent μ(ϕ) := 
+
+Z
+
+> V
+
+ϕ log ϕ dμ −
+
+Z 
+
+> V
+
+ϕ dμ 
+
+
+
+log 
+
+Z 
+
+> V
+
+ϕ dμ 
+
+
+
+.
+
+29 Proof. It is enough to prove the inequality for functions of the form ϕ = eg , where ϕ : V → (0 , ∞).The general case follows by approximating ϕ by ϕ + δ and letting δ ↓ 0.Set 
+
+Zϕ := 
+
+Z
+
+> V
+
+ϕ dμ 
+
+and define the probability measure ν0 by 
+
+dν 0 := ϕZϕ
+
+dμ. 
+
+Let ν1 := μ. Since μ = m/m (V ), the densities with respect to m and with respect to μ differ only by the constant factor m(V ). Hence entropy differences with respect to m and μ agree up to additive constants, which cancel in the argument below. By the positive weak entropic curvature assumption, and since κw is a lower bound for the global entropic curvature, the entropy functional is κw-convex along admissible Wasserstein geodesics. Thus, for any admissible coupling π ∈ Π( ν0, ν 1), there exists an interpolating curve (νt)t∈[0 ,1] from 
+
+ν0 to ν1 such that 
+
+Ent m(νt) ≤ (1 − t) Ent m(ν0) + t Ent m(ν1) − κw
+
+2 t(1 − t)W1(ν0, ν 1)2.
+
+Rearranging gives 
+
+Ent m(ν0) ≤ − Ent m(νt) − Ent m(ν0)
+
+t + Ent m(ν1) − κw
+
+2 (1 − t)W1(ν0, ν 1)2.
+
+We now let t ↓ 0.Write π(· | u) for the conditional distribution of the endpoint given the starting point u. The first variation of the entropy at t = 0 along the corresponding graph interpolation satisfies 
+
+ddt Ent m(νt) t=0 
+
+≥ − X
+
+> u∈V
+
+|∇ + log ϕ|(u) X
+
+> w∈V
+
+d(u, w )π(w | u)
+
+!
+
+ν0(u).
+
+Here we used that adding a multiplicative constant to ϕ does not change differences of log ϕ, and that along each shortest path the entropy variation is controlled by the maximal one-sided decrease of 
+
+log ϕ over neighbors of u.By Young’s inequality, for every u ∈ V ,
+
+|∇ + log ϕ|(u) X
+
+> w∈V
+
+d(u, w )π(w | u)
+
+!
+
+≤ 12κw
+
+|∇ + log ϕ|2(u) + κw
+
+2
+
+X
+
+> w∈V
+
+d(u, w )π(w | u)
+
+!2
+
+.
+
+Therefore, 
+
+ddt Ent m(νt)
+
+> t=0
+
+≥ − 12κw
+
+X
+
+> u∈V
+
+|∇ + log ϕ|2(u)ν0(u) − κw
+
+2
+
+X
+
+> u∈V
+
+X
+
+> w∈V
+
+d(u, w )π(w | u)
+
+!2
+
+ν0(u).
+
+The last term is bounded by the corresponding transport cost between ν0 and ν1. Consequently, when this estimate is inserted into the previous curvature inequality and t ↓ 0, the transport-cost terms cancel. We obtain 
+
+Ent m(ν0) ≤ Ent m(ν1) + 12κw
+
+X
+
+> u∈V
+
+|∇ + log ϕ|2(u)ν0(u).
+
+Since ν1 = μ = m/m (V ), the change from Ent m to Ent μ only contributes the same additive normalization constant to both sides. Hence 
+
+Ent μ(ν0) ≤ 12κw
+
+X
+
+> u∈V
+
+|∇ + log ϕ|2(u)ν0(u).
+
+Using dν 0 = ( ϕ/Z ϕ)dμ gives 
+
+Ent μ(ν0) ≤ 12κwZϕ
+
+Z
+
+> V
+
+|∇ + log ϕ|2(u)ϕ(u) dμ (u).
+
+30 Multiplying both sides by Zϕ and using 
+
+Zϕ Ent μ(ν0) = Ent μ(ϕ),
+
+we get 
+
+Ent μ(ϕ) ≤ 12κw
+
+Z
+
+> V
+
+|∇ + log ϕ|2(u)ϕ(u) dμ (u).
+
+Finally, taking ϕ = eg gives log ϕ = g, and therefore 
+
+Ent μ(eg ) ≤ 12κw
+
+Z
+
+> V
+
+|∇ +g|2(u)eg(u) dμ (u).
+
+This proves the modified logarithmic Sobolev inequality. We now prove Theorem S.1. 
+
+Proof. Let ¯f := R 
+
+> V
+
+f dμ and set h := f − ¯f . Then R 
+
+> V
+
+h dμ = 0 and 
+
+Var μ(f ) = 
+
+Z
+
+> V
+
+h2 dμ. 
+
+For a graph function g : V → R, define the one-sided local slope 
+
+|∇ +g|2(u) := sup 
+
+> v∼u
+
+[g(u) − g(v)] 2+,
+
+where [a]+ := max {a, 0}.Since the graph space has positive weak entropic curvature κw > 0, the entropy functional is displacement convex with curvature lower bound κw. Equivalently, for every g : V → R, the following modified logarithmic Sobolev inequality holds: 
+
+Ent μ(eg ) ≤ 12κw
+
+Z
+
+> V
+
+|∇ +g|2(u)eg(u) dμ (u),
+
+where 
+
+Ent μ(ϕ) := 
+
+Z
+
+> V
+
+ϕ log ϕ dμ −
+
+Z 
+
+> V
+
+ϕ dμ 
+
+
+
+log 
+
+Z 
+
+> V
+
+ϕ dμ 
+
+
+
+.
+
+Apply this inequality to g = εh with ε > 0. We obtain 
+
+Ent μ(eεh ) ≤ 12κw
+
+Z
+
+> V
+
+|∇ +(εh )|2(u)eεh (u) dμ (u).
+
+We now expand both sides as ε → 0. Since 
+
+eεh = 1 + εh + ε2
+
+2 h2 + O(ε3),
+
+and R 
+
+> V
+
+h dμ = 0 , we have 
+
+Ent μ(eεh ) = ε2
+
+2
+
+Z
+
+> V
+
+h2 dμ + O(ε3).
+
+Therefore, 
+
+Ent μ(eεh ) = ε2
+
+2 Var μ(f ) + O(ε3).
+
+On the other hand, 
+
+|∇ +(εh )|2(u) = ε2|∇ +h|2(u).
+
+Since h = f − ¯f , subtracting the constant ¯f does not change edge differences, and hence 
+
+|∇ +h|2(u) = |∇ +f |2(u).
+
+Thus, 
+
+|∇ +(εh )|2(u) = ε2|∇ +f |2(u).
+
+31 Moreover, 
+
+eεh (u) = 1 + O(ε).
+
+Hence 12κw
+
+Z
+
+> V
+
+|∇ +(εh )|2(u)eεh (u) dμ (u) = ε2
+
+2κw
+
+Z
+
+> V
+
+|∇ +f |2(u) dμ (u) + O(ε3).
+
+Combining the two expansions gives 
+
+ε2
+
+2 Var μ(f ) + O(ε3) ≤ ε2
+
+2κw
+
+Z
+
+> V
+
+|∇ +f |2(u) dμ (u) + O(ε3).
+
+Dividing by ε2/2 and letting ε → 0, we get 
+
+Var μ(f ) ≤ 1
+
+κw
+
+Z
+
+> V
+
+|∇ +f |2(u) dμ (u).
+
+Finally, substituting the definition of the one-sided local slope yields 
+
+Var μ(f ) ≤ 1
+
+κw
+
+Z
+
+> V
+
+sup 
+
+> v∼u
+
+[f (u) − f (v)] 2+ dμ (u).
+
+This proves the desired inequality. 
+
+## K Proof of Theorem S.2 
+
+Proof. The proof proceeds by a parallel ε-perturbation argument to that of Theorem S.1 (Ap-pendix S.1), now exploiting the lower curvature bound κw ≥ − K to derive a reversed functional inequality. Let h := f − ¯f where ¯f := R 
+
+> V
+
+f dμ , so that R 
+
+> V
+
+h dμ = 0 and Var μ(f ) = R 
+
+> V
+
+h2 dμ . Since κw ≥ − K,the entropy functional satisfies the (−K)-convexity inequality along admissible W1-geodesics: for any ν0, ν 1 ∈ P (V ) and any constant-speed geodesic (νt)t∈[0 ,1] ,
+
+Ent m(νt) ≤ (1 − t) Ent m(ν0) + t Ent m(ν1) + K
+
+2 t(1 − t) W 1(ν0, ν 1)2. (20) The additional positive term + K 
+
+> 2
+
+t(1 − t)W 21 reflects the hyperbolic-like expansion: entropy along the geodesic may exceed the linear interpolation, unlike the positive curvature case. Set ν0 = eεh  
+
+> Zε
+
+μ with Zε = R 
+
+> V
+
+eεh dμ , and ν1 = μ. Rearranging (20) at t ↓ 0 and using the same first-variation estimate as in Lemma J.1, we obtain the following reversed modified log-Sobolev inequality: for every g : V → R,
+
+Ent μ(eg ) ≥ 12K
+
+Z
+
+> V
+
+|∇ +g|2(u) eg(u) dμ (u) − K
+
+2 W1(ν0, ν 1)2 Ent μ(eg ), (21) where |∇ +g|2(u) := sup v∼u[g(u) − g(v)] 2+.To bound the W1 term in (21), we use the graph diameter. For any two probability measures on V ,
+
+W1(ν0, ν 1) ≤ D, (22) since d(u, v ) ≤ D for all u, v ∈ V by definition of diameter. Substituting into (21) and rearranging, 
+
+
+
+1 + KD 2
+
+2
+
+
+
+Ent μ(eg ) ≥ 12K
+
+Z
+
+> V
+
+|∇ +g|2(u) eg(u) dμ (u). (23) Apply (23) to g = εh with ε > 0. Expanding both sides as ε → 0, using eεh = 1+ εh + ε2 
+
+> 2
+
+h2 +O(ε3)
+
+and R 
+
+> V
+
+h dμ = 0 :
+
+Left-hand side. Since Ent μ(eεh ) = ε2 
+
+> 2
+
+Var μ(f ) + O(ε3), we have 
+
+
+
+1 + KD 2
+
+2
+
+
+
+Ent μ(eεh ) = 
+
+
+
+1 + KD 2
+
+2
+
+ ε2
+
+2 Var μ(f ) + O(ε3). (24) 32 Right-hand side. Since |∇ +(εh )|2(u) = ε2|∇ +h|2(u) and eεh (u) = 1 + O(ε),
+
+12K
+
+Z
+
+> V
+
+|∇ +(εh )|2(u) eεh (u) dμ (u) = ε2
+
+2K
+
+Z
+
+> V
+
+|∇ +f |2(u) dμ (u) + O(ε3), (25) where we used |∇ +h|2 = |∇ +f |2 since subtracting the constant ¯f does not change edge differences. Combining, dividing by ε2/2, and letting ε → 0:
+
+
+
+1 + KD 2
+
+2
+
+
+
+Var μ(f ) ≥ 1
+
+K
+
+Z
+
+> V
+
+sup 
+
+> v∼u
+
+[f (u) − f (v)] 2+ dμ (u). (26) Finally, since 1 + KD 2 
+
+> 2
+
+≤ eKD 2/2 for all K, D ≥ 0 (by the inequality 1 + x ≤ ex), dividing both sides by eKD 2/2 yields the stated bound: 
+
+Var μ(f ) ≥ e−KD 2/2
+
+K
+
+Z
+
+> V
+
+sup 
+
+> v∼u
+
+[f (u) − f (v)] 2+ dμ (u). (27) 
+
+## L Proof of Theorem 4.3 
+
+Proof. Under the uniform generator L0, set kw := |MG (z, w )| and k+ 
+
+> w
+
+:= |MG+ (z, w )|, so that 
+
+k+ 
+
+> w
+
+≥ kw by assumption. Each two-hop path z → m → w carries unit weight, hence L(2) 0 (z, w ) = 
+
+kw and (L +0 )(2) (z, w ) = k+ 
+
+> w
+
+. Here L(2) 0 (z, w ) denotes the 2-step transition weight (the number of shared midpoints), not the square of a single entry. The path weights satisfy ℓG (z, m, w ) = 1 /k w
+
+and ℓG+
+
+(z, m, w ) = 1 /k + 
+
+> w
+
+for every midpoint m.
+
+Step 1: Pairwise terms. By the arithmetic–geometric mean inequality, for a singleton target {w},the supremum of the product term Q
+
+> m∈]z,w [
+
+(α(m)/L0(z, m )) 2ℓ(z,m,w ) over α on the simplex is attained at the uniform distribution α(m) = 1 /k w over the kw midpoints, yielding: 
+
+HG 
+
+> L0
+
+(z, {w}) = kw ·
+
+ 1
+
+kw
+
+2
+
+= 1
+
+kw
+
+, HG+ 
+
+> L0
+
+(z, {w}) = 1
+
+k+
+
+> w
+
+. (28) Since k+ 
+
+> w
+
+≥ kw, we obtain HG+ 
+
+> L0
+
+(z, {w}) ≤ HG 
+
+> L0
+
+(z, {w}) for every w ∈ SG 
+
+> 2
+
+(z).
+
+Step 2: Aggregating over S2(z) via pointwise dominance. The full functional HL0 (z, S2(z)) is a supremum over a single shared distribution α on the simplex ∆|S1(z)|, not a sum of independent suprema. We therefore cannot directly apply the singleton bound termwise. Instead, we establish a pointwise dominance of the summands. For any fixed α on the simplex, define the summand for target w under G:
+
+fw(α) := L (2) 0 (z, w ) Y
+
+> m∈]z,w [
+
+ α(m)L0(z, m )
+
+2/k w
+
+,
+
+and the corresponding summand under G+ (where the exponent changes from 2/k w to 2/k + 
+
+> w
+
+≤
+
+2/k w): 
+
+f + 
+
+> w
+
+(α) := (L +0 )(2) (z, w ) Y
+
+> m∈]z,w [
+
+ α(m)L0(z, m )
+
+2/k +
+
+> w
+
+.
+
+Since L0(z, m ) = 1 for all m ∼ z, each factor satisfies 0 < α (m)/L0(z, m ) = α(m) ≤ 1. Because 
+
+k+ 
+
+> w
+
+≥ kw, we have 2/k + 
+
+> w
+
+≤ 2/k w, and raising a value in (0 , 1] to a smaller exponent yields a larger or equal value. Hence: Y
+
+> m∈]z,w [
+
+α(m)2/k + 
+
+> w
+
+≥ Y
+
+> m∈]z,w [
+
+α(m)2/k w .
+
+However, the prefactor changes as (L +0 )(2) (z, w ) = k+ 
+
+> w
+
+≥ kw = L (2) 0 (z, w ). Combining: 
+
+f + 
+
+> w
+
+(α) = k+
+
+> w
+
+Y
+
+> m
+
+α(m)2/k + 
+
+> w
+
+, fw(α) = kw
+
+Y
+
+> m
+
+α(m)2/k w .
+
+33 Evaluating at the AM-GM optimum α∗ = (1 /k w, . . . , 1/k w) (uniform over original midpoints) gives 
+
+fw(α∗) = 1 /k w and f + 
+
+> w
+
+(α∗) = k+ 
+
+> w
+
+· (1 /k w)2/k + 
+
+> w
+
+≤ k+ 
+
+> w
+
+· (1 /k + 
+
+> w
+
+)2/k + 
+
+> w
+
+· (k+ 
+
+> w
+
+/k w)2/k + 
+
+> w
+
+/(k+ 
+
+> w
+
+/k w) = 1/k + 
+
+> w
+
+≤ 1/k w = fw(α∗), confirming pointwise f + 
+
+> w
+
+(α∗) ≤ fw(α∗).More generally, one can verify that the product kw · (1 /k w)2/k w is decreasing in kw for kw ≥ 1,which is equivalent to k1−2/k being increasing, a standard calculus fact. Therefore f + 
+
+> w
+
+(α) ≤ fw(α)
+
+for all α and all w.Since f + 
+
+> w
+
+(α) ≤ fw(α) holds for every w ∈ S2(z) and every α in the simplex, summing over w gives P 
+
+> w
+
+f + 
+
+> w
+
+(α) ≤ P 
+
+> w
+
+fw(α) for all α. Taking the supremum over α preserves this inequality: 
+
+HG+ 
+
+> L0
+
+(z, SG 
+
+> 2
+
+(z)) = sup 
+
+> α
+
+X
+
+> w
+
+f + 
+
+> w
+
+(α) ≤ sup 
+
+> α
+
+X
+
+> w
+
+fw(α) = H G 
+
+> L0
+
+(z, SG 
+
+> 2
+
+(z)) . (29) Applying the decreasing transformation −2 log( ·) (Definition 3.2) yields κG+ 
+
+> w
+
+(z) ≥ κG
+
+> w
+
+(z). Strict improvement when k+ 
+
+> w
+
+> k w for some w follows from the strict pointwise inequality in that summand and the strict monotonicity of −2 log( ·).
+
+## M Algorithmic Computation of Weak Entropic Curvature and Convergence Analysis 
+
+M.1 Algorithm Implementation of Weak Entropic Curvature 
+
+We provide the exact computation of κw(G) in Algorithm 2 below. 
+
+Algorithm 2: EXACT COMPUTATION OF κw(G)
+
+Input: Graph G = ( V, E), generator L : V × V → R
+
+Output: Curvatures: local κ and global κw(G)
+
+foreach z ∈ V do 
+
+Let S1(z) ← { v ∈ V : ( z, v ) ∈ E} ;Let S2(z) ← { w ∈ V : d(z, w ) = 2 };
+
+if S2(z) = ∅ then 
+
+κ[z] ← ∞ 
+
+else 
+
+1. Precompute for each w ∈ S2(z) and u ∈]z, w [: ℓ(z, u, w ) ← L(z,u )L(u,w ) 
+
+> L(2) (z,w )
+
+;2. Define objective function J( α) for α ∈ ∆|S1(z)|:
+
+J( α) ← P
+
+> w∈S2(z)
+
+L(2) (z, w ) Q
+
+> u∈]z,w [
+
+ α(u)
+
+> L(z,u )
+
+2ℓ(z,u,w )
+
+;3. Solve constrained maximization: 
+
+H∗ ← sup α J( α) s.t. P 
+
+> u
+
+α(u) = 1 , α (u) ≥ 0;
+
+κ[z] ← − 2 log(H ∗);
+
+end if end foreach 
+
+κw(G) ← inf z∈V κ[z];
+
+return κ, κ w(G);
+
+M.2 Fast Convergence of the Entropic Optimization 
+
+To validate the computational tractability of the Weak Entropic Curvature, we empirically analyze the convergence behavior of the underlying optimization problem. As detailed in Algorithm 2, calculating the curvature at a specific node z requires maximizing the local functional HL(z, S2(z)) over the probability simplex. We employ the SLSQP method from the SciPy library [ 69 ], which is well-suited for handling the linear constraints of the simplex ∆|S1(z)|.
+
+Methodology. Since the absolute value of the weak entropic curvature κw(z) varies significantly across different local topologies (e.g., varying from positive in cliques to negative in trees), aggregat-ing raw optimization traces would yield uninterpretable variance. Instead, we track the normalized 
+
+34 0 2 4 6 8 10                 
+
+> Iterations
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+> Curvature Shift  = k 0
+> Cora
+> 0246810
+> Iterations
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+> CiteSeer
+> 0246810
+> Iterations
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+> PubMed
+> 0246810
+> Iterations
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+> Texas
+> Entropic Curvature Minimization: Convergence Profile ( )
+
+Figure 6: Empirical Convergence of Weak Entropic Curvature Optimization 
+
+convergence residual . For a randomly sampled set of 50 nodes per dataset, we track the curvature estimate κ(t) at iteration t. We define the normalized residual ∆˜ κ(t) as, 
+
+∆˜ κ(t) = κ(t) − κ∗
+
+κ(0) − κ∗ , (30) where κ(0) is the initial curvature estimate (uniform distribution initialization) and κ∗ is the converged value (minimum reached within the tolerance threshold). This metric effectively maps the optimization landscape to the unit interval [0 , 1] , where 1 represents initialization and 0 represents convergence. 
+
+Results. Figure 6 illustrates the mean convergence profile ( ± standard deviation) across four distinct benchmarks: Cora, CiteSeer, PubMed, and Texas. The empirical results reveal a consistent "fast-decay" profile across all datasets, independent of the graph’s homophily or size: • Rapid Descent: The solver achieves the majority of the optimization gain within the first 
+
+3 to 5 iterations . The steep initial drop indicates that the objective function J(α) is well-behaved and that the gradient signal effectively guides the transport plan α toward the optimal configuration. • Low Variance: The narrow shaded regions (standard deviation) indicate that this conver-gence speed is robust. Regardless of whether a node resides in a dense community (Cora) or a sparse heterophilic bottleneck (Texas), the optimization complexity remains predictably low. • Stability: Beyond 6 iterations, the updates become negligible ( < 10 −4), confirming that setting a low maximum iteration cap (e.g., kiter ≈ 10 ) in the complexity term O(n · kiter ·
+
+d2
+
+> max
+
+) is sufficient for high-fidelity curvature estimation. This empirical evidence supports our claim that the computational overhead of Entropic Curvature is dominated by neighborhood discovery rather than the optimization step itself, making it scalable to large graph datasets. A critical observation from Figure 6 is that the convergence speed is effectively invariant to graph homophily. The solver converges just as rapidly for the disordered, heterophilic graphs as it does for structured, homophilic citation networks. This proves that the optimization landscape of the local entropic functional remains well-behaved even in the presence of noisy or fractured local topologies, distinguishing it from spectral approximations that often degrade on graphs with poor expansion properties. 
+
+## N Implementation of Entropic Structural Encodings 
+
+In this section, we detail the implementation of the structural encodings used in our comparative analysis. All curvature computations were pre-processed and cached to ensure training efficiency. 
+
+N.1 Entropic Structural Encoding (ENT) 
+
+Our proposed method computes the Weak Entropic Curvature κw(u) for every node u using the exact optimization procedure described in Section 6. To capture the local geometric context, we 35 construct a 3-dimensional signature vector pENT  
+
+> u
+
+consisting of the node’s curvature and the extrema of its neighbors: 
+
+pENT  
+
+> u
+
+=
+
+
+
+κw(u), min   
+
+> v∈N (u)
+
+κw(v), max   
+
+> v∈N (u)
+
+κw(v)
+
+⊤
+
+(31) Our choice of a 3-dimensional signature pENT  
+
+> u
+
+, i.e., focusing on κw(u) and the neighborhood extrema, is deliberate. By explicitly encoding the minimum ( min κw) and maximum ( max κw) curvature of the neighbors, the signature captures the geometric gradient, or anisotropy, of the local manifold. This differentiates nodes that sit on the boundary of a cluster (high max, low min) from those deep within a clique (high max, high min). Crucially, this 3D representation is more compact than the 5D statistical vector used in LCP [ 27 ], reducing the risk of overfitting on small, data-scarce heterophilic datasets like Texas and Cornell while retaining the essential topological signal. 
+
+N.2 Baseline Implementations 
+
+We compare our method against the following structural and positional encodings. 
+
+1. Local Curvature Profiles (LCP). Following the standard implementation [ 27 ], LCP augments node features with statistics derived from the discrete Ollivier-Ricci Curvature (ORC). • Computation: We compute the exact ORC for every edge (u, v ) in the graph using the 
+
+GraphRicciCurvature library. The transport cost is defined based on the shortest path distance between neighbors. • Encoding: For each node u, we aggregate the curvature values of all incident edges 
+
+Eu = {κORC (u, v ) | v ∈ N (u)}. The resulting feature vector pLCP  
+
+> u
+
+∈ R5 consists of the following statistics: 
+
+pLCP  
+
+> u
+
+= [min( Eu), max( Eu), mean (Eu), std (Eu), median (Eu)] ⊤
+
+Nodes with no neighbors are assigned a zero vector. 
+
+2. Laplacian Positional Encodings (LAPE). We compute the graph Laplacian L = I −
+
+D−1/2AD −1/2. The positional encoding is formed by the k smallest non-trivial eigenvectors of L. These eigenvectors capture the low-frequency modes of the graph, preserving global distance information. 
+
+3. Random Walk Positional Encodings (RWPE). RWPE captures the structural role of a node by examining the probability of a random walker returning to itself. The encoding pRWPE  
+
+> u
+
+∈ Rk is defined by the diagonal entries of the random walk diffusion matrix at various steps: 
+
+pRWPE  
+
+> u
+
+= P1
+
+> uu
+
+, P2
+
+> uu
+
+, . . . , Pkuu 
+
+⊤
+
+where P = D−1A is the transition matrix. This encoding effectively characterizes the local expansion properties around each node. 
+
+4. Ego-Network Encodings (EGO). This baseline relies on explicit structural feature extraction. For each node u, we extract its k-hop ego network and compute classic graph theoretic invariants, such as node degree, number of edges, and clustering coefficient, to serve as the structural signature. 
+
+## O Alternative Generator Constructions 
+
+In this section, we detail the construction of reversible generators for general and concentrated measures, extending the standard uniform case presented in Section 3. 
+
+Example 2 (General Positive Measure) . For an arbitrary strictly positive measure m(·) > 0, we can satisfy reversibility by defining the off-diagonal terms as follows, 
+
+L(u, v ) = 1{u,v }∈E 
+
+ m(v)
+
+m(u)
+
+1/2
+
+. (32) Finally, we consider the case where we wish to concentrate the measure on a specific subset C ⊂ V .Defining m strictly as the indicator function mC = 1C is theoretically prohibitive, as m must be strictly 36 positive to define a valid inner product space. Furthermore, if C is not connected (i.e., non-convex), a valid irreducible generator cannot exist on the support. We define a smoothed approximation mϵ ≃ mC ,which yields a Metropolis-Hastings style generator. 
+
+Example 3 (Concentrated Measure Approximation) . Let the target measure be approximated by 
+
+mϵ(u) = max( 1C (u), ϵ ) where 0 < ϵ ≪ 1. The generator L satisfying reversibility is given by, 
+
+L(u, v ) = 1{u,v }∈E · min 
+
+
+
+1, mϵ(v)
+
+mϵ(u)
+
+
+
+. (33) 
+
+## P Interpretation of Graph Generators and Reference Measures Graph  1             
+
+> m(u) = 1
+> (Uniform)
+> m(u) ed(u, u 0)2
+> (Gaussian)
+> m(u) 1 (u)
+> (Concentrated)
+> m(u) = deg(u)
+> (Degree)
+> Graph  2Graph  3
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> Node Measure m(u)
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> Edge Weight L(u, v)
+> Impact of Measure m on Graph Generator L
+
+Figure 7: Geometric reconfiguration via mass distribution. Changing the reference measure m
+
+fundamentally alters the graph’s diffusion dynamics. The choice of the reference measure m and the resulting generator L is a defining feature of the entropic curvature framework, as it dictates the geometry of the mass across the graph. Unlike standard curvature metrics that are fixed by the adjacency matrix, our framework allows the geometry to be modulated by a functional prior. 
+
+P.1 Thermodynamic Interpretation of Generators 
+
+The detailed balance condition m(u)L(u, v ) = m(v)L(v, u ) ensures that the process is reversible with respect to m. From a thermodynamic perspective, m represents the steady-state distribution or the capacity of nodes. • Uniform Measure ( m = 1 ): Corresponds to a flat thermodynamic prior where every node has equal capacity. The resulting generator L0 is the standard combinatorial Laplacian, where information flow is driven purely by the topological connectivity. • Degree-Based Measure ( m = deg ): Aligns the geometry with the graph’s natural connec-tivity. This measure typically smooths out the influence of high-degree hubs, as the cost of moving mass is normalized by the node’s local popularity. • Concentrated/Gaussian Measure: When m is concentrated on a subset C (as seen in Figure 7), the generator L behaves like a potential well . Edges leading toward the concentration center are strengthened (higher jump rates), while edges leading away are penalized . This effectively creates a geometric drift in the Wasserstein geodesics. 37 P.2 Impact of Measure m on Generator L
+
+Figure 7 visualizes how varying the reference measure m fundamentally reconfigures the edge weights 
+
+L(u, v ) across three different graph topologies ( G1, G2, G3). • Column 1 (Uniform): The edge weights are binary ( 0 or 1), representing the raw topology where entropic curvature identifies structural bottlenecks like bridges in the Barbell graph. • Column 2 (Gaussian): By centering a Gaussian measure m(u) ∝ e−d(u,u 0)2
+
+at a specific node u0, the graph is transformed into a localized metric space . The curvature is now highest near the center u0 and decays as one moves toward the periphery, effectively cooling the message-passing in the center to preserve local feature distinctness. • Column 3 (Concentrated): Using the indicator approximation mϵ ≃ 1C , we observe a sharp transition in the generator weights. Edges within the community C maintain high weights, while boundary edges are attenuated. This illustrates how entropic curvature can be used to isolate communities by creating artificial geometric boundaries that prevent feature oversmoothing across distinct clusters. • Column 4 (Degree): Weighting by degree regularizes the influence of hubs. In dense graphs like G3, this choice spreads the entropic pressure more evenly, preventing the exponential collapse of variance typically seen in high-degree expanders. 
+
+## Q Complexity Analysis 
+
+In this section, we analyze the computational complexity of the Entropic Curvature Algorithm, c.f., Algorithm 2. Let G = ( V, E) be a graph with n = |V| nodes and maximum degree dmax . The computation of the Local Weak Entropic Curvature is a node-wise operation. We distinguish between the general setting involving arbitrary generators and the simplified case of standard unweighted graphs, i.e., L = L0.
+
+Q.1 The General Case of Arbitrary Generator L and Mass m
+
+For an arbitrary generator L and measure m, computing the curvature at a node z requires solving a constrained maximization problem over the probability simplex. This process involves three steps: • Step 1 - Neighborhood Discovery: We need to identify the 1-hop neighborhood S1(z)
+
+and the 2-hop neighborhood S2(z). In the worst case, |S1(z)| ≤ dmax and |S2(z)| ≤ d2
+
+> max
+
+,yielding a complexity cost of O(d2
+
+> max
+
+) for the discovery. For the optimization step, we must identify the set of midpoints ]z, w [= S 1(z) ∩ S1(w) for every w ∈ S2(z). There are up to 
+
+d2 
+
+> max
+
+nodes in S2(z), and finding the intersection of two sorted neighbor lists for a single pair takes O(dmax ). Therefore, the overall complexity of computing all midpoint sets is O(d3
+
+> max
+
+).• Step 2 - Calculation of the coefficients: The algorithm computes the transport coefficients 
+
+l(z, u, w ) for all the paths z → u → w, where u ∈ S1(z) and w ∈ S2(z). This step requires iterating through potential paths in the local neighborhood, scaling as O(d3
+
+> max
+
+) in dense subgraphs. • Step 3 - Optimization: The core computation is determining sup α J(α) using Sequential Least Squares Programming (SLSQP) [ 54 ]. The complexity of this iterative procedure is given by O(kiter · Cstep ) where kiter is the number of iterations required for convergence, and 
+
+Cstep is the cost of computing the objective function and its gradient over the simplex. The cost per iteration, Cstep , is directly determined by the output of Steps 1 and 2. Evaluating the objective function J(α) requires summing over the 2-hop neighborhood S2(z), i.e, identified in Step 1, and accessing the precomputed sparse coefficients l(z, u, w ), i.e., calculated in Step 2. Consequently, by aggregating the costs of neighborhood discovery, coefficient precomputation, and the iterative optimization, the overall complexity to compute the local entropic curvature for a single node z is O(d3 
+
+> max
+
++ kiter · d2
+
+> max
+
+). To obtain the global weak entropic curvature κw(G), the algorithm must execute this procedure for every node z ∈ V , continuously tracking the minimum curvature value observed. Therefore, the total time complexity for the entire graph is O(n · (d3 
+
+> max
+
++ kiter · d2
+
+> max
+
+)) .38 Q.2 The Simplified Case of L = L0 and m = m0
+
+In the standard unweighted setting where the generator is L0, defined as L0(z, z ′) = 1 z∼z′ , and the measure m0 is uniform, the computational complexity is significantly reduced. Crucially, Step 2 (Calculation of coefficients) is significantly simplified since the transition weights are binary. The transport coefficients ℓ(z, u, w ) reduce to a uniform fraction over shared midpoints: 
+
+ℓ(z, u, w ) = L0(z, u )L0(u, w )
+
+L(2) 0 (z, w ) = 1
+
+|MG (z, w )| ,
+
+where L(2) 0 (z, w ) = |MG (z, w )| denotes the 2-step transition weight, i.e., the number of shared midpoints between z and w. Note that ℓ(z, u, w ) = 1 only when the two-hop path z → u → w is unique. In the general unweighted case, the coefficients are 1/|MG (z, w )|, which are precomputed in 
+
+O(d2max ) by counting shared neighbors. Since these coefficients are rational constants requiring no floating-point solver, Step 2 reduces to an O(d2max ) table construction rather than the full O(d3max )
+
+cost of the general case. This simplification substantially reduces the precomputation cost. Consequently, the algorithm proceeds directly from Neighborhood Discovery (Step 1) to Optimization (Step 3). While the optimization must still be performed iteratively (e.g., using SLSQP), the objective function evaluation is streamlined as it no longer requires retrieving stored coefficient tensors. The global complexity to compute the local weak entropic curvature in the simplified case is O(n · (d2 
+
+> max
+
++ kiter · d2
+
+> max
+
+)) = 
+
+O(n · kiter · d2
+
+> max
+
+), since the coefficient precomputation is O(d2max ) per node and is dominated by the optimization step. 
+
+Q.3 Empirical Complexity 
+
+To complement our theoretical analysis, we empirically evaluate the runtime performance of the Weak Entropic Curvature algorithm, c.f., Algorithm 2. We utilize Stochastic Block Models (SBM) to generate synthetic graphs of varying sizes [ 36 ], allowing us to systematically control the number of nodes |V| . This setup enables us to benchmark the scalability of our approach across both the general case, i.e., arbitrary L, m , and the simplified case, i.e., L = L0, m = m0. Given intra-community edge probability p and inter-community probability q, the expected number of edges is given by 
+
+E[|E| ] = n 
+
+> 2
+
+[( nk − 1) p + ( n − nk )q], while the expected degree is E[d] = nk p + ( n − nk )q, where 
+
+n = V| . By fixing the ratio of p and q, we benchmark the scalability of our approach across both the general case (arbitrary L, m ) and the simplified case ( L = L0, m = m0). We measure the average time required to compute the global curvature κw(G) as the graph size increases. The results, summarized in Table 4, highlight the practical computational efficiency gained in the simplified regime due to the elimination of the coefficient precomputation step. Table 4: Empirical runtime comparison (in seconds) for computing global Weak Entropic Curvature on SBM ( k = 2 ). We vary |V| and set p, q to target specific maximum degrees dmax .
+
+Graph Statistics SBM Parameters Execution Time (s) 
+
+|V| E[|E| ] dmax p q Simplified ( L0, m0) General ( L, m)
+
+1,000 5,000 ≈ 10 0.015 0.005 35.770 406.997 1,000 15,000 ≈ 30 0.040 0.020 1471.913 4903.886 2,000 20,000 ≈ 20 0.015 0.005 485.642 5400.812 2,000 50,000 ≈ 50 0.040 0.010 13142.537 38427.988 5,000 75,000 ≈ 30 0.010 0.002 4080.36 39804.04 10,000 250,000 ≈ 50 0.008 0.002 36029.70 335796.21 
+
+Q.4 Comparison with other Curvatures 
+
+We compare the complexity of Entropic Curvature against established discrete curvature notions in Table 5. 39 • Forman Curvature is computed by summing the weighted contributions of the edges immediately incident to a target link’s endpoints, resulting in a linear complexity of O(dmax )
+
+per edge. • Ollivier-Ricci Curvature requires solving the Earth Mover’s Distance (Optimal Transport) problem between neighborhood measures. • Balanced Forman Curvature is computed by augmenting the standard Forman curvature formula with additional terms that account for triangles (3-cycles) and 4-cycles (squares) rooted at the edge, effectively capturing the local flatness of the graph geometry. Our Entropic formulation shares the same complexity class as Ollivier-Ricci. We note that for the general weighted case the objective J(α) is a product-of-ratios functional that is log-concave in 
+
+α on the simplex, admitting efficient gradient-based optimization via SLSQP. For the simplified unweighted case the objective reduces (via the Motzkin-Straus connection) to a quadratic form 
+
+α⊤Az α whose matrix Az may be indefinite; SLSQP is therefore applied as a local solver and finds global optima in practice due to the simplex constraint structure, but theoretical global optimality in this case relies on the Motzkin-Straus theorem rather than concavity alone. In all experiments, convergence to the global optimum was confirmed by comparison with brute-force enumeration on small instances. Table 5: Complexity comparison of discrete graph curvatures. n = |V| : number of nodes, m = |E| :number of edges, ∆: max degree. The per-node complexity for Weak Entropic (Ours) refers to the simplified unweighted case ( L = L0); the general weighted case has per-node complexity 
+
+O(d3 
+
+> max
+
++ kiter · d2
+
+> max
+
+).                                
+
+> Curvature Metric Definition Basis Per-Node Complexity Per-Edge Complexity Global Complexity Forman [31] Combinatorial −O(dmax )O(m·dmax )
+> Ollivier-Ricci [55] Optimal Transport −O(d3
+> max )O(m·d3
+> max )
+> Balanced Forman [67] Combinatorial −O(d2
+> max )O(m·d2
+> max )
+> Weak Entropic (Ours, simplified) Optimization O(kiter ·d2
+> max )−O(n·kiter ·d2
+> max )
+
+Moreover, unlike global spectral methods, e.g., Eigen-decomposition, which are difficult to parallelize effectively, our Entropic Curvature computation is node-wise independent, making it embarrassingly parallelizable . On large-scale graphs, this allows the runtime to scale linearly with the number of available CPU cores. Furthermore, unlike the Ollivier-Ricci curvature, which requires solving a Linear Programming, e.g.,Earth Mover’s Distance (EMD), problem at every edge, our formulation relies on a smooth concave maximization. This structure allows the use of gradient-based solvers, like SLSQP, which are often numerically more stable and faster in wall-clock time than the simplex or interior-point methods required for EMD. 
+
+## R Additional Experiments 
+
+In this appendix, we report additional experiments referenced in Section 6. 
+
+R.1 Graph Classification 
+
+While our theory is stated for the node-classification setting, both E-Gate and ENT extend to graph classification by precomputing κw on each graph in the training set. We evaluate on TUDataset [ 50 ](MUTAG, PROTEINS, IMDB-B, NCI1; 10-fold CV with the standard split). The protocol follows the recommendations of [50]: 4-layer backbone, hidden dimension 64, mean-readout, 10 seeds. We compare against GCN, GIN, SAGPool, LCP [27], and SDRF [67]. 
+
+R.2 Ablations 
+
+Table 7 ablates: (i) the functional form of R(u) (exponential, sigmoid, linear), (ii) whether τ is learned or fixed, (iii) replacing κw with degree, with Ollivier–Ricci edge-min, or with random Gaussian noise (parameter-count control), and (iv) the dimension of the ENT signature (1D, 3D, 5D). 40 Table 6: Graph classification on TUDataset (10-fold CV, accuracy %). E-Gate is applied per-layer; the curvature signature is precomputed once on the union of training graphs. Bold : best per column. 
+
+Method MUTAG PROTEINS IMDB-B NCI1 GCN 85.60 ± 1.20 71.97 ± 4.42 72.30 ± 4.15 74.20 ± 0.50 GIN 88.41 ± 0.89 71.72 ± 0.59 74.20 ± 3.70 76.55 ± 0.44 SAGPool 75.71 ± 1.76 70.80 ± 1.23 70.01 ± 4.52 74.10 ± 1.10 LCP 90.17 ± 1.01 72.80 ± 1.15 74.80 ± 3.10 76.20 ± 0.60 SDRF 82.35 ± 1.77 71.50 ± 1.05 73.10 ± 3.90 75.80 ± 0.75 GCN + E-Gate (ours) 86.50 ± 1.10 72.50 ± 0.95 74.15 ± 3.50 75.10 ± 0.65 GIN + E-Gate (ours) 88.20 ± 0.76 70.58 ± 1.33 75.30 ± 3.20 76.45 ± 0.30 GIN + MCR (ours) 73.87 ± 1.57 72.19 ± 0.80 74.50 ± 3.60 74.51 ± 0.38 GIN + MCR + E-Gate (ours) 75.22 ± 1.46 73.18 ± 0.60 75.90 ± 2.80 77.10 ± 0.42 
+
+ENT-encoding (ours) 87.10 ± 1.40 71.80 ± 1.10 73.80 ± 4.10 75.50 ± 0.55 
+
+Table 7: Ablations on the E-Gate mechanism and ENT signature using a GCN backbone across four datasets (10 seeds). The ∆ columns indicate the change in accuracy percentage points relative to the sigmoid gate mechanism. Default settings for the signature are highlighted in gray.                                                                                                                                                                    
+
+> Wisconsin Texas Cora CiteSeer Variant Acc. (%) ∆Acc. (%) ∆Acc. (%) ∆Acc. (%) ∆
+> Default: R(u) = σ(−τ κ w)(sigmoid) 51.57 ±7.55 —52.97 ±9.76 —88.21 ±1.38 —76.67 ±1.38 —
+> exp( −τ κ w)48.63 ±6.37 −2.94 50.27 ±8.48 −2.16 87.97 ±1.56 −0.24 76.64 ±1.58 +0 .57
+> R(u) = 1 −τ κ w(linear) 49.41 ±7.17 −2.16 52.43 ±8.39 −0.54 87.99 ±1.12 −0.22 76.07 ±1.65 −0.60
+> τfixed at 1.048.63 ±6.37 −2.94 45.68 ±8.24 −6.75 75.31 ±2.08 −12 .90 65.87 ±1.43 −10 .20
+> τfixed at 0.551.76 ±3.94 +0 .19 48.65 ±7.55 −3.78 84.19 ±1.36 −4.02 72.55 ±1.44 −3.52
+> ENT signature: 1D ( κwonly) 50.78 ±7.36 −0.79 52.43 ±10.62 −0.54 87.90 ±1.21 −0.31 76.37 ±1.47 +0 .30
+> ENT signature: 3D (default, κw(u)+min /max over N(u))48.43 ±7.13 −3.14 52.43 ±8.65 −0.54 87.03 ±1.03 −1.18 76.29 ±1.39 +0 .22
+> ENT signature: 5D (3D + mean + std over N(u))52.75 ±6.82 +1 .18 52.16 ±7.26 −0.81 87.42 ±1.19 −0.79 76.20 ±1.34 +0 .13
+
+Ablations (i)–(iii) directly test whether the global, transport-based nature of κw is what is doing the work; (iv) tests whether the 3-D summary used in the main paper is sufficient. 
+
+## S Entropic Curvature and Oversmoothing 
+
+Oversmoothing refers to the progressive collapse of node representations in deep GNNs, where repeated aggregation drives features toward indistinguishable vectors [ 43 , 14 ]. Prior work has related this to local graph curvature notions such as Ollivier–Ricci and Forman curvature [ 52 , 67 , 28 ]. We show that the same geometric intuition extends to entropic curvature, but now through global functional inequalities rather than local edge comparisons. The key object is the one-sided Dirichlet energy E(f ) := R 
+
+> V
+
+sup v∼u[f (u) − f (v)] 2+ dμ (u), which measures the amount of local variation remaining in a graph signal. Theorem S.1 gives a global certificate for feature collapse: when local aggregation reduces the Dirichlet energy, the total feature variance is forced to decrease, with a rate controlled by the curvature lower bound. Larger positive κw tightens this control, meaning that high-curvature regions are more susceptible to rapid homogenization under repeated smoothing. Unlike spectral-gap results derived from Ollivier–Ricci curvature [ 52 ], this bound applies directly to arbitrary graph signals and therefore to intermediate GNN representations. 
+
+Theorem S.1 (Poincaré-type Inequality under Positive Entropic Curvature; Proof in Appendix J) . Let 
+
+(V, d, m, L) be a finite connected graph space with κw > 0, and let μ := m/m(V). For any graph signal f : V → R, we have Var μ(f ) ≤ 1
+
+> κw
+
+R 
+
+> V
+
+sup v∼u[f (u) − f (v)] 2+ dμ(u).
+
+The complementary question is what happens in negatively curved regions, which are typical in sparse graphs with strong expansion by Theorem 4.2. In this regime, the geometry has the opposite effect: expansion creates many directions for mass to spread, yielding a lower bound on feature variance whenever local variation remains. 
+
+Theorem S.2 (Inequality under Negative Entropic Curvature; Proof in Appendix K) . Let (V, d, m, L)
+
+be a finite connected graph space with weak entropic curvature bounded below by κw ≥ − K for some K > 0, and let μ := m/m(V). Let D := max u,v ∈V d(u, v ) denote the graph diameter. Then for any graph signal f : V → R, we have Var μ(f ) ≥ e−KD 2/2
+
+> K
+
+R 
+
+> V
+
+sup v∼u[f (v) − f (u)] 2+ dμ (u).
+
+41 T Limitations and Open Directions 
+
+In this appendix we expand on the limitations and open directions of our framework, covering both the theoretical assumptions and the experimental scope. 
+
+(L1) Reference-measure dependence. The weak entropic curvature κw depends on the choice of reference measure m and the corresponding generator L (Section 3). Throughout, we work with the canonical uniform pair (m0, L0), which makes κw a pure function of the graph topology. Appendices O and P give the construction of generators under more general positive measures and concentrated approximations. A natural open direction is to learn the measure m that maximises κw
+
+jointly with the GNN parameters, which would clarify how global mass distribution interacts with curvature and could guide curvature-aware learning algorithms. 
+
+(L2) Choice of W1 vs. W2. Following [ 60 ], we use W1-Wasserstein geodesics rather than W2,since on finite graphs W1-geodesics admit a tractable LP characterization while W2-geodesics generally lack a combinatorial interpretation. On smooth manifolds the two are equivalent for Ricci-bound characterisation [ 46 ]; in the discrete regime they may differ by constants, and a systematic comparison is interesting future work. 
+
+Open directions. Beyond addressing the above limitations, we view three directions as particularly promising: (i) curvature-aware curriculum learning on evolving graphs (where κw tracks the geometry of incoming subgraphs); (ii) using κw as a principled regulariser for large-scale graph foundation models; and (iii) integrating the entropic-curvature framework with Schrödinger-bridge formulations of GNN dynamics, which would generalise both E-Gate and MCR into a single optimal-transport-based message-passing primitive. 42

@@ -1,0 +1,5124 @@
+Title: Langevin for Nonconvex Optimization: Exact, Inexact and Zeroth-Order
+
+URL Source: https://arxiv.org/pdf/2607.22353v1
+
+Published Time: Mon, 27 Jul 2026 00:50:16 GMT
+
+Number of Pages: 50
+
+Markdown Content:
+# Langevin for Nonconvex Optimization: Exact, Inexact and Zeroth-Order 
+
+## Emanuele Naldi ∗ Marco Rando † Lorenzo Rosasco ‡ Silvia Villa ∗
+
+Abstract 
+
+We study Langevin-based methods for non-convex optimization under smoothness and dissipativ-ity assumptions. Our focus is on obtaining non-asymptotic bounds for the expected excess risk rather than sampling guarantees for the full target distribution. The key ingredient of our analysis is a direct passage from relative entropy to objective-value error, based on a weighted Csisz´ ar–Kullback–Pinsker inequality and exponential-moment estimates. This avoids intermediate Wasserstein bounds and yields sharper dependence on the Log-Sobolev constant, a quantity that may scale exponentially with the in-verse temperature and the dimension in non-convex problems. We first analyze the Unadjusted Langevin Algorithm with exact gradients and derive explicit bounds on E[F (xk )] − min F in terms of the inverse temperature, dimension, stepsize, smoothness and dissipativity parameters, and the Log-Sobolev con-stant. We then extend the result to an inexact-gradient version of ULA, allowing for biased and stochastic gradient surrogates whose mean-square error grows at most quadratically in the state. This framework covers stochastic gradients and zeroth-order estimators based only on function evaluations. In particular, we show that both Gaussian and spherical finite-difference estimators fit into the inexact-ULA theory and obtain explicit function-evaluation complexity bounds for zeroth-order Langevin optimization. To the best of our knowledge, these are the first non-asymptotic global non-convex optimization complexity bounds for zeroth-order ULA. We also provide numerical experiments illustrating the behavior of the proposed zeroth-order Langevin schemes. 
+
+# 1 Introduction 
+
+Non-convex optimization is a central problem in modern machine learning, statistics, signal processing, inverse problems, and many other applications. In this setting, classical descent methods may be trapped by local geometry, while global optimization requires mechanisms that can explore the landscape beyond a single basin of attraction. In full generality this task suffers from the curse of dimensionality: for black-box Lipschitz functions on a compact subset of Rd, worst-case accuracy ϵ requires a number of function evaluations of order (L/ϵ )d [10, 53]. This motivates the search for more structured assumptions and algorithms, under which different and more informative complexity bounds can be obtained. Classical direct-search and random-search methods provide a general framework for derivative-free problems [19]. Under suitable regularity assumptions, these methods admit convergence guarantees, typically formulated in terms of stationarity or local optimality [1], or probabilistic convergence [71]. However, global black-box guarantees remain subject to the curse-of-dimensionality phenomenon described above. Another important family is given by consensus-based optimization and related swarm methods [60, 11, 31]. These methods evolve a population of interacting particles which explore the space stochastically while being attracted toward a consensus point, typically a Laplace-principle weighted average favoring low objective values. Recent theory establishes global convergence and constrained variants under suitable assumptions on the objective, the particle system, and the consensus mechanism [31, 4], and related work connects consensus dynamics with evolution strategies [30]. 
+
+> ∗MaLGa - DIMA, University of Genova, Genova, IT
+> †Universit´ e Cˆ ote d’Azur, INRIA, CNRS, LJAD, Nice, FR
+> ‡MaLGa - DIBRIS, University of Genova, Genova, IT; Istituto Italiano di Tecnologia, Genova, IT and CBMM - MIT, Cambridge, MA, USA
+
+1arXiv:2607.22353v1 [math.OC] 24 Jul 2026 Other related methods include recent zeroth-order proximal-point schemes, where the standard proximal map is replaced by a Gibbs-weighted local average of function values, thereby favoring regions with small objective values [56], with convergence guarantees to global minima [77], as well as the Proximal Basin Hopping algorithm [47], which combines proximal optimization with local minimization to obtain high-probability convergence to the global minimizer with finite samples. When first-order information is available, a classical stochastic approach to global non-convex optimiza-tion is simulated annealing. Its early theory established asymptotic convergence to global minimizers under logarithmic cooling schedules [33, 18, 40]. More recent works provide quantitative high-probability bounds for objective-value errors, both in continuous and discrete time [73, 72]. These guarantees are genuinely global, but their assumptions often rely on isolated global minima and a detailed metastable description of the energy landscape, involving wells, communication heights, saddle points, and the critical depth E∗; see also the metastability literature [9, 8]. This is complementary to the framework pursued in this paper. We do not design a cooling schedule, and we do not assume explicit knowledge of wells, barriers, or critical depths. Instead, we study fixed-temperature Langevin algorithms under smoothness and dissipativity, compressing the global geometry into functional-inequality constants. Given an objective function F : Rd → R and an inverse temperature β > 0, the Langevin diffusion 
+
+dX t = −∇ F (Xt) dt + p2β−1 dB t
+
+combines deterministic descent with isotropic stochastic exploration. Under suitable assumptions, its invari-ant measure is the Gibbs distribution πβ defined by 
+
+dπ β = Z−1e−βF dx, Z =
+
+Z
+
+> Rd
+
+e−βF (y) dy. (1) As β increases, πβ concentrates near the global minimizers of F , so approximate sampling from πβ can be used as a global optimization principle. In contrast with simulated annealing, where the temperature is decreased over time, we consider fixed-temperature Langevin algorithms and choose β large enough to make the Gibbs bias compatible with the target optimization accuracy. The algorithmic object we study is the Unadjusted Langevin Algorithm (ULA), 
+
+xk+1 = xk − γ∇F (xk) + p2γβ −1 zk, zk ∼ N (0 , I d),
+
+together with its inexact, stochastic, and zeroth-order variants. The non-asymptotic analysis of Langevin methods for non-convex optimization was systematically developed by Raginsky, Rakhlin and Telgarsky [61], who obtained guarantees under smoothness and dissipativity by combining sampling estimates with Gibbs concentration bounds. Subsequent works refined this program in several directions: direct discrete-time analyses for Langevin-based non-convex optimization [76], Cheeger-type and total-variation approaches for non-log-concave sampling [78], variance-reduced Langevin dynamics [45], and Lyapunov-potential meth-ods yielding high-probability hitting-time guarantees [14]. Closely related sampling results analyze ULA through functional inequalities, isoperimetry, or tail-growth conditions [74, 17, 28]. Other non-log-concave sampling analyses obtain convergence rates under stronger geometric assumptions, such as strong convexity or contractivity outside a compact set [16, 52], while further works study weakly smooth regimes, station-arity guarantees, or nonsmooth extensions [3, 58, 44]. Classical and log-concave ULA analyses, including inaccurate-gradient variants, provide important background [68, 20, 25, 21]. Zeroth-order Langevin methods have also been studied mainly from a sampling perspective [69]. The quantitative analysis is delicate because of the competition between optimization bias and mixing. Taking β large improves the Gibbs concentration around global minimizers, but it also makes the dynamics less noisy and may dramatically slow convergence to equilibrium. In non-convex landscapes, this difficulty is encoded in functional inequality constants such as the logarithmic Sobolev constant CLS (β, d ), which may depend exponentially on both β and the dimension. Most existing Langevin optimization guarantees are derived from sampling guarantees: one first bounds a distance between the law of the algorithm and the Gibbs measure, typically in Wasserstein distance, total variation, or KL divergence, and then converts this 2distributional estimate into an objective-value bound. While natural, this route may lose important factors when the final goal is optimization rather than sampling. The main point of this paper is to control directly 
+
+E[F (xk)] − min F
+
+under smoothness and dissipativity assumptions. We exploit the quadratic growth implied by these assump-tions through a weighted Csisz´ ar–Kullback–Pinsker inequality, together with exponential-moment estimates for the involved measure, to pass directly from KL divergence to objective-value error. This avoids an intermediate Wasserstein step and yields sharper dependence on the dominant geometric quantity CLS (β, d ). We first carry out this program for exact-gradient ULA, proving an explicit non-asymptotic bound on 
+
+E[F (xk)] − min F which tracks the dependence on β, d, the structural constants of F , the stepsize, and 
+
+CLS (β, d ). Optimizing the parameters gives the iteration complexity ˜O
+
+ β2d C LS (β, d )2
+
+ϵ2
+
+
+
+.
+
+The key feature is the quadratic dependence on CLS (β, d ), improving over bounds obtained by first controlling Wasserstein-type distances. We then extend the analysis to an inexact-gradient version of ULA, where 
+
+∇F (x) is replaced by a possibly biased stochastic surrogate g(x, ξ ). Our oracle assumption is flexible, covering bounded-variance stochastic gradients, mini-batch gradients, biased deterministic approximations, and finite-difference estimators. As applications, we derive stochastic-gradient and zeroth-order Langevin optimization guarantees. The zeroth-order part is a central contribution of the paper. We consider both Gaussian and spherical finite-difference estimators, which are naturally biased because they approximate gradients of smoothed objectives and also introduce variance through random directions. We show that both estimators satisfy the quadratic-growth error condition required by our inexact-ULA theory and obtain explicit function-evaluation com-plexity bounds for the resulting zeroth-order Langevin algorithms. To the best of our knowledge, these are the first non-asymptotic global non-convex optimization complexity bounds for zeroth-order ULA under the standard smooth dissipative assumptions. Our analysis may also be relevant beyond global optimization, in particular for Langevin-based Plug-and-Play (PnP) [48, 49, 46, 7] and proximal sampling methods in imaging inverse problems [38, 27, 37, 67]. The techniques developed here may also provide new insights into noisy zeroth-order optimization [57, 34, 23, 65, 66, 63, 64] and can be applied in future work on standard applications of zeroth-order optimization [15, 62, 54, 70]. The rest of the paper is organized as follows. Section 2 studies exact-gradient ULA and proves the main excess-risk bound. Section 3 develops the inexact-gradient theory, including stability of the iterates and propagation of gradient approximation errors. Section 4 applies the framework to mini-batch and zeroth-order Langevin algorithms. Detailed comparisons with existing bounds are given throughout the paper and in the appendices. 
+
+## 1.1 Notations 
+
+Throughout the paper, we employ standard asymptotic notation to characterize parameter choices and algorithmic complexity. For real-valued functions f (x) and g(x), we write: 
+
+• f (x) = O(g(x)) if there exist a constant c > 0 and x0 such that |f (x)| ≤ c|g(x)| for all x ≥ x0.
+
+• f (x) = Θ( g(x)) if there exist constants c1 > 0, c2 > 0, and x0 such that c1|g(x)| ≤ | f (x)| ≤ c2|g(x)|
+
+for all x ≥ x0.
+
+• f (x) = ˜O(g(x)) to denote an asymptotic upper bound that suppresses polylogarithmic factors, meaning 
+
+f (x) = O(g(x) log k(g(x))) for some integer k ≥ 0. 
+
+• f (x) = ˜Θ( g(x)) to denote exact asymptotic order up to polylogarithmic factors, meaning f (x) = Θ( g(x) log k(g(x))) for some integer k ≥ 0. 32 Langevin for non-convex optimization 
+
+We begin with the exact-gradient setting. Let min 
+
+> x∈Rd
+
+F (x) (2) be the optimization problem of interest. Throughout this section, F is assumed to satisfy the smoothness and dissipativity assumptions stated below. For a fixed inverse temperature β > 0, we denote by πβ the associated Gibbs measure, defined as in (1). Our goal is to obtain a non-asymptotic bound on the expected excess risk of the Unadjusted Langevin Algorithm, rather than a sampling guarantee for the full distribution of the iterates. The algorithm is the Euler–Maruyama discretization of the overdamped Langevin diffusion and is given by 
+
+xk+1 = xk − γ∇F (xk) + p2γβ −1 zk, zk ∼ N (0 , I d).
+
+We denote by μk the law of xk. The main result of this section controls E[F (xk)] − min F by combining a KL convergence estimate for ULA with a direct KL-to-objective comparison. This avoids the intermediate Wasserstein step and is the source of the improved dependence on the Log-Sobolev constant. 
+
+Algorithm 1 Standard ULA 
+
+Input: x0 ∼ μ0, β, γ ∈ R+
+
+for k = 0 , 1, . . . do 
+
+sample an independent zk from N (0 , I d)
+
+xk+1 = xk − γ∇F (xk) + p2γβ −1zk
+
+end for 
+
+## 2.1 Assumptions and preliminary results 
+
+Under the following assumptions, the convergence of the Langevin dynamic and, specifically, bounds for the expected excess risk E[F (Xk)] − F ∗ have been analyzed in recent works such as [61, 76]. 
+
+Assumption 2.1 (F is smooth) . The function F is M -smooth; namely, it is continuously differentiable and its gradient is M -Lipschitz continuous: 
+
+(∀x, y ∈ Rd) ∥∇ F (x) − ∇ F (y)∥ ≤ M ∥x − y∥.
+
+Assumption 2.2 (F is dissipative) . The function F is (m, b )-dissipative; that is, for some constants m, b > 
+
+0,
+
+(∀x ∈ Rd) ⟨x, ∇F (x)⟩ ≥ m∥x∥2 − b. 
+
+Remark 2.1. Notice that under these hypothesis it has to hold M ≥ m.
+
+The dissipativity condition is the basic stability assumption in our work. It says that outside a sufficiently large ball the drift −∇ F (x) points back toward the origin, preventing the Langevin dynamics from escaping to infinity and ensuring confinement of the process. A canonical example is F (x) = λ 
+
+> 2
+
+∥x∥2 + ψ(x) where 
+
+λ > 0 and ∥∇ ψ∥∞ < ∞, which is dissipative even when ψ is non-convex. Dissipativity is weaker than other geometric assumptions often used in non-log-concave sampling, such as strong convexity outside a compact set, or related contractivity-at-infinity conditions [16, 26, 52]. In contrast, we follow the dissipative framework of [61]. We present here some useful results that apply to functions satisfying the previous Assumptions 2.1-2.2. We state the results for a general function f because we will apply them to different functions in the rest of the paper. The proofs are given in Appendix B.1. 
+
+Lemma 2.2. Let f be a function satisfying Assumption 2.1 (it is L-smooth) and Assumption 2.2 (it is 
+
+(m, b )-dissipative). Then f satisfies the following: 
+
+4(i) arg min 
+
+> x∈Rd
+
+f (x)̸ = ∅,(ii) for all x ∈ Rd it holds ∥∇ f (x)∥ ≤ L∥x∥ + B,(iii) for all x ∈ Rd it holds m 
+
+> 3
+
+∥x∥2 − b 
+
+> 2
+
+log 3 + C ≤ f (x) ≤ L 
+
+> 2
+
+∥x∥2 + B∥x∥ + A,where A = |f (0) |, B = ∥∇ f (0) ∥ and C = min 
+
+> x∈Rd
+
+f (x).
+
+Corollary 2.3. Let f : Rd → R satisfy Assumption 2.1 ( L-smooth) and Assumption 2.2 ( (m, b )-dissipative). Then for all x ∈ Rd,
+
+|f (x)| ≤ ¯L∥x∥2 + ¯A
+
+where ¯L = L+1 2 , ¯A = A + B2 
+
+> 2
+
++ |C|, and A, B, C are the constants from Lemma 2.2. 
+
+Remark 2.4. Notice that for any x∗ ∈ Rd such that ∇f (x∗) = 0 , we have that, by Assumption 2.2, 
+
+0 ≥ m∥x∗∥2 − b. In particular, all critical points of f are contained in a ball of radius 
+
+q bm and we have 
+
+∥∇ f (0) ∥ ≤ L∥x∗∥ ≤ L
+
+q bm .
+
+To perform our analysis, we also need the following assumption on the initialization. 
+
+Assumption 2.3. The starting distribution μ0 has a bounded, strictly positive density and satisfies 
+
+κ0 := 
+
+Z
+
+e∥x∥2
+
+dμ 0(x) < +∞.
+
+Consequently, because ∥x∥2 ≤ e∥x∥2
+
+and ∥x∥4 ≤ e∥x∥2
+
+for all x ∈ Rd, the distribution μ0 has finite second and fourth moments bounded by κ0, i.e., R ∥x∥2 dμ 0(x) ≤ κ0 and R ∥x∥4 dμ 0(x) ≤ κ0.
+
+Such an assumption has already been considered in other works (see e.g. [61, 76]) and it is satisfied, for instance, by assuming μ0 Gaussian. We finally recall that, under the assumptions of smoothness and dissipativity, the Gibbs measure πβ
+
+satisfies a Logarithmic Sobolev Inequality (LSI). While Raginsky et al. [61, Proposition 9] state the LSI result for potentials with merely Lipschitz continuous gradients (i.e., C1,1), their proof invokes [13], which necessitates a twice continuously differentiable ( C2) potential to pointwise bound the Hessian. To bridge this regularity gap, we provide a complete proof via mollification in Appendix A.1. 
+
+Proposition 2.5. Let the function F satisfy Assumptions 2.1 and 2.2 (specifically, let F be M -smooth and (m, b )-dissipative). Then, the Gibbs measure dπ β (x) = Z−1e−βF (x)dx satisfies a Logarithmic Sobolev Inequality with constant CLS (β, d ). That is, for all probability measures μ absolutely continuous with respect to πβ , the following inequality holds 
+
+KL( μ|| πβ ) ≤ 2CLS (β, d )
+
+Z
+
+> Rd
+
+∇
+
+s
+
+dμ dπ β
+
+> 2
+
+dπ β = CLS (β, d )2
+
+Z
+
+> Rd
+
+∇ log 
+
+ dμ dπ β
+
+ 2
+
+dμ. 
+
+The constant CLS (β, d ) governs the convergence of Langevin dynamics to the Gibbs measure. In non-convex landscapes, it may scale exponentially in β and d, reflecting metastability and the difficulty of crossing energy barriers. Therefore, even reducing the dependence from CLS (β, d )3 to CLS (β, d )2 removes an entire exponential factor. This motivates our focus on tracking the dependence on β, d, and CLS (β, d ) explicitly and on mitigating the impact of these exponential factors whenever possible. While many Langevin analyses are formulated as sampling guarantees, the precise dependence on these quantities is not always tracked at the level needed for optimization, nor is it necessarily optimal for objective-value guarantees. Since our goal is optimization rather than sampling, we control the expected excess risk E[F (xk)] − min F directly, avoiding Wasserstein-based intermediate bounds and obtaining sharper dependence on CLS (β, d ). 52.2 Main results 
+
+Our main result is the following theorem, together with the correspondent corollary. 
+
+Theorem 2.6. Suppose Assumptions 2.1, 2.2 hold. Let μ0 be a starting distribution that satisfies Assumption 2.3 and let 
+
+β ≥ max 
+
+
+
+d, 4
+
+m
+
+
+
+, γ ≤ 14βM 2 CLS (β, d ) .
+
+Let (xk)k∈N be a sequence of iterates generated by Algorithm 1. Then, we have 
+
+E[F (xk)] − min F ≤ C0(M + 1) 
+
+
+
+C1β e −kγ/ (2 β CLS (β,d )) + p8βM 2dγ CLS (β, d ) + 4 βM 2dγ CLS (β, d )
+
+
+
++ d
+
+2β log 
+
+ eM m
+
+ bβ d + 1 
+
+ 
+
+where C0 and C1 (explicit in the proof ) are constants independent of d and the algorithm parameters β and 
+
+γ.
+
+Remark 2.7. Since M, m and b are fixed quantities (once F is fixed), then, under the same hypothesis of the previous theorem we have 
+
+E[F (xk)] − min F ≤ ¯C
+
+
+
+βe −kγ/ (2 β CLS (β,d )) + pdγβ CLS (β, d ) + dγβ CLS (β, d ) + dβ
+
+
+
+1 + log 
+
+ βd
+
+ 
+
+,
+
+where ¯C is independent of β, γ and d.
+
+In the following corollary, we study the complexity of Algorithm 1, namely the number of iterations required to achieve E[F (xk)] − min F ≤ ϵ for ϵ ∈ (0 , 1). To simplify the presentation, we report only the dependence on d, β, CLS (β, d ), and γ in the choice of the parameters, while explicit constants are provided in the proof. 
+
+Corollary 2.8. Under the same assumptions of Theorem 2.6, fix an error parameter ϵ ∈ (0 , 1) . Let 
+
+β = ˜Θ
+
+ dϵ
+
+
+
+, and γ = Θ 
+
+ ϵ2
+
+βd CLS (β, d )
+
+
+
+.
+
+Let xk ∈ Rd be generated by Algorithm 1 at timestep k. Fixing 
+
+k = O
+
+ βγ CLS (β, d ) log 
+
+ βd ϵ
+
+ 
+
+= ˜O
+
+ β2d CLS (β, d )2
+
+ϵ2
+
+
+
+, (3) 
+
+we have E[F (xk)] − min F ≤ ϵ.
+
+Remark 2.9 (High-probability guarantee) . Since by definition F (x) ≥ min F for all x ∈ Rd, the excess risk is a non-negative random variable. Consequently, a bound on the expectation E[F (Xk)] − min F ≤ ϵ imme-diately translates into a high-probability guarantee via Markov’s inequality. Specifically, for any confidence level α ∈ (0 , 1) , we have 
+
+P
+
+
+
+F (Xk) − min F ≥ ϵα
+
+
+
+≤ α. 
+
+This confirms that the algorithm does not merely minimize the objective on average, but drives the iterates into points that have near-optimal values with high probability. 
+
+62.3 Comparison with existing works 
+
+We compare Corollary 2.8 with the closest existing guarantees for Langevin-based non-convex optimization. Detailed derivations and translations of the rates are deferred to Appendix D.1. The key feature of our result is the quadratic dependence on CLS (β, d ) for the complexity k, together with the tight inverse-temperature calibration discussed in Remark 2.15. Work Complexity Main comparison Corollary 2.8 ˜O
+
+ β2d CLS 2
+
+ϵ2
+
+
+
+our direct KL-to-objective route Raginsky et al. [61] ˜O
+
+ β7 CLS 5
+
+ϵ4
+
+
+
+Wasserstein-to-objective route [61] refined ˜O
+
+ β5 CLS 4
+
+ϵ4
+
+
+
+still worse in ϵ and CLS 
+
+Xu et al. [76] – constants not explicit in β, d, CLS 
+
+Zou et al. [78] ˜O
+
+ β2d6 CLS 4
+
+ϵ2
+
+
+
+Cheeger/TV route gives worse CLS power 
+
+Require a larger β:
+
+Kinoshita–Suzuki [45] ˜O
+
+ β2d CLS 3
+
+ϵ
+
+
+
+better in ϵ, worse in CLS 
+
+Chen et al. [14] ˜O
+
+
+
+max 
+
+
+
+d3 CLS 3, d2 CLS 2
+
+ϵ2
+
+ 
+
+hitting-time guarantee; worse in CLS 
+
+Table 1: Comparison of exact-gradient Langevin optimization guarantees. Here CLS = CLS (β, d ) and polynomial factors and fixed problem-dependent constants are suppressed. The bounds of Raginsky, Rakhlin and Telgarsky [61] proceed by first controlling a Wasserstein distance and then converting it into an objective-value estimate. Tracking the dependence on β, d, and 
+
+CLS (β, d ) gives the rate shown in Table 1; even a refined use of their intermediate estimates still yields a fourth power of CLS (β, d ) and a worse dependence on ϵ. The bounds of Xu, Chen, Zou and Gu [76] are less directly comparable. Their rates are expressed in terms of a discrete-time spectral gap λ(β, d ) and constants coming from geometric-ergodicity and Poisson-equation estimates. These constants are not made explicit in terms of β, d, and the structural parameters of the potential. Thus, their bound does not yield a fully explicit parameter calibration comparable to Corollary 2.8. Moreover, statements such as λ(β, d ) = e− ˜O(d) are too coarse for our purposes, since different powers of CLS (β, d ) may all be hidden inside the same exponential notation. Zou, Xu and Gu [78] obtain bounds in terms of a Cheeger constant. Translating this dependence through the relation between Cheeger, Poincar´ e, and logarithmic Sobolev constants gives a fourth power of 
+
+CLS (β, d ) in our setting. Kinoshita and Suzuki [45] provide one of the sharpest existing iteration bounds, with better direct dependence on ϵ but worse dependence on CLS (β, d ). Since in global optimization one chooses β = ˜Θ( d/ϵ ) and CLS (β, d ) may depend exponentially on β, the power of CLS (β, d ) is typically the dominant term. Moreover, their argument leads to a larger choice of the inverse temperature β in the Gibbs concentration term (more details in Appendix D.1). Since CLS (β, d ) may depend exponentially on β, this worsens the final bound beyond what is visible from the displayed dependence. Finally, Chen, Sekhari and Sridharan [14] obtain high-probability hitting-time guarantees based on Lyapunov potentials. Their result is complementary to ours: they control the time to hit an ϵ-sublevel set under an additional self-bounding regularity assumption on the Lyapunov potential, whereas Corollary 2.8 controls the expected excess risk of the iterate. Also in this case, their analysis requires a larger choice for β, which is not desirable, and makes the comparison more difficult. 72.4 Proof ingredients and proof of the main results 
+
+In order to prove our main result 2.6 we make use of the following decomposition: 
+
+E[F (xk)] − min F = E[F (xk) − F (xπβ )] 
+
+| {z }
+
+> (a)
+
++ E[F (xπβ )] − min F
+
+| {z }
+
+> (b)
+
+. (4) While the treatment of (b) is classical concentration of the Gibbs measure [61, Proposition 11], for (a) we derive a new analysis that pass directly from the expectation to KL divergence between μk and πβ . To control KL we then use a result of Vempala and Wibisono [74, Theorem 2]. To achieve our goal, we first make use the following crucial lemma. Usually, in the literature, a bound on W2 is first provided and then a bound is derived in the expectations of functions that grow quadratically (see, e.g. [61, 76]). We show instead that this lemma let us obtain a bound with better dependence on 
+
+CLS (β, d ) compared with the rest of the literature. 
+
+Lemma 2.10. Let ν be a probability measure on Rd satisfying R exp( c∥x∥2) dν (x) < +∞ for some c > 0.Let f be a measurable function such that |f (x)| ≤ ¯L∥x∥2 + ¯A for some ¯L, ¯A > 0. Then, for any probability measure μ on Rd, Z
+
+f (x) d(μ − ν)( x) ≤ Cν
+
+pKL( μ|| ν) + 12 KL( μ|| ν)
+
+
+
+, (5) 
+
+where Cν = 2 ¯Lc
+
+ 32 + c ¯A 
+
+> ¯L
+
++ log R exp( c∥x∥2) dν (x)
+
+
+
+.Proof. Define φ(x) := c 
+
+> 2 ¯L
+
+|f (x)|. Since |f (x)| ≤ ¯L∥x∥2 + ¯A, we have 2φ(x) = c
+
+¯L |f (x)| ≤ c∥x∥2 + c ¯A
+
+¯L .
+
+Consequently, the exponential moment is bounded by 
+
+Z
+
+e2φ(x) dν (x) ≤ exp 
+
+ c ¯A
+
+¯L
+
+ Z 
+
+exp( c∥x∥2) dν (x) < +∞.
+
+We apply the weighted Csisz´ ar-Kullback-Pinsker inequality [6, Theorem 2.1(i)]. Note that in the cited theorem, H(μ|ν) denotes the Kullback-Leibler divergence KL( μ|| ν). We obtain: 
+
+∥φ(μ − ν)∥TV ≤
+
+ 32 + log 
+
+Z
+
+e2φ(x) dν (x)
+
+  pKL( μ|| ν) + 12 KL( μ|| ν)
+
+
+
+≤
+
+ 32 + c ¯A
+
+¯L + log 
+
+Z
+
+exp( c∥x∥2) dν (x)
+
+  pKL( μ|| ν) + 12 KL( μ|| ν)
+
+
+
+.
+
+Finally, observing that 
+
+Z
+
+f d (μ − ν) ≤
+
+Z
+
+|f | d|μ − ν| = ∥| f |(μ − ν)∥TV = 2 ¯Lc ∥φ(μ − ν)∥TV ,
+
+we get the claim. Since the function F grows quadratically, the following bound holds. 
+
+Lemma 2.11 (Exponential moment of the target measure) . Let F satisfy Assumptions 2.1 and 2.2. For 
+
+β ≥ 4/m , we have the bound 
+
+log 
+
+Z
+
+> Rd
+
+exp( ∥y∥2) dπ β (y) ≤ 2( d + βb )
+
+βm . (6) 
+
+Proof. See Appendix B.2. 8The following corollary replaces the standard Otto–Villani and Talagrand route. Since πβ satisfies a logarithmic Sobolev inequality with constant CLS (β, d ), the Otto–Villani theorem [2, Theorem 9.6.1] implies the Talagrand transportation inequality W 22 (μk, π β ) ≤ 2 CLS (β, d ) KL( μk∥πβ ) (see [2, Definition 9.2.2]). Combining this estimate with a Wasserstein-to-objective comparison, such as [61, Lemma 6], introduces an additional dependence on CLS (β, d ) in the final excess-risk bound. Instead, we apply the weighted Csisz´ ar– Kullback–Pinsker inequality directly to the objective F , obtaining an objective-value bound in terms of KL( μk∥πβ ) and exponential moments of πβ , without passing through W2.
+
+Corollary 2.12. Let Assumptions 2.1 and 2.2 hold. Let β ≥ max d, 4 
+
+> m
+
+and (xk)k∈N be the sequence generated by Algorithm 1. Then, for every k ∈ N, we have 
+
+|E[F (xk) − F (xπβ )] | =
+
+Z
+
+F (x) d(μk − πβ )( x) ≤ C0(M + 1) 
+
+q 
+
+KL( μk|| πβ ) + 12 KL( μk|| πβ )
+
+
+
+, (7) 
+
+where C0 is a constant independent of β and d (explicit in the proof ). Proof. By Corollary 2.3, we have |F (x)| ≤ ¯L∥x∥2 + ¯A with ¯L = M +1 2 and ¯A = |F (0) | + ∥∇ F (0) ∥2 
+
+> 2
+
++ | min F |.Thus, by Lemma 2.10 and Lemma 2.11, we get 
+
+|E[F (xk) − F (xπβ )] | =
+
+Z
+
+F (x) d(μk − πβ )( x) ≤ (M + 1) ˜K(β, d )
+
+q 
+
+KL( μk|| πβ ) + 12 KL( μk|| πβ )
+
+
+
+, (8) where ˜K(β, d ) = 32 + 2 ¯AM +1 + 2( d+βb ) 
+
+> βm
+
+. Since β ≥ d, and recalling the definition of ¯A, we have ˜K(β, d ) ≤ 32 + 2|F (0) | + ∥∇ F (0) ∥2 + 2 | min F |
+
+M + 1 + 2 + 2 bm =: C0. (9) At this point, is only left to bound the KL divergence between μk and πβ . To do this, we make use of the following result, which is a direct consequence of [74, Theorem 2]. We believe this result leads to the best estimate in the literature, but other controls can be used, for example adaptations of [61, Lemma 7] combined with [61, Equation (3.17)]. 
+
+Proposition 2.13. Suppose that Assumptions 2.1 and 2.2 hold. Let (xk)k∈N be the sequence generated by Algorithm 1, and denote by (μk)k∈N the corresponding sequence of probability laws. Let πβ be the Gibbs distribution related to F . Then, for γ ≤ 14βM 2 CLS (β,d ) , we have 
+
+KL( μk|| πβ ) ≤ e−kγ/ (β CLS (β,d )) KL( μ0|| πβ ) + 8 dγβM 2 CLS (β, d ).
+
+Proof. By setting ˜ γ = γβ −1 we can rescale the xk update into 
+
+xk+1 = xk − ˜γβ ∇F (xk) + p2˜ γz k zk ∼ N (0 , I d). (10) Notice that μk is generated by ULA applied to βF which is ( βM )-smooth. By Proposition 2.5, we have that πβ satisfies the log-Sobolev inequality with constant CLS (β, d ). Thus, under the condition ˜γ ≤ 14β2M 2 CLS (β,d ) , by [74, Theorem 2], we have that KL( μk|| πβ ) ≤ e−k˜γ/ CLS (β,d ) KL( μ0|| πβ ) + 8 d˜γβ 2M 2 CLS (β, d ).
+
+Substituting back ˜ γ = γβ −1, we obtain the claim. Here we also provide a bound on the initialization KL( μ0|| πβ ) by fixing the initialization μ0 to satisfy the moment bound given in Assumption 2.3. 
+
+Lemma 2.14 (Initialization bound KL( μ0∥πβ )) . Assume Assumptions 2.1 and 2.2. Suppose β ≥ d. Let μ0
+
+satisfy Assumption 2.3. Then 
+
+KL( μ0∥πβ ) ≤ ˜Cβ, (11) 
+
+where ˜C is independent of β and d (an explicit expression can be found in the proof ). Proof. See Appendix B.3. 9Proof of Theorem 2.6 and Corollary 2.8. 
+
+Proof of Theorem 2.6. Bound of (a) in (4) : By Corollary 2.12, we have 
+
+|(a)| ≤ C0(M + 1) 
+
+q 
+
+KL( μk|| πβ ) + 12 KL( μk|| πβ )
+
+
+
+.
+
+By Proposition 2.13, we have KL( μk|| πβ ) ≤ e−kγ/ (β CLS (β,d )) KL( μ0|| πβ ) + 8 dγβM 2 CLS (β, d ).
+
+Therefore, we get 
+
+|(a)| ≤ C0(M + 1) 
+
+q 
+
+e−kγ/ (β CLS (β,d )) KL( μ0|| πβ ) + 8 dγβM 2 CLS (β, d )+ 12
+
+
+
+e−kγ/ (β CLS (β,d )) KL( μ0|| πβ ) + 8 dγβM 2 CLS (β, d )
+
+ 
+
+.
+
+Since for all t1, t 2 ≥ 0, √t1 + t2 ≤ √t1 + √t2, we have 
+
+|(a)| ≤ C0(M + 1) 
+
+
+
+e−kγ/ (2 β CLS (β,d )) 
+
+q
+
+KL( μ0|| πβ ) + 12 e−kγ/ (β CLS (β,d )) KL( μ0|| πβ )+ p8dγβM 2 CLS (β, d ) + 4 dγβM 2 CLS (β, d )
+
+
+
+.
+
+Since for every ξ > 0, e−ξ ≤ e−ξ/ 2, we have 
+
+|(a)| ≤ C0(M + 1) 
+
+
+
+e−kγ/ (2 β CLS (β,d )) 
+
+q 
+
+KL( μ0|| πβ ) + 12 KL( μ0|| πβ )
+
+
+
++ p8dγβM 2 CLS (β, d ) + 4 dγβM 2 CLS (β, d )
+
+
+
+.
+
+Since β ≥ d ≥ 1, by Lemma 2.14, we have pKL( μ0|| πβ ) + KL( μ0|| πβ )/2 ≤ β
+
+p ˜C + ˜C/ 2
+
+
+
+. Let 
+
+C1 := 
+
+p ˜C + ˜C/ 2
+
+
+
+. (12) Hence, we have 
+
+|(a)| ≤ C0(M + 1) 
+
+
+
+C1βe −kγ/ (2 β CLS (β,d )) + p8dγβM 2 CLS (β, d ) + 4 dγβM 2 CLS (β, d )
+
+
+
+. (13) 
+
+Bound of (b) in (4) : Since β ≥ 4 
+
+> m
+
+≥ 2 
+
+> m
+
+, by [61, Proposition 11], we have 
+
+|(b)| ≤ d
+
+2β log 
+
+ eM m
+
+ bβ d + 1 
+
+ 
+
+. (14) Combining (13) and (14) with (4) yields the claim. 
+
+Proof of Corollary 2.8. First of all, set ϵ1, ϵ 2, ϵ 3 > 0, with P3 
+
+> i=1
+
+ϵi = ϵ. We advise choosing ϵ1 ≈ ϵ, since this will fix β and the CLS (β, d ) constant can depend badly on β. However, we leave the choice to the reader. For theoretical purposes we fix ϵ1 = ϵ2 = ϵ3 = ϵ 
+
+> 3
+
+.
+
+Choice of β: We choose β as tightly as possible here, because any unnecessary increase in the inverse 10 temperature may translate into an exponential deterioration of CLS (β, d ); see Remark 2.15. Recall that we need to choose β so as to control the term 
+
+T (β) := d
+
+2β log 
+
+ eM m
+
+ bβ d + 1 
+
+ 
+
+.
+
+Define θ := eM (1 + b)/m . Note that since M ≥ m and b ≥ 0, we have θ ≥ e. Assuming ϵ1 ≤ 1, we choose 
+
+β = max 
+
+
+
+d, 4
+
+m , d
+
+2ϵ1
+
+
+
+log 
+
+ θϵ1
+
+
+
++ 2 log 
+
+
+
+log 
+
+ θe 2
+
+ϵ1
+
+ 
+
+,
+
+so that β is also in the hypothesis of Theorem 2.6. Since β ≥ d, we can upper bound the argument of the logarithm bβ d + 1 ≤ bβ d + βd = (1 + b) βd .
+
+Therefore, we obtain the bound 
+
+T (β) ≤ d
+
+2β log 
+
+ eM m (1 + b) βd
+
+
+
+= d
+
+2β log 
+
+
+
+θ βd
+
+
+
+. (15) Set x := β/d . Since β ≥ d, then x ≥ 1. Equation (15) then becomes T (β) ≤ 12x log( θx ). Consider the function 
+
+f (x) := 2 ϵ1x − log( θx ), x > 0.
+
+We want to show that f (x) ≥ 0. The derivative of f is f ′(x) = 2 ϵ1 − 1/x , which is non-negative for x ≥ 12ϵ1 .Let L := log 
+
+ θϵ1
+
+
+
+. Because θ ≥ e and ϵ1 ≤ 1, we have L ≥ 1. By our choice of β, the term x satisfies 
+
+x ≥ x0 := 12ϵ1 (L + 2 log( L + 2)). Since L ≥ 1, it is clear that x0 ≥ 12ϵ1 . Thus, x lies in the region where f is non-decreasing. It is thus sufficient to check that f (x0) ≥ 0. We compute 
+
+f (x0) = L + 2 log( L + 2) − log 
+
+
+
+θ · 12ϵ1
+
+(L + 2 log( L + 2)) 
+
+
+
+= L + 2 log( L + 2) −
+
+
+
+log 
+
+ θϵ1
+
+
+
+− log 2 + log( L + 2 log( L + 2)) 
+
+
+
+= 2 log( L + 2) + log 2 − log( L + 2 log( L + 2)) .
+
+We can rewrite the positive terms as 2 log( L + 2) + log 2 = log(2( L + 2) 2) = log(2 L2 + 8 L + 8). Furthermore, since log( L + 2) ≤ L + 1 for L ≥ 1, we can upper bound the argument of the negative logarithm: 
+
+L + 2 log( L + 2) ≤ L + 2( L + 1) = 3 L + 2 .
+
+Because 2 L2 + 8 L + 8 > 3L + 2 strictly for all L > 0, it immediately follows that log(2( L + 2) 2) > log( L + 2 log( L + 2)) .
+
+Therefore, f (x0) > 0. Since f (x) ≥ f (x0) > 0, we have established that log( θx ) ≤ 2ϵ1x. Substituting this back into (15) yields 
+
+T (β) ≤ 12x log( θx ) ≤ 12x (2 ϵ1x) = ϵ1,
+
+which proves the desired bound. 
+
+Choice of γ: Since β is now fixed as above, we have that from now on CLS (β, d ) is also fixed. We can choose now 
+
+γ = ϵ22
+
+32 βM 2(M + 1) 2C20 d CLS (β, d ) ,
+
+11 with C0 defined as in (9). Since C0 defined in (9) is greater than one, we have in particular that γ ≤   
+
+> 14βM 2CLS (β,d )
+
+, so γ is under the hypothesis of Theorem 2.6. Moreover, it holds 8 dγβM 2 CLS (β, d ) ≤ 1, and in this regime we have 4dγβM 2 CLS (β, d ) ≤ p8dγβM 2 CLS (β, d ).
+
+Therefore 
+
+C0(M + 1) 
+
+p 8dγβM 2 CLS (β, d ) + 4 dγβM 2 CLS (β, d )
+
+
+
+≤ 2M (M + 1) C0
+
+p8dγβ CLS (β, d ) ≤ ϵ2.
+
+Choice of k: By choosing 
+
+k ≥ 2βC LS (β, d )
+
+γ log 
+
+ C0C1(M + 1) βϵ3
+
+
+
+,
+
+with C0 defined as in (9) and with C1 defined as in (12), we have 
+
+ M + 1 C0C1βe −kγ/ (2 β CLS (β,d )) ≤ ϵ3.
+
+Remark 2.15. Notice that not only we choose β of the order of dϵ , but our choice was β = d
+
+> 2ϵ1
+
+˜Θ
+
+
+
+log 
+
+ dϵ1
+
+ 
+
+,with possibly ϵ1 ≈ ϵ. This is the best choice of β possible since even for quadratic functions one has to choose  
+
+> d
+> 2ϵ1
+
+to get concentration and to have E[F (xπβ )] − min F ≤ ϵ1, which is an unavoidable term. As discussed in Section 2.3 (and in more details Appendix D) this tight choice distinguishes our work from some others. We recall that larger choices of β can result in a much worse CLS (β, d ) constant, since this usually depends exponentially on β.
+
+# 3 Inexact ULA 
+
+We now move from exact-gradient ULA to the case where the algorithm only has access to an approximate gradient. We consider again problem (2) under Assumptions 2.1–2.2, and replace ∇F (x) by a possibly biased random surrogate g(x, ξ ), where ξ ∼ μξ . The resulting inexact ULA scheme is 
+
+xk+1 = xk − γg (xk, ξ k) + p2γβ −1zk, zk ∼ N (0 , I d).
+
+This framework covers stochastic and mini-batch gradients, deterministic numerical errors, approximate inner computations, and the zeroth-order finite-difference estimators considered later. The central assumption is that the mean-square error of the surrogate grows at most quadratically with the state. This is natural under our standing assumptions, since Lemma 2.2 implies that ∥∇ F (x)∥
+
+grows at most linearly in ∥x∥. Our analysis quantifies how such inexactness propagates along the Langevin dynamics. We first prove a uniform second-moment bound for the inexact iterates, then compare the inexact chain with the exact ULA chain driven by the same Gaussian noise, and finally combine this perturbation estimate with the exact-ULA result of Section 2. The resulting bound separates the Langevin discretization error, the Gibbs concentration error, and the gradient-approximation error, without requiring the estimator 
+
+g(x, ξ ) to be unbiased. 
+
+## 3.1 Assumptions and preliminary results 
+
+Assumption 3.1 (Controlled growth of the gradient error) . We assume that there exist non-negative con-stants P and Q and a precision parameter δ > 0 such that for all x ∈ Rd it holds 
+
+E ∥g(x, ξ ) − ∇ F (x)∥2 ≤ δ  P ∥x∥2 + Q . (16) 
+
+Notice that we do not ask the estimator g to be unbiased. 
+
+12 Remark 3.1 (Examples covered by Assumption 3.1) . Assumption 3.1 is a gradient-error analogue of the classical Blum–Gladyshev growth conditions in stochastic approximation [5, 35]: the oracle error is allowed to have state-dependent second moment, with at most quadratic growth in ∥x∥, while the standard bounded-variance case is recovered when P = 0 . This is natural in stochastic-gradient and zeroth-order settings, where the estimator variance may grow with ∥∇ F (x)∥ or with the objective value. In particular, it is compatible with the ABC-type conditions used in stochastic optimization [36, 50], for instance bounds of the form 
+
+E∥g(x, ξ ) − ∇ F (x)∥2 ≤ A F (x) − min F  + B ∥∇ F (x)∥2 + C .
+
+Indeed, Lemma 2.2 implies that both F (x) − min F and ∥∇ F (x)∥2 have at most quadratic growth in ∥x∥,so such ABC bounds imply (16) . The assumption also covers deterministic biased gradients, e.g. g(x, ξ ) = 
+
+∇F (x) + r(x) with ∥r(x)∥2 ≤ δQ , as well as mixed stochastic and biased estimators g(x, ξ ) = gex (x, ξ ) + r(x),where gex is unbiased and r is a bias term. In finite-sum problems, gex can be a single-sample gradient 
+
+∇fi(ξ)(x) or a mini-batch version. Thus, δ represents the precision of the approximation, such as a squared bias level or an inverse batch size. When P = 0 , conditions involving upper bounds proportional to 1/P are interpreted as void. 
+
+Algorithm 2 Inexact ULA 
+
+Input: x0 ∼ μ0, β, γ ∈ R+
+
+for k = 0 , 1, . . . do 
+
+sample an independent ξk from μξ
+
+sample an independent zk from N (0 , I d)
+
+xk+1 = xk − γg (xk, ξ k) + p2γβ −1zk
+
+end for 
+
+We first prove that the moments of the iterates remain bounded. The result relies on the interplay between the dissipativity of F and the growth of the noise variance. 
+
+Proposition 3.2 (Uniform bound on iterate second moment) . Let Assumptions 2.1, 2.2, and 3.1 hold and let μ0 satisfying Assumption 2.3. Assume moreover that 
+
+γ ≤ min 
+
+n
+
+1, m
+
+8M 2
+
+o
+
+, δ ≤ m2
+
+4P .
+
+Then E[∥xk∥2] is uniformly bounded and if β ≥ d then we have sup k≥0 E∥xk∥2 ≤ Γ, with Γ independent on γ, β, δ and d, and explicit in the proof. Proof. See Appendix C.1. 
+
+## 3.2 Main Results 
+
+Theorem 3.3. Let F satisfy Assumption 2.1 (it is M -smooth) and Assumption 2.2 (it is (m, b )-dissipative). Assume moreover to have a surrogate g of the gradient satisfying Assumption 3.1. Let μ0 satisfy Assumption 2.3 and let 
+
+β ≥ max 
+
+
+
+d, 8
+
+m
+
+
+
+, γ ≤ min 
+
+
+
+1, 1
+
+m , m
+
+8M 2 , 14βM 2 CLS (β, d )
+
+
+
+, δ ≤ m2
+
+4P .
+
+Then, we have the following bound for the sequence generated by Algorithm 2 
+
+E[F (xk)] − min F ≤ C′
+
+> 0
+
+(M + 1) 
+
+pC2γkβδ + C2γkβδ 
+
+2
+
+
+
+++ C0(M + 1) 
+
+
+
+C1βe −kγ/ (2 β CLS (β,d )) + p8βM 2dγ CLS (β, d ) + 4 βM 2dγ CLS (β, d )
+
+
+
++ d
+
+2β log 
+
+ eM m
+
+ bβ d + 1 
+
+ 
+
+13 where C0, C ′
+
+> 0
+
+, C 1 and C2 are constants independent on β, d, γ and δ and explicit in the proof. 
+
+Remark 3.4. Since M, m and b are fixed quantities (once F is fixed), then, under the same hypothesis of the previous theorem we have 
+
+E[F (xk)] − min F ≤ ¯CI
+
+pγkβδ + γkβδ + βe −kγ/ (2 β CLS (β,d )) 
+
++ pdγβ CLS (β, d ) + dγβ CLS (β, d ) + dβ
+
+
+
+1 + log 
+
+ βd
+
+ !
+
+,
+
+where ¯CI is independent of β, γ, δ and d.
+
+In the following corollary, we study the complexity of Algorithm 2, namely the number of iterations required to achieve E[F (xk)] − min F ≤ ϵ for ϵ ∈ (0 , 1). To simplify the presentation, we report only the dependence on d, β, CLS (β, d ), and γ in the choice of the parameters, while explicit constants are provided in the proof. 
+
+Corollary 3.5. Let F , g and μ0 satisfy the same assumptions of Theorem 3.3 and fix an error parameter 
+
+ϵ ≤ 1. Let 
+
+β = ˜Θ
+
+ dϵ
+
+
+
+, γ = Θ 
+
+ ϵ2
+
+βd CLS (β, d )
+
+
+
+, and δ = ˜Θ
+
+ ϵ2
+
+β2 CLS (β, d )
+
+
+
+.
+
+Let xk ∈ Rd be generated by Algorithm 2 at timestep k. Fixing 
+
+k = O
+
+ βγ CLS (β, d ) log 
+
+ βd ϵ
+
+ 
+
+= ˜O
+
+ β2d CLS (β, d )2
+
+ϵ2
+
+
+
+, (17) 
+
+we have E[F (xk)] − min F ≤ ϵ.
+
+## 3.3 Comparison with existing works 
+
+We compare Corollary 3.5 with the closest existing guarantees for inexact or stochastic-gradient Langevin methods. Detailed derivations and translations of the rates are deferred to Appendix D.1. The key feature of our result is the quadratic dependence on CLS (β, d ) for k and inverse linear dependence for the choice of 
+
+δ, together with the tight inverse-temperature calibration discussed in Remark 2.15. Work Iterations k Precision δ Main comparison Corollary 3.5 ˜O
+
+ β2d CLS 2
+
+ϵ2
+
+
+
+˜Θ
+
+ ϵ2
+
+β2 CLS 
+
+
+
+our direct KL-to-objective route Raginsky et al. [61] ˜O
+
+ β7 CLS 5
+
+ϵ4
+
+
+
+˜Θ
+
+ ϵ4
+
+β6 CLS 4
+
+
+
+Wasserstein-to-objective route [61] refined ˜O
+
+ β5 CLS 4
+
+ϵ4
+
+
+
+˜Θ
+
+ ϵ4
+
+β4 CLS 3
+
+
+
+still worse in ϵ and CLS 
+
+Xu et al. [76] – – constants not explicit in β, d, CLS 
+
+Table 2: Comparison of inexact-gradient Langevin optimization guarantees. Here CLS = CLS (β, d ); poly-nomial factors in d and fixed problem-dependent constants are suppressed, except in our displayed bound. The comparison shows the same phenomenon as in the exact-gradient case. The standard route of 
+
+Raginsky, Rakhlin and Telgarsky [61] first controls a Wasserstein distance and then converts it into objective-value error, leading to worse powers of both ϵ and CLS (β, d ). A more refined use of their inter-mediate estimates, combined with the Bolley–Villani inequality [6], improves the dependence but still yields 14 a fourth power of CLS (β, d ) and a more restrictive admissible precision δ. Xu, Chen, Zou and Gu [76] 
+
+are closely related in spirit, since they also compare a stochastic chain with an ideal Langevin chain, but their rates are expressed through a discrete-time spectral gap and geometric-ergodicity constants which are not explicit in β, d, and the structural parameters of F . Moreover, their proof follows the standard route through Wasserstein-type controls. In contrast, Corollary 3.5 gives explicit choices of γ, k, and δ, and keeps the quadratic dependence on CLS (β, d ) visible throughout. 
+
+## 3.4 Proof ingredients and proof of the main results 
+
+We recall the ULA defined in the previous section 
+
+yk+1 = yk − γ∇F (yk) + p2γβ −1zk zk ∼ N (0 , I d), y 0 ∼ μ0, (18) for which we use here the notation {yk}k to avoid confusion with the sequence {xk}k generated by Algorithm 2. We denote again by πβ the Gibbs distribution for F , i.e. πβ = e−βF /Z , we denote the law of the variable 
+
+xk by μk and the law of the variable yk as νk. For the analysis of the inexact method we decompose the error in the following way 
+
+E[F (xk)] − min F = E[F (xk) − F (yk)] 
+
+| {z }
+
+> (a)
+
++ E[F (yk) − F (xπβ )] 
+
+| {z }
+
+> (b)
+
++ E[F (xπβ )] − min F
+
+| {z }
+
+> (c)
+
+. (19) We estimate ( b) and ( c) as we did in Section 2, while to estimate ( a) we use Lemma 2.10 to control the expectation with the KL divergence between μk and νk, which we then control with a result following from [76, Lemma 4.4] and [61, Lemma 7]. This strategy is enabled by an uniform bound on the exponential moments of the sequence of distributions νk generated by the ULA algorithm. Crucially, unlike other results in the literature (e.g., [61, 76]), our bound is independent of the time index k. Standard analyses often employ bounds that grow linearly with k (see, for instance, [76, Lemma C.7]). While such bounds are sufficient for finite-time horizon analysis, they result in suboptimal dependencies on the Log-Sobolev constant CLS (β, d )in the final convergence rates. Uniform bounds could principally be derived by combining results such [25, Proposition 8] and [25, Lemma 1], but we provide a self-contained proof with explicit constants to ensure explicit dependence on problem parameters. 
+
+Lemma 3.6. Let F satisfy Assumptions 2.1 and 2.2. For 
+
+β ≥ 8/m, and γ ≤ min 
+
+
+
+1, 1
+
+m , m
+
+8M 2
+
+
+
+, (20) 
+
+we have the uniform bound 
+
+log 
+
+Z
+
+exp ( ∥y∥2) dν k(y) ≤ log κ0 + 8d + 8 βb + 8 βB 2
+
+mβ ,
+
+where we recall that κ0 = R exp( ∥y∥2) dμ 0 and B = ∥∇ F (0) ∥.Proof. See Appendix C.2. The following result is crucial for us because it avoids the usual path to first bound W2 using the Bolley-Villani inequality [6, Corollary 2.3] 
+
+W2(μ, ν ) ≤ Cν KL( μ|| ν) 12 +
+
+ KL( μ|| ν)2
+
+ 14
+
+!
+
+,
+
+and then using the quadratic bound on F which implies E[F (xk)] − E[F (yk)] ≤ CW 2(μ, ν ), see [61, Lemma 6]. This creates a bound of order KL( μk, ν k) 14 , which translates into sub-optimal rates, in particular when considering the dependence on CLS (β, d ). 15 Lemma 3.7. For 
+
+β ≥ max 
+
+
+
+d, 8
+
+m
+
+
+
+, γ ≤ min 
+
+
+
+1, 1
+
+m , m
+
+8M 2
+
+
+
+,
+
+we have 
+
+|E[F (xk) − F (yk)] | =
+
+Z
+
+F (x) d(μk − νk)( x) ≤ C′
+
+> 0
+
+pKL( μk|| νk) + 12 KL( μk|| νk)
+
+
+
+, (21) 
+
+where C′ 
+
+> 0
+
+independent on γ, β, δ and d, and explicit in the proof. Proof. This follows the same lines as the proof of Corollary 2.12. In particular, we have by 2.3, that 
+
+|F (x)| ≤ ¯L∥x∥2 + ¯A with ¯L = M +1 2 and ¯A = |F (0) | + ∥∇ F (0) ∥2 
+
+> 2
+
++ | min F |, and by Lemma 2.10 and Lemma 3.6, we obtain 
+
+|E[F (xk) − F (yk)] | =
+
+Z
+
+F (x) d(μk − νk)( x) ≤ (M + 1) ˜K′(β, d )
+
+pKL( μk|| νk) + 12 KL( μk|| νk)
+
+
+
+, (22) where ˜K′(β, d ) = 32 + 2 ¯AM + 1 + log κ0 + 8d + 8 βb + 8 βB 2
+
+mβ .
+
+Since β ≥ d, and recalling the definition of ¯A, we have ˜K′(β, d ) ≤ 32 + 2|F (0) | + ∥∇ F (0) ∥2 + 2 | min F |
+
+M + 1 + log κ0 + 8(1 + b + B2)
+
+m =: C′
+
+> 0
+
+. (23) We use the following result to control the KL divergence between μk and νk which presents accumulating errors. This is not surprising since the errors are not supposed to be unbiased and can indeed accumulate. 
+
+Proposition 3.8. Let F , γ, δ, β and μ0 as in the hypothesis of Proposition 3.2. Recalling that μk is the law of the sequence xk defined by Algorithm 2 and νk is the law of the sequence yk defined in (18) , we have that 
+
+KL( μk|| νk) ≤ γkβδ 
+
+4 (P Γ + Q).
+
+Proof. The proof is identical to the proof of [76, Lemma 4.4], which bounds the distance between the SGLD and GLD chains for the mini-batch estimator. Their proof only uses an upper bound on the conditional variance of the stochastic gradient, provided there by Lemma C.5. Under our bound on the variance, all subsequent steps carry over verbatim (the only step which changed is their variance estimate step in equation (C.11)). The resulting bound is the same as the one they get in the proof of [76, Lemma 4.4], with their mini-batch variance factor replaced by our control on the variance, obtaining our thesis. A similar analysis can be found in the proof of [61, Lemma 7]. 
+
+Proof of Theorem 3.3 and Corollary 3.5. 
+
+Proof of Theorem 3.3. We are in the hypothesis of the lemmas and propositions of the previous section. 
+
+Bound of (a). Recall that μk is the law of xk and νk is the law of yk. These are, respectively, the laws of the discrete stochastic Langevin iterate and of the ULA iterate on F . By Lemma 2.2 (ii) applied to F , we have 
+
+∥∇ F (x)∥ ≤ M ∥x∥ + B, ∀x ∈ Rd.
+
+Combining Proposition 3.8 with Corollary 3.7 we obtain 
+
+|(a)| ≤ C′
+
+> 0
+
+(M + 1) 
+
+r γkβδ 
+
+4 (P Γ + Q) + γkβδ 
+
+8 (P Γ + Q)
+
+!
+
+.
+
+16 We can therefore choose 
+
+C2 := P Γ + Q
+
+4 , with Γ as in (51) . (24) 
+
+Bound of (b) and (c): These can be bounded directly using Theorem 2.6. 
+
+Proof of Corollary 3.5. First of all, set ϵ1, ϵ 2, ϵ 3, ϵ 4 > 0, with P4 
+
+> i=1
+
+ϵi = ϵ. We advise choosing ϵ1 ≈ ϵ, since this will fix β and the CLS (β, d ) constant can depend badly on β. However, we leave the choice to the reader. For theoretical purposes we fix ϵ1 = ϵ2 = ϵ3 = ϵ4 = ϵ 
+
+> 4
+
+.
+
+Choice of β, Choice of γ and Choice of k can be done exactly as in Corollary 2.8. 
+
+Choice of δ. Finally we set 
+
+δ ≤ min 
+
+ m2
+
+4P , ϵ24
+
+4( M + 1) 2(C′
+
+> 0
+
+)2C2γkβ 
+
+
+
+,
+
+with C′ 
+
+> 0
+
+as in (23) and C2 as in (24) and with the usual convention that the first condition is void when P = 0. Since C′ 
+
+> 0
+
+defined in (23) is greater than one, we also have γkβC 2δ ≤ 1, and therefore γkβC 2δ 
+
+> 2
+
+≤ √γkβC 2δ.This implies that (M + 1) C′
+
+> 0
+
+pγkβC 2δ + γkβC 2δ
+
+2
+
+
+
+≤ 2( M + 1) C′
+
+> 0
+
+pγkβC 2δ ≤ ϵ4.
+
+# 4 Applications 
+
+## 4.1 Stochastic/Mini-batch ULA 
+
+In this section we consider the problem of minimizing the non-convex function given by min 
+
+> x∈Rd
+
+F (x) := Eζ∼μζ [f (x, ζ )] .
+
+Algorithm 3 Mini-batch ULA 
+
+Input: x0 ∼ μ0, β, γ ∈ R+, s ∈ N
+
+for k = 0 , 1, . . . do 
+
+sample independent ζ1,k , . . . , ζ s,k from μζ
+
+sample an independent zk from N (0 , I d)
+
+xk+1 = xk − γ 1
+
+> s
+
+Psi=1 ∇f (xk, ζ i,k ) + p2γβ −1zk
+
+end for 
+
+We work under the following assumptions and apply directly the results developed in Section 3. 
+
+Assumption 4.1. Assume that for every ζ ∈ supp (μζ ) the function f (·, ζ ) is M -smooth and (m, b )-dissipative. Moreover we assume that sup ζ ∥∇ f (0 , ζ )∥ =: B < +∞.
+
+Lemma 4.1 (Inheritance of structural properties) . Assume that for every ζ ∈ supp (μζ ), the function f (·, ζ )
+
+is M -smooth and (m, b )-dissipative. Then the objective function F (x) = Eζ∼μζ [f (x, ζ )] is also M -smooth and (m, b )-dissipativity holds. Proof. First, we prove M -smoothness. By the linearity of the gradient and the expectation, ∇F (x) = 
+
+Eζ [∇f (x, ζ )]. For any x, y ∈ Rd:
+
+∥∇ F (x) − ∇ F (y)∥ = ∥Eζ [∇f (x, ζ ) − ∇ f (y, ζ )] ∥ ≤ Eζ [∥∇ f (x, ζ ) − ∇ f (y, ζ )∥] ≤ Eζ [M ∥x − y∥] = M ∥x − y∥,
+
+17 where the first inequality follows from Jensen’s inequality and the second from the M -smoothness of each 
+
+f (·, ζ ). Next, we prove ( m, b )-dissipativity. Using the linearity of expectation and the dissipativity of each 
+
+f (·, ζ ) we have 
+
+⟨x, ∇F (x)⟩ = ⟨x, Eζ [∇f (x, ζ )] ⟩ = Eζ [⟨x, ∇f (x, ζ )⟩] ≥ Eζ [m∥x∥2 − b] = m∥x∥2 − b. 
+
+This completes the proof. 
+
+Lemma 4.2 (Controlled growth of the gradient error) . Assume that for all ζ ∈ supp (μζ ), the function f (·, ζ )
+
+is M -smooth, and let B := sup ζ ∥∇ f (0 , ζ )∥. For the mini-batch gradient estimator g(x, ξ ) = 1
+
+> s
+
+Psi=1 ∇f (x, ζ i)
+
+where ζi ∼ μζ are i.i.d., the Mean Squared Error (MSE) satisfies: 
+
+E ∥g(x, ξ ) − ∇ F (x)∥2 ≤ δ  P ∥x∥2 + Q , (25) 
+
+with the following parameters: δ = 1 
+
+> s
+
+, P = 2 M 2 and Q = 2 B2.Proof. By the independence and unbiasedness of the samples ζi (Eζ [∇f (x, ζ )] = ∇F (x)), the variance of the mini-batch mean is equal to the variance of a single sample divided by s:
+
+E
+
+ 1
+
+s
+
+> s
+
+X
+
+> i=1
+
+∇f (x, ζ i) − ∇ F (x)
+
+> 2
+
+ = 1
+
+s Eζ∼μζ
+
+∥∇ f (x, ζ ) − ∇ F (x)∥2 . (26) Using the identity E∥X −EX∥2 = E∥X∥2 −∥ EX∥2 ≤ E∥X∥2, we can upper-bound the single-sample variance by the second moment: Eζ∼μζ
+
+∥∇ f (x, ζ ) − ∇ F (x)∥2 ≤ Eζ∼μζ
+
+∥∇ f (x, ζ )∥2. By the M -smoothness of 
+
+f (·, ζ ), we have the gradient growth bound ∥∇ f (x, ζ ) − ∇ f (0 , ζ )∥ ≤ M ∥x∥. Using the inequality ∥a + b∥2 ≤
+
+2∥a∥2 + 2 ∥b∥2, we obtain: ∥∇ f (x, ζ )∥2 ≤ 2∥∇ f (x, ζ ) − ∇ f (0 , ζ )∥2 + 2 ∥∇ f (0 , ζ )∥2 ≤ 2M 2∥x∥2 + 2 B2. Taking the expectation over ζ and substituting back into the mini-batch expression: 
+
+E ∥g(x, ξ ) − ∇ F (x)∥2 ≤ 1
+
+s
+
+ 2M 2∥x∥2 + 2 B2 . (27) By setting δ = 1 /s , P = 2 M 2, and Q = 2 B2, we recover the desired form. We can therefore apply the results of Section 3. In particular, we have the following result. 
+
+Corollary 4.3. Let F , g and μ0 satisfy the same assumptions of Theorem 3.3 and fix an error parameter 
+
+ϵ ≤ 1. Let 
+
+β = ˜Θ
+
+ dϵ
+
+
+
+, γ = Θ 
+
+ ϵ2
+
+βd CLS (β, d )
+
+
+
+, and s = ˜Θ
+
+ β2 CLS (β, d )
+
+ϵ2
+
+
+
+.
+
+Let xk ∈ Rd be generated by Algorithm 3 at timestep k. Fixing 
+
+k = O
+
+ βγ CLS (β, d ) log 
+
+ βd ϵ
+
+ 
+
+= ˜O
+
+ β2d CLS (β, d )2
+
+ϵ2
+
+
+
+, (28) 
+
+we have E[F (xk)] − min F ≤ ϵ. In particular, we can achieve an error of E[F (xk)] − min F ≤ ϵ ≤ 1, by performing 
+
+ks = ˜O
+
+ β4d CLS (β, d )3
+
+ϵ4
+
+
+
+, (29) 
+
+evaluations of gradients of the single functions f (·, ζ ).Proof. The proof follows from Corollary 3.5. To be even sharper in this specific case, to guarantee the error bound is actually enough to require 
+
+δ ≤ ϵ24
+
+4( M + 1) 2(C′
+
+> 0
+
+)2C2γkβ ,
+
+18 with C′ 
+
+> 0
+
+as in (23) and C2 as in (24). Indeed, since C′ 
+
+> 0
+
+≥ 8 
+
+> m
+
+, then 14( M +1) 2(C′ 
+
+> 0)2
+
+≤ m2  
+
+> 256 M2
+
+≤ m2  
+
+> 8M2
+
+= m2 
+
+> 4P
+
+so that we don’t need the additional constraint δ ≤ m2 
+
+> 4P
+
+present in Corollary 3.5. This leads to the condition 
+
+s ≥ 4( M + 1) 2(C′
+
+> 0
+
+)2C2γkβ ϵ24
+
+,
+
+and the thesis. 
+
+Comparison with existing SGLD guarantees. We compare Corollary 4.3 with existing stochastic-gradient Langevin guarantees; detailed derivations are deferred to Appendix D.2. The key feature of our result is the cubic dependence on CLS (β, d ) for the complexity ks , together with the tight inverse-temperature calibration discussed in Remark 2.15. Work Complexity Main comparison Corollary 4.3 ˜O
+
+ β4d CLS 3
+
+ϵ4
+
+
+
+our direct KL-to-objective route Raginsky et al. [61] ˜O
+
+ β13 CLS 9
+
+ϵ8
+
+
+
+Wasserstein-to-objective route [61] refined ˜O
+
+ β9 CLS 7
+
+ϵ8
+
+
+
+still worse in ϵ and CLS 
+
+Xu et al. [76] ˜O
+
+ d7 CLS 5
+
+ϵ5
+
+
+
+most favorable translation, still worse Zou et al. [78] ˜O
+
+ d6β2 CLS 4
+
+ϵ2
+
+
+
+Cheeger route; exploits unbiasedness 
+
+Require larger β:
+
+Kinoshita–Suzuki [45] ˜O
+
+ dβ 2 CLS 3
+
+ϵ
+
+
+
+variance-reduced Chen et al. [14] ˜O
+
+
+
+max 
+
+
+
+d3 CLS 3, d2 CLS 2
+
+ϵ2
+
+ 
+
+hitting-time guarantee Table 3: Comparison of stochastic-gradient Langevin optimization guarantees. Here CLS = CLS (β, d ) and polynomial factors and fixed problem-dependent constants are suppressed. The rates in Table 3 should be read at fixed β. For global optimization, however, β is not a harmless parameter: it is chosen to make the Gibbs bias small, and CLS (β, d ) may depend exponentially on β.As recalled in Remark 2.15, our expected-risk analysis uses an essentially tight temperature scale, β =
+
+> d
+> 2ϵ1
+
+˜Θ
+
+
+
+log dϵ1
+
+
+
+, ϵ1 ≃ ϵ, which is already unavoidable even for quadratic objectives. Therefore, methods that require a larger inverse temperature may suffer a much larger functional-inequality constant, even if their displayed polynomial dependence on ϵ looks favorable. The comparison mirrors the exact and inexact cases. The Wasserstein-based route of Raginsky, Rakhlin and Telgarsky [61] leads to substantially worse powers of both ϵ and CLS (β, d ), even after refining the intermediate estimates. Xu, Chen, Zou and Gu [76] obtain SGLD bounds in terms of a discrete-time spectral gap; even under the favorable translation λ(β, d )−1 ∼ CLS (β, d ), the resulting dependence con-tains a fifth power of CLS . Zou, Xu and Gu [78] exploit unbiasedness and obtain a bound in terms of a Cheeger constant ρ, which translates into a fourth power of CLS (β, d ); their batch-size choice does not depend on CLS , which can be advantageous in practice. Kinoshita and Suzuki [45] obtain sharper rates for variance-reduced Langevin dynamics, but their setting requires periodic full-gradient computations and depends explicitly on the finite-sum size, so it is complementary to the plain mini-batch oracle considered here. Moreover, as discussed in Appendix D.2, their objective-value conversion leads to a larger inverse-temperature choice. Since CLS (β, d ) may scale like ecβ , this can dominate the apparently better polynomial 19 dependence on ϵ. Finally, Chen, Sekhari and Sridharan [14] give high-probability hitting-time guaran-tees for GLD and SGLD using Lyapunov potentials. Their SGLD result exploits unbiasedness directly and assumes a uniformly sub-Gaussian stochastic-gradient oracle, sample-wise smoothness and dissipativity, and a Lyapunov-potential regularity condition. Under these stronger assumptions, their oracle complexity can be sharper than the one obtained here from the general inexact-gradient framework. However, their analysis leads to a more conservative inverse-temperature calibration than our expected-risk formulation, which only requires Eπβ F − min F to be below the allocated error budget. Since CLS (β, d ) can depend exponentially on β, this difference is significant. 
+
+Remark 4.4 (On unbiased analysis) . We believe that a dedicated treatment of the (unbiased) stochastic setting that explicitly exploits the unbiased nature of the estimator, is fundamental. We omit this approach here because it falls outside the focus of the current work, which primarily addresses the biased and inexact setting using a fundamentally different analysis. Nevertheless, it is noteworthy that our current analysis, even if not optimally sharp for the unbiased case, still yields bounds that, to the best of our knowledge, improve upon existing results for stochastic Langevin methods in optimization. 
+
+## 4.2 Zeroth-order optimization 
+
+We now show that the inexact-ULA analysis developed in Section 3 naturally applies to zeroth-order opti-mization. In this setting, the algorithm does not have access to the gradient ∇F (x), but only to function values of F . The goal is therefore to construct a random surrogate g(x, ξ ) using finite differences and to verify Assumption 3.1. Once this is done, the convergence result follows directly from Theorem 3.3. Throughout this subsection we assume that F satisfies Assumptions 2.1 and 2.2. We denote as always 
+
+B := ∥∇ F (0) ∥ and recall that by Lemma 2.2 it holds ∥∇ F (x)∥ ≤ M ∥x∥ + B, for all x ∈ Rd. This linear growth estimate is the key ingredient that allows us to control the variance of the zeroth-order estimators by a quadratic function of ∥x∥.
+
+Gaussian finite-difference estimator. Let u ∼ N (0 , I d) and let h > 0 be a smoothing parameter. The one-direction Gaussian finite-difference estimator is defined by 
+
+gG 
+
+> h
+
+(x, u ) := F (x + hu ) − F (x)
+
+h u. 
+
+Given a batch of independent directions u1, . . . , u s ∼ N (0 , I d), we use the averaged estimator 
+
+gG
+
+> h,s
+
+(x) := 1
+
+s
+
+> s
+
+X
+
+> i=1
+
+gG 
+
+> h
+
+(x, u i).
+
+This estimator is not, in general, unbiased for ∇F (x). Rather, it is unbiased for the gradient of the Gaussian-smoothed objective [57] 
+
+F G 
+
+> h
+
+(x) := Eu∼N (0 ,I d)[F (x + hu )] .
+
+The error with respect to ∇F (x) is therefore the sum of a variance term and a smoothing bias term. 
+
+Lemma 4.5 (Gaussian zeroth-order estimator) . Assume that F is M -smooth. Let gG 
+
+> h,s
+
+be defined as above and assume h ≤ 1. Then, for every x ∈ Rd,
+
+E
+
+h
+
+gG
+
+> h,s
+
+(x) − ∇ F (x) 2i
+
+≤ δG
+
+ PG∥x∥2 + QG
+
+ ,
+
+where 
+
+δG := d(d + 2) 
+
+s + d(d + 2)( d + 4) h2, (30) 
+
+and PG, Q G are constants independent of d, β, γ, h, s and explicit in the proof. In particular, Assumption 3.1 holds with δ = δG, P = PG and Q = QG.
+
+20 Proof. Since gG 
+
+> h,s
+
+is an average of s independent copies of gG 
+
+> h
+
+, we have 
+
+E
+
+h
+
+gG
+
+> h,s
+
+(x) − ∇ F (x) 2i
+
+≤ 2
+
+s E
+
+h
+
+gG 
+
+> h
+
+(x, u ) − ∇ F G 
+
+> h
+
+(x) 2i
+
++ 2 ∇F G 
+
+> h
+
+(x) − ∇ F (x) 2
+
+≤ 2
+
+s E
+
+h
+
+gG 
+
+> h
+
+(x, u ) 2i
+
++ 2 ∇F G 
+
+> h
+
+(x) − ∇ F (x) 2 .
+
+By M -smoothness, 
+
+∇F G 
+
+> h
+
+(x) − ∇ F (x) = ∥E [∇F (x + hu ) − ∇ F (x)] ∥ ≤ M h E∥u∥ ≤ M h √d. 
+
+Therefore, 2 ∇F G 
+
+> h
+
+(x) − ∇ F (x) 2 ≤ 2M 2h2d. Moreover, using the fundamental theorem of calculus it holds 
+
+F (x + hu ) − F (x)
+
+h =
+
+Z 10
+
+⟨∇ F (x + thu ), u ⟩ dt. 
+
+Therefore, 
+
+gG 
+
+> h
+
+(x, u ) ≤
+
+Z 10
+
+∥∇ F (x + thu )∥∥ u∥2 dt ≤ (M ∥x∥ + B + M h ∥u∥) ∥u∥2.
+
+Squaring and using ( a + b + c)2 ≤ 3( a2 + b2 + c2), we obtain 
+
+gG 
+
+> h
+
+(x, u ) 2 ≤ 3( M 2∥x∥2 + B2)∥u∥4 + 3 M 2h2∥u∥6.
+
+Since E∥u∥4 = d(d + 2) and E∥u∥6 = d(d + 2)( d + 4), we get 
+
+E
+
+h
+
+gG 
+
+> h
+
+(x, u ) 2i
+
+≤ 3( M 2∥x∥2 + B2)d(d + 2) + 3 M 2h2d(d + 2)( d + 4) .
+
+Combining the previous estimates gives 
+
+E
+
+h
+
+gG
+
+> h,s
+
+(x) − ∇ F (x) 2i
+
+≤ 6d(d + 2) 
+
+s (M 2∥x∥2 + B2) + 6M 2h2d(d + 2)( d + 4) 
+
+s + 2 M 2h2d. 
+
+Since s ≥ 1 and d ≤ d(d + 2)( d + 4), we have 
+
+h2d(d + 2)( d + 4) 
+
+s ≤ h2d(d + 2)( d + 4) , h2d ≤ h2d(d + 2)( d + 4) .
+
+Thus, 
+
+E
+
+h
+
+gG
+
+> h,s
+
+(x) − ∇ F (x) 2i
+
+≤
+
+ d(d + 2) 
+
+s + d(d + 2)( d + 4) h2
+
+  6M 2∥x∥2 + 6 B2 + 8 M 2 .
+
+Hence the claim follows by setting PG := 6 M 2 and QG := 6 B2 + 8 M 2.
+
+Spherical finite-difference estimator. We can alternatively use a spherical estimator. Let u be uni-formly distributed on the Euclidean sphere Sd−1 and define the one-sided spherical finite-difference estimator 
+
+gS
+
+> h
+
+(x, u ) := dh (F (x + hu ) − F (x)) u. 
+
+Given independent directions u1, . . . , u s ∼ Unif( Sd−1), set 
+
+gS
+
+> h,s
+
+(x) := 1
+
+s
+
+> s
+
+X
+
+> i=1
+
+gS
+
+> h
+
+(x, u i).
+
+This estimator is unbiased for the gradient of the ball-smoothed objective [63, 29] 
+
+F S 
+
+> h
+
+(x) := Ev∼Unif( Bd)[F (x + hv )] .
+
+21 Lemma 4.6 (Spherical zeroth-order estimator) . Assume that F is M -smooth. Let gS 
+
+> h,s
+
+be defined as above and assume h ≤ 1. Then, for every x ∈ Rd,
+
+E
+
+h
+
+gS
+
+> h,s
+
+(x) − ∇ F (x) 2i
+
+≤ δS
+
+ PS∥x∥2 + QS
+
+ ,
+
+where 
+
+δS := d2
+
+s + h2, (31) 
+
+and PS, Q S are constants independent of d, β, γ, h, s and explicit in the proof. In particular, Assumption 3.1 holds with δ = δS, P = PS and Q = QS.Proof. Since gS 
+
+> h,s
+
+is an average of s independent copies of gS
+
+> h
+
+, we have 
+
+E
+
+h
+
+gS
+
+> h,s
+
+(x) − ∇ F (x) 2i
+
+≤ 2
+
+s E
+
+h
+
+gS
+
+> h
+
+(x, u ) − ∇ F S 
+
+> h
+
+(x) 2i
+
++ 2 ∇F S 
+
+> h
+
+(x) − ∇ F (x) 2
+
+≤ 2
+
+s E
+
+h
+
+gS
+
+> h
+
+(x, u ) 2i
+
++ 2 ∇F S 
+
+> h
+
+(x) − ∇ F (x) 2 .
+
+For the bias term, since v ∈ Bd and F is M -smooth, 
+
+∇F S 
+
+> h
+
+(x) − ∇ F (x) = ∥Ev [∇F (x + hv ) − ∇ F (x)] ∥ ≤ M h E∥v∥ ≤ M h. 
+
+For the second moment, by the fundamental theorem of calculus, 
+
+F (x + hu ) − F (x)
+
+h =
+
+Z 10
+
+⟨∇ F (x + thu ), u ⟩ dt. 
+
+Since ∥u∥ = 1, we obtain 
+
+gS
+
+> h
+
+(x, u ) ≤ d sup 
+
+> t∈[0 ,1]
+
+∥∇ F (x + thu )∥ ≤ d(M ∥x∥ + B + M h ).
+
+Therefore, 
+
+E
+
+h
+
+gS
+
+> h
+
+(x, u ) 2i
+
+≤ 3d2(M 2∥x∥2 + B2 + M 2h2).
+
+Since h ≤ 1, we have 
+
+E
+
+h
+
+gS
+
+> h
+
+(x, u ) 2i
+
+≤ 3d2(M 2∥x∥2 + B2 + M 2).
+
+Combining this estimate with the bias bound gives 
+
+E
+
+h
+
+gS
+
+> h,s
+
+(x) − ∇ F (x) 2i
+
+≤ 6d2
+
+s (M 2∥x∥2 + B2 + M 2) + 2 M 2h2
+
+≤
+
+ d2
+
+s + h2
+
+  6M 2∥x∥2 + 6 B2 + 6 M 2 .
+
+Hence the claim follows by setting PS := 6 M 2, and QS := 6 B2 + 6 M 2.
+
+Zeroth-order Langevin algorithm. The zeroth-order Langevin scheme is obtained by replacing the gradient in Algorithm 2 with either gG 
+
+> h,s
+
+or gS
+
+> h,s
+
+. Namely, 
+
+xk+1 = xk − γg ZO  
+
+> h,s
+
+(xk) + p2γβ −1 zk, zk ∼ N (0 , I d),
+
+where gZO  
+
+> h,s
+
+denotes either the Gaussian or the spherical estimator. 22 Algorithm 4 Zeroth-order ULA 
+
+Input: x0 ∼ μ0, β, γ, h ∈ R+, batch size s ∈ N
+
+for k = 0 , 1, . . . do 
+
+sample independent random directions uk, 1, . . . , u k,s from N (0 , I d) or Unif( Sd−1)construct gZO  
+
+> h,s
+
+(xk) using either the Gaussian or spherical estimator sample an independent zk ∼ N (0 , I d)
+
+xk+1 = xk − γg ZO  
+
+> h,s
+
+(xk) + p2γβ −1zk
+
+end for 
+
+The previous lemmas show that Algorithm 4 is a particular instance of Algorithm 2. Hence, Theorem 3.3 applies directly. 
+
+Theorem 4.7 (Zeroth-order ULA) . Assume that F satisfies Assumptions 2.1 and 2.2, and let μ0 satisfy Assumption 2.3. Let xk be generated by Algorithm 4 with either the Gaussian or spherical estimator. Then, if δZO ≤ m2  
+
+> 24 M2
+
+(with δZO = δG for the Gaussian estimator or δZO = δS for the spherical one), the bound of Theorem 3.3 holds with δ = δZO .Proof. By Lemma 4.5, the Gaussian estimator satisfies Assumption 3.1 with δ = δG. By Lemma 4.6, the spherical estimator satisfies Assumption 3.1 with δ = δS. The claim follows by applying Theorem 3.3. 
+
+Corollary 4.8 (Complexity of zeroth-order ULA) . Assume that F satisfies Assumptions 2.1 and 2.2, and let μ0 satisfy Assumption 2.3. Fix ϵ ∈ (0 , 1) . Choose 
+
+β = ˜Θ
+
+ dϵ
+
+
+
+, γ = Θ 
+
+ ϵ2
+
+βd CLS (β, d )
+
+
+
+,
+
+and 
+
+k = ˜O
+
+ β2d CLS (β, d )2
+
+ϵ2
+
+
+
+.
+
+For the Gaussian estimator, it is sufficient to choose 
+
+s = ˜Θ
+
+ d2β2 CLS (β, d )
+
+ϵ2
+
+
+
+, h = ˜Θ ϵβd 3/2pCLS (β, d )
+
+!
+
+. (32) 
+
+For the spherical estimator, it is sufficient to choose 
+
+s = ˜Θ
+
+ d2β2 CLS (β, d )
+
+ϵ2
+
+
+
+, h = ˜Θ ϵβpCLS (β, d )
+
+!
+
+. (33) 
+
+With these choices, E[F (xk)] − min F ≤ ϵ. Consequently, the total number of function evaluations is 
+
+ks = ˜O
+
+ β4d3 CLS (β, d )3
+
+ϵ4
+
+
+
+.
+
+Proof. The proof follows from Corollary 3.5. The exact-gradient part of the error is controlled by the same choices of β, γ, and k used there. It remains to choose s and h so that the zeroth-order precision parameter satisfies 
+
+δZO ≤ ϵ24
+
+4( M + 1) 2(C′
+
+> 0
+
+)2C2γkβ , (34) with C′ 
+
+> 0
+
+as in (23) and C2 as in (24). Notice that, in both the Gaussian and spherical cases, the constant P
+
+in Assumption 3.1 can be taken to be P = 6 M 2. Therefore, since C′ 
+
+> 0
+
+≥ 8/m , condition (34) implies 
+
+δZO ≤ 14( M + 1) 2(C′
+
+> 0
+
+)2 ≤ m2
+
+256( M + 1) 2 ≤ m2
+
+256 M 2 ≤ m2
+
+24 M 2 = m2
+
+4P .
+
+23 Thus the stability condition required in Corollary 3.5 is automatically satisfied. Set ∆ZO := ϵ24
+
+4( M + 1) 2(C′
+
+> 0
+
+)2C2γkβ .
+
+Since γkβ = ˜O  β2 CLS (β, d ), we have ∆ ZO = ˜Θ
+
+ ϵ2 
+
+> β2CLS (β,d )
+
+
+
+. For the Gaussian estimator, Lemma 4.5 gives 
+
+δG = d(d+2)  
+
+> s
+
++ d(d + 2)( d + 4) h2. Thus it is enough to impose d(d+2)  
+
+> s
+
+≤ ∆ZO  
+
+> 2
+
+and d(d + 2)( d + 4) h2 ≤ ∆ZO  
+
+> 2
+
+.Equivalently, it is sufficient to choose s ≥ 2d(d+2) ∆ZO and h ≤
+
+q ∆ZO  
+
+> 2d(d+2)( d+4)
+
+. Since d(d + 2) = Θ( d2) and 
+
+d(d + 2)( d + 4) = Θ( d3), this gives (32). For the spherical estimator, Lemma 4.6 gives δS = d2 
+
+> s
+
++ h2. Hence it is enough to impose d2 
+
+> s
+
+≤ ∆ZO  
+
+> 2
+
+and h2 ≤ ∆ZO  
+
+> 2
+
+. Equivalently, it is sufficient to choose s ≥ 2d2 
+
+> ∆ZO
+
+and 
+
+h ≤
+
+q ∆ZO  
+
+> 2
+
+. Using the expression of ∆ ZO , this gives (33). With these choices, condition (34) holds, and therefore Corollary 3.5 gives 
+
+E[F (xk)] − min F ≤ ϵ. 
+
+Finally, both the Gaussian and the one-sided spherical estimator require s + 1 function evaluations per Langevin step, since the value F (xk) can be computed once and reused for all directions. Hence the total number of function evaluations is, up to leading order, 
+
+ks = ˜O
+
+ β2d CLS (β, d )2
+
+ϵ2
+
+
+
+˜O
+
+ d2β2 CLS (β, d )
+
+ϵ2
+
+
+
+= ˜O
+
+ β4d3 CLS (β, d )3
+
+ϵ4
+
+
+
+,
+
+which concludes the proof. 
+
+Remark 4.9 (Gaussian versus spherical smoothing) . Both the Gaussian and the one-sided spherical estima-tors considered above have the same leading-order oracle cost. Indeed, for a batch of s directions, the value 
+
+F (x) can be computed once and reused, so both estimators require s+1 function evaluations per Langevin step in the deterministic zeroth-order setting. The main difference between the two estimators is the dependence of the smoothing error on the dimension. The spherical estimator allows a larger smoothing radius h for the same target precision, which can be preferable in practice, especially when function evaluations are noisy or affected by numerical precision errors. 
+
+Comparison with existing zeroth-order Langevin guarantees. To the best of our knowledge, there are no directly comparable expected-excess-risk bounds for zeroth-order Langevin optimization under the same smooth dissipative assumptions. We therefore compare with the closest zeroth-order Langevin sampling results in Appendix D.3. 
+
+# 5 Experiments 
+
+In this section, we provide numerical experiments to investigate how the parameters of Algorithm 4 affect its practical performance. We consider three standard synthetic non-convex target functions, namely the Ackley function, the Rastrigin function, and the Levy function. We use spherical finite-difference estimator, fix a budget of 10 6 function evaluations and consider different dimensions d = 10 , 50 , and 100. Each experiment is repeated 5 times with different initializations x0, and we report the mean and standard deviation across repetitions; further details are given in Appendix E. Figure 1 reports the normalized average optimality gap, computed at the best xk observed over the last 100 iterations, ( F (xk) − min F )/(F (x0) − min F ), as a function of the stepsize γ, for different numbers of directions s and different input dimensions d (the gap is clipped to 1 in case of divergence). In every experiment, the exploration parameter β is selected via grid search. 24 10 6 10 4 10 2 10 0  
+
+> 10 1
+> 10 0
+> F(xk) min FF(x0) min F
+> d= 10
+
+Ackley                               
+
+> s= 1 s=15ds=13ds=12ds=23ds=45ds=d
+> 10 610 410 210 0
+> 10 0
+
+Rastrigin        
+
+> 10 610 410 210 0
+> 10 1
+> 10 0
+
+Levy                                              
+
+> 10 610 410 210 0
+> 10 1
+> 10 0
+> F(xk) min FF(x0) min F
+> d= 50
+> 10 610 410 210 0
+> 10 1
+> 10 0
+> 10 610 410 210 0
+> 10 0
+> 10 610 410 210 0
+> 10 1
+> 10 0
+> F(xk) min FF(x0) min F
+> d= 100
+> 10 610 410 210 0
+> 10 0
+> 2 × 10 1
+> 3 × 10 1
+> 4 × 10 1
+> 6 × 10 1
+> 10 610 410 210 0
+> 10 0
+
+Figure 1: Averaged normalized optimality gap at the best iterate over the last 100 iterations, as a function of the stepsize γ, for varying number of directions s. Rows correspond to increasing input dimension d (top to bottom: d = 10 , 50 , 100), while columns correspond to the different target functions (left to right: Ackley, Rastrigin, Levy). We observe that both extremes of γ provide bad performance: for very small stepsizes the algorithm makes negligible progress within the fixed evaluation budget, so the optimality gap remains close to 1, whereas for very large stepsizes the algorithm diverges, and the gap is clipped to 1. Increasing the number of directions s increases the largest admissible stepsize, since the gradient estimator becomes more stable, and consequently improves overall performance. However, if s is too large, performance may deteriorate. As the budget of function evaluations is fixed, a larger s implies a higher number of evaluation per iteration, which in turn reduces the total number of iterations the algorithm can perform. Since the target functions are non-convex, the algorithm can become trapped near stationary points and may require many iterations to escape them via the exploration component (such an effect is particularly visible for the Rastrigin function). This is coherent with previous observations on finite-difference methods, where increasing the number of directions similarly improves gradient estimate quality, allows for larger stepsizes, and comes at the expense of the number of iterations affordable under a fixed evaluation budget. Figure 2 reports the same normalized average optimality gap as a function of the exploration parameter β, for different numbers of directions s
+
+and different input dimensions d. In every experiment, the stepsize γ is selected via grid search. 25 10 1 10 1 10 3  
+
+> 10 1
+> 10 0
+> F(xk) min FF(x0) min F
+> d= 10
+
+Ackley                                
+
+> s= 1 s=15ds=13ds=12ds=23ds=45ds=d
+> 10 110 110 3
+> 10 0
+> 2 × 10 1
+> 3 × 10 1
+> 4 × 10 1
+> 6 × 10 1
+
+Rastrigin     
+
+> 10 110 110 3
+> 10 1
+> 10 0
+
+Levy                            
+
+> 10 110 110 3
+> 10 1
+> 10 0
+> F(xk) min FF(x0) min F
+> d= 50
+> 10 110 110 3
+> 10 1
+> 10 0
+> 10 110 110 3
+> 10 0
+> 10 110 110 3
+> 10 1
+> 10 0
+> F(xk) min FF(x0) min F
+> d= 100
+> 10 110 110 3
+> 10 0
+> 2 × 10 1
+> 3 × 10 1
+> 4 × 10 1
+> 6 × 10 1
+> 10 110 110 3
+> 10 0
+
+Figure 2: Averaged normalized optimality gap at the best iterate over the last 100 iterations, as a function of the exploration parameter β, for varying number of directions s. Rows correspond to increasing input dimension d (top to bottom: d = 10 , 50 , 100), while columns correspond to the different target functions (left to right: Ackley, Rastrigin, Levy). We observe that for very small β, Algorithm 4 provides bad performance. This is because with such a choice the stochastic component of the dynamics is too strong relative to the drift. As a result, the algorithm either diverges, or, when it converges, the stationary distribution it samples from has a too large variance, yielding a poor approximation of the minimizer. As β increases, the target Gibbs measure becomes more peaked around the global minimum, so that sampling from (or near) the stationary distribution yields a more precise approximation of the minimizer, and performance improves. Notice that such a behavior is expected from the theory. However, for excessively large β, performance may deteriorate. A more peaked Gibbs measure requires more iterations for the algorithm to reach (or approach) its stationary distribution, so that, under a fixed evaluation budget, an insufficient number of iterations are performed to benefit from this increased precision. Notice that this effect is amplified when s is large, since larger s further reduces the number of iterations affordable within the same budget. Notably, performance also deteriorates for 
+
+s = 1 when β is too large. In this case, in addition to requiring more iterations to approach the stationary distribution, the admissible stepsize γ is smaller for s = 1, as observed in Figure 1, and thus the algorithm progresses even more slowly toward the stationary distribution, further limiting the precision achievable within the fixed evaluation budget. 26 6 Conclusions 
+
+We studied Langevin-based algorithms for non-convex optimization under smoothness and dissipativity as-sumptions, focusing on expected excess-risk bounds. The main idea was to pass directly from relative entropy to objective-value error through a weighted Csisz´ ar–Kullback–Pinsker inequality and exponential-moment estimates, avoiding an intermediate Wasserstein step. This led to explicit bounds for exact-gradient ULA, inexact-gradient ULA, mini-batch ULA, and zeroth-order ULA. Since our inexact-gradient framework is broad, it does not exploit the special cancellations available for unbiased stochastic gradients; developing sharper mini-batch ULA bounds based on unbiasedness, for instance along the lines of [22], is therefore a natural direction for future work. Another natural direction is to relax the smoothness and dissipativ-ity assumptions. Several recent works study Langevin-type algorithms under different or weaker regularity regimes, including tail-growth and weak-smoothness conditions [28, 58], stationarity guarantees under mild non-log-concave assumptions [3], or non-smooth sampling regimes [44], and optimization-oriented extensions with weaker dissipativity or H¨ older-type regularity [14]. However, extending our argument to such settings is not automatic. The weighted KL-to-objective comparison used here relies strongly on the quadratic-growth structure implied by smoothness and dissipativity: the objective has at most quadratic growth, the gra-dient has at most linear growth, and the Gibbs measure has the exponential moments needed to control expectations of unbounded functions. Finally, an important direction is to improve the dependence on the functional-inequality constants. A natural possibility is to exploit perturbative or problem-specific bounds, for instance when the objective decomposes into a strongly confining part plus a bounded or controlled perturbation [12]. Such refinements would be complementary to the present analysis and could substantially improve the practical relevance of the resulting bounds. 
+
+Acknowledgments. E.N., S.V. and L.R. acknowledge the support of the US Air Force Office of Sci-entific Research (FA8655-22-1-7034). The research by E.N. and S.V. has been supported by the MUR Excellence Department Project awarded to Dipartimento di Matematica, Universita di Genova, CUP D33C23001110001. L.R. acknowledges the financial support of the European Commission (Horizon Europe grant ELIAS 101120237). L.R. is affiliated to the Istituto Italiano di Tecnologia (IIT). E.N. and S.V. are members of the Gruppo Nazionale per l’Analisi Matematica, la Probabilit` a e le loro Applicazioni (GNAMPA) of the Istituto Nazionale di Alta Matematica (INdAM). The research of M.R. has been partially funded by a France 2030 support managed by the Agence Nationale de la Recherche, under the reference ANR-23-PEIA-0004 (PDE-AI project). Experiments presented in this paper were carried out using the Grid’5000 testbed, supported by a scientific interest group hosted by Inria and including CNRS, RENATER and several Universities as well as other organizations (see https://www.grid5000.fr ). This work represents only the view of the authors. The European Commission and the other organizations are not responsible for any use that may be made of the information it contains. 
+
+# References 
+
+[1] Charles Audet and J. E. Dennis. Mesh adaptive direct search algorithms for constrained optimization. 
+
+SIAM Journal on Optimization , 17(1):188–217, 2006. [2] Dominique Bakry, Ivan Gentil, and Michel Ledoux. Analysis and Geometry of Markov Diffusion Oper-ators , volume 348 of Grundlehren der mathematischen Wissenschaften . Springer, 2014. [3] Krishna Balasubramanian, Sinho Chewi, Murat A. Erdogdu, Adil Salim, and Shunshi Zhang. Towards a theory of non-log-concave sampling: First-order stationarity guarantees for Langevin Monte Carlo. In Proceedings of the 35th Conference on Learning Theory (COLT 2022) , volume 178, page 2896–2923, 2022. 27 [4] Jonas Beddrich, Enis Chenchene, Massimo Fornasier, Hui Huang, and Barbara Wohlmuth. Constrained consensus-based optimization and numerical heuristics for the few particle regime. Journal of Global Optimization , 2026. [5] Julius R. Blum. Approximation Methods which Converge with Probability one. The Annals of Mathe-matical Statistics , 25(2):382 – 386, 1954. [6] Francois Bolley and C´ edric Villani. Weighted Csisz´ ar-Kullback-Pinsker inequalities and applications to transportation inequalities. Annales de la Facult´ e des sciences de Toulouse : Math´ ematiques , Ser. 6, 14(3):331–352, 2005. [7] Maxime Bouton, Pierre-Antoine Thouvenin, Audrey Repetti, and Pierre Chainais. A distributed Plug-and-Play MCMC algorithm for high-dimensional inverse problems. IEEE Transactions on Computa-tional Imaging , 12:839–849, 2026. [8] Anton Bovier and Frank den Hollander. Metastability: A Potential-Theoretic Approach , volume 351 of 
+
+Grundlehren der mathematischen Wissenschaften . Springer, 2015. [9] Anton Bovier, Michael Eckhoff, V´ eronique Gayrard, and Markus Klein. Metastability in reversible diffu-sion processes I: Sharp asymptotics for capacities and exit times. Journal of the European Mathematical Society , 6(4):399–424, 2004. [10] Adam D. Bull. Convergence rates of efficient global optimization algorithms. Journal of Machine Learning Research , 12:2879–2904, 2011. [11] Jos´ e A. Carrillo, Shi Jin, Lei Li, and Yuhua Zhu. A consensus-based global optimization method for high dimensional machine learning problems. ESAIM: Control, Optimisation and Calculus of Variations ,27:S5, 2021. [12] Patrick Cattiaux and Arnaud Guillin. Functional inequalities for perturbed measures with applications to log-concave measures and to some Bayesian problems. Bernoulli , 28(4):2294–2321, 2022. [13] Patrick Cattiaux, Arnaud Guillin, and Li-Ming Wu. A note on Talagrand’s transportation inequality and logarithmic Sobolev inequality. Probability Theory and Related Fields , 148(1–2):285–304, 2010. [14] August Y. Chen, Ayush Sekhari, and Karthik Sridharan. Langevin dynamics: A unified perspective on optimization via Lyapunov potentials. In OPT 2024: 16th Annual Workshop on Optimization for Machine Learning (NeurIPS Workshop) , 2024. [15] Pin-Yu Chen, Huan Zhang, Yash Sharma, Jinfeng Yi, and Cho-Jui Hsieh. Zoo: Zeroth order optimiza-tion based black-box attacks to deep neural networks without training substitute models. In Proceedings of the 10th ACM Workshop on Artificial Intelligence and Security , AISec ’17, page 15–26, New York, NY, USA, 2017. Association for Computing Machinery. [16] Xiang Cheng, Niladri S. Chatterji, Yasin Abbasi-Yadkori, Peter L. Bartlett, and Michael I. Jordan. Convergence rates for Langevin Monte Carlo in the nonconvex setting. Journal of Machine Learning Research , 20(164):1–49, 2019. [17] Sinho Chewi, Murat A. Erdogdu, Mufan Li, Ruoqi Shen, and Shunshi Zhang. Analysis of Langevin Monte Carlo from Poincar´ e to log-Sobolev. In Proceedings of the 35th Conference on Learning Theory ,volume 178 of Proceedings of Machine Learning Research , pages 1–2. PMLR, 2022. [18] Tzuu-Shuh Chiang, Chii-Ruey Hwang, and Shuenn Jyi Sheu. Diffusion for global optimization in Rn.
+
+SIAM Journal on Control and Optimization , 25(3):737–753, 1987. [19] Andrew R. Conn, Katya Scheinberg, and Luis N. Vicente. Introduction to Derivative-Free Optimization ,volume 8 of MPS-SIAM Series on Optimization . SIAM, 2009. 28 [20] Arnak S. Dalalyan. Theoretical guarantees for approximate sampling from smooth and log-concave densities. Journal of the Royal Statistical Society: Series B (Statistical Methodology) , 79(3):651–676, 2017. [21] Arnak S. Dalalyan and Avetik Karagulyan. User-friendly guarantees for the Langevin Monte Carlo with inaccurate gradient. Stochastic Processes and their Applications , 129(12):5278–5311, 2019. [22] Aniket Das, Dheeraj M. Nagaraj, and Anant Raj. Utilising the CLT structure in stochastic gradient based sampling: Improved analysis and faster algorithms. In Proceedings of Thirty Sixth Conference on Learning Theory , volume 195 of Proceedings of Machine Learning Research , pages 4072–4129. PMLR, 12–15 Jul 2023. [23] John C. Duchi, Michael I. Jordan, Martin J. Wainwright, and Andre Wibisono. Optimal rates for zero-order convex optimization: The power of two function evaluations. IEEE Transactions on Information Theory , 61(5):2788–2806, 2015. [24] Alain Durmus, Szymon Majewski, and Bla˙ zej Miasojedow. Analysis of Langevin Monte Carlo via convex optimization. Journal of Machine Learning Research , 20(73):1–46, 2019. [25] Alain Durmus and ´Eric Moulines. Nonasymptotic convergence analysis for the unadjusted Langevin algorithm. The Annals of Applied Probability , 27(3):1551–1587, 2017. [26] Andreas Eberle. Reflection couplings and contraction rates for diffusions. Probability Theory and Related Fields , 166(3):851–886, Dec 2016. [27] Matthias J. Ehrhardt, Lorenz Kuger, and Carola-Bibiane Sch¨ onlieb. Proximal Langevin sampling with inexact proximal mapping. SIAM Journal on Imaging Sciences , 17(3):1729–1760, 2024. [28] Murat A. Erdogdu and Rasa Hosseinzadeh. On the convergence of Langevin Monte Carlo: The interplay between tail growth and smoothness. In Proceedings of Thirty Fourth Conference on Learning Theory ,volume 134 of Proceedings of Machine Learning Research , pages 1776–1822. PMLR, 15–19 Aug 2021. [29] Abraham D. Flaxman, Adam T. Tauman Kalai, and Brendan H. McMahan. Online convex optimization in the bandit setting: Gradient descent without a gradient. In SODA ’05 Proceedings of the sixteenth annual ACM-SIAM symposium on Discrete algorithms , pages 385–394, January 2005. [30] Massimo Fornasier, Hui Huang, Jona Klemenc, and Greta Malaspina. From consensus-based optimiza-tion to evolution strategies: Proof of global convergence, 2026. [31] Massimo Fornasier, Timo Klock, and Konstantin Riedl. Consensus-based optimization methods converge globally. SIAM Journal on Optimization , 34(3):2973–3004, 2024. [32] Xiang Gao, Bo Jiang, and Shuzhong Zhang. On the information-adaptive variants of the admm: An iteration complexity perspective. Journal of Scientific Computing , 76(1):327–363, Jul 2018. [33] Stuart Geman and Chii-Ruey Hwang. Diffusions for global optimization. SIAM Journal on Control and Optimization , 24(5):1031–1043, 1986. [34] Saeed Ghadimi and Guanghui Lan. Stochastic first- and zeroth-order methods for nonconvex stochastic programming. SIAM Journal on Optimization , 23(4):2341–2368, 2013. [35] E. G. Gladyshev. On stochastic approximation. Theory of Probability & Its Applications , 10(2):275–278, 1965. [36] Robert Gower, Othmane Sebbouh, and Nicolas Loizou. SGD for structured nonconvex functions: Learn-ing rates, minibatching and interpolation. In Proceedings of The 24th International Conference on Artificial Intelligence and Statistics , volume 130 of Proceedings of Machine Learning Research , pages 1315–1323. PMLR, 13–15 Apr 2021. 29 [37] Andreas Habring, Alexander Falk, Martin Zach, and Thomas Pock. Diffusion at absolute zero: Langevin sampling using successive Moreau envelopes. SIAM Journal on Imaging Sciences , 19(1):35–77, 2026. [38] Andreas Habring, Martin Holler, and Thomas Pock. Subgradient Langevin methods for sampling from nonsmooth potentials. SIAM Journal on Mathematics of Data Science , 6(4):897–925, 2024. [39] Andreas Habring and Martin Zach. Forward-KL convergence of time-inhomogeneous Langevin diffu-sions, 2026. [40] Bruce Hajek. Cooling schedules for optimal annealing. Mathematics of Operations Research , 13(2):311– 329, 1988. [41] Charles R. Harris, K. Jarrod Millman, St´ efan J. van der Walt, Ralf Gommers, Pauli Virtanen, David Cournapeau, Eric Wieser, Julian Taylor, Sebastian Berg, Nathaniel J. Smith, Robert Kern, Matti Picus, Stephan Hoyer, Marten H. van Kerkwijk, Matthew Brett, Allan Haldane, Jaime Fern´ andez del R´ ıo, Mark Wiebe, Pearu Peterson, Pierre G´ erard-Marchant, Kevin Sheppard, Tyler Reddy, Warren Weckesser, Hameer Abbasi, Christoph Gohlke, and Travis E. Oliphant. Array programming with numpy. Nature ,585(7825):357–362, Sep 2020. [42] Richard Holley and Daniel Stroock. Logarithmic Sobolev inequalities and stochastic Ising models. 
+
+Journal of statistical physics , 46(5-6):1159–1194, 1987. [43] John D. Hunter. Matplotlib: A 2d graphics environment. Computing in Science & Engineering , 9(3):90– 95, 2007. [44] Tim Johnston, Iosif Lytras, Nikolaos Makras, and Sotirios Sabanis. The performance of the unadjusted Langevin algorithm without smoothness assumptions, 2025. [45] Yuri Kinoshita and Taiji Suzuki. Improved convergence rate of stochastic gradient Langevin dynam-ics with variance reduction and its application to optimization. In Advances in Neural Information Processing Systems , volume 35, pages 19022–19034. Curran Associates, Inc., 2022. [46] Teresa Klatzer, Savvas Melidonis, Marcelo Pereyra, and Konstantinos C. Zygalakis. Efficient Bayesian computation using Plug-and-Play priors for Poisson inverse problems. SIAM Journal on Imaging Sci-ences , 19(2):1325–1363, 2026. [47] Guillaume Lauga, Cesare Molinari, and Samuel Vaiter. Proximal basin hopping: global optimization with guarantees, 2026. [48] R´ emi Laumont, Valentin De Bortoli, Andr´ es Almansa, Julie Delon, Alain Durmus, and Marcelo Pereyra. Bayesian imaging using Plug & Play priors: When Langevin meets Tweedie. SIAM Journal on Imaging Sciences , 15(2):701–737, 2022. [49] R´ emi Laumont, Valentin De Bortoli, Andr´ es Almansa, Julie Delon, Alain Durmus, and Marcelo Pereyra. On maximum a posteriori estimation with Plug & Play priors and stochastic gradient descent. Journal of Mathematical Imaging and Vision , 65(1):140–163, Jan 2023. [50] Jun Liu and Ye Yuan. Almost sure convergence rates analysis and saddle avoidance of stochastic gradient methods. Journal of Machine Learning Research , 25(271):1–40, 2024. [51] Lewis Liu and Zhaoran Wang. One-point gradient estimators for zeroth-order stochastic gradient Langevin dynamics. In OPT2020: 12th Annual Workshop on Optimization for Machine Learning ,2020. [52] Mateusz B. Majka, Aleksandar Mijatovi´ c, and Lukasz Szpruch. Non-asymptotic bounds for sampling algorithms without log-concavity. The Annals of Applied Probability , 30(4):1534–1581, 2020. 30 [53] C´ edric Malherbe and Nicolas Vayatis. Global optimization of Lipschitz functions. In Proceedings of the 34th International Conference on Machine Learning , volume 70 of Proceedings of Machine Learning Research , pages 2314–2323. PMLR, 06–11 Aug 2017. [54] Sadhika Malladi, Tianyu Gao, Eshaan Nichani, Alex Damian, Jason D. Lee, Danqi Chen, and Sanjeev Arora. Fine-tuning language models with just forward passes. In Advances in Neural Information Processing Systems , volume 36, pages 53038–53075. Curran Associates, Inc., 2023. [55] Jonathan C. Mattingly, Andrew M. Stuart, and Desmond J. Higham. Ergodicity for SDEs and approxi-mations: locally lipschitz vector fields and degenerate noise. Stochastic Processes and their Applications ,101(2):185–232, 2002. [56] Emanuele Naldi, Hippolyte Labarri` ere, Cesare Molinari, and Silvia Villa. Convergence of zeroth-order proximal point algorithms in the high-temperature regime, 2026. [57] Yurii Nesterov and Vladimir Spokoiny. Random gradient-free minimization of convex functions. Foun-dations of Computational Mathematics , 17(2):527–566, Apr 2017. [58] Dao Nguyen, Xin Dang, and Yixin Chen. Unadjusted Langevin algorithm for non-convex weakly smooth potentials. Communications in Mathematics and Statistics , 13(4):979–1036, Aug 2025. [59] Adam Paszke, Sam Gross, Francisco Massa, Adam Lerer, James Bradbury, Gregory Chanan, Trevor Killeen, Zeming Lin, Natalia Gimelshein, Luca Antiga, Alban Desmaison, Andreas Kopf, Edward Yang, Zachary DeVito, Martin Raison, Alykhan Tejani, Sasank Chilamkurthy, Benoit Steiner, Lu Fang, Junjie Bai, and Soumith Chintala. Pytorch: An imperative style, high-performance deep learning library. In 
+
+Advances in Neural Information Processing Systems , volume 32. Curran Associates, Inc., 2019. [60] Ren´ e Pinnau, Claudia Totzeck, Oliver Tse, and Stephan Martin. A consensus-based model for global optimization and its mean-field limit. Mathematical Models and Methods in Applied Sciences , 27(1):183– 204, 2017. [61] Maxim Raginsky, Alexander Rakhlin, and Matus Telgarsky. Non-convex learning via stochastic gradient Langevin dynamics: a nonasymptotic analysis. In Proceedings of the 2017 Conference on Learning Theory , volume 65 of Proceedings of Machine Learning Research , pages 1674–1703. PMLR, 07–10 Jul 2017. [62] Marco Rando, Luca Demetrio, Lorenzo Rosasco, and Fabio Roli. A new formulation for zeroth-order op-timization of adversarial EXEmples in malware detection. IEEE Transactions on Information Forensics and Security , 21:506–515, 2026. [63] Marco Rando, Cesare Molinari, Lorenzo Rosasco, and Silvia Villa. An optimal structured zeroth-order algorithm for non-smooth optimization. In Advances in Neural Information Processing Systems ,volume 36, pages 36738–36767. Curran Associates, Inc., 2023. [64] Marco Rando, Cesare Molinari, Silvia Villa, and Lorenzo Rosasco. Stochastic zeroth order descent with structured directions. Computational Optimization and Applications , 89(3):691–727, Dec 2024. [65] Marco Rando, Cheik Traor´ e, Cesare Molinari, Lorenzo Rosasco, and Silvia Villa. A structured proximal stochastic variance reduced zeroth-order algorithm. arXiv preprint arXiv:2506.23758 , 2025. [66] Marco Rando and Samuel Vaiter. Zoba: An efficient single-loop zeroth-order bilevel optimization algo-rithm, 2026. [67] Marien Renaud, Valentin De Bortoli, Arthur Leclaire, and Nicolas Papadakis. From stability of Langevin diffusion to convergence of proximal MCMC for non-log-concave sampling. In Advances in Neural Information Processing Systems , volume 38, pages 115709–115773. Curran Associates, Inc., 2025. 31 [68] Gareth O. Roberts and Richard L. Tweedie. Exponential convergence of Langevin distributions and their discrete approximations. Bernoulli , 2(4):341–363, 1996. [69] Abhishek Roy, Lingqing Shen, Krishna Balasubramanian, and Saeed Ghadimi. Stochastic zeroth-order discretizations of Langevin diffusions for Bayesian inference. Bernoulli , 28(3):1810–1834, 2022. [70] Carlotta Sartore, Marco Rando, Giulio Romualdi, Cesare Molinari, Lorenzo Rosasco, and Daniele Pucci. Automatic gain tuning for humanoid robots walking architectures using gradient-free optimization tech-niques. In 2024 IEEE-RAS 23rd International Conference on Humanoid Robots (Humanoids) , pages 996–1003, 2024. [71] Francisco J. Solis and Roger J-B. Wets. Minimization by random search techniques. Mathematics of Operations Research , 6(1):19–30, 1981. [72] Wenpin Tang, Yuhang Wu, and Xun Yu Zhou. Discrete-time simulated annealing: A convergence analysis via the eyring–kramers law. Numerical Algebra, Control and Optimization , 14(4):778–794, 2024. [73] Wenpin Tang and Xun Yu Zhou. Tail probability estimates of continuous-time simulated annealing processes. Numerical Algebra, Control and Optimization , 13(3&4):473–485, 2023. [74] Santosh Vempala and Andre Wibisono. Rapid convergence of the unadjusted Langevin algorithm: Isoperimetry suffices. In Advances in Neural Information Processing Systems , volume 32. Curran Asso-ciates, Inc., 2019. [75] C´ edric Villani. Optimal Transport: Old and New , volume 338 of Grundlehren der mathematischen Wissenschaften . Springer Berlin, Heidelberg, Berlin, Heidelberg, 2009. [76] Pan Xu, Jinghui Chen, Difan Zou, and Quanquan Gu. Global convergence of Langevin dynamics based algorithms for nonconvex optimization. In Advances in Neural Information Processing Systems ,volume 31. Curran Associates, Inc., 2018. [77] Minxin Zhang, Fuqun Han, Yat Tin Chow, Stanley Osher, and Hayden Schaeffer. Inexact proximal point algorithms for zeroth-order global optimization, 2024. [78] Difan Zou, Pan Xu, and Quanquan Gu. Faster convergence of stochastic gradient Langevin dynamics for non-log-concave sampling. In Proceedings of the Thirty-Seventh Conference on Uncertainty in Artificial Intelligence , volume 161 of Proceedings of Machine Learning Research , pages 1152–1162. PMLR, 27–30 Jul 2021. 
+
+# A Measure inequalities 
+
+In this section, we recall fundamental functional inequalities satisfied by the target measure πβ under the assumptions of smoothness and dissipativity. These inequalities are central to establishing the convergence of the corresponding Langevin dynamics. First, recall the Kullback–Leibler divergence. 
+
+Definition A.1 (Kullback–Leibler divergence) . Let μ and ν be probability measures on Rd. The Kullback– Leibler divergence, or relative entropy, of μ with respect to ν is defined by 
+
+KL( μ∥ν) := 
+
+Z
+
+> Rd
+
+log 
+
+ dμ dν 
+
+
+
+dμ, if μ ≪ ν, 
+
++∞, otherwise .
+
+Equivalently, if r = dμ dν , then 
+
+KL( μ∥ν) = 
+
+Z
+
+> Rd
+
+r log r dν, 
+
+32 with the convention 0 log 0 = 0 .
+
+The main inequality we consider and exploit is the Logarithmic Sobolev Inequality. 
+
+Definition A.2 (Logarithmic Sobolev Inequality) . A probability measure π is said to satisfy a Logarithmic Sobolev Inequality (LSI) with constant CLS > 0 if, for all probability measures μ absolutely continuous with respect to π (μ ≪ π), it holds that 
+
+KL( μ|| π) ≤ 2CLS 
+
+Z
+
+> Rd
+
+∇
+
+r dμ dπ 
+
+> 2
+
+dπ = CLS 
+
+2
+
+Z
+
+> Rd
+
+∇ log 
+
+ dμ dπ 
+
+ 2
+
+dμ. (35) The literature frequently presents the Fisher information (the right-hand side of the LSI) in two different forms. The following standard computation reconciles them. Let f = dμ dπ denote the Radon-Nikodym derivative. Applying the chain rule ∇√f = ∇f 
+
+> 2√f
+
+, the first formulation expands as: 2CLS 
+
+Z
+
+> Rd
+
+∇pf 2
+
+dπ β = 2 CLS 
+
+Z
+
+> Rd
+
+∇f
+
+2√f
+
+> 2
+
+dπ β = CLS 
+
+2
+
+Z
+
+> Rd
+
+∥∇ f ∥2
+
+f dπ. 
+
+For the second formulation, using the identity ∇ log f = ∇ff and changing the measure via dμ = f dπ β ,we obtain: 
+
+CLS 
+
+2
+
+Z
+
+> Rd
+
+∥∇ log f ∥2 dμ = CLS 
+
+2
+
+Z
+
+> Rd
+
+∇ff
+
+> 2
+
+f dπ β = CLS 
+
+2
+
+Z
+
+> Rd
+
+∥∇ f ∥2
+
+f dπ. 
+
+This confirms the equivalence of the two expressions. The Kullback-Leibler divergence also strictly controls other distance metrics between measures, such as the Wasserstein distance and the total variation distance, via the following inequalities. 
+
+Definition A.3 (Talagrand’s Transportation Inequality) . A probability measure π is said to satisfy Ta-lagrand’s T2 transportation inequality with constant CT > 0 if, for all probability measures μ absolutely continuous with respect to π, it holds that 
+
+W 22 (μ, π ) ≤ 2CT KL( μ|| π), (36) 
+
+where W2(μ, π ) denotes the L2-Wasserstein distance between μ and π [75]. 
+
+Definition A.4 (Pinsker’s Inequality) . For any two probability measures μ and π, Pinsker’s inequality bounds the total variation distance unconditionally in terms of the Kullback-Leibler divergence: 
+
+∥μ − π∥TV ≤
+
+r 12 KL( μ|| π), (37) 
+
+where ∥ · ∥ TV denotes the total variation distance. 
+
+These functional inequalities form a well-established hierarchy. By the Otto-Villani theorem, if πβ satisfies the Logarithmic Sobolev Inequality with constant CLS , it automatically satisfies Talagrand’s T2 inequality with CT ≤ CLS . Talagrand’s T2 inequality, in turn, implies the Poincar´ e inequality. 
+
+Definition A.5 (Poincar´ e Inequality) . A probability measure π is said to satisfy a Poincar´ e inequality with constant CP > 0 if, for all functions g ∈ C∞ 
+
+> c
+
+(Rd), it holds that 
+
+Var π (g) ≤ CP
+
+Z
+
+> Rd
+
+∥∇ g∥2 dπ, (38) 
+
+where Var π (g) = R 
+
+> Rd
+
+g2dπ −  R  
+
+> Rd
+
+gdπ 2.
+
+Remark A.6 (Connection to the Spectral Gap) . In the context of the Langevin diffusion dX t =
+
+−∇ F (Xt)dt + √2dW t, the Poincar´ e constant CP is intimately tied to the spectral gap of the associated infinitesimal generator L = ∆ − ⟨∇ F, ∇⟩ . Specifically, if λ∗ denotes the global spectral gap of the operator 
+
+−L in L2(π) (as defined, for instance, in Raginsky et al. [61]), the Poincar´ e constant is exactly its inverse: 
+
+CP = 1 
+
+> λ∗
+
+. Thus, bounding CP is equivalent to establishing an exponential rate of convergence to equilibrium in L2(π) variance. 
+
+33 A.1 Bound on the Logarithmic Sobolev Constant 
+
+To bound the Log-Sobolev constant, we rely on the Poincar´ e inequality defined in Appendix A. As established by Raginsky et al. [61, Appendix E], CLS (β, d ) can be explicitly bounded in terms of the problem parameters and the Poincar´ e constant CP (β, d ) of the measure πβ . For a C2, M -smooth and ( m, b )-dissipative potential 
+
+F , the Gibbs measure satisfies a Log-Sobolev inequality with the constant 
+
+CLS (β, d ) ≤ 2m2 + 8 M 2
+
+βm 2M + CP (β, d )
+
+ 6M (d + βb )
+
+m + 2 
+
+
+
+=: CR(β, d ). (39) Without further geometric assumptions, such as global strong convexity, the magnitude of CLS (β, d ) is dominated by the Poincar´ e constant CP (β, d ) (which directly corresponds to the inverse of the spectral gap, 
+
+λ−1 
+
+> ∗
+
+, in the notation of [61]). Following the computations detailed in [61, Appendix B] and [2, Proposition 13], we obtain the explicit estimate 
+
+CP (β, d ) ≤ 1
+
+mβ (d + bβ ) + 2( d + bβ )CU
+
+mβ exp 
+
+ 2
+
+m (M + B) ( bβ + d) + β(A + B)
+
+
+
+,
+
+where A and B are the constants given by Lemma 2.2 applied to F , and CU is a universal constant. Combining these bounds reveals that the dependence of CLS (β, d ) on β and d is exponential. Asymptot-ically, as β, d → ∞ , we derive the following general scaling behavior: 
+
+CLS (β, d ) ≤ ˜O
+
+
+
+exp 
+
+ 2bm (M + B) + A + B
+
+
+
+β + 2
+
+m (M + B)d
+
+ 
+
+.
+
+As highlighted in the main text, while Raginsky et al. [61] state these bounds for M -smooth potentials, their underlying reliance on the Bakry-Cattiaux criteria implicitly assumes that F is C2 (see [61, Proposition 15] or [39, Lemma B.6] where this gap is still present). Because our framework avoids this stronger regularity assumption, we cannot invoke their LSI result directly. To bridge this gap and ensure the constants hold for functions that are merely C1,1, we provide a proof of the Logarithmic Sobolev Inequality via a mollification argument. 
+
+Proof of Proposition 2.5. We argue by mollification. Let ρ ∈ C∞ 
+
+> c
+
+(Rd) be nonnegative, even, supported in the unit ball, and normalized by R 
+
+> Rd
+
+ρ(y) dy = 1. Since ρ is even, we also have R 
+
+> Rd
+
+y ρ (y) dy = 0. For ϵ > 0, set 
+
+ρϵ(y) := ϵ−dρ(y/ϵ ), Fϵ(x) := ( ρϵ ∗ F )( x) = 
+
+Z
+
+> Rd
+
+ρϵ(y)F (x − y) dy. 
+
+Finally define s2 
+
+> ρ
+
+:= R 
+
+> Rd
+
+∥y∥2ρ(y) dy , which implies R 
+
+> Rd
+
+∥y∥2ρϵ(y) dy = ϵ2s2
+
+> ρ
+
+. Since F is C1 and ρϵ is C∞ 
+
+> c
+
+,
+
+Fϵ ∈ C∞(Rd), and it holds 
+
+∇Fϵ(x) = 
+
+Z
+
+> Rd
+
+ρϵ(y)∇F (x − y) dy. 
+
+Indeed, this follows by differentiating under the integral sign, which is justified because ∇F is continuous and the integration is over the compact set x − supp ρϵ. For every x, z ∈ Rd, we have 
+
+∥∇ Fϵ(x) − ∇ Fϵ(z)∥ =
+
+Z
+
+> Rd
+
+ρϵ(y) ∇F (x − y) − ∇ F (z − y) dy ≤
+
+Z
+
+> Rd
+
+ρϵ(y)∥∇ F (x − y) − ∇ F (z − y)∥ dy 
+
+≤ M ∥x − z∥
+
+Z
+
+> Rd
+
+ρϵ(y) dy = M ∥x − z∥.
+
+Thus Fϵ is M -smooth. Since Fϵ is C∞, this implies −M I ⪯ ∇ 2Fϵ(x) ⪯ M I , for all x ∈ Rd. In particular, the potential βF ϵ satisfies ∇2(βF ϵ)( x) ⪰ − βM I . We next prove dissipativity. For every x ∈ Rd,
+
+⟨x, ∇Fϵ(x)⟩ =
+
+Z
+
+> Rd
+
+ρϵ(y)⟨x, ∇F (x − y)⟩ dy =
+
+Z
+
+> Rd
+
+ρϵ(y)⟨x − y, ∇F (x − y)⟩ dy +
+
+Z
+
+> Rd
+
+ρϵ(y)⟨y, ∇F (x − y)⟩ dy. 
+
+34 The first integral is bounded from below by dissipativity of F :
+
+Z
+
+> Rd
+
+ρϵ(y)⟨x − y, ∇F (x − y)⟩ dy ≥
+
+Z
+
+> Rd
+
+ρϵ(y) m∥x − y∥2 − b dy = m
+
+Z
+
+> Rd
+
+ρϵ(y)∥x − y∥2 dy − b. 
+
+Since R yρ ϵ(y) dy = 0, 
+
+Z
+
+> Rd
+
+ρϵ(y)∥x − y∥2 dy = ∥x∥2 +
+
+Z
+
+> Rd
+
+ρϵ(y)∥y∥2 dy = ∥x∥2 + ϵ2s2
+
+> ρ
+
+.
+
+Therefore Z
+
+> Rd
+
+ρϵ(y)⟨x − y, ∇F (x − y)⟩ dy ≥ m∥x∥2 + mϵ 2s2 
+
+> ρ
+
+− b. 
+
+For the second integral, using again R yρ ϵ(y) dy = 0, we write 
+
+Z
+
+> Rd
+
+ρϵ(y)⟨y, ∇F (x − y)⟩ dy =
+
+Z
+
+> Rd
+
+ρϵ(y)⟨y, ∇F (x − y) − ∇ F (x)⟩ dy. 
+
+By the M -Lipschitz continuity of ∇F ,
+
+Z
+
+> Rd
+
+ρϵ(y)⟨y, ∇F (x − y) − ∇ F (x)⟩ dy ≥ − 
+
+Z
+
+> Rd
+
+ρϵ(y)∥y∥ ∥∇ F (x − y) − ∇ F (x)∥ dy 
+
+≥ − M
+
+Z
+
+> Rd
+
+ρϵ(y)∥y∥2 dy = −M ϵ 2s2
+
+> ρ
+
+.
+
+Combining the two estimates gives 
+
+⟨x, ∇Fϵ(x)⟩ ≥ m∥x∥2 − b − (M − m)ϵ2s2
+
+> ρ
+
+.
+
+Thus Fϵ is ( mϵ, b ϵ)-dissipative with mϵ = m and bϵ = b + ( M − m)ϵ2s2
+
+> ρ
+
+. In particular we have Mϵ = M ,
+
+mϵ = m and bϵ → b. We now compare Fϵ and F uniformly. By M -smoothness, for all x, y ∈ Rd,
+
+|F (x − y) − F (x) + ⟨∇ F (x), y ⟩| ≤ M
+
+2 ∥y∥2.
+
+Therefore, using R yρ ϵ(y) dy = 0, 
+
+|Fϵ(x) − F (x)| =
+
+Z
+
+> Rd
+
+ρϵ(y) F (x − y) − F (x) dy =
+
+Z
+
+> Rd
+
+ρϵ(y) F (x − y) − F (x) + ⟨∇ F (x), y ⟩ dy 
+
+≤ M
+
+2
+
+Z
+
+> Rd
+
+ρϵ(y)∥y∥2 dy = M
+
+2 ϵ2s2
+
+> ρ
+
+.
+
+Set Dϵ := M 
+
+> 2
+
+ϵ2s2
+
+> ρ
+
+. Then ∥Fϵ − F ∥L∞(Rd) ≤ Dϵ with Dϵ → 0. Let 
+
+Zϵ := 
+
+Z
+
+> Rd
+
+e−βF ϵ(x) dx, dπ ϵ(x) := Z−1 
+
+> ϵ
+
+e−βF ϵ(x) dx. 
+
+Since |Fϵ − F | ≤ Dϵ, we have 
+
+e−βD ϵ e−βF (x) ≤ e−βF ϵ(x) ≤ eβD ϵ e−βF (x).
+
+Hence e−βD ϵ Z ≤ Zϵ ≤ eβD ϵ Z. In particular, Zϵ < ∞. Moreover, the density ratio satisfies 
+
+dπ ϵ
+
+dπ β
+
+(x) = ZZϵ
+
+e−β(Fϵ(x)−F (x)) .
+
+35 Using the previous bounds on Zϵ/Z and on Fϵ − F , we obtain 
+
+e−2βD ϵ ≤ dπ ϵ
+
+dπ β
+
+(x) ≤ e2βD ϵ , x ∈ Rd.
+
+Since 
+
+πϵ = e−β(Fϵ−F )
+
+R e−β(Fϵ−F )( y) dπ β (y) π, 
+
+the measure πϵ is a bounded perturbation of πβ with perturbation potential Gϵ = β(Fϵ − F ). As Osc( Gϵ) ≤ 2β∥Fϵ − F ∥∞ ≤ 2βD ϵ,
+
+the Holley–Stroock perturbation criterion [42] (see also [12, Theorem 1.1]) yields 
+
+CP (πϵ) ≤ eOsc( Gϵ)CP (πβ ) ≤ e2βD ϵ CP (πβ ).
+
+In particular, lim sup ϵ↓0 CP (πϵ) ≤ CP (πβ ) =: CP (β, d ). We may now apply the result in Raginsky et al. [61, Appendix A] to the C∞ potential Fϵ. The function Fϵ is C∞, Mϵ-smooth with Mϵ = M , and ( mϵ, b ϵ)-dissipative with mϵ = m and bϵ = b + ( M − m)ϵ2s2
+
+> ρ
+
+. Moreover, πϵ satisfies a Poincar´ e inequality with constant at most e2βD ϵ CP (β, d ). Hence πϵ satisfies a logarithmic Sobolev inequality with constant that can be bounded by 
+
+Cϵ = 2m2 
+
+> ϵ
+
++ 8 M 2
+
+> ϵ
+
+m2 
+
+> ϵ
+
+Mϵβ +
+
+ 6Mϵ
+
+mϵ
+
+(d + βb ϵ) + 2 
+
+
+
+e2βD ϵ CP (β, d ).
+
+Since mϵ = m, Mϵ = M , bϵ → b, and Dϵ → 0, Cϵ converges to the constant CR(β, d ) defined in (39). It remains to pass to the limit in the logarithmic Sobolev inequality. We do this by using the density ratio between πϵ and πβ . Set 
+
+qϵ(x) := dπ ϵ
+
+dπ β
+
+(x) = ZZϵ
+
+e−β(Fϵ(x)−F (x)) .
+
+Since ∥Fϵ − F ∥∞ ≤ Dϵ and Dϵ → 0, we have ∥qϵ − 1∥L∞(πβ ) → 0 and ∥ log qϵ∥L∞(πβ ) → 0. Moreover, 
+
+∇ log qϵ = −β ∇Fϵ − ∇ F . Since ∇F is M -Lipschitz, 
+
+∥∇ Fϵ(x) − ∇ F (x)∥ =
+
+Z
+
+> Rd
+
+ρϵ(y) ∇F (x − y) − ∇ F (x) dy 
+
+≤ M
+
+Z
+
+> Rd
+
+∥y∥ρϵ(y) dy = M ϵ 
+
+Z
+
+> Rd
+
+∥y∥ρ(y) dy. 
+
+Therefore, ∥∇ log qϵ∥L∞(πβ ) → 0. If I(μ∥πβ ) = + ∞, there is nothing to prove, so let μ ≪ πβ be such that 
+
+I(μ∥πβ ) := 
+
+Z
+
+> Rd
+
+∇ log 
+
+ dμ dπ β
+
+ 2
+
+dμ < +∞.
+
+Since qϵ is bounded above and below by positive constants, we also have μ ≪ πϵ. Writing r := dμ dπ β , we get  
+
+> dμ dπ ϵ
+
+= rqϵ . Applying the logarithmic Sobolev inequality for πϵ gives KL( μ∥πϵ) ≤ Cϵ
+
+2
+
+Z
+
+> Rd
+
+∇ log 
+
+ rqϵ
+
+ 2
+
+dμ. 
+
+Now KL( μ∥πϵ) = 
+
+Z
+
+> Rd
+
+log 
+
+ rqϵ
+
+
+
+dμ =
+
+Z
+
+> Rd
+
+log r dμ −
+
+Z
+
+> Rd
+
+log qϵ dμ = KL( μ∥πβ ) −
+
+Z
+
+> Rd
+
+log qϵ dμ. 
+
+36 Since ∥ log qϵ∥L∞(πβ ) → 0, we have KL( μ∥πϵ) → KL( μ∥πβ ). Similarly, ∇ log 
+
+ rqϵ
+
+
+
+= ∇ log r − ∇ log qϵ. Using 
+
+∥∇ log qϵ∥L∞(πβ ) → 0 and I(μ∥πβ ) < +∞, we obtain 
+
+Z
+
+> Rd
+
+∇ log 
+
+ rqϵ
+
+ 2
+
+dμ −→ 
+
+Z
+
+> Rd
+
+∥∇ log r∥2 dμ = I(μ∥πβ ).
+
+Finally, since Cϵ → CR(β, d ) defined in (39), passing to the limit yields KL( μ∥πβ ) ≤ CR(β,d )2 I(μ∥πβ ), that is, KL( μ∥πβ ) ≤ CR(β, d )2
+
+Z
+
+> Rd
+
+∇ log 
+
+ dμ dπ β
+
+ 2
+
+dμ. 
+
+If I(μ∥πβ ) = + ∞, the inequality is trivial. This proves the logarithmic Sobolev inequality for πβ with constant CR(β, d ), and hence Proposition 2.5. 
+
+# B Proofs for Section 2 
+
+## B.1 Proofs of preliminary results 
+
+Proof of Lemma 2.2. (i) Let x with ∥x∥ = 1. Then, for every t > 0, 
+
+ddt f (tx ) = ⟨x, ∇f (tx )⟩ ≥ mt 2 − bt .
+
+Therefore, for any t ≥ 1 if holds 
+
+f (tx ) − f (x) = 
+
+Z t
+
+> 1
+
+dds f (sx ) ds ≥ m
+
+2 (t2 − 1) − b ln( t).
+
+Since f is continuous it attains a minimum on the sphere {x ∈ Rd | ∥ x∥ = 1 }, so that 
+
+f (tx ) ≥ min  
+
+> ∥x∥=1
+
+f (x) + m
+
+2 (t2 − 1) − b ln( t).
+
+This implies that f is coercive and therefore attains its minimum in Rd.(ii) For any x ∈ Rd we have ∥∇ f (x)∥ ≤ ∥∇ f (x) − ∇ f (0) ∥ + ∥∇ f (0) ∥ ≤ L∥x∥ + ∥∇ f (0) ∥.
+
+∥∇ f (x)∥ ≤ ∥∇ f (x) − ∇ f (0) ∥ + ∥∇ f (0) ∥ ≤ L∥x∥ + ∥∇ f (0) ∥
+
+| {z }
+
+> =: B
+
+.
+
+(iii) The proof follows the same line of [61, Lemma 2]. 
+
+Proof of Corollary 2.3. By Lemma 2.2 (iii), we have f (x) ≤ L 
+
+> 2
+
+∥x∥2 + B∥x∥ + A, for every x ∈ Rd. By Young’s inequality we have B∥x∥ ≤ 12 ∥x∥2 + B2 
+
+> 2
+
+. Hence, 
+
+f (x) ≤ L + 1 2 ∥x∥2 + A + B2
+
+2 .
+
+On the other hand, let C := min 
+
+> x∈Rd
+
+f (x). Therefore, for every x ∈ Rd we have f (x) ≥ C and so −f (x) ≤−C ≤ | C|. Therefore, 
+
+|f (x)| = max {f (x), −f (x)} ≤ max 
+
+n L + 1 2 ∥x∥2 + A + B2
+
+2 , |C|
+
+o
+
+≤ L + 1 2 ∥x∥2 + A + B2
+
+2 + |C|,
+
+which concludes the proof. 37 B.2 Proof of Lemma 2.11 
+
+Proof of Lemma 2.11. For any smooth, sufficiently integrable test function g : Rd → R, integration by parts against the Gibbs measure πβ yields the standard identity 
+
+Z
+
+> Rd
+
+∆g(y) dπ β (y) = 1
+
+Z
+
+Z
+
+∆g e −βF dy = βZ
+
+Z
+
+⟨∇ F (y), ∇g(y)⟩ e−βF dy = β
+
+Z
+
+> Rd
+
+⟨∇ F (y), ∇g(y)⟩ dπ β (y). (40) We apply this identity to the function g(y) = eα∥y∥2
+
+for a parameter α ∈ [0 , 1]. This is justified by Lemma 2.2(iii), which implies that there exists c ∈ R such that F (y) ≥ m 
+
+> 3
+
+∥y∥2 − c for all y, hence e−βF (y) ≤
+
+eβc e−(βm/ 3) ∥y∥2
+
+. Therefore, for every α ∈ [0 , 1] and β ≥ 4/m , we have 
+
+Z
+
+> Rd
+
+eα∥y∥2
+
+dπ β (y) ≤ eβc 
+
+Z
+
+Z
+
+e(α−βm/ 3) ∥y∥2
+
+dy ≤ eβc 
+
+Z
+
+Z
+
+e−∥ y∥2/3 dy < ∞,
+
+and Z
+
+> Rd
+
+∥y∥2eα∥y∥2
+
+dπ β (y) ≤ eβc 
+
+Z
+
+Z
+
+∥y∥2e(α−βm/ 3) ∥y∥2
+
+dy ≤ eβc 
+
+Z
+
+Z
+
+∥y∥2e−∥ y∥2/3 dy < ∞.
+
+Consequently, since the gradient and Laplacian of g are given respectively by 
+
+∇g(y) = 2 αye α∥y∥2
+
+, ∆g(y) = 2 α(d + 2 α∥y∥2)eα∥y∥2
+
+, (41) and ∥∇ F (y)∥ ≤ M ∥y∥ + B by Lemma 2.2(ii), we may apply (40) to gR(y) = χR(y)eα∥y∥2
+
+with χR ∈ C∞ 
+
+> c
+
+astandard cutoff, and let R → ∞ to obtain (40) for g(y) = eα∥y∥2
+
+. To rigorously justify this, let χ ∈ C∞ 
+
+> c
+
+(Rd)be a base cutoff function such that χ ≡ 1 on B1 and χ ≡ 0 on Rd \ B2. We define the scaled cutoff χR(y) = 
+
+χ(y/R ), which ensures χR ≡ 1 on BR, χR ≡ 0 outside B2R, and by the chain rule, ∥∇ χR∥∞ ≤ C1R−1 and 
+
+∥∆χR∥∞ ≤ C2R−2. Set the compactly supported test function gR = χRg. Applying (40) to gR yields 
+
+Z
+
+> Rd
+
+(χR∆g + 2 ⟨∇ χR, ∇g⟩ + g∆χR) dπ β = β
+
+Z
+
+> Rd
+
+(χR⟨∇ F, ∇g⟩ + g⟨∇ F, ∇χR⟩) dπ. (42) Because χR is constant everywhere except on AR = {y ∈ Rd : R ≤ ∥ y∥ ≤ 2R}, the derivatives ∇χR and ∆χR are supported entirely on AR. Using the gradient bound ∥∇ F (y)∥ ≤ M ∥y∥ + B, we can bound the absolute value of the error integrands on AR:
+
+|g∆χR| ≲ R−2eα∥y∥2
+
+≤ eα∥y∥2
+
+,
+
+|⟨∇ χR, ∇g⟩| ≲ R−1(2 α∥y∥)eα∥y∥2
+
+≲ eα∥y∥2
+
+,
+
+|g⟨∇ F, ∇χR⟩| ≲ R−1(M ∥y∥ + B)eα∥y∥2
+
+≲ eα∥y∥2
+
+,
+
+where we used the fact that ∥y∥ ≤ 2R on the support AR to cancel the respective R−1 dependencies. Consequently, all error terms are uniformly dominated by Ce α∥y∥2
+
+. Since R eα∥y∥2
+
+dπ β < ∞ and the measure of AR vanishes as R → ∞ , the dominated convergence theorem guarantees that the integrals of these error terms converge to 0. For the main terms χR∆g and χR⟨∇ F, ∇g⟩, we observe they converge pointwise to ∆ g
+
+and ⟨∇ F, ∇g⟩. To apply the dominated convergence theorem, we bound them uniformly in R using (41) 
+
+|χR∆g| ≤ 2α(d + 2 α∥y∥2)eα∥y∥2
+
+,
+
+|χR⟨∇ F, ∇g⟩| ≤ ∥∇ F ∥∥∇ g∥ ≤ (M ∥y∥ + B)(2 α∥y∥)eα∥y∥2
+
+= 2 α(M ∥y∥2 + B∥y∥)eα∥y∥2
+
+.
+
+Using the elementary inequality ∥y∥ ≤ 12 (1 + ∥y∥2), both integrands are globally dominated by C(1 + 
+
+∥y∥2)eα∥y∥2
+
+for some constant C > 0. Because we have already established that both R eα∥y∥2
+
+dπ β < ∞ and 
+
+R ∥y∥2eα∥y∥2
+
+dπ β < ∞, this dominating function is πβ -integrable. Thus, the dominated convergence theorem 38 ensures that the integrals of the main terms converge to their un-truncated counterparts, fully recovering (40) for g(y) = eα∥y∥2
+
+. Substituting the expressions in (41) into (40) and dividing by 2 α > 0, we obtain 
+
+Z
+
+> Rd
+
+(d + 2 α∥y∥2)eα∥y∥2
+
+dπ β (y) = β
+
+Z
+
+> Rd
+
+⟨∇ F (y), y ⟩eα∥y∥2
+
+dπ β (y).
+
+Applying the dissipativity condition ⟨∇ F (y), y ⟩ ≥ m∥y∥2 − b to the right-hand side yields 
+
+Z
+
+> Rd
+
+(d + 2 α∥y∥2)eα∥y∥2
+
+dπ β (y) ≥ β
+
+Z
+
+> Rd
+
+(m∥y∥2 − b)eα∥y∥2
+
+dπ β (y).
+
+Rearranging the terms to group the integrals with respect to ∥y∥2eα∥y∥2
+
+and eα∥y∥2
+
+, we get the inequality (βm − 2α)
+
+Z
+
+> Rd
+
+∥y∥2eα∥y∥2
+
+dπ β (y) ≤ (d + βb )
+
+Z
+
+> Rd
+
+eα∥y∥2
+
+dπ β (y). (43) Let H(α) = R 
+
+> Rd
+
+eα∥y∥2
+
+dπ β (y). We recognize the integral on the left side as the derivative H′(α). Since 
+
+β ≥ 4/m and α ≤ 1, we have βm − 2α ≥ 4 − 2 = 2 > 0. We can thus safely divide both sides by ( βm − 2α)to form a differential inequality 
+
+H′(α)
+
+H(α) ≤ d + βb βm − 2α .
+
+Integrating this inequality with respect to α from 0 to 1 gives log H(1) − log H(0) ≤
+
+Z 10
+
+d + βb βm − 2α dα. 
+
+By definition, H(0) = R 
+
+> Rd
+
+1 dπ β (y) = 1, so log H(0) = 0. Evaluating the integral on the right-hand side, we find log H(1) ≤
+
+
+
+− d + βb 
+
+2 log( βm − 2α)
+
+10
+
+= d + βb 
+
+2 log 
+
+ βm βm − 2
+
+
+
+.
+
+Using the elementary inequality log(1 + x) ≤ x for x > 0, we can bound the logarithmic term: log 
+
+ βm βm − 2
+
+
+
+= log 
+
+
+
+1 + 2
+
+βm − 2
+
+
+
+≤ 2
+
+βm − 2 .
+
+Substituting this into our bound yields log 
+
+Z
+
+> Rd
+
+e∥y∥2
+
+dπ β (y) ≤ d + βb 
+
+2 · 2
+
+βm − 2 = d + βb βm − 2 .
+
+Finally, since the assumption β ≥ 4/m implies βm ≥ 4, it follows that βm − 2 ≥ 12 βm . Using this lower bound on the denominator, we arrive at the final result: log 
+
+Z
+
+> Rd
+
+e∥y∥2
+
+dπ β (y) ≤ d + βb βm/ 2 = 2( d + βb )
+
+βm .
+
+This completes the proof. 
+
+## B.3 Proof of Lemma 2.14 
+
+Proof of Lemma 2.14. For this proof we follow directly the proof of [61, Lemma 5]. We provide the proof again only because they had slightly different bounds on F (they had C = 0) and they had structure 39 on F . Let p denote the density of the Gibbs measure with respect to the Lebesgue measure on Rd, i.e., 
+
+p(x) = e−βF (x)/Z , where Z = R 
+
+> Rd
+
+e−βF (x)dx . Since p > 0 everywhere, we can write KL( μ0|| πβ ) = 
+
+Z
+
+> Rd
+
+p0(x) log p0(x)
+
+p(x) dx =
+
+Z
+
+> Rd
+
+p0(x) log p0(x)dx + log Z + β
+
+Z
+
+> Rd
+
+p0(x)F (x)dx 
+
+≤ log ∥p0∥∞ + log Z + β
+
+Z
+
+> Rd
+
+p0(x)F (x)dx. 
+
+(44) We first upper-bound the partition function ZZ =
+
+Z
+
+> Rd
+
+e−βF (x)dx ≤
+
+Z
+
+> Rd
+
+exp 
+
+
+
+−β
+
+ m
+
+3 ∥x∥2 − b
+
+2 log 3 + C
+
+ 
+
+dx 
+
+= e βb  
+
+> 2log 3 −βC
+
+Z
+
+> Rd
+
+e− mβ  
+
+> 3∥x∥2
+
+dx = 3 βb/ 2e−βC 
+
+ 3πβ
+
+mβ 
+
+d/ 2
+
+,
+
+where the inequality follows from Lemma 2.2(iii) applied to F . Thus, log Z ≤ d
+
+2 log 3πβ
+
+mβ + βb 
+
+2 log 3 − βC. (45) Moreover, invoking Lemma 2.2(iii) once again, we have F (x) ≤ M 
+
+> 2
+
+∥x∥2 + B∥x∥ + A for all x ∈ Rd.Therefore, 
+
+Z
+
+> Rd
+
+F (x)p0(x)dx ≤
+
+Z
+
+> Rd
+
+p0(x)
+
+ M
+
+2 ∥x∥2 + B∥x∥ + A
+
+
+
+dx ≤ M
+
+2 κ0 + B√κ0 + A, (46) where we used Eμ0 [∥x∥2] ≤ Eμ0 [e∥x∥2
+
+] = κ0 and we used Jensen’s inequality E[∥x∥] ≤ pE[∥x∥2]. Substituting (45) and (46) into (44), and grouping the constants A and C, we get KL( μ0|| πβ ) ≤ log ∥p0∥∞ + d
+
+2 log 
+
+ 3πβ
+
+mβ 
+
+
+
++ β
+
+ M κ 0
+
+2 + B√κ0 + ( A − C) + b
+
+2 log 3 
+
+
+
+≤ β
+
+ |log ∥p0∥∞|
+
+β + d
+
+2β log 
+
+ 3πβ
+
+mβ 
+
+
+
++ M κ 0
+
+2 + B√κ0 + ( A − C) + b
+
+2 log 3 
+
+
+
+.
+
+(47) Using the fact that β ≥ d ≥ 1, we can set ˜C := |log ( ∥p0∥∞)| + 12 log 
+
+ 3πβ
+
+m
+
+
+
++ M κ 0
+
+2 + B√κ0 + ( A − C) + b
+
+2 log 3 , (48) with A = F (0), B = ∥∇ F (0) ∥ and C = min F .
+
+Remark B.1 (Scaling with dimension) . A subtlety not explicitly discussed in [61] is the dimensional de-pendence of the initialization constants. While κ0 can technically be chosen independently of d (e.g., by choosing a highly concentrated distribution), for standard distributions like the Gaussian, this typically forces the maximum log-density log( ∥p0∥∞) to scale as O(d). For instance, if log( ∥p0∥∞) ≤ Cp0 d, this term in our bound would a priori seemingly grow with dimension. However, our assumption β ≥ d allows us to absorb this growth. As seen in the proof, the term enters the final bound scaled by β−1, i.e., as 1 
+
+> β
+
+|log ∥p0∥∞|. Con-sequently, it remains bounded by the constant Cp0 . Thus, even in this high-dimensional regime, one could still define a dimension-independent constant 
+
+˜Cnew := Cp0 + 12 log 
+
+ 3πβ
+
+m
+
+
+
++ M κ 0
+
+2 + B√κ0 + ( A − C) + b
+
+2 log 3 .
+
+We chose to retain the explicit dependence on log( ∥p0∥∞) and κ0 in Lemma 2.14 to maintain generality and follow standard literature conventions, noting that the linear dependence on d is expected and, as shown here, can anyway effectively be controlled by the temperature β.
+
+40 C Proofs for Section 3 
+
+## C.1 Proof of Proposition 3.2 
+
+Proof of Proposition 3.2. Let Fk = σ(x0, . . . , x k). From the update rule xk+1 = xk −γg (xk, ξ k)+ p2γβ −1zk,the independence of the noise zk ∼ N (0 , I d) and the fact that E[∥zk∥2] = d, we have 
+
+E[∥xk+1 ∥2|F k] = Eξk [∥xk − γg (xk, ξ k)∥2|F k] + 2 γβ −1d. (49) Using the weighted Young’s inequality 2 ⟨u, v ⟩ ≤ α∥u∥2 + 1 
+
+> α
+
+∥v∥2 with α = γm , we decompose the first term without using unbiasedness 
+
+∥xk − γg k∥2 = ∥(xk − γ∇F (xk)) + γ(∇F (xk) − gk)∥2
+
+≤ (1 + γm )∥xk − γ∇F (xk)∥2 +
+
+
+
+γ2 + γm
+
+
+
+∥gk − ∇ F (xk)∥2.
+
+Applying the conditional expectation Eξk [· | F k] and the bound E[∥g − ∇ F ∥2 | F k] ≤ δ(P ∥xk∥2 + Q)
+
+Eξk [∥xk − γg k∥2 | F k] ≤ (1 + γm )∥xk − γ∇F (xk)∥2 +
+
+
+
+γ2 + γm
+
+
+
+δ(P ∥xk∥2 + Q). (50) From ( m, b )-dissipativity and M -smoothness, we have 
+
+∥xk − γ∇F (xk)∥2 = ∥xk∥2 − 2γ⟨xk, ∇F (xk)⟩ + γ2∥∇ F (xk)∥2
+
+≤ ∥ xk∥2 − 2γm ∥xk∥2 + 2 γb + 2 γ2M 2∥xk∥2 + 2 γ2B2
+
+= (1 − 2γm + 2 γ2M 2)∥xk∥2 + 2 γb + 2 γ2B2.
+
+On the other hand (1 + γm )(1 − 2γm + 2 γ2M 2) = 1 − 2γm + 2 γ2M 2 + γm − 2γ2m2 + 2 γ3mM 2
+
+= 1 − γm + 2 γ2M 2 − 2γ2m2 + 2 γ3mM 2.
+
+Since γ ≤ mM 2 , then 2 γ3mM 2 ≤ 2γ2m2, ensuring 2 γ3mM 2 − 2γ2m2 ≤ 0, the term simplifies to 1 − γm +2γ2M 2. Substituting into (50) and then into (49) 
+
+E[∥xk+1 ∥2|F k] ≤
+
+
+
+1 − γm + 2 γ2M 2 + γδP m + γ2δP 
+
+
+
+∥xk∥2 + γ ˜C(γ, β, d )=
+
+
+
+1 − γm + γδP m + γ2(2 M 2 + δP )
+
+
+
+∥xk∥2 + γ ˜C(γ, β, d ).
+
+where ˜C(γ, β, d ) = (1 + γm )(2 b + 2 γB 2) + γQδ + Qδ m + 2 β−1d. Exploiting β ≥ d, γ ≤ 1 and the hypothesis on δ, we have ˜C(γ, β, d ) ≤ C, with C := (1 + m)(2 b + 2 B2) + m2Q
+
+4P + mQ 
+
+4P + 2 .
+
+Notice that by hypothesis that we also have γ ≤ m   
+
+> 3(2 M2+δP )
+
+, so that by δ ≤ m2 
+
+> 4P
+
+we have γδP m ≤ γm  
+
+> 3
+
+.From γ ≤ m   
+
+> 3(2 M2+δP )
+
+we also have γ2(2 M 2 + δP ) ≤ γm  
+
+> 3
+
+. Substituting these yields the final coefficient: 1 − γm + γm  
+
+> 3
+
++ γm  
+
+> 3
+
+= 1 − γm  
+
+> 3
+
+. Taking total expectations gives E[∥xk+1 ∥2] ≤ (1 − mγ  
+
+> 3
+
+)E[∥xk∥2] + γC . By  
+
+> mγ
+> 3
+
+≤ m2  
+
+> 24 M2
+
+≤ 124 , then 0 < (1 − mγ  
+
+> 3
+
+) < 1 and the sequence is uniformly bounded. In particular we have 
+
+E[∥xk+1 ∥2] ≤
+
+
+
+1 − mγ 
+
+3
+
+k
+
+E[∥x0∥2] + γC 
+
+> k
+
+X
+
+> i=1
+
+
+
+1 − mγ 
+
+3
+
+i
+
+≤ E[∥x0∥2] + 3Cm .
+
+We can therefore set Γ := κ0 + 3(1 + m)(2 b + 2 B2)
+
+m + 3( m + 1) Q
+
+4P + 6
+
+m . (51) 41 C.2 Proof of Lemma 3.6. 
+
+Lemma C.1. Let I ∈ Rd×d be the identity matrix and σ be the normalized measure on the sphere. Then 
+
+Z
+
+> Sd−1
+
+vv ⊺ dσ (v) = 1
+
+d I. 
+
+Proof. This result follows the same line of [32, Lemma 7.3, point (b)]. 
+
+Lemma C.2. If Z ∼ N (0 , I d), u ∈ Rd, and v < 12 , then 
+
+E exp( ⟨u, Z ⟩ + v∥Z∥2) = (1 − 2v)−d/ 2 exp 
+
+ ∥u∥2
+
+2(1 − 2v)
+
+
+
+. (52) 
+
+Proof of Lemma C.2. Let Z ∼ N (0 , I d). Writing the expectation as an integral over the density of Z:
+
+E
+
+h
+
+e⟨u,Z ⟩+v∥Z∥2 i
+
+= (2 πβ )−d/ 2
+
+Z
+
+> Rd
+
+exp 
+
+
+
+− 12 ∥z∥2 + ⟨u, z ⟩ + v∥z∥2
+
+
+
+dz 
+
+= (2 πβ )−d/ 2
+
+Z
+
+> Rd
+
+exp 
+
+
+
+− 12 (1 − 2v)∥z∥2 + ⟨u, z ⟩
+
+
+
+dz 
+
+Completing the square in the exponent for z, we observe 
+
+− 1 − 2v
+
+2 ∥z∥2 + ⟨u, z ⟩ = − 1 − 2v
+
+2 z − u
+
+1 − 2v
+
+> 2
+
++ ∥u∥2
+
+2(1 − 2v) .
+
+Substituting this back into the integral and factoring out the constant term we obtain 
+
+E
+
+h
+
+e⟨u,Z ⟩+v∥Z∥2 i
+
+= exp 
+
+ ∥u∥2
+
+2(1 − 2v)
+
+
+
+(2 πβ )−d/ 2
+
+Z
+
+> Rd
+
+exp − 1 − 2v
+
+2 z − u
+
+1 − 2v
+
+> 2
+
+!
+
+dz. 
+
+Using the Gaussian integral identity R 
+
+> Rd
+
+e− λ 
+
+> 2∥y∥2
+
+dy = (2 πβ )d/ 2λ−d/ 2 with λ = 1 − 2v we arrive to 
+
+E
+
+h
+
+e⟨u,Z ⟩+v∥Z∥2 i
+
+= exp 
+
+ ∥u∥2
+
+2(1 − 2v)
+
+
+
+(2 πβ )−d/ 2 · (2 πβ )d/ 2(1 − 2v)−d/ 2
+
+= (1 − 2v)−d/ 2 exp 
+
+ ∥u∥2
+
+2(1 − 2v)
+
+
+
+.
+
+Proof of Lemma 3.6. By Lemma 2.2 (ii) applied to F we have that ∥∇ F (x)∥ ≤ M ∥x∥ + B, for all x ∈ Rd.First of all, notice that the hypothesis in (20) on β and γ imply the following 
+
+β > 4/m, and γ ≤ min 
+
+
+
+1, β
+
+8 , mβ − 44βM 2 , 1
+
+m − 4/β 
+
+
+
+, (53) To show this we just need to notice that β ≥ 8 
+
+> m
+
+> 4 
+
+> m
+
+, γ ≤ 1 
+
+> m
+
+≤ β 
+
+> 8
+
+and since mβ −4 
+
+> β
+
+= m − 4 
+
+> β
+
+≥ m 
+
+> 2
+
+we have 
+
+γ ≤ m  
+
+> 8M2
+
+≤ mβ −44βM 2 . Finally, γ ≤ 1 
+
+> m
+
+≤ 2 
+
+> m
+
+≤ βmβ −4 = 1 
+
+> m−4/β
+
+. From now on in the proof we will work solely on these weaker conditions, producing in this way a stronger result than the one needed. In the statement of the Lemma we adopted instead the stronger conditions (20) just for simplicity. Let ( zk)k≥0 be i.i.d. standard Gaussians in Rd, zk ∼ N (0 , I d), and consider the ULA update 
+
+yk+1 = yk − γ∇F (yk) + 
+
+r 2γβ zk.
+
+42 Define the function V (x) := exp( ∥x∥2) and set ak := yk − γ∇F (yk). Then 
+
+∥yk+1 ∥2 = ∥ak∥2 +
+
+r 8γβ ⟨ak, z k⟩ + 2γβ ∥zk∥2,
+
+hence, by tower property, 
+
+E[V (yk+1 )] = E
+
+h
+
+exp( ∥ak∥2) E
+
+h
+
+exp 
+
+q 8γβ ⟨ak, z k⟩ + 2γβ ∥zk∥2
+
+yk
+
+ii 
+
+. (54) Now we apply Lemma C.2 conditionally on yk with u =
+
+q 8γβ ak and v = 2γβ . The condition v < 12 is 
+
+β > 4γ. We obtain 
+
+E
+
+h
+
+exp 
+
+q 8γβ ⟨ak, z k⟩ + 2γβ ∥zk∥2
+
+yk
+
+i
+
+=
+
+
+
+1 − 4γβ
+
+−d/ 2
+
+exp 
+
+ 4γβ − 4γ ∥ak∥2
+
+
+
+.
+
+Plugging this into (54) and combining the ∥ak∥2-terms yields 
+
+E[V (yk+1 )] = (1 − 4γβ )−d/ 2 E
+
+h
+
+exp 
+
+ ββ − 4γ ∥yk − γ∇F (yk)∥2i 
+
+. (55) Expand and use dissipativity of F (i.e. ⟨y, ∇F (y)⟩ ≥ m∥y∥2 − b)
+
+∥yk − γ∇F (yk)∥2 = ∥yk∥2 − 2γ⟨yk, ∇F (yk)⟩ + γ2∥∇ F (yk)∥2
+
+≤ (1 − 2mγ )∥yk∥2 + 2 γb + γ2∥∇ F (yk)∥2. (56) Using the linear growth bound ∥∇ F (x)∥ ≤ M ∥x∥ + B and ( a + b)2 ≤ 2a2 + 2 b2, we get 
+
+∥∇ F (yk)∥2 ≤ 2M 2∥yk∥2 + 2 B2.
+
+Substitute into (56): 
+
+∥yk − γ∇F (yk)∥2 ≤  1 − 2mγ + 2 γ2M 2∥yk∥2 + 2 γb + 2 γ2B2. (57) Combining (55) and (57) gives 
+
+E[V (yk+1 )] ≤ (1 − 4γβ )−d/ 2 exp 
+
+ ββ − 4γ (2 γb + 2 γ2B2)
+
+
+
+E
+
+h
+
+exp 
+
+ ββ − 4γ (1 − 2mγ + 2 γ2M 2)∥yk∥2i 
+
+. (58) Since 4 γ/β ∈ (0 , 1/2] we can use the inequality − log(1 − x) ≤ 2x that holds for x ∈ (0 , 1/2], and deduce 
+
+
+
+1 − 4γβ
+
+−d/ 2
+
+= exp 
+
+
+
+− d
+
+2 log 
+
+
+
+1 − 4γβ
+
+ 
+
+≤ exp 
+
+ 4dγ β
+
+
+
+. (59) Moreover, since 4γβ ≤ 1/2, we have ββ−4γ =
+
+
+
+1 − 4γβ
+
+−1
+
+≤ 2, and using γ ≤ 1, 
+
+ββ − 4γ (2 γb + 2 γ2B2) ≤ 2(2 γb + 2 γ2B2) ≤ 4γb + 4 γB 2. (60) Define now 
+
+Q(γ) := ββ − 4γ (1 − 2mγ + 2 M 2γ2).
+
+By assumption we have that γ ≤ β/ 8, so that 4 γ/β ≤ 1/2. Then ββ−4γ =
+
+
+
+1 − 4γβ
+
+−1
+
+≤ 1+ 8γβ . Consequently, 
+
+Q(γ) ≤ (1 − 2mγ + 2 M 2γ2)
+
+
+
+1 + 8γβ
+
+
+
+= 1 − (2 m − 8 
+
+> β
+
+)γ + 2 M 2γ2 − 16 mβ γ2 + 16 M 2
+
+β γ3
+
+≤ 1 − (2 m − 8 
+
+> β
+
+)γ + 2 M 2γ2 + 16 M 2
+
+β γ3.
+
+43 Using again γ ≤ β/ 8, we have 16 M 2 
+
+> β
+
+γ3 ≤ 2M 2γ2, and therefore Q(γ) ≤ 1 − (2 m − 8 
+
+> β
+
+)γ + 4 M 2γ2. Since 
+
+β > 4/m and γ ≤ mβ −44βM 2 . Then 6 M 2γ2 ≤
+
+
+
+m − 4
+
+> β
+
+
+
+γ, and we conclude that 
+
+Q(γ) ≤ 1 −
+
+
+
+m − 4
+
+β
+
+
+
+γ. (61) Combining (58) with (59), (60), and (61), we obtain 
+
+Vk+1 := E[V (yk+1 )] ≤ exp 
+
+ 4dγ β
+
+
+
+exp  4γb + 4 γB 2 E exp  (1 − ˜mγ )∥yk∥2 ,
+
+where ˜ m := 
+
+
+
+m − 4
+
+> β
+
+
+
+. Let K := 4dβ + 4 b + 4 B2. Then 
+
+Vk+1 ≤ exp( Kγ ) E exp  (1 − ˜mγ )∥yk∥2 = exp( Kγ ) EV (yk) 1− ˜mγ  . (62) Since 0 < 1 − ˜mγ ≤ 1, the map x 7 → x1− ˜mγ is concave on [0 , ∞), and Jensen’s inequality gives 
+
+EV (yk) 1− ˜mγ  ≤  E[V (yk)] 1− ˜mγ = V 1−mγ k .
+
+Hence Vk+1 ≤ eKγ V 1− ˜mγ k , and taking logs yields log Vk+1 ≤ Kγ + (1 − ˜mγ ) log Vk. Iterating we obtain log Vk ≤ (1 − mγ )k log V0 + Kγ 
+
+> k−1
+
+X
+
+> j=0
+
+(1 − ˜mγ )j ≤ log V0 + βK mβ − 4 .
+
+This is a general bound we achieved by using the weaker conditions (53). Coming back to the original conditions (20), since β ≥ 8 
+
+> m
+
+, we obtain βmβ −4 ≤ 2 
+
+> m
+
+and thus log Vk ≤ log V0 + 2Km = log V0 + 8d + 8 βb + 8 βB 2
+
+mβ .
+
+# D Details of the comparison with existing works 
+
+In this appendix we provide the derivations behind the comparison statements in Sections 2.3 and 3.3. We focus on the dependence on β, ϵ, and CLS (β, d ), since these are the quantities that dominate the complexity in the non-convex regime. 
+
+## D.1 Exact and Inexact ULA 
+
+Raginsky, Rakhlin and Telgarsky (2017) [61]. Raginsky, Rakhlin and Telgarsky [61] obtain optimiza-tion guarantees by first deriving sampling bounds in Wasserstein distance and then converting these bounds into expected objective-value estimates. In our notation, combining [61, Proposition 10] with [61, Lemma 6] gives a bound of the form 
+
+E[F (xk)] − E[F (xπβ )] ≤
+
+p β C RRT 0 δ1/4 + pβ C RRT 1 γ1/4
+
+kγ + pβ CLS (β, d ) CRRT 2 e−kγ/ (β CLS (β,d )) , (63) where xπ ∼ πβ , and CRRT  
+
+> i
+
+denote constants independent of the algorithmic parameters. The Gibbs concen-tration term is the same as in our analysis, so one first chooses β = ˜Θ   dϵ
+
+. To control the exponential term in (63), one needs 
+
+kγ = O β CLS (β, d ) log 
+
+pβ CLS (β, d )
+
+ϵ
+
+!! 
+
+= ˜O (β CLS (β, d )) . (64) 44 In the exact-gradient case, δ = 0. Then the discretization term in (63) requires √β γ 1/4kγ ≲ ϵ, and therefore 
+
+γ = O
+
+ ϵ4
+
+β2(kγ )4
+
+
+
+= ˜O
+
+ ϵ4
+
+β6 CLS (β, d )4
+
+
+
+.
+
+Combining this with (64) gives 
+
+k = ˜O
+
+ β CLS (β, d )
+
+γ
+
+
+
+= ˜O
+
+ β7 CLS (β, d )5
+
+ϵ4
+
+
+
+.
+
+This is worse than our exact-gradient complexity in (3). The same estimate also gives an inexact-gradient comparison. In this case, the term involving δ in (63) requires √β δ 1/4kγ ≲ ϵ, and hence 
+
+δ = O
+
+ ϵ4
+
+β2(kγ )4
+
+
+
+= ˜O
+
+ ϵ4
+
+β6 CLS (β, d )4
+
+
+
+.
+
+Thus, the black-box Wasserstein route based on [61] gives 
+
+k = ˜O
+
+ β7 CLS (β, d )5
+
+ϵ4
+
+
+
+, δ = ˜Θ
+
+ ϵ4
+
+β6 CLS (β, d )4
+
+
+
+,
+
+which is worse than our inexact-ULA result. One can obtain a sharper comparison by going back to the intermediate estimates in [61]. In particular, combining [61, Lemma 7] with the Bolley–Villani inequality [6, Corollary 2.3], one obtains 
+
+W2(μk, ν ckγ ) ≤ CRRT 
+
+> ν
+
+q 
+
+KL( μk∥νckγ ) + KL( μk∥νckγ )1/4
+
+,
+
+where νct denotes the law of the continuous-time Langevin diffusion at time t. In the relevant accuracy regime, the dominant contribution is the KL 1/4 term. Tracking the dependence on β, d, and CLS (β, d ), this leads to the improved stepsize condition γ = O
+
+ ϵ4
+
+> β(kγ )3
+
+
+
+= ˜O
+
+ ϵ4 
+
+> β4CLS (β,d )3
+
+
+
+. Together with (64), this gives, in the exact-gradient case, 
+
+k = ˜O
+
+ β5 CLS (β, d )4
+
+ϵ4
+
+
+
+.
+
+In the inexact-gradient case, the same refined argument requires δ = O
+
+ ϵ4
+
+> β(kγ )3
+
+
+
+= ˜O
+
+ ϵ4 
+
+> β4CLS (β,d )3
+
+
+
+, and therefore yields 
+
+k = ˜O
+
+ β5 CLS (β, d )4
+
+ϵ4
+
+
+
+, δ = ˜O
+
+ ϵ4
+
+β4 CLS (β, d )3
+
+
+
+.
+
+Even this refined reading remains worse than our bounds, both in the number of iterations and in the admissible inexactness level. 
+
+Xu, Chen, Zou and Gu (2018) [76]. A direct quantitative comparison with Xu, Chen, Zou and Gu [76] is delicate. Their GLD and SGLD rates are expressed in terms of a discrete-time spectral gap λ(β, d ), together with constants arising from geometric-ergodicity and Poisson-equation estimates. These constants are inherited from the approach of Mattingly, Stuart and Higham [55], and are not tracked explicitly in terms of β, d, and the structural constants of F . This lack of explicit dependence is important in our setting. The inverse temperature must scale as β = ˜Θ( d/ϵ ), and constants such as CLS (β, d ) may depend exponentially on β. Consequently, a statement such as λ(β, d ) = e− ˜O(d) is too coarse for the comparison performed here. Indeed, the quantities CLS (β, d )−1, CLS (β, d )−2, and CLS (β, d )−3 may all be absorbed into such notation, while leading to substantially different final complexities. Moreover, the proof strategy in [76] follows the standard route of first controlling a Wasserstein sampling distance and then converting it into a function-value estimate. This is precisely the route that our analysis avoids. Therefore, although the bounds of [76] are qualitatively informative, they do not provide a fully explicit parameter calibration directly comparable to Corollary 2.8 or Corollary 3.5 without additional explicit estimates for λ(β, d ) and for the Poisson-equation constants. 45 Zou, Xu and Gu (2021) [78]. In [78] the authors derive a total gradient-evaluation complexity of order 
+
+k = ˜O
+
+ d4β2
+
+> ρ4ϵ2
+
+
+
+, where ρ is a Cheeger constant. To compare this expression with our bounds, recall that, as noted in [78, Remark 4.6], the Cheeger constant is related to the Poincar´ e constant appearing in their notation by ρ = O  d−1/2cZXG 
+
+> p
+
+. The notation cZXG  
+
+> p
+
+corresponds to the reciprocal of the Poincar´ e constant 
+
+CP (β, d ) used in [61] and by us, i.e., cZXG  
+
+> p
+
+= 1  
+
+> CP(β,d )
+
+. Using (39), the Log-Sobolev constant in our setting satisfies CLS (β, d ) = O(CP (β, d )) = O  (cZXG  
+
+> p
+
+)−1. Consequently, ρ = O
+
+ 1 
+
+> d1/2CLS (β,d )
+
+
+
+. Substituting this into the bound of [78] we obtain 
+
+k = ˜O
+
+ β2d6 CLS 4
+
+ϵ2
+
+
+
+.
+
+While they have appearing the term CLS (β, d )4, our exact and inexact ULA bounds depend instead on 
+
+CLS (β, d )2 in the iteration complexity. Since CLS (β, d ) may scale exponentially with β and d, this difference is significant in the non-convex regime. 
+
+Kinoshita and Suzuki (2022) [45]. Kinoshita and Suzuki [45] provide one of the sharpest existing iteration complexities for exact-gradient ULA in this setting: 
+
+k = ˜O
+
+ β2d CLS (β, d )3
+
+ϵ
+
+
+
+.
+
+Compared with our bound in (3), their result has a better direct dependence on ϵ, but a worse dependence on CLS (β, d ). Since β = ˜Θ( d/ϵ ) and CLS (β, d ) may depend exponentially on β, the power of CLS (β, d ) is the dominant term in the non-convex regime. There is also an important structural difference in the treatment of the Gibbs concentration term. Their argument uses a comparison of the form 
+
+E[F (xk)] − E[F (xπβ )] ≤ W 22 (μk, π β ) + E[F (xπβ )] − min F, 
+
+which leads to E[F (xk)] − min F ≤ W 22 (μk, π β ) + 2 
+
+
+
+E[F (xπβ )] − min F
+
+
+
+. The factor 2 in front of the Gibbs concentration term is relevant because the inverse temperature β enters the Log-Sobolev constant CLS (β, d ). In contrast, our decomposition keeps this term with coefficient 1, which allows us to use the sharp leading scale d/ (2 β) for the Gibbs concentration error. As discussed in Remark 2.15, even constant-factor increases in the required inverse temperature may have an exponential effect through CLS (β, d ). 
+
+Chen, Sekhari and Sridharan (2024). We compare our bounds with the recent Lyapunov-potential approach of Chen, Sekhari and Sridharan [14]. Their Theorem 8 is stated in the smooth dissipative setting and, in addition, their theorem assumes that the Lyapunov potential associated with the hitting time of the ϵ-sublevel set satisfies a self-bounding regularity condition up to third order. This assumption is not a standard regularity assumption on F itself, but rather an assumption on the hitting-time Lyapunov object used in their proof. Their result gives, for both GLD and SGLD, a high-probability guarantee of reaching a point x such that F (x) − min F ≤ ϵ with oracle complexity ˜O
+
+
+
+max 
+
+
+
+d3 max( CP (β, d ), 1) 3, d2 max( CP (β, d ), 1) 2
+
+ϵ2
+
+
+
+log(1 /δ )
+
+
+
+.
+
+This guarantee is of a different nature from ours: it is a hitting-time guarantee, whereas our main results control the expected excess risk of the iterate. For exact gradients, our Corollary 2.8 gives quadratic de-pendence on CLS (β, d ), while the stated Lyapunov-potential bound contains the term d3 max( CP (β, d ), 1) 3.Since the logarithmic Sobolev inequality implies the Poincar´ e inequality and in our setting CP (β, d ) is of the same order of CLS (β, d ) (see (39)), our result improves the power of the dominant geometric constant from three to two. A further important difference concerns the choice of the inverse temperature, which in our bound is d/ (2 ϵ), up to logarithmic factors. By contrast, their Lemma 14 requires ϵ ≥ 2dβ log (4 πβ e βLd S ). 46 Thus, as stated, their theorem uses a more conservative inverse-temperature calibration than the one made explicit in our Corollary 2.8. This distinction is significant in the non-convex regime, because the constants 
+
+CP (β, d ) and CLS (β, d ) may depend exponentially on β. We emphasize that we do not claim that the constant in their temperature condition is intrinsic to the Lyapunov-potential method. Their condition is a sufficient one, obtained by enforcing a fixed lower bound on πβ (Aϵ). The point is that our expected-risk formulation does not require such a sublevel-mass condition: it only requires the Gibbs bias to be smaller than the allocated error budget, and therefore makes the sharper d/ (2 ϵ) leading scale explicit. 
+
+## D.2 Mini-batch stochastic ULA 
+
+Raginsky, Rakhlin and Telgarsky (2017) [61]. The bounds already seen in the previous section trans-late to a total number of gradient evaluations of the single f (·, ζ ) of 
+
+ks = O
+
+ kδ
+
+
+
+= ˜O
+
+ β13 CLS (β, d )9
+
+ϵ8
+
+
+
+.
+
+This is clearly much worse than our estimate in (29). Even allowing for the more refined analysis discussed above, the number of gradient evaluations of the single f (·, ζ ) remains 
+
+ks = O
+
+ kδ
+
+
+
+= ˜O
+
+ β9 CLS (β, d )7
+
+ϵ8
+
+
+
+,
+
+which is still clearly much worse than our estimate found in (29). 
+
+Xu, Chen, Zou and Gu (2018) [76]. We send the reader to Appendix D.1, where we discussed the impossibility to truly compare the two works. However, [76] reports for SGLD a gradient complexity of order 
+
+ks = ˜O
+
+ d7
+
+λ(β, d )5ϵ5
+
+
+
+,
+
+where λ(β, d ) denotes the exponential convergence rate (referred to there as the discrete spectral gap) of the discrete-time Markov chain generated by GLD or SGLD. In [76, Remark 3.5], the authors state that this quantity is of the same order as Raginsky et al.’s continuous-time spectral gap λ∗(β, d ) (and thus also of 
+
+CLS (β, d )); however, this comparison is not made quantitative in a way that yields explicit dependence on β
+
+and d for parameter tuning. Still, even under the most favorable interpretation (namely, replacing λ(β, d )−1
+
+by a quantity of the same order as our complexity scale CLS (β, d )), one would obtain at best 
+
+ks = ˜O
+
+ d7 CLS (β, d )5
+
+ϵ5
+
+
+
+,
+
+which is still worse than our bound in (29). 
+
+Zou, Xu, and Gu (2021) [78]. While our analysis requires a small parameter δ, i.e., a large batch-size s (as the already discussed works [61, 76]), Zou et al. [78] provide a convergence analysis for SGLD with unbiased estimators that avoids this requirement. By combining [78, Corollary 4.7] and [78, Corollary 4.8], they establish rates in Total Variation distance without requiring vanishing steps. However, their complexity bound depends heavily on the Cheeger constant ρ. Specifically, they derive a total gradient evaluation complexity of order ks = ˜O
+
+ d4β2
+
+> ρ4ϵ2
+
+
+
+. As described also in Appendix D.1, we can translate this into 
+
+ks = ˜O
+
+ β2d6 CLS 4
+
+ϵ2
+
+
+
+.
+
+Since CLS (β, d ) typically scales exponentially with d and, more importantly, with β, which we must set as 
+
+O(d/ϵ ), it is clearly the dominant bottleneck in non-convex optimization. Therefore, our result in (29) (which 47 achieves a dependence of O(CLS (β, d )3)) offers a tighter bound in this regime. Extending our techniques to exploit the unbiasedness of the gradient estimator, as done in [78], remains a promising avenue for future research. 
+
+Kinoshita and Suzuki (2022) [45]. A related analysis is provided by [45], who study variance-reduced Langevin dynamics. Their setting is structurally different from the plain mini-batch oracle considered here: variance reduction requires a finite-sum objective and periodic full-gradient computations, so the total com-plexity depends explicitly on the dataset size n. In particular, their finite-sum complexity contains the additional cost of variance reduction, of order ˜O(n + √n/ϵ ). Ignoring this difference in oracle structure, their optimization guarantee leads to a bound of the form 
+
+ks = ˜O
+
+ dβ 2 CLS (β, d )3
+
+ϵ
+
+
+
+.
+
+Thus, at the level of the displayed polynomial factors, their result has a better dependence on ϵ−1 than Corollary 4.3, while both bounds contain a cubic dependence on the functional-inequality constant. However, this comparison is misleading if one ignores the required inverse temperature. As explained in Appendix D.1, their analysis requires a more conservative choice of β than ours. Consequently, although their bound has a better dependence on ϵ, our mini-batch result can be substantially sharper in the metastable non-convex regime because it keeps the Gibbs-temperature calibration optimal. Their bound is superior only in the convex setting, but in the convex setting better bounds are anyway available, see [20, 25, 24, 21]. 
+
+Chen, Sekhari and Sridharan (2024). The stochastic-gradient part of [14] is particularly relevant for comparison with Corollary 4.3. Their Theorem 8 gives the same displayed oracle complexity for GLD and SGLD, provided the stochastic-gradient oracle is unbiased and uniformly sub-Gaussian and the stochastic losses satisfy sample-wise smoothness/dissipativity assumptions. Under these assumptions, their stochastic-gradient result is sharper than the mini-batch bound obtained in Corollary 4.3, which gives 
+
+ks = ˜O
+
+ β4d CLS (β, d )3
+
+ϵ4
+
+
+
+.
+
+This difference is expected. Their proof exploits the unbiased stochastic-gradient structure directly, whereas our analysis treats mini-batch gradients through the general inexact-oracle condition E∥g(x, ξ ) − ∇ F (x)∥2 ≤
+
+δ(P ∥x∥2 + Q). This framework allows biased and state-dependent approximation errors, and is therefore suited to the zeroth-order finite-difference estimators considered in Section 4.2. It is not intended to be optimal for the purely unbiased stochastic-gradient case. Nevertheless, we stress again that their stated inverse-temperature calibration is more conservative than ours, and this heavily affects the final bound through the exponential dependence of CP (β, d ). 
+
+## D.3 Zeroth order ULA 
+
+Roy, Shen, Balasubramanian and Ghadimi (2022) [69]. A particularly relevant comparison is The-orem 3.2 of [69], which studies stochastic zeroth-order Langevin under smoothness and a Log-Sobolev inequality. Their convention for the LSI is KL( μ∥πβ ) ≤ 12λ
+
+R 
+
+> Rd
+
+∇ log 
+
+ dμ dπ β
+
+ 2
+
+dμ , so that, in our no-tation, λ = CLS (β, d )−1. Their target is of the form π ∝ e−f , whereas in our optimization setting 
+
+πβ (dx ) ∝ e−βF (x) dx . Thus the correct change of variables is f = βF , MRoy = βM , λ = CLS (β, d )−1,and γRoy = γβ , where γRoy denotes the Langevin stepsize in [69]. We keep the notation h for the zeroth-order smoothing radius and s for the number of random directions, corresponding to their ν and b, respec-tively. Theorem 3.2 of [69] is a Wasserstein sampling guarantee. In the non-convex regime, where typically 
+
+CLS (β, d ) > 1, equivalently λ < 1, and tracking carefully the dependence on MRoy , which depends on β,48 their parameter choices for obtaining W2(μk, π β ) ≤ ϵW, scale as 
+
+γRoy = ˜Θ ϵ2W
+
+M 2Roy d CLS (β, d )2
+
+!
+
+, h = ˜Θ
+
+ ϵW
+
+MRoy d3/2 CLS (β, d )
+
+
+
+, s = ˜Θ M 2Roy d2 CLS (β, d )2
+
+ϵ2W
+
+!
+
+.
+
+Equivalently, since MRoy = βM , and suppressing fixed powers of M and oracle-noise constants, this gives 
+
+γ = βγ Roy = ˜Θ
+
+ ϵ2W
+
+βd CLS (β, d )2
+
+
+
+, h = ˜Θ
+
+ ϵW
+
+βd 3/2 CLS (β, d )
+
+
+
+, s = ˜Θ
+
+ β2d2 CLS (β, d )2
+
+ϵ2W
+
+
+
+.
+
+The resulting number of iterations is k = ˜O
+
+ β2d CLS (β,d )3
+
+> ϵ2W
+
+
+
+, and hence the total number of function evalua-tions is 
+
+ks = ˜O
+
+ β4d3 CLS (β, d )5
+
+ϵ4W
+
+
+
+.
+
+Here we have set the function-value noise level of [69] to zero; keeping it only adds the oracle-noise factor appearing in their theorem. If one uses Theorem 3.2 of [69] as a black box for optimization, one first obtains the Wasserstein guarantee and then converts it into an objective-value guarantee, for instance using Lemma 6 of [61]. This conversion does not remove the powers of CLS (β, d ) already paid in the Wasserstein sampling theorem. Therefore, the black-box route through [69] inherits a CLS (β, d )3 dependence in the number of iterations and a CLS (β, d )5 dependence in zeroth-order oracle complexity. Notice also that the same phenomenon appears at the level of the smoothing radius. The Wasserstein route of [69], after tracking 
+
+MRoy = βM , requires 
+
+h = ˜Θ
+
+ ϵW
+
+βd 3/2 CLS (β, d )
+
+
+
+,
+
+whereas our Gaussian zeroth-order analysis allows h = ˜Θ
+
+
+
+> ϵβd 3/2
+
+√CLS (β,d )
+
+
+
+. Thus, for comparable ac-curacies, our admissible smoothing radius is larger by a factor pCLS (β, d ). This is consistent with the fact that [69] targets a full Wasserstein approximation, while our final goal is the expected excess risk 
+
+E[F (xk)] − min F ≤ ϵ. By working directly with relative entropy and converting KL control into objective-value error, our zeroth-order bound requires only k = ˜O
+
+ β2d CLS (β,d )2
+
+> ϵ2
+
+
+
+and ks = ˜O
+
+ β4d3 CLS (β,d )3
+
+> ϵ4
+
+
+
+. The improvement should therefore not be interpreted as contradicting [69]: their theorem gives a stronger distri-butional guarantee in W2, while ours gives a sharper guarantee for the different objective of expected excess risk. Interestingly, if one inspects the proof of [69, Theorem 3.2] and stops at the intermediate entropy esti-mate, before the final use of Talagrand’s inequality, then combining that estimate with our KL-to-objective argument recovers the same leading dependence on CLS (β, d ) as our result, providing a useful sanity check. 
+
+Comparison with Liu and Wang (2020) [51]. The work [51] is also motivated by zeroth-order Langevin methods for derivative-free global optimization, but its assumptions make the result difficult to compare with ours. Their main theorem requires 
+
+mM > Eu∼p[∥u∥ ∥∇ log p(u)∥] + 1 ,
+
+where p is the law of the probing direction u, m is the dissipativity constant and M is the smoothness constant. However, under the usual smooth dissipative assumptions, 
+
+⟨x, ∇F (x)⟩ ≥ m∥x∥2 − b, ∥∇ F (x) − ∇ F (y)∥ ≤ M ∥x − y∥,
+
+one necessarily has m ≤ M . Hence the above condition cannot hold. In particular, for their Gaussian probing example it becomes m > M (d + 1), which is incompatible with m ≤ M for every d ≥ 1. For this reason, [51] does not provide a directly applicable benchmark in the standard smooth dissipative regime considered 49 here. Moreover, their main result is a Wasserstein tracking bound to the Gibbs measure, rather than an explicit expected-excess-risk oracle complexity. Our zeroth-order result applies under the usual smoothness and dissipativity assumptions and gives explicit choices of the stepsize, smoothing radius, and number of random directions, leading directly to an expected excess-risk bound. 
+
+# E Experimental Details 
+
+In this appendix, we provide the implementation and experimental details for the numerical results presented in Section 5. All scripts were implemented in Python 3.11.15 using PyTorch 2.6.0 [59], NumPy 2.4.6 [41], and Matplotlib 3.10.9 [43]. All experiments were conducted on the Grid’5000 testbed. The hardware specifications of the machine used in the experiments are reported in Table 4. Table 4: Hardware specifications of the machine used for the experiments. Feature Specification CPU 64 × Intel(R) Xeon(R) Silver 4215 CPU @ 2.50 GHz GPU 2× NVIDIA Quadro RTX 6000 RAM 256 GB In the experiments of Section 5, we investigated how the numerical performance of Algorithm 4 is affected by its parameters. Specifically, we considered three standard nonconvex benchmark functions: the Ackley function ( FA), the Rastrigin function ( FR), and the Levy function ( FL), defined as follows. 
+
+FA(x) = −20 exp 
+
+−0.2
+
+vuut 1
+
+d
+
+> d
+
+X
+
+> i=1
+
+x2
+
+> i
+
+ − exp 1
+
+d
+
+> d
+
+X
+
+> i=1
+
+cos(2 πx i)
+
+!
+
++ 20 + e, FR(x) = 10 d +
+
+> d
+
+X
+
+> i=1
+
+ x2 
+
+> i
+
+− 10 cos(2 πx i) ,FL(x) = sin 2 (πϕ (x1)) + 
+
+> d−1
+
+X
+
+> i=1
+
+(ϕ(xi) − 1) 2  1 + 10 sin 2(πϕ (xi) + 1) 
+
++ ( ϕ(xd) − 1) 2  1 + sin 2 (2 πϕ (xd))  ,
+
+where ϕ(xi) = 1 + xi−14 . For each benchmark function, we considered problem dimensions d ∈ { 10 , 50 , 100 }
+
+and repeated every experiment five times. In each repetition, Algorithm 4 was initialized from a point 
+
+x0 ∈ Rd sampled uniformly at random from the hypercube [ −32 .768 , 32 .768] d for the Ackley function, [−5.12 , 5.12] d for the Rastrigin function, and [ −10 , 10] d for the Levy function. 1 The values of the step size 
+
+γ, the exploration parameter β, and the number of sampled directions used to assess the performance of Algorithm 4 were selected as follows. The parameters γ and β were chosen from logarithmically spaced grids consisting of 10 values each, with γ ∈ [10 −7, 1] and β ∈ [10 −2, 10 3]. The number of sampled directions s was selected from the set {1, ⌈d/ 5⌉, ⌈d/ 3⌉, ⌈d/ 2⌉, ⌈2d/ 3⌉, d }. The directions used to construct the finite-difference surrogates were sampled independently and uniformly from the unit sphere. 
+
+> 1These hypercubes correspond to the standard evaluation domains commonly adopted for these benchmark functions, see
+> https://www.sfu.ca/~ssurjano/optimization.html .
+
+50
