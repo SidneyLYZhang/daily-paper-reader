@@ -6,74 +6,87 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-07-27
-- 运行时间：2026-07-27 21:04:07 UTC
+- 最新运行日期：2026-08-02
+- 运行时间：2026-08-02 21:43:36 UTC
 - 运行状态：成功
-- 本次总论文数：18
-- 精读区：7
-- 速读区：11
+- 本次总论文数：21
+- 精读区：8
+- 速读区：13
 
 ### 今日简报（AI）
-今天共收录18篇文献，精读2篇高分论文，分别关注非凸优化的Langevin方法及可控世界模型的可辨识性。最值得优先阅读的是非凸优化中的精确与零阶Langevin算法，以及控制世界模型的辨识理论。建议从这两篇9.0分论文入手，快速把握理论优化与因果建模的前沿进展。
-- 详情：[/202607/27/README](/202607/27/README)
+今日共推荐21篇论文，精读8篇、速读13篇，重点聚焦机器人学习与神经网络鲁棒性。
+
+最值得精读的是《P3: Probabilistic Policy Propagation for Stable VAE-Based Robot Learning》与《On the robustness of noisy solutions in non-convex neural networks》，均获9.0高分。
+
+若想拓展，可关注速读中8分的强化学习后继表示与多智能体因果世界模型方向。
+- 详情：[/202608/02/README](/202608/02/README)
 
 ### 精读区论文标签
-1. [Langevin for Nonconvex Optimization: Exact, Inexact and Zeroth-Order](/202607/27/2607.22353v1-langevin-for-nonconvex-optimization-exact-inexact-and-zeroth-order)  
-   标签：评分：9.0/10、query:ml-theory
-   evidence：非凸优化的Langevin方法
-2. [On the Identifiability of Controlled World Models](/202607/27/2607.22430v1-on-the-identifiability-of-controlled-world-models)  
+1. [P3: Probabilistic Policy Propagation for Stable VAE-Based Robot Learning](/202608/02/2607.25541v1-p3-probabilistic-policy-propagation-for-stable-vae-based-robot-learning)  
    标签：评分：9.0/10、query:rl-semantic
-   evidence：强化学习中的潜在空间表示
-3. [Dreamer-CPC: Message Learning with World Models for Decentralized Multi-agent Reinforcement Learning](/202607/27/2607.19809v1-dreamer-cpc-message-learning-with-world-models-for-decentralized-multi-agent-reinforcement-learning)  
-   标签：评分：8.0/10、query:rl-semantic
-   evidence：利用世界模型的潜在状态进行多智能体消息学习
-4. [Adaptive Bayesian Online Learning via Expert Aggregation](/202607/27/2607.20239v1-adaptive-bayesian-online-learning-via-expert-aggregation)  
-   标签：评分：8.0/10、query:npl-bdl-saig
-   evidence：通过专家聚合的贝叶斯在线学习
-5. [Learning Population-Level Dynamics through a Latent Fokker--Planck Model and Discrepancy Transport Maps](/202607/27/2607.21921v1-learning-population-level-dynamics-through-a-latent-fokker--planck-model-and-discrepancy-transport-maps)  
-   标签：评分：8.0/10、query:npl-bdl-saig
-   evidence：从分布快照学习潜在随机动态
-6. [Interior interpretability with attention rollout: contraction and propagation profiles in Transformers](/202607/27/2607.22367v1-interior-interpretability-with-attention-rollout-contraction-and-propagation-profiles-in-transformers)  
-   标签：评分：8.0/10、query:npl-bdl-saig
-   evidence：应用Doeblin-Dobrushin压缩理论于注意力传播
-7. [Fully Convergent Projection-based Methods with Momentum under Nonconvex Geometric](/202607/27/2607.22510v1-fully-convergent-projection-based-methods-with-momentum-under-nonconvex-geometric)  
+   evidence：在PPO强化学习中使用VAE随机潜在空间，提出概率策略传播
+2. [On the robustness of noisy solutions in non-convex neural networks](/202608/02/2607.27000v1-on-the-robustness-of-noisy-solutions-in-non-convex-neural-networks)  
+   标签：评分：9.0/10、query:ml-theory
+   evidence：基于重叠间隙性质扩展了神经网络的非凸优化理论
+3. [Minimal Markovization via Stable Quotients in Holonomy-Cover Decision Processes](/202608/02/2607.27132v1-minimal-markovization-via-stable-quotients-in-holonomy-cover-decision-processes)  
+   标签：评分：9.0/10、query:rl-semantic
+   evidence：部分可观测强化学习的最小马尔可夫充分统计量
+4. [Uncertainty quantification for trustworthy deep learning: Methods and measures](/202608/02/2607.28248v1-uncertainty-quantification-for-trustworthy-deep-learning-methods-and-measures)  
+   标签：评分：9.0/10、query:npl-bdl-saig
+   evidence：贝叶斯深度学习与集成不确定性量化方法综述
+5. [New Globalized Newton-Type Methods for Nonconvex Optimization Problems](/202608/02/2607.23433v1-new-globalized-newton-type-methods-for-nonconvex-optimization-problems)  
    标签：评分：8.0/10、query:ml-theory
-   evidence：带动量的投影方法用于非凸优化，直接适用于深度学习训练
+   evidence：非凸优化问题的全局收敛牛顿型方法与线搜索框架
+6. [DP-IVON-Gradsq: Differentially Private Squared-Gradient Improved Variational Online Newton](/202608/02/2607.23649v1-dp-ivon-gradsq-differentially-private-squared-gradient-improved-variational-online-newton)  
+   标签：评分：8.0/10、query:npl-bdl-saig
+   evidence：贝叶斯深度学习与变分在线牛顿方法
+7. [Retraction-Free Optimization over the Stiefel Manifold for the LoRA Fine-Tuning](/202608/02/2607.25299v1-retraction-free-optimization-over-the-stiefel-manifold-for-the-lora-fine-tuning)  
+   标签：评分：8.0/10、query:ml-theory
+   evidence：Stiefel流形无回缩优化用于LoRA微调，属于深度学习的非凸优化
+8. [Geometric Methods for Stochastic Dynamical Systems](/202608/02/2607.27237v1-geometric-methods-for-stochastic-dynamical-systems)  
+   标签：评分：8.0/10、query:npl-bdl-saig
+   evidence：随机动力系统的几何方法，含Schrödinger桥与α-散度
 
 ### 速读区论文标签
-1. [Chebyshev Manifold Adaptation](/202607/27/2607.17377v1-chebyshev-manifold-adaptation)  
-   标签：评分：7.0/10、query:ml-theory
-   evidence：切比雪夫流形适应方法实现高效微调
-2. [Organization of computation in reservoir computing](/202607/27/2607.17858v1-organization-of-computation-in-reservoir-computing)  
-   标签：评分：7.0/10、query:rl-semantic
-   evidence：储层计算状态空间表示分析用于表示学习
-3. [A Geometric Perspective on Stabilizing Value Conflict Resolution](/202607/27/2607.17946v1-a-geometric-perspective-on-stabilizing-value-conflict-resolution)  
-   标签：评分：7.0/10、query:ml-theory
-   evidence：从几何视角分析RLHF损失景观
-4. [Information-Based Exploration via Random Features for Reinforcement Learning](/202607/27/2607.17981v1-information-based-exploration-via-random-features-for-reinforcement-learning)  
-   标签：评分：7.0/10、query:rl-semantic
-   evidence：使用随机傅里叶特征进行RL探索中的表示学习
-5. [Active Inference as a Convex Markov Decision Process](/202607/27/2607.20152v1-active-inference-as-a-convex-markov-decision-process)  
-   标签：评分：7.0/10、query:rl-semantic
-   evidence：将主动推理公式化为含有潜在状态表示的凸MDP
-6. [New Complexity-Theoretic Frontiers of Tractability for Neural Network Training](/202607/27/2607.20811v1-new-complexity-theoretic-frontiers-of-tractability-for-neural-network-training)  
-   标签：评分：7.0/10、query:ml-theory
-   evidence：深度学习训练中的非凸优化
-7. [Local-Global Geometric Insights for Graph Neural Networks via Entropic Curvature](/202607/27/2607.22381v1-local-global-geometric-insights-for-graph-neural-networks-via-entropic-curvature)  
-   标签：评分：7.0/10、query:ml-theory
-   evidence：几何深度学习理论
-8. [Learning Ergodic Dynamical Systems from a Finite Trajectory](/202607/27/2607.22399v1-learning-ergodic-dynamical-systems-from-a-finite-trajectory)  
+1. [Constrained Reinforcement Learning Using Successor Representations](/202608/02/2607.24057v1-constrained-reinforcement-learning-using-successor-representations)  
+   标签：评分：8.0/10、query:rl-semantic
+   evidence：深度后继表示用于强化学习状态表示
+2. [Quotient Dynamics, Effective Curvature, and Implicit Bias in Positive Quadratic Networks](/202608/02/2607.25624v1-quotient-dynamics-effective-curvature-and-implicit-bias-in-positive-quadratic-networks)  
+   标签：评分：8.0/10、query:ml-theory
+   evidence：神经网络训练理论中的商流形几何与曲率分析
+3. [Learning Implicit Causal World Models from Multi-Agent Demonstrations](/202608/02/2607.26336v1-learning-implicit-causal-world-models-from-multi-agent-demonstrations)  
+   标签：评分：8.0/10、query:rl-semantic
+   evidence：隐式因果世界模型作为强化学习的潜在状态表征
+4. [Universality and Approximation Rates of Graph Neural Networks with Random Features](/202608/02/2607.26699v1-universality-and-approximation-rates-of-graph-neural-networks-with-random-features)  
+   标签：评分：8.0/10、query:ml-theory
+   evidence：图神经网络（几何深度学习核心模型）的普适性理论
+5. [Risk Aversion in the Small and in the Large: Beyond Arrow-Pratt A Wiener Chaos Hierarchy of Dynamic Risk Premia](/202608/02/2607.23161v1-risk-aversion-in-the-small-and-in-the-large-beyond-arrow-pratt-a-wiener-chaos-hierarchy-of-dynamic-risk-premia)  
    标签：评分：7.0/10、query:npl-bdl-saig
-   evidence：学习遍历随机动力系统并给出高概率保证
-9. [Reward-Driven LLM Agent Workflows: Synthesizing POMDP Routing and Self-Correction for Autonomous Decision-Making](/202607/27/2607.17038v1-reward-driven-llm-agent-workflows-synthesizing-pomdp-routing-and-self-correction-for-autonomous-decision-making)  
+   evidence：Wiener混沌与Malliavin微积分分析风险溢价
+6. [Learning switched non-linear dynamical systems from a single trajectory](/202608/02/2607.23502v1-learning-switched-non-linear-dynamical-systems-from-a-single-trajectory)  
+   标签：评分：7.0/10、query:npl-bdl-saig
+   evidence：针对切换非线性系统学习的非渐近界，涉及随机切换分析
+7. [A Coulomb Particle Model for Learning Kernel Attention in Transformers](/202608/02/2607.23869v1-a-coulomb-particle-model-for-learning-kernel-attention-in-transformers)  
+   标签：评分：7.0/10、query:ml-theory
+   evidence：库仑粒子模型学习随机特征分布，涉及平均场随机分析和随机矩阵思想
+8. [RODR: Riemannian Orthogonally Decoupled Regularization for Disentangled Manifold Representation](/202608/02/2607.23958v1-rodr-riemannian-orthogonally-decoupled-regularization-for-disentangled-manifold-representation)  
+   标签：评分：7.0/10、query:ml-theory
+   evidence：黎曼流形表示学习，几何梯度干扰，解耦流形表示，属于几何深度学习理论
+9. [PointCHR: Point Cloud Analysis via Curvature-Aware Hyperbolic Rectification](/202608/02/2607.24052v1-pointchr-point-cloud-analysis-via-curvature-aware-hyperbolic-rectification)  
+   标签：评分：7.0/10、query:ml-theory
+   evidence：面向点云几何语义分析的曲率感知双曲矫正
+10. [PYPM-GGD: Pitman-Yor Process Mixture with Generalized Gaussian Density using ADAM](/202608/02/2607.24583v1-pypm-ggd-pitman-yor-process-mixture-with-generalized-gaussian-density-using-adam)  
+   标签：评分：7.0/10、query:npl-bdl-saig
+   evidence：基于ADAM的贝叶斯非参数混合模型，处理非共轭后验推断
+11. [Soft-Constrained Optimization of Latent Space in Variational Autoencoders](/202608/02/2607.23751v1-soft-constrained-optimization-of-latent-space-in-variational-autoencoders)  
    标签：评分：6.0/10、query:rl-semantic
-   evidence：使用部分可观测马尔可夫决策过程路由和奖赏驱动的自校正机制的LLM智能体决策
-10. [AttriMem: Attribution-Guided Process Feedback for Agent Memory Learning](/202607/27/2607.21106v1-attrimem-attribution-guided-process-feedback-for-agent-memory-learning)  
+   evidence：变分自编码器潜在空间的软约束优化方法，可迁移至强化学习场景中的表征学习
+12. [Interpretable GOHR Agents via Sparse Autoencoders](/202608/02/2607.25132v1-interpretable-gohr-agents-via-sparse-autoencoders)  
    标签：评分：6.0/10、query:rl-semantic
-   evidence：基于强化学习的LLM智能体记忆构建策略
-11. [FedAgentKE: Federated Semantic Knowledge Evolution for Heterogeneous Agents](/202607/27/2607.21361v1-fedagentke-federated-semantic-knowledge-evolution-for-heterogeneous-agents)  
-   标签：评分：6.0/10、query:rl-semantic
-   evidence：联邦语义知识演化
+   evidence：通过稀疏自编码器解释GOHR强化学习智能体的内部表示，与潜在空间表示学习相关
+13. [Persistent Gaussian Perturbations Prevent Oversmoothing in Recurrent Graph Neural Networks](/202608/02/2607.28185v1-persistent-gaussian-perturbations-prevent-oversmoothing-in-recurrent-graph-neural-networks)  
+   标签：评分：6.0/10、query:npl-bdl-saig
+   evidence：递归图神经网络的随机动力学分析
 
 
 <div class="dpr-home-promo-card">

@@ -1,0 +1,1314 @@
+Title: Persistent Gaussian Perturbations Prevent Oversmoothing in Recurrent Graph Neural Networks
+
+URL Source: https://arxiv.org/pdf/2607.28185v1
+
+Published Time: Fri, 31 Jul 2026 01:02:49 GMT
+
+Number of Pages: 28
+
+Markdown Content:
+# Persistent Gaussian Perturbations Prevent Oversmoothing in Recurrent Graph Neural Networks 
+
+# Mostafa Haghir Chehreghani Department of Computer Engineering Amirkabir University of Technology (Tehran Polytechnic) Tehran, Iran 
+
+# mostafa.chehreghani@aut.ac.ir 
+
+Abstract 
+
+Oversmoothing is a fundamental limitation of deep graph neural networks (GNNs), where repeated message passing causes node representations to become increasingly similar, eventually collapsing toward a low-dimensional subspace. This phenomenon limits the effective depth of message-passing architectures and motivates the search for mechanisms that preserve representation diversity. In this paper, we study a recurrent graph neural network in which independent Gaussian noise is injected after every propagation step and analyze the resulting architecture as a stochastic dynamical system. Under a standard global contraction assumption on the deterministic update, we prove that the hidden representations form a geometrically ergodic Markov chain admitting a unique invariant probability measure. Our main theoretical result establishes an explicit positive lower bound on the expected stationary Dirichlet energy, proportional to both the noise variance and the spectral gap of the underlying graph. Consequently, the stationary representations cannot collapse onto the constant manifold, providing a rigorous guarantee that asymptotic oversmoothing is prevented in the sense of non-vanishing Dirichlet energy. Our analysis reveals persistent stochastic perturbations as a fundamentally different mechanism for combating oversmoothing, complementing existing deterministic approaches based on residual connec-tions, normalization, and graph rewiring. Finally, numerical experiments on both linear and nonlinear recurrent graph neural networks closely match the theoretical predictions, illustrating the emergence of a stationary distribution and the predicted dependence of the limiting Dirichlet energy on the noise intensity. 
+
+Keywords: Graph Neural Networks; Oversmoothing; Stochastic Dynamical Systems; Dirichlet Energy; Geometric Ergodicity; Spectral Graph Theory. 
+
+# 1 Introduction 
+
+Graph neural networks (GNNs) learn node representations through repeated applications of local message-passing operators. As the number of layers increases, information propagates across progressively larger neighborhoods, enabling the network to model long-range interactions. However, repeated message passing also gives rise to oversmoothing : node representations become increasingly similar, eventually collapsing onto a low-dimensional subspace or, in many architectures, onto the space of constant vectors [22, 27]. This phenomenon limits the effective depth of GNNs and has become one of the central theoretical challenges in graph representation learning. Understanding whether oversmoothing is an unavoidable consequence of deep propagation, or whether it can be prevented by principled design, remains an active area of research. Existing approaches alleviate oversmoothing through architectural modifications such as residual con-nections, normalization, graph rewiring, diffusion-based propagation, or stochastic regularization. These methods often improve empirical performance and enable substantially deeper models, yet their guarantees are typically tied to specific architectures or finite-depth settings. Only recently have rigorous results estab-lished conditions under which certain deterministic architectures provably avoid oversmoothing [33]. This naturally raises a complementary theoretical question: 1arXiv:2607.28185v1 [cs.LG] 30 Jul 2026 Can persistent stochastic perturbations fundamentally change the asymptotic dynamics of recur-rent graph neural networks so that representation collapse becomes impossible? In this paper we answer this question affirmatively. We study a recurrent graph neural network in which independent Gaussian perturbations are injected after every message-passing step. Rather than viewing noise merely as a regularization device during training, we interpret the resulting architecture as a stochastic dynamical system evolving on the representation space. This perspective makes it possible to analyze its long-term behavior using tools from Markov chain theory, random dynamical systems, optimal transport, and spectral graph theory. Our main theorem shows that additive Gaussian noise fundamentally changes the asymptotic behavior of recurrent graph propagation. Under a standard global contraction assumption on the deterministic update, the hidden representations converge in distribution toward a unique invariant probability measure. Moreover, the expected stationary Dirichlet energy satisfies an explicit lower bound proportional to 
+
+σ2λ2,
+
+where σ2 denotes the noise variance and λ2 is the spectral gap of the graph Laplacian. Consequently, the stationary representations cannot collapse onto the constant manifold, implying that oversmoothing, interpreted as asymptotic vanishing of Dirichlet energy, is impossible under the assumptions of the theorem. Our analysis is intentionally geometric rather than statistical. We do not study optimization, convergence of training algorithms, or predictive performance on downstream tasks. Instead, we identify a fundamental mechanism by which persistent stochastic perturbations alter the limiting dynamics of message passing and prevent degeneration of node representations. The resulting theory provides a mathematically explicit relationship between the injected noise, the graph spectrum, and the asymptotic representation geometry. 
+
+Why this theorem matters for practice. Although our analysis is theoretical, it has direct implica-tions for the design of deep and recurrent graph neural networks. Modern GNN architectures increasingly rely on recurrent propagation, implicit layers, equilibrium models, or continuous-time dynamics, all of which involve repeated application of graph operators and are therefore susceptible to oversmoothing. Our results demonstrate that persistent stochastic perturbations are not merely a heuristic regularization technique but fundamentally alter the limiting behavior of the dynamics by maintaining a strictly positive level of represen-tation diversity. The explicit dependence of the stationary Dirichlet energy on both the noise variance and the graph spectral gap also provides theoretical guidance for selecting noise levels in practical architectures. More broadly, the analysis suggests that stochasticity can serve as a principled mechanism for controlling long-term representation collapse rather than simply improving optimization or generalization. The contributions of this paper are as follows. 1. We formulate noisy recurrent graph neural networks as stochastic dynamical systems and analyze their asymptotic behavior. 2. Under a global contraction assumption on the deterministic dynamics, we prove existence and unique-ness of an invariant probability measure, together with geometric ergodicity of the resulting Markov process. 3. We derive an explicit lower bound on the stationary Dirichlet energy, showing that it depends quanti-tatively on both the graph spectral gap and the injected noise variance. 4. We prove that asymptotic oversmoothing, characterized by vanishing Dirichlet energy, cannot occur under the assumptions of the theorem. 5. We validate the theoretical predictions through three numerical experiments, including explicit lin-ear dynamics, nonlinear recurrent graph neural networks, and empirical verification of the predicted quadratic scaling of stationary Dirichlet energy with the noise variance. The remainder of the paper is organized as follows. Section 2 reviews the most relevant literature on oversmoothing, stochastic graph neural networks, dynamical-system formulations of GNNs, and random 2dynamical systems. Section 3 introduces the mathematical framework, notation, and the problem formulation adopted throughout the paper. Section 4 presents the noisy recurrent graph neural network together with its stochastic dynamical-system interpretation. Section 5 develops the theoretical analysis, proving the existence and uniqueness of the stationary distribution, geometric ergodicity, and the positive lower bound on the stationary Dirichlet energy. Section 6 provides numerical experiments that validate the theoretical predictions and illustrate the behavior of noisy recurrent GNNs. Finally, Sections 7 and 8 discuss the implications and limitations of the results and conclude the paper. 
+
+# 2 Related Work 
+
+Graph neural networks (GNNs) have become one of the dominant paradigms for learning from graph-structured data, with successful applications in node classification, graph classification, recommendation, molecular modeling, and scientific computing [19, 17, 36, 39, 7]. Their rapid development has also revealed several fundamental theoretical limitations, among which oversmoothing and oversquashing have emerged as two of the most significant obstacles to building deep and expressive graph neural networks. 
+
+Oversmoothing in graph neural networks. Oversmoothing is one of the principal limitations prevent-ing graph neural networks (GNNs) from scaling to large propagation depths. Li et al. [22] first interpreted graph convolution as repeated Laplacian smoothing, explaining why node representations gradually become indistinguishable. Oono and Suzuki [27] later proved that deep GNNs exponentially lose expressive power under broad assumptions. Subsequent theoretical and empirical studies further characterized oversmoothing and its relationship with graph topology [26, 12]. Many architectural modifications have been proposed to alleviate this phenomenon. Representative ex-amples include PairNorm [42], DropEdge [30], Jumping Knowledge Networks [40], APPNP [20], GCNII [8], GraphNorm [5], DeeperGCN [21], and residual normalization techniques. Most recently, Scholkemper et al. [33] proved that residual connections together with normalization can provably prevent oversmoothing under suitable assumptions. Hoseinnia et al. [18] proposed Adaptive Early Embedding together with a bi-ased DropEdge mechanism to mitigate oversmoothing during node classification. Zohrabi et al. [44] extended graph neighborhoods using centrality- and similarity-based criteria to improve information propagation while reducing excessive feature homogenization. Unlike these architectural approaches, our work leaves the propa-gation operator unchanged and instead studies the effect of persistent stochastic perturbations. We show that additive Gaussian noise alone guarantees a positive asymptotic Dirichlet energy independently of network depth. 
+
+Oversquashing and graph geometry. Oversquashing is a complementary phenomenon in which ex-ponentially many long-range messages are compressed into fixed-dimensional node representations, leading to severe information bottlenecks [1, 35, 13]. Recent work has proposed architectural modifications, graph rewiring, and similarity-aware neighborhood augmentation to alleviate these bottlenecks. For example, Mohamadi and Haghir Chehreghani [24] mitigate over-squashing in graph few-shot learning by combining local and global similarity information to enrich message propagation. Although over-squashing and over-smoothing are distinct phenomena, both highlight the importance of preserving informative representations in deep message-passing networks. 
+
+Stochastic graph neural networks. Randomness has been incorporated into graph neural networks in many forms, including stochastic diffusion, feature perturbation, edge sampling, and data augmentation. GRAND [6] models message passing through stochastic differential equations, whereas Random Features [32], DropEdge [30], and stochastic regularization methods [14] improve generalization by injecting randomness during training. Neural SDE formulations of graph learning [43] further establish continuous-time stochastic message passing. Several recent works have also enriched graph representations by incorporating additional semantic information. For example, Content Augmented Graph Neural Networks (CAGNN) [25] integrate content-based information into graph message passing to improve representation quality. These methods primarily pursue improved prediction accuracy. In contrast, our objective is to characterize the long-time 3stochastic dynamics of recurrent propagation and to derive explicit depth-independent lower bounds on representation diversity. 
+
+Continuous-time, equilibrium, and dynamical-system models. Continuous-depth formulations pro-vide another perspective on deep graph learning. Graph Neural ODEs [28] and Neural ODE based architec-tures [9] replace discrete layers by continuous dynamical systems. Deep Equilibrium Models [3] and Implicit Graph Neural Networks [15] replace finite-depth propagation by fixed-point equations. Graph-Coupled Os-cillator Networks (GraphCON) [31] introduce second-order oscillatory dynamics that empirically stabilize deep propagation and alleviate oversmoothing. Our framework differs fundamentally from these approaches. Rather than modifying the underlying dynamics, we analyze stochastic contractive systems and prove that additive Gaussian noise generates a unique invariant probability measure with non-vanishing stationary Dirichlet energy. 
+
+Graph Transformers and modern deep graph architectures. Recent graph transformer architectures extend message passing through global attention mechanisms. Graphormer [41] and GraphGPS [29] combine transformer layers with structural positional encodings and local message passing, substantially improving long-range representation learning. Although these architectures mitigate several limitations of classical message-passing GNNs, they do not provide theoretical guarantees preventing asymptotic feature collapse. Our results are complementary and may also be applicable to recurrent propagation modules embedded within transformer-based graph architectures. 
+
+Spectral graph theory. Our analysis is fundamentally spectral. The Dirichlet energy is expressed through the graph Laplacian, connecting our results with classical spectral graph theory [10] and graph signal pro-cessing [34]. Modern spectral analyses of graph neural networks [4] have emphasized the frequency response of message-passing operators. Our lower bounds provide a probabilistic interpretation of spectral energy preservation under stochastic propagation. 
+
+Random dynamical systems and invariant measures. The theoretical analysis builds upon the theory of random dynamical systems, iterated random functions, Markov chains, and optimal transport. Classical existence and uniqueness results for invariant measures [11, 2, 23] combine naturally with Wasserstein con-traction techniques [37, 38, 16] to characterize the long-term behaviour of noisy graph propagation. These probabilistic tools enable explicit lower bounds on stationary Dirichlet energy. 
+
+Positioning of the present work. To the best of our knowledge, this paper is the first to establish that persistent additive Gaussian perturbations alone provably prevent asymptotic oversmoothing in recurrent graph neural networks. Under a global contraction assumption, the noisy dynamics admit a unique invariant probability measure with strictly positive stationary variance. Combining this stochastic characterization with spectral estimates of the graph Laplacian yields explicit positive lower bounds on the limiting Dirichlet energy that hold independently of propagation depth. 
+
+# 3 Mathematical Setting 
+
+The purpose of this section is to introduce the graph-theoretic notation, the representation space, and the notion of oversmoothing used throughout the paper. No assumptions on the dynamics are imposed here; these will be introduced in Section 4. Throughout the paper, all vector spaces are equipped with the Euclidean norm ∥ · ∥ , and all matrix spaces with the Frobenius norm ∥ · ∥ F . Expectation is taken with respect to the underlying probability space (Ω , F, P) on which all random variables are defined. 
+
+# 3.1 Graphs and node representations 
+
+Let G = ( V, E ) be a finite, connected, undirected graph with |V | = N and |E| = m. The adjacency matrix is denoted by A ∈ RN ×N , and the degree matrix by 
+
+D = diag( d1, . . . , d N ).
+
+4The (unnormalized) graph Laplacian is L = D − A. Since the graph is connected, 
+
+0 = λ1(L) < λ 2(L) ≤ · · · ≤ λN (L),
+
+where λ2(L) denotes the algebraic connectivity (spectral gap). Each node carries a feature vector in Rd. Collecting the node features row-wise yields the representation matrix 
+
+H =
+
+
+
+h⊤
+
+> 1
+
+...
+
+h⊤
+
+> N
+
+ ∈ RN ×d.
+
+The initial representation is denoted by H(0) = X, where X is the input feature matrix. 
+
+# 3.2 The zero-mean representation 
+
+Oversmoothing concerns the collapse of node representations toward the subspace of constant vectors. It is therefore convenient to decompose every representation into its constant and non-constant components. Let 
+
+P = IN − 1
+
+N 11 ⊤
+
+be the orthogonal projection onto the subspace orthogonal to span {1}. For every representation matrix H,define ¯H = P H . Equivalently, 
+
+¯H = H − 1
+
+N 11 ⊤H. 
+
+Thus, 
+
+H = 1
+
+N 11 ⊤H + ¯H, 
+
+where the first term is constant across all nodes and ¯H contains the node-dependent component. The quantity ∥ ¯H∥2 
+
+> F
+
+measures the total squared deviation of the node representations from their mean. 
+
+# 3.3 Projected Gaussian noise 
+
+The orthogonal projection introduced above also determines the statistical properties of the projected noise that appears throughout the subsequent analysis. 
+
+Lemma 3.1 (Projected Gaussian noise) . Let 
+
+P = IN − 1
+
+N 11 ⊤,
+
+and let 
+
+Ξ ∈ RN ×d
+
+be a random matrix whose entries are independent standard Gaussian random variables, 
+
+Ξij 
+
+> i.i.d.
+
+∼ N (0 , 1) .
+
+Define the projected noise ¯Ξ = P Ξ. Then the following properties hold. 1. The projected noise is centered, i.e., E[¯Ξ] = 0 .2. Each feature column has covariance: 
+
+Cov( ¯Ξ:,k ) = P, k = 1 , . . . , d. 
+
+53. The expected squared Frobenius norm satisfies: 
+
+E∥¯Ξ∥2 
+
+> F
+
+= ( N − 1) d. 
+
+Proof. Since ¯Ξ = P Ξ and E[Ξ] = 0 , linearity gives E[¯Ξ] = 0 . For each k = 1 , . . . , d , the k-th column Ξ:,k is distributed as N (0 , I N ). Therefore, 
+
+¯Ξ:,k = P Ξ:,k ∼ N (0 , P IP ) = N (0 , P ),
+
+where we used the symmetry and idempotence of P , i.e., P 2 = P = P ⊤. Hence Cov( ¯Ξ:,k ) = P .Finally, 
+
+E∥¯Ξ∥2 
+
+> F
+
+=
+
+> d
+
+X
+
+> k=1
+
+E∥¯Ξ:,k ∥2 =
+
+> d
+
+X
+
+> k=1
+
+Tr( P ) = d Tr( P ).
+
+The projection matrix P = IN − 1 
+
+> N
+
+11 ⊤ has eigenvalues 1 (multiplicity N − 1) and 0 (multiplicity 1), so 
+
+Tr( P ) = N − 1. Therefore: 
+
+E∥¯Ξ∥2 
+
+> F
+
+= ( N − 1) d. 
+
+# 3.4 Dirichlet energy 
+
+To quantify the degree of smoothness of a representation we use its Dirichlet energy. 
+
+Definition 3.1 (Dirichlet energy) . For a representation matrix H ∈ RN ×d,
+
+E(H) = 1
+
+m Tr( H⊤LH ).
+
+Since L1 = 0 , the energy depends only on the projected representation. Indeed, 
+
+E(H) = 1
+
+m Tr( ¯H⊤L ¯H).
+
+Equivalently, 
+
+E(H) = 1
+
+m
+
+X
+
+> (i,j )∈E
+
+∥hi − hj ∥2.
+
+Thus, the Dirichlet energy measures the average discrepancy between neighboring node representations. The following elementary characterization will be used repeatedly. 
+
+Proposition 3.2. Assume that G is connected. Then, E(H) = 0 if and only if all node representations are identical. Proof. Since L is positive semidefinite, 
+
+E(H) ≥ 0.
+
+Moreover, 
+
+ker( L) = span {1}.
+
+Hence, 
+
+E(H) = 0 
+
+if and only if ¯H = 0 , which is equivalent to all rows of H being identical. 63.5 Oversmoothing 
+
+We now formalize the notion of oversmoothing adopted in this paper. Several notions of oversmoothing have been proposed in the literature (e.g., based on feature variance, pairwise distances, or representation rank). In this paper we adopt the following energy-based definition. This definition is particularly convenient because the Dirichlet energy is directly linked to the graph Laplacian and admits spectral lower bounds. 
+
+Definition 3.2 (Oversmoothing) . Let 
+
+(H(t))t≥0
+
+be a stochastic sequence of node representations. The sequence is said to exhibit oversmoothing if 
+
+lim  
+
+> t→∞
+
+E
+
+h
+
+E(H(t))
+
+i
+
+= 0 .
+
+The following definition is central to the paper. 
+
+Definition 3.3 (Escape from oversmoothing) . The sequence (H(t)) is said to escape oversmoothing if there exists a constant 
+
+δ > 0
+
+such that 
+
+lim inf  
+
+> t→∞
+
+E
+
+h
+
+E(H(t))
+
+i
+
+≥ δ. 
+
+This definition is purely geometric. It concerns the asymptotic behavior of the hidden representations and does not refer to optimization, statistical generalization, or downstream task performance. 
+
+# 3.6 Spectral lower bound 
+
+The following inequality connects the Dirichlet energy with the projected representation and will play a central role in the analysis. 
+
+Lemma 3.3. For every H ∈ RN ×d,
+
+E(H) ≥ λ2(L)
+
+m ∥ ¯H∥2 
+
+> F
+
+.
+
+Proof. Since ¯H ⊥ ker( L),
+
+the Courant–Fischer characterization of the second eigenvalue gives 
+
+Tr( ¯H⊤L ¯H) ≥ λ2(L) ∥ ¯H∥2 
+
+> F
+
+.
+
+Dividing by m yields the result. 
+
+# 4 Noisy Recurrent Graph Neural Networks 
+
+In this section we formulate the noisy recurrent graph neural network studied throughout the paper. Rather than viewing the architecture as a deep feed-forward network, we interpret it as a discrete-time stochastic dynamical system evolving on the representation space RN ×d. This perspective naturally leads to a Markov process whose long-term behavior can be analyzed using tools from stochastic stability and ergodic theory. 74.1 Deterministic recurrent dynamics 
+
+Let 
+
+F : RN ×d −→ RN ×d
+
+denote the deterministic update map of a recurrent graph neural network. The precise form of F is not prescribed. It may consist of any combination of graph convolutions, attention mechanisms, normalization layers, nonlinear activations, or residual connections, provided that the assumptions introduced below are satisfied. Starting from H(0) = X, the deterministic recurrent dynamics are 
+
+H(t+1) = F (H(t)), t ≥ 0.
+
+Without stochastic perturbations, repeated application of F may progressively reduce the variation of the node representations, eventually leading to oversmoothing. 
+
+# 4.2 Noisy recurrent dynamics 
+
+To counteract this collapse, we inject an independent Gaussian perturbation after every recurrent update. Specifically, 
+
+H(t+1) = F (H(t)) + σ Ξ(t),
+
+where σ > 0 is the noise intensity and Ξ(t) ∈ RN ×d has independent standard Gaussian entries: 
+
+Ξ(t) 
+
+> ij
+
+∼ N (0 , 1) .
+
+The sequence 
+
+(Ξ (t))t≥0
+
+is assumed to be independent and identically distributed and independent of the initial representation. The additive perturbation is generated from isotropic Gaussian noise acting on all nodes and feature dimensions. After projection, the noise is confined to the zero-mean subspace. Its role is not to model uncertainty in the data, but to continuously inject variation into the recurrent dynamics. The qualitative difference between the deterministic and noisy dynamics is illustrated in Figure 1. In the absence of noise, repeated contraction drives the representations toward the consensus manifold, whereas additive noise continuously injects variation, leading to a stationary distribution away from consensus. 
+
+# 4.3 Projection onto the zero-mean subspace 
+
+Since the graph Laplacian annihilates constant vectors, only the projected representations 
+
+¯H(t) = P H (t)
+
+are relevant for the analysis of oversmoothing. Applying the projection operator gives: 
+
+¯H(t+1) = P F (H(t)) + σP Ξ(t).
+
+Let 
+
+X = Im( P )
+
+denote the zero-mean subspace. Since 
+
+X ⊂ RN ×d,
+
+the restriction of 
+
+F : RN ×d → RN ×d
+
+to X is well defined. Assumption 4.2 implies that the projected deterministic update depends only on the projected represen-tation. Hence we define 
+
+∆ : X → X , ∆( ¯H) = P F ( ¯H).
+
+8Deterministic dynamics   
+
+> Consensus manifold
+> E(H)→0
+
+Noisy dynamics   
+
+> Invariant distribution
+> E(H)>0
+
+Figure 1: Conceptual illustration of the long-term behavior of recurrent graph neural networks. Left: with-out additive noise, repeated contraction drives the hidden representations toward the consensus manifold, resulting in vanishing Dirichlet energy (oversmoothing). Right: additive Gaussian noise continually injects variability, producing a stationary distribution on the zero-mean subspace with strictly positive expected Dirichlet energy, thereby preventing asymptotic feature collapse. The projected dynamics therefore take the form 
+
+¯H(t+1) = ∆( ¯H(t)) + σ ¯Ξ(t).
+
+This representation shows that the evolution of the projected representations is completely determined within the state space X . It will be used throughout the subsequent analysis. 
+
+# 4.4 Standing assumptions 
+
+The theoretical results in the following sections are established under the assumptions below. 
+
+Assumption 4.1 (Graph connectivity) . The graph G is finite, connected, and undirected. 
+
+Connectivity guarantees that λ2(L) > 0, which is essential for obtaining positive lower bounds on the Dirichlet energy. 
+
+Assumption 4.2 (Projection invariance) . The deterministic update satisfies 
+
+P F (H) = P F (P H ), H ∈ RN ×d.
+
+Equivalently, two representations that differ only by a constant vector shared by all nodes produce the same projected update. 
+
+Assumption 4.2 requires that the projected component of the deterministic update depends only on the projected representation. Equivalently, adding the same constant feature vector to every node does not affect the evolution of the zero-mean component. This property is naturally satisfied by a broad class of graph neural network architectures whose message-passing operations depend only on relative interactions between neighboring node features. Examples include linear graph convolution operators, graph diffusion layers, and recurrent message-passing schemes without global bias terms. More generally, the assumption is structural rather than restrictive: it ensures that the consensus subspace 
+
+span {1} is invariant under the deterministic dynamics and therefore allows the projected dynamics to evolve as a closed system on the state space X = Im( P ). This invariance is essential for the Markov formulation developed in the subsequent analysis. 9Assumption 4.3 (Global contraction) . The mapping 
+
+∆ : X → X 
+
+is globally Lipschitz with constant 0 ≤ α < 1, that is, 
+
+∥∆( H1) − ∆( H2)∥F ≤ α∥H1 − H2∥F
+
+for every H1, H 2 ∈ X .In addition, the origin is a fixed point of the deterministic dynamics, 
+
+∆(0) = 0 .
+
+The contraction property guarantees that the deterministic dynamics reduce distances on the projected state space. The additional condition ∆(0) = 0 ensures that the consensus representation is an equilibrium of the deterministic dynamics, allowing the contraction estimate to be applied directly to the norm of the projected representations. 
+
+Assumption 4.4 (Additive noise) . The random matrices (Ξ (t))t≥0 are independent and identically dis-tributed, independent of the initial condition, centered, 
+
+E[Ξ (t)] = 0 ,
+
+and satisfy 
+
+E∥Ξ(t)∥2 
+
+> F
+
+< ∞.
+
+We additionally assume that the additive noise is Gaussian. The four assumptions play distinct roles. Graph connectivity provides the spectral properties of the Laplacian. Projection invariance allows the projected dynamics to evolve autonomously. Global contraction ensures ergodicity of the projected Markov chain. Finally, the additive noise supplies persistent stochastic excitation. 
+
+# 4.5 Markov formulation 
+
+Under Assumption 4.2, the projected dynamics evolve autonomously on the zero-mean subspace X = Im( P ).The projected recursion therefore takes the form 
+
+¯H(t+1) = ∆( ¯H(t)) + σ ¯Ξ(t).
+
+Since the driving noise is independent across time, this recursion naturally defines a stochastic dynamical system on the state space X . The following proposition formalizes this observation. 
+
+Proposition 4.1 (Projected dynamics define a Markov chain) . Suppose Assumption 4.2 holds. Assume further that 
+
+F : RN ×d → RN ×d
+
+is Borel measurable. Then the projected process 
+
+( ¯H(t))t≥0
+
+defined by ¯H(t+1) = ∆( ¯H(t)) + σ ¯Ξ(t)
+
+is a time-homogeneous Markov chain on the state space X = Im( P ).
+
+10 Proof. Since P is linear and F is Borel measurable, the mapping 
+
+∆ = P ◦ (F |X ) : X → X ,
+
+is Borel measurable. For every t ≥ 0,
+
+¯H(t+1) = ∆( ¯H(t)) + σ ¯Ξ(t),
+
+where the random matrices (¯Ξ(t))t≥0 are independent and identically distributed and are independent of 
+
+σ
+
+ ¯H(0) , . . . , ¯H(t)
+
+.
+
+Let A ⊂ X be a Borel set. Conditioning on the past gives 
+
+P
+
+ ¯H(t+1) ∈ A ¯H(0) , . . . , ¯H(t)
+
+= P
+
+
+
+∆( ¯H(t)) + σ ¯Ξ(t) ∈ A ¯H(0) , . . . , ¯H(t)
+
+.
+
+Since ¯Ξ(t) is independent of the entire history, 
+
+P
+
+ ¯H(t+1) ∈ A ¯H(0) , . . . , ¯H(t)
+
+= K( ¯H(t), A ),
+
+where 
+
+K(x, A ) = P ∆( x) + σ ¯Ξ ∈ A .
+
+Thus the conditional distribution of ¯H(t+1) depends only on the current state ¯H(t). Hence ( ¯H(t))t≥0 is a Markov chain. Moreover, the kernel K does not depend on t because both the mapping ∆ and the law of the additive noise are time-independent. Therefore the chain is time homogeneous. Proposition 4.1 shows that the projected recursion defines a measurable time-homogeneous Markov chain on the state space X . Its transition kernel is given by 
+
+K(x, A ) = P  ∆( x) + σ ¯Ξ ∈ A ,
+
+for every x ∈ X and every Borel set A ⊂ X .Proposition 4.1 provides the stochastic framework used throughout the remainder of the paper. Our objective is therefore to characterize the invariant probability measure of the projected Markov chain and to study the long-term behavior of the projected hidden representations. 
+
+# 4.6 Roadmap of the analysis 
+
+The remainder of the analysis proceeds in three steps. We first establish ergodicity of the projected Markov chain. We then derive a stationary second-moment identity and show that additive noise induces persistent stationary variance. Finally, combining this variance estimate with the spectral lower bound yields escape from oversmoothing. Figure 2 summarizes the logical dependencies between the principal results proved in the remainder of the paper. The probabilistic analysis establishes the existence of a unique stationary distribution together with a strictly positive stationary variance, while the graph-theoretic estimate converts this persistent variance into a positive lower bound for the Dirichlet energy, leading to the main escape-from-oversmoothing theorem. 
+
+# 5 Asymptotic Analysis 
+
+# 5.1 Existence and uniqueness of the invariant measure 
+
+We begin by establishing the existence of a unique stationary distribution for the noisy recurrent dynamics. This result is not specific to graph neural networks; rather, it is a classical consequence of the theory of 11 Theorem 5.1 
+
+> Existence, uniqueness, and geometric ergodicity
+> Proposition 5.2
+> Stationary second-moment identity
+> Lemma 5.3
+> Contractive variance estimate
+> Theorem 5.4
+> Persistence of projected variance
+> Lemma 3.3
+> Spectral-gap inequality
+> Theorem 5.6
+> Positive lower bound for stationary Dirichlet energy (Escape from oversmoothing)
+
+Figure 2: Logical dependency of the theoretical development. Theorem 5.1 establishes the existence, uniqueness, and geometric ergodicity of the stationary distribution. Proposition 5.2 derives the stationary second-moment identity, which is used together with Lemma 5.3 to prove Theorem 5.4. Finally, combining persistence of the projected variance with the spectral-gap estimate of Lemma 3.3 yields the main result, Theorem 5.6, which establishes a strictly positive lower bound for the stationary Dirichlet energy and there-fore the prevention of asymptotic oversmoothing. 12 contractive iterated random functions. The overall proof strategy is illustrated in Figure 2. The results of this section are developed in the order indicated there, culminating in the proof of the main theorem. Recall that the projected Markov chain introduced in Section 4 evolves according to 
+
+¯H(t+1) = ∆( ¯H(t)) + σ ¯Ξ(t),
+
+on the state space X = Im( P ). Since X = Im( P ) is a finite-dimensional linear subspace of RN ×d, it is complete under the Frobenius norm. The deterministic dynamics contract representations toward consensus, whereas the additive noise con-tinuously injects energy into the projected subspace. The competition between these two effects suggests the existence of a stationary regime. The following theorem formalizes this intuition. 
+
+Theorem 5.1 (Ergodicity of the projected Markov chain) . Suppose that Assumptions 4.1, 4.2, 4.3, and 4.4 hold. Then the projected Markov chain ( ¯H(t))t≥0 with transition kernel K:1. admits a unique invariant probability measure μ;2. converges to μ from every initial condition; 3. converges geometrically in the Wasserstein metric. Proof. The projected dynamics define a contractive iterated random function on the complete metric space 
+
+X = Im( P ),
+
+endowed with the Frobenius norm. By Assumption 4.3, the mapping 
+
+∆ : X → X 
+
+is globally Lipschitz with contraction constant α < 1. Moreover, by Assumption 4.4, the projected noise sequence 
+
+(¯Ξ(t))t≥0
+
+is independent and identically distributed with finite second moments. Therefore, the hypotheses of the classical ergodicity theorem for contractive iterated random functions are satisfied (see, e.g., [11, Theorem 1]; see also [16]). Consequently, the projected Markov chain admits a unique invariant probability measure, converges to it from every initial condition, and the convergence is geometric in the Wasserstein distance. 
+
+Remark 5.1. The Gaussian assumption is not essential for Theorem 5.1. The result remains valid for any independent additive noise sequence having finite second moments. Gaussianity becomes important only in the subsequent analysis, where the covariance structure of the noise is used to derive an explicit stationary variance identity and the lower bound on the Dirichlet energy. 
+
+# 5.2 Stationary second-moment identity 
+
+Having established the existence and uniqueness of the invariant probability measure, we next characterize the stationary second moment of the projected hidden representations. Throughout this subsection, let μ denote the unique invariant probability measure of Theorem 5.1. If 
+
+¯H ∼ μ, then stationarity implies that ¯H′ = ∆( ¯H) + σ ¯Ξ
+
+has the same distribution as ¯H, where ¯Ξ = P Ξ is independent of ¯H.The following proposition gives an exact balance relation between the stationary second moment, the deterministic contraction, and the variance injected by the additive noise. 
+
+Proposition 5.2 (Exact stationary second-moment identity) . Suppose that Assumptions 4.1, 4.2, 4.3, and 4.4 hold. Then 
+
+Eμ
+
+∥ ¯H∥2
+
+> F
+
+ = Eμ
+
+∥∆( ¯H)∥2
+
+> F
+
+ + σ2(N − 1) d. 
+
+13 Proof. Since μ is an invariant probability measure, 
+
+¯H d
+
+= ∆( ¯H) + σ ¯Ξ,
+
+where ¯Ξ is independent of ¯H. Therefore, 
+
+Eμ
+
+∥ ¯H∥2
+
+> F
+
+ = Eμ
+
+∥∆( ¯H) + σ ¯Ξ∥2
+
+> F
+
+
+
+= Eμ
+
+∥∆( ¯H)∥2
+
+> F
+
+ + 2 σ E ∆( ¯H), ¯Ξ F
+
+
+
++ σ2 E∥¯Ξ∥2
+
+> F
+
+ .
+
+It remains to evaluate the last two terms. Since ¯Ξ is independent of ¯H and satisfies E[¯Ξ] = 0 by Lemma 3.1, 
+
+E ∆( ¯H), ¯Ξ F
+
+ = E ∆( ¯H), E[¯Ξ] F
+
+
+
+= 0 .
+
+Furthermore, Lemma 3.1 establishes that 
+
+E∥¯Ξ∥2
+
+> F
+
+ = ( N − 1) d. 
+
+Substituting these two identities into the previous expansion yields 
+
+Eμ
+
+∥ ¯H∥2
+
+> F
+
+ = Eμ
+
+∥∆( ¯H)∥2
+
+> F
+
+ + σ2(N − 1) d, 
+
+which completes the proof. 
+
+# 5.3 Persistence of stationary variance 
+
+The stationary variance identity established in Proposition 5.2 shows that additive noise continuously injects variability into the projected hidden representations. The next result shows that the deterministic contraction cannot completely eliminate this injected variance. We first quantify the effect of the contraction mapping on the stationary second moment. 
+
+Lemma 5.3 (Contractive variance estimate) . Suppose that Assumptions 4.1, 4.2, 4.3, and 4.4 hold. Then 
+
+Eμ
+
+∥∆( ¯H)∥2
+
+> F
+
+ ≤ α2 Eμ
+
+∥ ¯H∥2
+
+> F
+
+ .
+
+Proof. By Assumption 4.3, 
+
+∥∆( X) − ∆( Y )∥F ≤ α∥X − Y ∥F (α < 1) .
+
+Taking Y = 0 gives, 
+
+∥∆( H) − ∆(0) ∥F ≤ α∥H − 0∥F .
+
+Since ∆(0) = 0 ,
+
+∥∆( H)∥F ≤ α∥H∥F .
+
+Squaring both sides yields 
+
+∥∆( H)∥2 
+
+> F
+
+≤ α2∥H∥2 
+
+> F
+
+.
+
+Finally, taking expectations with respect to the invariant probability measure μ gives 
+
+Eμ
+
+∥∆( ¯H)∥2
+
+> F
+
+ ≤ α2 Eμ
+
+∥ ¯H∥2
+
+> F
+
+ .
+
+14 The previous lemma combines naturally with the stationary variance identity to show that the projected representations necessarily retain a strictly positive stationary variance. 
+
+Theorem 5.4 (Positive lower bound on the stationary variance) . Suppose that Assumptions 4.1, 4.2, 4.3, and 4.4 hold. Then the unique invariant probability measure satisfies 
+
+Eμ
+
+∥ ¯H∥2
+
+> F
+
+ ≥ σ2(N − 1) d
+
+1 − α2 > 0.
+
+Consequently, the projected hidden representations possess a strictly positive stationary variance. Proof. By Proposition 5.2, 
+
+Eμ
+
+∥ ¯H∥2
+
+> F
+
+ = Eμ
+
+∥∆( ¯H)∥2
+
+> F
+
+ + σ2(N − 1) d. 
+
+Applying Lemma 5.3 yields 
+
+Eμ
+
+∥ ¯H∥2
+
+> F
+
+ ≤ α2Eμ
+
+∥ ¯H∥2
+
+> F
+
+ + σ2(N − 1) d. 
+
+Rearranging gives 
+
+(1 − α2) Eμ
+
+∥ ¯H∥2
+
+> F
+
+ ≥ σ2(N − 1) d. 
+
+Since α < 1,
+
+1 − α2 > 0,
+
+and therefore 
+
+Eμ
+
+∥ ¯H∥2
+
+> F
+
+ ≥ σ2(N − 1) d
+
+1 − α2 .
+
+Because σ > 0, the right-hand side is strictly positive, proving the claim. 
+
+Remark 5.2. Theorem 5.4 is purely probabilistic and does not depend on the graph topology. It shows that persistent additive noise prevents the projected representations from collapsing to zero variance, regardless of the particular form of the contractive mapping ∆.This result is the fundamental stochastic ingredient of the subsequent analysis. To relate stationary variance to oversmoothing, one must additionally connect the projected variance to the graph Dirichlet energy through the spectral properties of the graph Laplacian. 
+
+# 5.4 Uniform boundedness of transient second moments 
+
+The convergence of expected Dirichlet energies in Theorem 5.6 requires a uniform bound on the second moments of the transient representations. 
+
+Lemma 5.5 (Uniform boundedness of second moments) . Suppose that Assumptions 4.1, 4.2, 4.3, and 4.4 hold. Then the projected process satisfies 
+
+sup 
+
+> t≥0
+
+E
+
+h
+
+∥ ¯H(t)∥2
+
+> F
+
+i
+
+< ∞.
+
+More precisely, 
+
+E
+
+h
+
+∥ ¯H(t)∥2
+
+> F
+
+i
+
+≤ α2t∥ ¯H(0) ∥2 
+
+> F
+
++ σ2(N − 1) d
+
+1 − α2 , t ≥ 0.
+
+Proof. The projected dynamics satisfy 
+
+¯H(t+1) = ∆( ¯H(t)) + σ ¯Ξ(t).
+
+Expanding the squared Frobenius norm gives 
+
+∥ ¯H(t+1) ∥2 
+
+> F
+
+= ∥∆( ¯H(t))∥2 
+
+> F
+
++ 2 σ⟨∆( ¯H(t)), ¯Ξ(t)⟩F
+
++ σ2∥¯Ξ(t)∥2 
+
+> F
+
+.
+
+15 Taking expectations and using the independence and zero mean of ¯Ξ(t) yields 
+
+E
+
+h
+
+∥ ¯H(t+1) ∥2
+
+> F
+
+i
+
+= E
+
+h
+
+∥∆( ¯H(t))∥2
+
+> F
+
+i
+
++ σ2(N − 1) d, 
+
+where Lemma 3.1 has been used. Since ∆(0) = 0 and ∆ is globally contractive, 
+
+∥∆( H)∥F ≤ α∥H∥F .
+
+Therefore, 
+
+E
+
+h
+
+∥ ¯H(t+1) ∥2
+
+> F
+
+i
+
+≤ α2E
+
+h
+
+∥ ¯H(t)∥2
+
+> F
+
+i
+
++ σ2(N − 1) d. 
+
+Define 
+
+Mt = E
+
+h
+
+∥ ¯H(t)∥2
+
+> F
+
+i
+
+.
+
+Then 
+
+Mt+1 ≤ α2Mt + σ2(N − 1) d. 
+
+Iterating this inequality gives 
+
+Mt ≤ α2tM0 + σ2(N − 1) d
+
+> t−1
+
+X
+
+> k=0
+
+α2k.
+
+Since α < 1,
+
+> t−1
+
+X
+
+> k=0
+
+α2k ≤ 11 − α2 ,
+
+and hence 
+
+Mt ≤ α2t∥ ¯H(0) ∥2 
+
+> F
+
++ σ2(N − 1) d
+
+1 − α2 .
+
+Taking the supremum over t completes the proof. 
+
+# 5.5 Escape from oversmoothing 
+
+We are now in a position to establish the principal theoretical result of the paper. It states that the noisy recurrent graph neural network cannot converge to a completely oversmoothed representation. Instead, the stochastic dynamics admit a stationary regime with strictly positive expected Dirichlet energy. 
+
+Theorem 5.6 (Escape from oversmoothing under contractive noisy recurrent dynamics) . Suppose that Assumptions 4.1, 4.2, 4.3, and 4.4 hold. Let 
+
+(H(t))t≥0
+
+denote the noisy recurrent graph neural network defined in Section 4. Then 
+
+lim  
+
+> t→∞
+
+E
+
+h
+
+E(H(t))
+
+i
+
+= Eμ
+
+E( ¯H) ≥ λ2(L)
+
+mσ2(N − 1) d
+
+1 − α2 > 0.
+
+Consequently, the noisy recurrent graph neural network escapes oversmoothing in the sense of Definition 3.3. 
+
+At this stage all ingredients shown in Figure 2 have been established. The proof of the main theorem is now obtained by combining the probabilistic variance estimate with the spectral lower bound. 16 Proof. By Theorem 5.1, the projected chain ( ¯H(t))t≥0 converges to the unique invariant measure μ in the 2-Wasserstein metric. The Dirichlet energy satisfies the quadratic estimate 
+
+E(H) = 1
+
+m Tr( H⊤LH ) ≤ λN (L)
+
+m ∥H∥2 
+
+> F
+
+,
+
+and it depends only on the projected representation, E(H(t)) = E( ¯H(t)). Because E is continuous and has at most quadratic growth, convergence in the W2 metric implies convergence of expectations (see, e.g., [38, Chapter 6]). Consequently, 
+
+lim  
+
+> t→∞
+
+EE(H(t)) = Eμ
+
+E( ¯H).
+
+By the spectral lower bound (Lemma 3.3), 
+
+E( ¯H) ≥ λ2(L)
+
+m ∥ ¯H∥2 
+
+> F
+
+.
+
+Taking expectations with respect to μ and applying the stationary variance lower bound from Theorem 5.4 gives 
+
+Eμ
+
+E( ¯H) ≥ λ2(L)
+
+mσ2(N − 1) d
+
+1 − α2 > 0,
+
+which completes the proof. 
+
+Corollary 5.7. Under the assumptions of Theorem 5.6, the limiting hidden representations remain separated from the consensus manifold in expectation. Consequently, stochastic perturbations provide a persistent mechanism preventing asymptotic feature collapse. 
+
+The proof separates naturally into three independent components. First, ergodicity guarantees the ex-istence of a unique stationary distribution and convergence toward it. Second, additive noise together with contractive dynamics produces a stationary distribution with persistent variability. Finally, the spectral lower bound of Lemma 3.3, together with the positive stationary variance established in Theorem 5.4, shows that the invariant measure cannot be supported on the consensus manifold and therefore has strictly posi-tive stationary Dirichlet energy. This decomposition clearly distinguishes the probabilistic, dynamical, and graph-theoretic ingredients of the analysis. 
+
+# 6 Numerical Experiments 
+
+The theoretical analysis predicts that persistent additive Gaussian noise prevents asymptotic oversmoothing by maintaining a strictly positive stationary Dirichlet energy. In this section we illustrate these predictions through three numerical experiments. The experiments are intentionally simple and are designed to validate the theoretical results rather than optimize predictive performance. All simulations were implemented in Python using NumPy, NetworkX, and PyTorch. 
+
+# 6.1 Experiment 1: Linear stochastic propagation 
+
+Our first experiment directly validates the stochastic dynamical system analyzed in Sections 4 and 5. The objective is to verify the principal theoretical prediction that persistent additive Gaussian perturbations prevent asymptotic oversmoothing by maintaining a strictly positive stationary Dirichlet energy. The simulated dynamics are 
+
+H(t+1) = α ˆAH (t) + σ Ξ(t),
+
+where ˆA is the normalized adjacency matrix, α = 0 .95 is the contraction coefficient, and the entries of Ξ(t)
+
+are independent standard Gaussian random variables. A connected Erdős–Rényi graph with N = 100 vertices and edge probability 0.08 was generated. Each node was assigned a 16 -dimensional feature vector initialized by independent standard Gaussian variables. 17 The process was simulated for 250 iterations, which was sufficient for all trajectories to reach stationarity. The experiments were performed for eleven noise levels, 
+
+σ ∈ { 0, 0.02 , 0.04 , . . . , 0.20 }.
+
+Although propagation is performed using the normalized adjacency matrix ˆA, graph smoothness is eval-uated using the combinatorial graph Laplacian 
+
+L = D − A, 
+
+which is the quantity appearing throughout the theoretical analysis. For every noise level we record: 
+
+• the Dirichlet energy 
+
+E(H(t)) = 1
+
+m Tr  (H(t))⊤LH (t),
+
+• the projected feature energy 
+
+∥P H (t)∥2 
+
+> F
+
+,
+
+where 
+
+P = I − 1
+
+N 11 ⊤
+
+projects onto the subspace orthogonal to the consensus vector, 
+
+• the stationary Dirichlet energy, 
+
+• the stationary projected feature energy. Figure 3 shows the evolution of the Dirichlet energy throughout the propagation process. The determin-istic trajectory ( σ = 0 ) serves as the baseline and exhibits the strongest decay toward zero, corresponding to complete oversmoothing. In contrast, every positive noise level converges to a strictly positive stationary energy. Moreover, the limiting energy increases monotonically with the noise intensity. These observations agree with Theorem 5.6, which predicts that additive Gaussian perturbations maintain a positive asymptotic Dirichlet energy. Figure 4 shows the evolution of the projected feature energy ∥P H (t)∥2 
+
+> F
+
+. The deterministic system con-tracts toward the consensus subspace, whereas additive noise continuously injects diversity into the node representations. Consequently, the projected variance converges to a positive stationary value whose mag-nitude increases with σ, precisely as predicted by Theorem 5.4. The stationary quantities are summarized in Figures 5 and 6. Both exhibit a clear monotone dependence on the noise level. Increasing the noise intensity raises both the stationary Dirichlet energy and the stationary projected feature energy, demonstrating that persistent stochastic perturbations counteract the progressive loss of feature diversity caused by repeated graph propagation. These empirical observations provide direct numerical validation of the stationary lower bounds established in the theoretical analysis. 
+
+# 6.2 Experiment 2: Nonlinear recurrent graph convolution 
+
+The first experiment validates the theoretical results for the linear stochastic dynamical system analyzed in Sections 4 and 5. We next investigate whether the same qualitative phenomenon appears in a practical nonlinear graph neural network. The theoretical analysis is formulated for a general contractive stochastic recurrence 
+
+H(t+1) = F (H(t)) + σ Ξ(t),
+
+without assuming a particular graph neural network architecture. To examine whether the predicted sta-tionary behavior extends beyond the linear model, we instantiate the recurrence using the standard graph convolution implemented by the GCNConv layer of PyTorch Geometric. The propagation operator employed by this layer is 
+
+ˆA = ˆD−1/2(A + I) ˆD−1/2,
+
+18 0 50 100 150 200 250 
+
+Iteration 
+
+> 0
+> 5
+> 10
+> 15
+> 20
+> 25
+> 30
+> Dirichlet Energy
+
+Evolution of Dirichlet Energy            
+
+> σ= 0.2
+> σ= 0.18
+> σ= 0.16
+> σ= 0.14
+> σ= 0.12
+> σ= 0.1
+> σ= 0.08
+> σ= 0.06
+> σ= 0.04
+> σ= 0.02
+> σ= 0.0
+
+Figure 3: Evolution of the Dirichlet energy for the linear stochastic propagation model. The deterministic trajectory ( σ = 0 ) exhibits complete energy decay, whereas every positive noise level converges to a strictly positive stationary value. The limiting energy increases monotonically with the noise intensity, consistent with Theorem 5.6. 0 50 100 150 200 250 
+
+Iteration 
+
+> 0
+> 250
+> 500
+> 750
+> 1000
+> 1250
+> 1500
+> 1750
+> ‖̄ H‖2
+> F
+
+Evolution of Projected Variance            
+
+> σ= 0.2
+> σ= 0.18
+> σ= 0.16
+> σ= 0.14
+> σ= 0.12
+> σ= 0.1
+> σ= 0.08
+> σ= 0.06
+> σ= 0.04
+> σ= 0.02
+> σ= 0.0
+
+Figure 4: Evolution of the projected feature energy ∥P H (t)∥2 
+
+> F
+
+. Persistent Gaussian perturbations prevent collapse of the projected variance and produce positive stationary values that increase with the noise level, in agreement with Theorem 5.4. 19 0.000 0.025 0.050 0.075 0.100 0.125 0.150 0.175 0.200 
+
+Noise level σ
+
+> 0
+> 2
+> 4
+> 6
+> 8
+> 10
+> 12
+> 14
+> Stationary Dirichlet Energy
+
+Figure 5: Stationary Dirichlet energy as a function of the noise level. The equilibrium energy increases monotonically with σ, validating the theoretical prediction that additive noise prevents asymptotic over-smoothing. 0.000 0.025 0.050 0.075 0.100 0.125 0.150 0.175 0.200 
+
+Noise level σ
+
+> 0
+> 100
+> 200
+> 300
+> 400
+> 500
+> 600
+> Stationary  ‖̄ H‖2
+> F
+
+Figure 6: Stationary projected feature energy as a function of the noise level. The stationary projected variance grows monotonically with the noise intensity, confirming the persistence of representation diversity predicted by Theorem 5.4. 20 where ˆD denotes the degree matrix of A + I. Unlike the theoretical model, the implementation does not in-troduce an explicit contraction coefficient α. Instead, information propagation is governed by the normalized graph convolution operator together with the learned weight matrices and the ReLU activation function. Consequently, this experiment is intended to assess the qualitative predictions of the theory rather than to exactly reproduce every assumption used in the proofs. The recurrent update implemented in the experiment is 
+
+H(t+1) = ReLU 
+
+
+
+GCNConv( H(t))
+
+
+
++ σ Ξ(t),
+
+where 
+
+GCNConv( H) = ˆD−1/2(A + I) ˆD−1/2HW, 
+
+up to the internal implementation of the PyTorch Geometric layer. The hidden dimension is fixed to 64 .Node features are initialized using a learned linear embedding of the original Cora attributes, after which the same graph convolution is applied recurrently for 200 iterations. The graph, noise levels, and evaluation protocol are identical to those used in Experiment 1. As in the linear experiment, the quantities of interest are the Dirichlet energy 
+
+E(H(t)) = 1
+
+m Tr  (H(t))⊤LH (t),
+
+computed using the combinatorial graph Laplacian, and the projected feature energy 
+
+∥P H (t)∥2 
+
+> F
+
+.
+
+Figure 7 shows the evolution of the Dirichlet energy. The deterministic trajectory ( σ = 0 ) again exhibits the strongest decay toward a nearly constant representation, whereas every positive noise level converges to a stationary regime with strictly positive Dirichlet energy. Increasing the noise intensity consistently raises the equilibrium energy, demonstrating that the qualitative mechanism identified by the theoretical analysis persists in the nonlinear network. Figure 8 summarizes the stationary Dirichlet energy as a function of the noise level. Although the nonlinear architecture does not satisfy all assumptions of the mathematical model exactly, the empirical relationship remains strictly monotone. The stationary energy increases continuously with σ, indicating that persistent stochastic perturbations effectively counteract the loss of geometric diversity caused by repeated graph propagation. Taken together, these observations suggest that the mechanism established by the theoretical analysis is robust to nonlinear message-passing architectures. While the proofs apply to an abstract contractive stochas-tic dynamical system, the recurrent GCN exhibits the same transition from asymptotic feature collapse in the deterministic setting to a non-degenerate stationary regime under persistent Gaussian perturbations. 
+
+# 6.3 Experiment 3: Verification of quadratic scaling 
+
+The theoretical analysis predicts that the stationary Dirichlet energy grows quadratically with the noise intensity. More precisely, Theorem 5.6 establishes that 
+
+E∞ = O(σ2),
+
+and, for the linear contractive model, 
+
+E∞ ∝ λ2
+
+1 − α2 σ2.
+
+To verify this prediction empirically, we repeated the recurrent GCN experiment over twenty independent random seeds for each noise level. For every run, the stationary Dirichlet energy was estimated by averaging the final 150 iterations after discarding an initial burn-in period of 100 iterations. The resulting stationary energies were then regressed against σ2 using ordinary least squares. The fitted regression is 
+
+E∞ ≈ 137 .86 σ2 + 1 .29 × 10 −4,
+
+21 0 25 50 75 100 125 150 175 200 
+
+> Iteration
+> 0
+> 1
+> 2
+> 3
+> 4
+> 5
+> Dirichlet energy
+
+Recurrent GCN 
+
+> σ
+> 0.20
+> 0.18
+> 0.16
+> 0.14
+> 0.12
+> 0.10
+> 0.08
+> 0.06
+> 0.04
+> 0.02
+> 0.00
+
+Figure 7: Evolution of the Dirichlet energy in the nonlinear recurrent graph convolutional network. The deterministic trajectory ( σ = 0 ) exhibits the strongest decay, whereas persistent Gaussian perturbations maintain strictly positive stationary energy. Increasing the noise level produces progressively larger equilib-rium energies, consistent with the qualitative predictions of the theory. with coefficient of determination R2 = 1 .0000 . The slope 137 .86 reflects the combined influence of the graph size, spectral gap, feature dimension, and contraction factor through the theoretical relation mλ 2(N −1) d 
+
+> 1−α2
+
+,although the nonlinear GCN does not enforce a fixed contraction parameter α, so the numerical value is not directly predicted. The essentially perfect linear fit and negligible intercept confirm the predicted quadratic dependence of the stationary Dirichlet energy on σ2.Figure 9 shows both the empirical stationary energies and the fitted regression line. The data points lie almost perfectly on a straight line, demonstrating an excellent agreement with the theoretical prediction. The fitted intercept is numerically negligible, indicating that the stationary Dirichlet energy continuously approaches zero as σ → 0, while increasing proportionally to σ2 for positive noise levels. These results provide strong quantitative evidence that the stationary Dirichlet energy follows the quadratic scaling law predicted by the theoretical analysis. 
+
+# 6.4 Discussion of the experimental results 
+
+The numerical experiments consistently support the theoretical analysis developed in the previous sections and provide empirical evidence for both the qualitative and quantitative predictions of the proposed stochastic framework. Experiment 1 validates the behavior of the abstract contractive stochastic dynamical system studied throughout the theoretical analysis. The deterministic dynamics ( σ = 0 ) exhibit the expected progressive loss of feature diversity, with both the Dirichlet energy and the projected feature energy converging toward zero. Introducing persistent Gaussian perturbations fundamentally changes the long-term behavior: every positive noise level produces a non-degenerate stationary regime with strictly positive Dirichlet energy and projected variance. Moreover, both stationary quantities increase monotonically with the noise intensity, in agreement with Theorem 5.4 and Theorem 5.6. Experiment 2 demonstrates that the same qualitative phenomenon also appears in a nonlinear recurrent graph convolutional network implemented using the standard GCNConv layer. Although the theoretical anal-22 0.000 0.025 0.050 0.075 0.100 0.125 0.150 0.175 0.200  
+
+> Noise level σ
+> 0
+> 1
+> 2
+> 3
+> 4
+> 5
+> Stationary Dirichlet energy
+
+Figure 8: Stationary Dirichlet energy of the nonlinear recurrent GCN as a function of the noise level. Although the theoretical analysis is derived for an abstract contractive dynamical system, the practical GCN implementation exhibits the same qualitative monotone dependence of the stationary energy on the noise intensity. ysis is formulated for an abstract contractive update map and the implementation does not explicitly include the contraction parameter α, the recurrent GCN exhibits the same transition from deterministic feature collapse to a stationary regime with persistent geometric diversity under additive noise. Furthermore, the stationary Dirichlet energy again increases monotonically with the noise level, suggesting that the mechanism identified by the theoretical analysis is not limited to the simplified linear model but also manifests itself in practical message-passing graph neural networks. Experiment 3 provides quantitative verification of the asymptotic scaling predicted by the theory. The-orem 5.4 establishes that the stationary projected variance scales proportionally to 
+
+σ2
+
+1 − α2 ,
+
+which implies the quadratic dependence of the stationary Dirichlet energy derived in Theorem 5.6. The regression performed in Experiment 3 yields 
+
+E∞ ≈ 137 .86 σ2 + 1 .29 × 10 −4,
+
+with an essentially perfect coefficient of determination R2 = 1 .0000 . The negligible intercept together with the excellent linear fit confirms that the stationary Dirichlet energy is accurately described by a quadratic function of the noise intensity over the investigated range, providing strong numerical support for the theo-retical scaling law. Taken together, the three experiments validate complementary aspects of the theoretical framework. Experiment 1 confirms the existence of a non-degenerate stationary regime for the abstract stochastic propa-gation model. Experiment 2 demonstrates that the same qualitative behavior persists in a nonlinear recurrent graph neural network implemented using standard graph convolution. Experiment 3 verifies the predicted quadratic dependence of the stationary Dirichlet energy on the noise variance. Although the experiments 23 0.000 0.005 0.010 0.015 0.020 0.025 0.030 0.035 0.040 
+
+> σ2
+> 0
+> 1
+> 2
+> 3
+> 4
+> 5
+> 6
+> Stationary Dirichlet energy
+
+Noise sensitivity experiment  
+
+> Linear fi t
+> Simulation
+
+Figure 9: Verification of the quadratic scaling law. The stationary Dirichlet energy obtained from repeated recurrent GCN simulations is plotted against σ2 together with the least-squares linear fit. The almost perfect agreement ( R2 = 1 .0000 ) confirms the theoretical prediction that the stationary Dirichlet energy grows proportionally to σ2.are intended as theoretical validation rather than benchmark comparisons against competing GNN archi-tectures, they collectively provide strong empirical evidence that persistent additive Gaussian perturbations prevent asymptotic oversmoothing while preserving nontrivial geometric information in the learned node representations. 
+
+# 7 Discussion 
+
+The present work provides a stochastic perspective on the oversmoothing phenomenon in recurrent graph neural networks. Rather than analyzing oversmoothing solely through deterministic message passing, we study the long-term behavior of noisy recurrent dynamics and show that persistent stochastic perturbations fundamentally alter the asymptotic regime of the hidden representations. Our main theoretical contribution is the identification of a stationary mechanism that prevents complete feature collapse. Under a global contraction assumption, the projected hidden representations evolve as an ergodic Markov chain possessing a unique invariant probability measure. The combination of ergodicity, persistent stochastic excitation, and the spectral properties of the graph Laplacian yields a strictly positive lower bound on the stationary Dirichlet energy. Consequently, the asymptotic hidden representations remain separated from the consensus manifold, establishing escape from oversmoothing in a rigorous probabilistic sense. The proposed framework also provides a quantitative interpretation of the role of additive noise. The lower bound 
+
+Eμ[E(H)] ≥ λ2(L)
+
+mσ2(N − 1) d
+
+1 − α2
+
+reveals how the limiting representation quality depends jointly on the graph topology, the contraction strength of the deterministic dynamics, and the noise intensity. In particular, stronger graph connectivity (larger algebraic connectivity), weaker contraction, or larger noise levels all increase the minimum achievable stationary Dirichlet energy. 24 The numerical experiments support both the qualitative and quantitative predictions of the theory. The simulated recurrent dynamics exhibit the transition from complete oversmoothing to a stationary regime with persistent representation variation, while the empirical stationary Dirichlet energy grows approximately quadratically with the noise intensity, in agreement with the theoretical scaling law. The analysis presented here is intentionally general. The deterministic update map is not restricted to a specific graph neural network architecture, allowing the results to apply to a broad class of contractive recurrent message-passing models. At the same time, this level of abstraction leaves several important questions open: 
+
+• First, the global contraction assumption is mathematically convenient but stronger than what is typ-ically satisfied by practical graph neural networks. Many modern architectures exhibit only local contraction, average contraction, or contraction restricted to particular regions of the state space. Ex-tending the present analysis to weaker notions of stability therefore constitutes an important direction for future research. 
+
+• Second, the present work considers additive Gaussian perturbations with constant variance. Although Gaussian noise leads to an explicit stationary variance identity, other forms of stochastic perturba-tion, including state-dependent, anisotropic, or multiplicative noise, may induce qualitatively different stationary behavior and deserve further investigation. 
+
+• Finally, our analysis focuses exclusively on the geometric structure of the hidden representations. While preventing oversmoothing is generally associated with improved representation diversity, the relationship between stationary Dirichlet energy and downstream predictive performance remains an empirical question. Establishing rigorous links between the probabilistic theory developed here and supervised learning objectives represents an interesting direction for future work. Overall, the results suggest that stochastic perturbations should not be viewed merely as regularization techniques but rather as dynamical mechanisms capable of fundamentally changing the asymptotic behavior of recurrent graph neural networks. This probabilistic viewpoint opens new possibilities for studying graph representation learning through the theory of stochastic dynamical systems and invariant measures. 
+
+# 8 Conclusion 
+
+This paper developed a stochastic framework for analyzing oversmoothing in recurrent graph neural networks with additive noise. By projecting the dynamics onto the zero-mean representation space, the problem was formulated as a contractive Markov chain whose long-term behavior can be studied using tools from stochastic dynamical systems. Under mild structural assumptions, we proved that the projected dynamics admit a unique invariant probability measure and established an explicit lower bound on the stationary variance induced by additive Gaussian perturbations. Combining this probabilistic result with a spectral inequality for the graph Laplacian yielded a quantitative lower bound on the asymptotic Dirichlet energy, proving that the noisy recurrent dynamics escape oversmoothing. The analysis also revealed the explicit dependence of the limiting energy on the graph topology, the contraction rate, and the noise intensity. Numerical experiments corroborated the theoretical predictions. In particular, they demonstrated that additive noise prevents complete feature collapse, that the hidden representations converge to a non-degenerate stationary regime, and that the stationary Dirichlet energy exhibits the predicted quadratic dependence on the noise level. Beyond the specific setting considered here, the proposed framework illustrates how probabilistic methods can provide rigorous insight into the asymptotic behavior of graph neural networks. We hope that this perspective will motivate further research on stochastic graph learning models, weaker stability assumptions, and more general classes of noisy message-passing architectures. 
+
+# References 
+
+[1] Uri Alon and Eran Yahav. On the bottleneck of graph neural networks and its practical implications. In International Conference on Learning Representations , 2021. 25 [2] Ludwig Arnold. Random Dynamical Systems . Springer Monographs in Mathematics. Springer, Berlin, 1998. [3] Shaojie Bai, J. Zico Kolter, and Vladlen Koltun. Deep equilibrium models. In Advances in Neural Information Processing Systems , 2019. [4] Muhammet Balcilar, Guillaume Renton, Pierre Héroux, Benoît Gaüzère, Sébastien Adam, and Paul Honeine. Analyzing the expressive power of graph neural networks in a spectral perspective. In Inter-national Conference on Learning Representations , 2021. [5] Tianle Cai, Shengjie Luo, Keyulu Xu, Di He, Tie-Yan Liu, and Liwei Wang. GraphNorm: A princi-pled approach to accelerating graph neural network training. In International Conference on Machine Learning , 2021. [6] Benjamin Paul Chamberlain, James Rowbottom, Maria I. Gorinova, Stefan Webb, Emanuele Rossi, and Michael M. Bronstein. GRAND: Graph neural diffusion. In International Conference on Machine Learning , 2021. [7] Mostafa Haghir Chehreghani. Half a decade of graph convolutional networks. Nature Machine Intelli-gence , 4(3):192–193, 2022. [8] Ming Chen, Zhe Wei, Zengfeng Huang, Bolin Ding, and Yaliang Li. Simple and deep graph convolutional networks. In International Conference on Machine Learning , 2020. [9] Ricky T. Q. Chen, Yulia Rubanova, Jesse Bettencourt, and David Duvenaud. Neural ordinary differential equations. In Advances in Neural Information Processing Systems , 2018. [10] Fan R. K. Chung. Spectral Graph Theory , volume 92 of CBMS Regional Conference Series in Mathe-matics . American Mathematical Society, 1997. [11] Persi Diaconis and David Freedman. Iterated random functions. SIAM Review , 41(1):45–76, 1999. [12] Panos Elinas and Edwin Bonilla. Revisiting over-smoothing in graph neural networks. In International Conference on Learning Representations , 2023. [13] Francesco Di Giovanni, Lorenzo Giusti, Federico Barbero, Giulia Luise, Pietro Liò, and Michael M. Bronstein. How does over-squashing affect graph neural networks? Transactions on Machine Learning Research , 2023. [14] Jonathan Godwin, Michael Schaarschmidt, Alexander Gaunt, Alvaro Sanchez-Gonzalez, Yulia Rubanova, Petar Veličković, James Kirkpatrick, and Peter Battaglia. Simple GNN regularisation for 3D molecular property prediction and beyond. In International Conference on Learning Representations ,2022. [15] Fangda Gu, Heng Chang, Wenwu Zhu, Somayeh Sojoudi, and Laurent El Ghaoui. Implicit graph neural networks. In Advances in Neural Information Processing Systems , volume 33, pages 11984–11995. Curran Associates, Inc., 2020. [16] Martin Hairer and Jonathan C. Mattingly. Yet another look at harris’ ergodic theorem for markov chains. In Robert C. Dalang, Marco Dozzi, and Francesco Russo, editors, Seminar on Stochastic Analysis, Random Fields and Applications VI , volume 63 of Progress in Probability , pages 109–117. Birkhäuser, 2011. [17] William Hamilton, Zhitao Ying, and Jure Leskovec. Inductive representation learning on large graphs. In Advances in Neural Information Processing Systems , 2017. [18] Fateme Hoseinnia, Mehdi Ghatee, and Mostafa Haghir Chehreghani. Mitigating over-smoothing in graph neural networks for node classification through adaptive early embedding and biased DropEdge procedures. Knowledge-Based Systems , 320:113615, 2025. 26 [19] Thomas N. Kipf and Max Welling. Semi-supervised classification with graph convolutional networks. In International Conference on Learning Representations , 2017. [20] Johannes Klicpera, Stefan Weißenberger, and Stephan Günnemann. Predict then propagate: Graph neural networks meet personalized pagerank. In International Conference on Learning Representations ,2019. [21] Guohao Li, Chenxin Xiong, Ali Thabet, and Bernard Ghanem. DeeperGCN: All you need to train deeper GCNs, 2020. [22] Qimai Li, Zhichao Han, and Xiao-Ming Wu. Deeper insights into graph convolutional networks for semi-supervised learning. In Proceedings of the AAAI Conference on Artificial Intelligence , 2018. [23] Sean P. Meyn and Richard L. Tweedie. Markov Chains and Stochastic Stability . Cambridge University Press, 2 edition, 2009. [24] Yassin Mohamadi and Mostafa Haghir Chehreghani. Mitigating over-squashing in graph few-shot learn-ing by leveraging local and global similarities. Applied Soft Computing , 184:113863, 2025. [25] Fatemeh Gholamzadeh Nasrabadi, AmirHossein Kashani, Pegah Zahedi, and Mostafa Haghir Chehreghani. Content augmented graph neural networks. ACM Transactions on the Web , 19(4):40:1– 40:19, 2025. [26] Hoang NT and Tyler Maehara. Revisiting over-smoothing in graph neural networks, 2020. [27] Kenta Oono and Taiji Suzuki. Graph neural networks exponentially lose expressive power for node classification. In International Conference on Learning Representations , 2020. [28] Michael Poli, Stefano Massaroli, Junyoung Park, Atsushi Yamashita, Hajime Asama, and Jinkyoo Park. Graph neural ordinary differential equations, 2019. [29] Ladislav Rampášek, Michael Galkin, Vijay Prakash Dwivedi, Anh Tuan Luu, Guy Wolf, and Dominique Beaini. Recipe for a general, powerful, scalable graph transformer. In Advances in Neural Information Processing Systems , 2022. [30] Yu Rong, Wenbing Huang, Tingyang Xu, and Junzhou Huang. DropEdge: Towards deep graph con-volutional networks on node classification. In International Conference on Learning Representations ,2020. [31] T. Konstantin Rusch, Michael M. Bronstein, and Siddhartha Mishra. Graph-coupled oscillator networks. In International Conference on Machine Learning , 2023. [32] Ryoma Sato, Makoto Yamada, and Hisashi Kashima. Random features strengthen graph neural net-works. In International Conference on Machine Learning , 2021. [33] Michael Scholkemper, Xinyi Wu, Ali Jadbabaie, and Soledad Villar. Residual connections and normal-ization can provably prevent oversmoothing in graph neural networks. In International Conference on Learning Representations , 2025. [34] David I. Shuman, Sunil Narang, Pascal Frossard, Antonio Ortega, and Pierre Vandergheynst. The emerging field of signal processing on graphs. IEEE Signal Processing Magazine , 30(3):83–98, 2013. [35] Jake Topping, Francesco Di Giovanni, Benjamin Paul Chamberlain, Xiaowen Dong, and Michael M. Bronstein. Understanding over-squashing and bottlenecks on graphs via curvature. In International Conference on Learning Representations , 2022. [36] Petar Veličković, Guillem Cucurull, Arantxa Casanova, Adriana Romero, Pietro Liò, and Yoshua Bengio. Graph Attention Networks. In International Conference on Learning Representations , 2018. [37] Cédric Villani. Topics in Optimal Transportation , volume 58 of Graduate Studies in Mathematics .American Mathematical Society, Providence, RI, 2003. 27 [38] Cédric Villani. Optimal Transport: Old and New , volume 338 of Grundlehren der mathematischen Wissenschaften . Springer, Berlin, 2009. [39] Keyulu Xu, Weihua Hu, Jure Leskovec, and Stefanie Jegelka. How powerful are graph neural networks? In International Conference on Learning Representations , 2019. [40] Keyulu Xu, Chengtao Li, Yonglong Tian, Tomohiro Sonobe, Ken ichi Kawarabayashi, and Stefanie Jegelka. Representation learning on graphs with jumping knowledge networks. In International Con-ference on Machine Learning , 2018. [41] Chengxuan Ying, Tianle Cai, Shengjie Luo, Shuxin Zheng, Guolin Ke, Di He, Yanming Shen, and Tie-Yan Liu. Do transformers really perform bad for graph representation? In Advances in Neural Information Processing Systems , 2021. [42] Lingxiao Zhao and Leman Akoglu. PairNorm: Tackling oversmoothing in GNNs. In International Conference on Learning Representations , 2020. [43] Juntang Zhuang, Nicha C. Dvornek, Xiaoxiao Li, Junzhou Yang, and James S. Duncan. SDGNN: Learning stochastic graph neural networks, 2020. [44] M. Zohrabi, S. Saravani, and Mostafa Haghir Chehreghani. Centrality-based and similarity-based neigh-borhood extension in graph neural networks. The Journal of Supercomputing , 80(16):24638–24663, 2024. 28
