@@ -1,0 +1,3025 @@
+Title: Parameter-Free Dynamic Regret for Online Convex Optimization under Heavy-Tailed Noise
+
+URL Source: https://arxiv.org/pdf/2607.27073v1
+
+Published Time: Thu, 30 Jul 2026 01:08:10 GMT
+
+Number of Pages: 29
+
+Markdown Content:
+# Parameter-Free Dynamic Regret for Online Convex Optimization under Heavy-Tailed Noise 
+
+Vaneet Aggarwal ∗
+
+Abstract 
+
+We study online convex optimization (OCO) in non-stationary environments under heavy-tailed noise, where the stochastic gradient oracle admits only a finite p-th central moment for some p ∈ (1 , 2]. While static regret is well-understood, achieving universal dynamic regret in a parameter-free manner remains an open challenge. We resolve this by proposing HT-PAder , a parameter-free algorithm combining restarted AdaGrad experts over a geometric pool of block lengths with a pathwise meta-algorithm, AdaGrad-Hedge , which requires no moment conditions on meta-losses. For a domain of diameter D, Lipschitz constant G, noise level σ, and comparator path length PT , HT-PAder achieves an expected universal dynamic regret of 
+
+eO
+
+
+
+GD pT (1 + PT /D ) + σDT 1/p (1 + PT /D )(p−1) /p 
+
+.
+
+The algorithm does not require prior knowledge of any of these problem parameters. Even in the special case of finite variance ( p = 2), HT-PAder provides the first parameter-free minimax universal dynamic regret guarantee. We also prove a matching lower bound, establishing the optimality of the path-length exponent. 
+
+# 1 Introduction 
+
+Online Convex Optimization (OCO) is a foundational framework for sequential decision-making under uncertainty [Zinkevich, 2003, Hazan, 2016, Shalev-Shwartz, 2012, Pedramfar and Aggarwal, 2026]. In the standard formulation, a learner interacts with an environment over T rounds: at each round t, the learner selects a decision xt from a convex feasible set X ⊆ Rd with diameter D,the environment reveals a G-Lipschitz convex loss function ℓt : X → R, and the learner incurs loss 
+
+ℓt(xt). The classical performance measure is static regret, which compares the learner’s cumulative loss against the best fixed decision in hindsight. Under the standard bounded-domain assumption, Online Gradient Descent (OGD) achieves O(GD √T ) static regret for G-Lipschitz losses, and this rate is minimax optimal. In non-stationary environments, however, static regret is insufficient. The appropriate measure is universal dynamic regret, defined as D-Regret T (u1, . . . , u T ) = 
+
+> T
+
+X
+
+> t=1
+
+ℓt(xt) −
+
+> T
+
+X
+
+> t=1
+
+ℓt(ut), (1) which compares against an arbitrary comparator sequence u1, . . . , u T ∈ X . The difficulty of the problem is captured by the path length 
+
+PT =
+
+> T
+
+X
+
+> t=2
+
+∥ut − ut−1∥ , (2) 
+
+> ∗
+
+V. Aggarwal is with Purdue University, West Lafayette IN 47907, USA, email: vaneet@purdue.edu 
+
+1arXiv:2607.27073v1 [cs.LG] 29 Jul 2026 which measures the non-stationarity of the environment. Zhang et al. [2018] established the min-imax optimal rate O(GD pT (1 + PT /D )) for convex functions, resolving a gap left by the earlier 
+
+O(GD √T (1 + PT /D )) bound of Zinkevich [2003]. In parallel, a growing body of work has highlighted that the standard finite-variance assumption on stochastic gradients is often violated in practice. Empirical studies in deep learning [Simsekli et al., 2019] and finance [Mandelbrot, 2013] suggest that stochastic gradients frequently exhibit heavy tails, admitting only a finite p-th central moment bounded by σp for some tail index p ∈ (1 , 2] and noise level σ. Under this weaker condition, the classical analysis of OGD breaks down: the standard proof requires E[∥gt∥2] < ∞, which may be infinite when p < 2. Indeed, Zhang et al. [2020] showed that SGD can provably diverge under heavy-tailed noise. Liu [2026] recently resolved this tension for static regret, showing that OGD, DA, and AdaGrad all achieve the optimal rate O(GD √T + σDT 1/p ) under heavy-tailed noise without any algorithmic modification, provided the domain is bounded. The key insight is a tighter one-step inequality, Lemma 2 below, that leverages the bounded-domain assumption to control the noise term via Young’s inequality, producing a term ∥ϵt∥p with the correct exponent p rather than ∥ϵt∥2. Impor-tantly, the AdaGrad result of Liu [2026] is parameter-free: it does not require knowledge of G, σ,or p.
+
+Our contribution. We extend the static regret result of Liu [2026] to the universal dynamic regret setting, and we do so in a parameter-free way. This extension is non-trivial because the existing algorithms for dynamic regret, namely, the Improved Ader algorithm of Zhang et al. [2018] and the Sword and Sword++ algorithms of Zhao et al. [2024], rely on exponential-weights meta-algorithms such as Hedge or Optimistic Hedge whose regret analysis requires E[∥ℓt∥2] < ∞. Under heavy-tailed noise, this condition fails. Our solution has two key components. (1) A pathwise meta-algorithm. We use a meta-algorithm, AdaGrad-Hedge, given in Algo-rithm 1, whose regret bound holds deterministically for any realization of the meta-loss vec-tors, regardless of their distribution. This pathwise property is the key technical enabler that allows the meta-algorithm to interface with heavy-tailed gradient oracles. The update itself is an AdaGrad-FTRL and Hedge instantiation; our contribution is not the meta-algorithm in isolation, but rather its pathwise coupling with restarted AdaGrad experts under heavy-tailed noise. (2) Restarted AdaGrad experts. To obtain parameter-freeness, we replace the fixed-step OGD experts used in the known-G Improved Ader approach with AdaGrad experts that restart over blocks. A geometric pool of block lengths allows the algorithm to adapt to the unknown path length PT , while AdaGrad adapts to the unknown gradient scale. The main technical challenge is that AdaGrad has a variable stepsize, which introduces correction terms in the dynamic-regret telescoping. We show that restarting localizes these correction terms and yields a clean pathwise block dynamic-regret bound. For comparison and to motivate our parameter-free construction, we also present a simpler known-G precursor algorithm, HT-IA, in Appendix A, which serves as an important pedagogical stepping stone before removing the dependence on the Lipschitz constant G.Under the problem setup described in Section 3, our parameter-free algorithm HT-PAder guar-antees universal dynamic regret 
+
+E[D-Regret T ] = eO GD 
+
+r
+
+T
+
+
+
+1 + PT
+
+> D
+
+
+
++ σDT 1/p 
+
+1 + PT
+
+> D
+
+ p−1
+
+> p
+
+!
+
+. (3) 2The bound has a natural decomposition into a deterministic term GD pT (1 + PT /D ), matching the minimax rate when σ = 0, and a noise term σDT 1/p 
+
+
+
+1 + PT
+
+> D
+
+(p−1) /p 
+
+. The noise term exhibits an interesting tradeoff: for p = 2, it matches the standard finite-variance rate. For p < 2, the exponent ( p − 1) /p < 1/2 means the dependence on PT is weaker than √PT , reflecting the fact that heavy-tailed noise makes it harder to track rapidly changing comparators. Our lower bound shows that this exponent is optimal. To establish the fundamental limits of online learning under heavy-tailed noise, we investigate information-theoretic lower bounds for universal dynamic regret. A key question is whether the noise-path tradeoff exponent ( p − 1) /p is tight, or merely an artifact of our analysis. We resolve this by proving a matching expected dynamic regret lower bound of Ω 
+
+
+
+σD 1/p T 1/p P
+
+> p−1
+> p
+> T
+
+
+
+for any randomized online algorithm in the stochastic first-order oracle model. This lower bound matches the noise-dependence term in our upper bound up to polylogarithmic factors, demonstrating that the exponent ( p − 1) /p is indeed optimal and cannot be improved by any algorithm. Our proof constructs a novel multi-block adversarial environment where heavy-tailed gradient noise is strate-gically calibrated to maximize the learner’s estimation error, establishing the result through a bespoke variational reduction to joint total variation distance over the block transcripts. This con-firms that tracking rapidly changing comparators under heavy tails is fundamentally harder, with a limit strictly dictated by the tail index p.An important byproduct of our heavy-tail analysis is a new finite-variance result. When p = 2, HT-PAder gives 
+
+E[D-Regret T ] = eO (G + σ)D
+
+s
+
+T
+
+
+
+1 + PT
+
+D
+
+!
+
+, (4) without knowing G, σ, or PT . To our knowledge, this is the first parameter-free minimax universal dynamic regret guarantee for standard finite-variance OCO. This resolves a practical limitation of Improved Ader [Zhang et al., 2018], which requires knowledge of G to construct its stepsize pool. 
+
+# 2 Related Work 
+
+Dynamic regret minimization. The study of dynamic regret dates back to Zinkevich [2003], who showed that OGD achieves O(GD √T (1 + PT /D )) dynamic regret. Zhang et al. [2018] closed the gap to the minimax rate O(GD pT (1 + PT /D )) by proposing the Improved Ader algorithm, which maintains a pool of OGD experts with different stepsizes and uses a meta-algorithm to track the best one. Subsequently, Zhao et al. [2020, 2024] showed that for smooth functions, the dependence on T can be replaced by the gradient variation. All of these results assume either deterministic gradients or finite-variance stochastic gradients. 
+
+Heavy-tailed stochastic optimization. The study of optimization under heavy-tailed noise has a long history in stochastic approximation [Nemirovski and Yudin, 1983]. For stochastic convex optimization, Vural et al. [2022] and Liu and Zhou [2024] established convergence rates for stochastic mirror descent under heavy tails, though their rates ( G + σ)D/T 1−1/p are suboptimal because they do not recover GD/ √T when σ = 0. For non-convex optimization, Liu et al. [2024] established high-probability bounds using gradient clipping, and Liu and Zhou [2025] showed optimal convergence without clipping. In the OCO setting, Zhang and Cutkosky [2022] established parameter-free regret bounds in high probability under heavy tails, but their algorithm requires gradient clipping and their bound ( G + σ)DT 1/p does not recover the optimal GD √T rate when σ = 0. 3OGD and AdaGrad under heavy tails. The most directly relevant work is Liu [2026], who showed that OGD, DA, and AdaGrad achieve the optimal static regret O(GD √T + σDT 1/p ) under heavy-tailed noise without any algorithmic modification. Their key technical contribution is a one-step inequality, our Lemma 2, that leverages the bounded-domain assumption to produce a ∥ϵt∥p
+
+term rather than ∥ϵt∥2. They also showed that AdaGrad is parameter-free for static regret under heavy tails. Our work extends their static regret result to the universal dynamic regret setting, and retains parameter-freeness. 
+
+Parameter-free and adaptive methods. AdaGrad [Duchi et al., 2011] is a classical parameter-free method for OCO in the sense that its stepsize adapts to the observed gradient norms. Liu’s static heavy-tail result shows that AdaGrad’s parameter-freeness survives heavy-tailed noise. Our contribution is to show that parameter-freeness can also be retained for universal dynamic regret under heavy tails, by combining restarted AdaGrad experts with a pathwise meta-algorithm. 
+
+Online distributed optimization under heavy tails. Yang et al. [2025] studied online dis-tributed optimization under heavy-tailed noise, establishing high-probability dynamic regret bounds using gradient clipping. Their setting is distributed and their algorithm requires clipping, in con-trast to our centralized setting without clipping. Their rate is for worst-case dynamic regret, whereas our result is for universal dynamic regret. 
+
+Comparison with existing results. Table 1 summarizes the comparison between our result and existing work. 
+
+# 3 Problem Setup 
+
+We consider a nonempty, closed, convex decision set X ⊂ Rd with bounded diameter 
+
+D = sup 
+
+> x,y ∈X
+
+∥x − y∥ < ∞. (5) At each round t ∈ [T ], the environment reveals a convex and G-Lipschitz loss function ℓt : X → R,satisfying 
+
+∥∇ ℓt(x)∥ ≤ G, ∀x ∈ X . (6) Upon playing a decision xt ∈ X , the learner queries a stochastic gradient oracle to receive an estimate gt ∈ Rd.We assume the stochastic gradient estimate is unbiased: 
+
+E[gt | F t−1] = ∇ℓt(xt), (7) where Ft = σ(g1, . . . , g t) is the natural filtration. To model heavy-tailed noise, we assume that the conditional p-th central moment of the gradient noise 
+
+ϵt = gt − ∇ ℓt(xt)is bounded: 
+
+E[∥ϵt∥p | F t−1] ≤ σp, (8) for some tail index p ∈ (1 , 2] and noise level σ ≥ 0. Under this condition, standard OCO algorithms can diverge due to the lack of finite variance when p < 2 [Zhang et al., 2020]. The special case 4Table 1: Comparison of regret guarantees under stochastic gradients in OCO. Noise type: F = finite-variance noise, H = heavy-tailed noise. Clip-free indicates that no gradient clipping is required. PF indicates that the algorithm does not require prior knowledge of the problem constants G, σ, p, or the path-length budget 
+
+PT ; unless otherwise noted, the horizon T is assumed known and can typically be removed by standard doubling with logarithmic factors. Regret type: S = static regret, D = universal dynamic regret against an arbitrary comparator sequence u1: T with path length PT = PTt=2 ∥ut −ut−1∥, and DW = worst-case dynamic regret against the per-round minimizer sequence x⋆t with path length CT = PTt=2 ∥x⋆t − x⋆t−1∥. Rates are in expectation unless marked with †, which denotes a high-probability guarantee. eO hides logarithmic factors. To our knowledge, the rows labeled “This work” give the first universal dynamic regret guarantees under heavy-tailed noise without gradient clipping; HT-PAder additionally removes knowledge of G.                                                                             
+
+> Reference Noise Clip-free PF Regret Expected regret Zhang et al. [2018] F✓×DO
+> 
+> GD
+> q
+> T 1 + PT
+> D
+> 
+> Zhao et al. [2024] F✓×DO
+> p(1 + PT+VT)(1 + PT)
+> 
+> Yang et al. [2025] †H××DW eO
+> 
+> T1+ p
+> 2p(CT+ log T)
+> 
+> Zhang and Cutkosky [2022] †,∗H××SeO (G+σ)DT 1/p 
+> Liu [2026], AdaGrad H✓✓SO
+> 
+> GD √T+σDT 1/p
+> 
+> This work, known GH✓×DeO
+> 
+> GD
+> q
+> T 1 + PT
+> D
+> +σDT 1/p  1 + PT
+> D
+> p−1
+> p
+> 
+> This work, HT-PAder ‡H✓✓DeO
+> 
+> GD
+> q
+> T 1 + PT
+> D
+> +σDT 1/p  1 + PT
+> D
+> p−1
+> p
+> 
+> †
+
+High-probability guarantee.  
+
+> ∗
+
+Parameter-free in the comparator-norm sense used for unbounded domains, but not parameter-free with respect to G, σ, p, T under the definition used in this table.  
+
+> ‡
+
+Assumes known horizon T and diameter D; the horizon dependence can be removed by standard doubling, with logarithmic factors hidden in eO. The algorithm does not require G, σ, p, or PT .
+
+p = 2 recovers the classical finite-variance setting. Crucially, the bounded-domain assumption is essential; as shown by Liu [2026], online gradient descent can diverge under heavy-tailed noise if the domain is unbounded. The learner’s performance is measured by universal dynamic regret against an arbitrary com-parator sequence u1, . . . , u T ∈ X :D-Regret T (u1, . . . , u T ) = 
+
+> T
+
+X
+
+> t=1
+
+ℓt(xt) −
+
+> T
+
+X
+
+> t=1
+
+ℓt(ut). (9) The non-stationarity of the environment is captured by the path length 
+
+PT =
+
+> T
+
+X
+
+> t=2
+
+∥ut − ut−1∥. (10) We aim to establish dynamic regret bounds that hold universally for all comparator sequences without prior knowledge of PT , G, σ, or p.
+
+# 4 Key Technical Tools 
+
+4.1 Linearization of Expected Regret 
+
+The following simple lemma is used repeatedly. It makes explicit the standard reduction from convex regret to linearized regret under unbiased stochastic gradients. 5Lemma 1 (Linearization) . Let u1, . . . , u T ∈ X be a fixed comparator sequence. Let xt be Ft−1-measurable. Under the setup described in Section 3, 
+
+E[D -Regret T ] ≤ E
+
+" TX
+
+> t=1
+
+⟨gt, x t − ut⟩
+
+#
+
+. (11) 
+
+Proof. By convexity, 
+
+ℓt(xt) − ℓt(ut) ≤ ⟨∇ ℓt(xt), x t − ut⟩ .
+
+Taking conditional expectations and using unbiasedness, 
+
+E[⟨gt, x t − ut⟩ | F t−1] = ⟨E[gt | F t−1], x t − ut⟩ = ⟨∇ ℓt(xt), x t − ut⟩ .
+
+Summing over t and taking expectations gives the result. 
+
+4.2 Liu [2026]’s One-Step Inequality 
+
+The following inequality, established by Liu [2026], is the foundation of the known-G analysis. It is a tighter alternative to the standard OGD inequality that produces a ∥ϵt∥p term with the correct exponent rather than ∥ϵt∥2.
+
+Lemma 2 (Liu [2026]) . Under the setup described in Section 3, for OGD with fixed stepsize η > 0,for any x ∈ X ,
+
+⟨gt, x t − x⟩ ≤ ∥xt − x∥2 − ∥ xt+1 − x∥2
+
+2η + ηG 2 + C(p) ηp−1 ∥ϵt∥p D2−p, (12) 
+
+where 
+
+C(p) = (4 p − 4) (p−1) /p 
+
+p . (13) 
+
+Proof. By the optimality condition of the projection xt+1 = Π X (xt − ηg t), for any x ∈ X ,
+
+⟨gt, x t+1 − x⟩ ≤ ∥xt − x∥2 − ∥ xt+1 − x∥2 − ∥ xt − xt+1 ∥2
+
+2η .
+
+Adding and subtracting ⟨gt, x t+1 − x⟩ gives 
+
+⟨gt, x t − x⟩ ≤ ∥xt − x∥2 − ∥ xt+1 − x∥2
+
+2η + ⟨gt, x t − xt+1 ⟩ − ∥xt − xt+1 ∥2
+
+2η .
+
+Decompose gt = ∇ℓt(xt) + ϵt. For the deterministic part, by Cauchy–Schwarz, AM-GM, and 
+
+∥∇ ℓt(xt)∥ ≤ G,
+
+⟨∇ ℓt(xt), x t − xt+1 ⟩ ≤ G ∥xt − xt+1 ∥ ≤ ηG 2 + ∥xt − xt+1 ∥2
+
+4η .
+
+For the noise part, by Cauchy–Schwarz and Young’s inequality, together with ∥xt − xt+1 ∥ ≤ D,
+
+⟨ϵt, x t − xt+1 ⟩ ≤ ∥ ϵt∥ ∥ xt − xt+1 ∥ ≤ C(p)ηp−1 ∥ϵt∥p D2−p + ∥xt − xt+1 ∥2
+
+4η .
+
+Combining the two bounds, 
+
+⟨gt, x t − xt+1 ⟩ − ∥xt − xt+1 ∥2
+
+2η ≤ ηG 2 + C(p)ηp−1 ∥ϵt∥p D2−p.
+
+Plugging this into the previous display yields the claimed inequality. 64.3 Pathwise Dynamic Regret of Restarted AdaGrad 
+
+The following lemma is the core new technical ingredient enabling parameter-free dynamic regret. It shows that AdaGrad, when restarted inside blocks, has a pathwise dynamic-regret bound depending only on the local gradient norm and the comparator path length inside the block. 
+
+Lemma 3 (Pathwise block dynamic regret of AdaGrad) . Fix D > 0 and a block of length m. Run AdaGrad-Norm inside the block with parameter η = D/ √2, restarting at the beginning of the block. That is, with local potential 
+
+Vt =
+
+> t
+
+X
+
+> s=1
+
+∥gs∥2 , (14) 
+
+and stepsize 
+
+ηt = η
+
+√Vt
+
+, (15) 
+
+the update is 
+
+xt+1 = Π X (xt − ηtgt), (16) 
+
+with the convention that if Vt = 0 , the update is skipped. Let 
+
+VB = Vm =
+
+> m
+
+X
+
+> t=1
+
+∥gt∥2 , (17) 
+
+and 
+
+PB =
+
+> m
+
+X
+
+> t=2
+
+∥ut − ut−1∥ . (18) 
+
+Then for any comparator sequence u1, . . . , u m ∈ X ,
+
+> m
+
+X
+
+> t=1
+
+⟨gt, x t − ut⟩ ≤ C pVB (D + PB ), (19) 
+
+where C > 0 is a universal constant. In particular, one may take C = 3 √2/2.Proof. For any ut ∈ X , by nonexpansiveness of the projection, 
+
+∥xt+1 − ut∥2 ≤ ∥ xt − ηtgt − ut∥2 .
+
+Expanding, 
+
+∥xt+1 − ut∥2 ≤ ∥ xt − ut∥2 − 2ηt ⟨gt, x t − ut⟩ + η2 
+
+> t
+
+∥gt∥2 .
+
+Rearranging, 
+
+⟨gt, x t − ut⟩ ≤ ∥xt − ut∥2 − ∥ xt+1 − ut∥2
+
+2ηt
+
++ ηt ∥gt∥2
+
+2 .
+
+Define 
+
+at := 12ηt
+
+=
+
+√Vt
+
+2η . (20) Since Vt is nondecreasing, at is nondecreasing. Summing over t = 1 , . . . , m ,
+
+> m
+
+X
+
+> t=1
+
+⟨gt, x t − ut⟩ ≤ T1 + T2,
+
+7where 
+
+T1 := 
+
+> m
+
+X
+
+> t=1
+
+at ∥xt − ut∥2 −
+
+> m
+
+X
+
+> t=1
+
+at ∥xt+1 − ut∥2 ,
+
+and 
+
+T2 := 
+
+> m
+
+X
+
+> t=1
+
+ηt ∥gt∥2
+
+2 .
+
+We first bound T1. Separate the last term in the second sum: 
+
+T1 = a1 ∥x1 − u1∥2 +
+
+> m
+
+X
+
+> t=2
+
+
+
+at ∥xt − ut∥2 − at−1 ∥xt − ut−1∥2
+
+− am ∥xm+1 − um∥2 .
+
+Dropping the final negative term, 
+
+T1 ≤ a1 ∥x1 − u1∥2 +
+
+> m
+
+X
+
+> t=2
+
+
+
+at ∥xt − ut∥2 − at−1 ∥xt − ut−1∥2
+
+.
+
+For each t ≥ 2, write 
+
+at ∥xt − ut∥2 − at−1 ∥xt − ut−1∥2
+
+= ( at − at−1) ∥xt − ut−1∥2 + at
+
+
+
+∥xt − ut∥2 − ∥ xt − ut−1∥2
+
+.
+
+Because xt, u t, u t−1 ∈ X and diam( X ) = D,
+
+∥xt − ut−1∥2 ≤ D2.
+
+Also, 
+
+∥xt − ut∥2 − ∥ xt − ut−1∥2 = 2 ⟨xt − ut−1, u t−1 − ut⟩ + ∥ut − ut−1∥2
+
+≤ 2D ∥ut − ut−1∥ + ∥ut − ut−1∥2
+
+≤ 3D ∥ut − ut−1∥ ,
+
+where the last step uses ∥ut − ut−1∥ ≤ D.Therefore, 
+
+at ∥xt − ut∥2 − at−1 ∥xt − ut−1∥2 ≤ (at − at−1)D2 + 3 Da t ∥ut − ut−1∥ .
+
+Summing over t = 2 , . . . , m ,
+
+T1 ≤ a1D2 +
+
+> m
+
+X
+
+> t=2
+
+(at − at−1)D2 + 3 D
+
+> m
+
+X
+
+> t=2
+
+at ∥ut − ut−1∥ .
+
+The first two terms telescope: 
+
+a1D2 +
+
+> m
+
+X
+
+> t=2
+
+(at − at−1)D2 = amD2.
+
+Thus 
+
+T1 ≤ amD2 + 3 D
+
+> m
+
+X
+
+> t=2
+
+at ∥ut − ut−1∥ .
+
+8Now substitute at = √Vt/(2 η). Since Vt ≤ Vm = VB ,
+
+amD2 = D2
+
+2η
+
+pVB ,
+
+and 3Da t = 3D
+
+2η
+
+pVt ≤ 3D
+
+2η
+
+pVB .
+
+Using η = D/ √2, 
+
+D2
+
+2η = D
+
+√2 , 3D
+
+2η = 3√22 .
+
+Hence 
+
+T1 ≤ D
+
+√2
+
+pVB + 3√22
+
+pVB PB .
+
+Next we bound T2. Since ηt = η/ √Vt,
+
+T2 =
+
+> m
+
+X
+
+> t=1
+
+ηt ∥gt∥2
+
+2 = η
+
+2
+
+> m
+
+X
+
+> t=1
+
+∥gt∥2
+
+√Vt
+
+.
+
+Because Vt = Vt−1 + ∥gt∥2, we have 
+
+∥gt∥2
+
+√Vt
+
+= Vt − Vt−1
+
+√Vt
+
+≤ 2( pVt − pVt−1).
+
+Summing, mX
+
+> t=1
+
+∥gt∥2
+
+√Vt
+
+≤ 2pVm = 2 pVB .
+
+Therefore, 
+
+T2 ≤ ηpVB = D
+
+√2
+
+pVB .
+
+Combining the bounds for T1 and T2,
+
+> m
+
+X
+
+> t=1
+
+⟨gt, x t − ut⟩ ≤ √2 DpVB + 3√22
+
+pVB PB .
+
+Since 3√22 ≥ √2, this implies 
+
+> m
+
+X
+
+> t=1
+
+⟨gt, x t − ut⟩ ≤ 3√22
+
+pVB (D + PB ).
+
+This completes the proof. 
+
+Remark 1 (Why restart?) . Without restarting, AdaGrad’s variable stepsize produces global correc-tion terms that are difficult to combine with comparator movement. In particular, the telescoping coefficient at time t depends on all gradients observed since the beginning of the run, so a bound over an interval [s, e ] would depend on Pet=1 ∥gt∥2 rather than the interval-local quantity Pet=s ∥gt∥2.Restarting resets the AdaGrad potential and localizes the correction terms to each block. The per-block initialization cost contributes the D√VB term, which after summing over blocks becomes the 
+
+DK term in the expert regret bound. 
+
+94.4 Moment Bounds 
+
+Lemma 4. Under the setup described in Section 3, for any interval B ⊆ [T ] of length |B|,
+
+E
+
+ X
+
+> t∈B
+
+∥ϵt∥p
+
+!1/p  ≤ σ |B|1/p . (21) 
+
+Proof. By Jensen’s inequality, since x 7 → x1/p is concave for p ≥ 1, 
+
+E
+
+ X
+
+> t∈B
+
+∥ϵt∥p
+
+!1/p  ≤ E
+
+"X
+
+> t∈B
+
+∥ϵt∥p
+
+#! 1/p 
+
+≤ (σp|B|)1/p = σ |B|1/p .
+
+The following lemma is used repeatedly. 
+
+Lemma 5. Under the setup described in Section 3, for any interval B ⊆ [T ] of length |B|,
+
+E
+
+sX
+
+> t∈B
+
+∥gt∥2
+
+ ≤ Gp|B| + σ |B|1/p . (22) 
+
+Proof. We apply Minkowski’s inequality in ℓ2(R|B|) followed by the monotonicity of ℓq-norms: 
+
+sX
+
+> t∈B
+
+∥gt∥2 = ∥(∥gt∥)t∈B ∥ℓ2
+
+= ∥(∥∇ ℓt(xt) + ϵt∥)t∈B ∥ℓ2
+
+≤ ∥ (∥∇ ℓt(xt)∥)t∈B ∥ℓ2 + ∥(∥ϵt∥)t∈B ∥ℓ2
+
+≤
+
+sX
+
+> t∈B
+
+G2 + ∥(∥ϵt∥)t∈B ∥ℓp
+
+= Gp|B| + X
+
+> t∈B
+
+∥ϵt∥p
+
+!1/p 
+
+.
+
+Taking expectations and applying Lemma 4 yields the result. 
+
+4.5 AdaGrad-Hedge: A Pathwise Meta-Algorithm 
+
+We now describe the pathwise meta-algorithm used to combine multiple experts. The pseudocode is given in Algorithm 1. Algorithm 1 maintains a probability distribution wt over M experts. At each round, it receives a meta-loss vector mt ∈ RM . Instead of using a fixed learning rate as in standard Hedge, it adapts the learning rate according to the accumulated magnitude of the observed meta-losses. The cumulative scale variable Wt in (23) tracks the squared ℓ∞ norm of all past meta-loss vectors. The adaptive learning rate εt in (24) decreases as Wt grows. The weight update in (25) is an exponential-weights update applied to the cumulatively scaled losses. Because the regret bound in Lemma 6 depends on 
+
+WT pathwise, no moment assumption on mt is required. This property is essential for compatibility with heavy-tailed stochastic gradients. 10 Algorithm 1 AdaGrad-Hedge: Pathwise Meta-Algorithm 
+
+Require: Number of experts M , parameter a ≥ ln M + 1  
+
+> 1:
+
+Initialize weights uniformly: w1,i = 1 /M for all i ∈ [M ].  
+
+> 2:
+
+Initialize cumulative scale: W0 = 1.  
+
+> 3:
+
+for t = 1 , 2, . . . do  
+
+> 4:
+
+Output the current weight vector wt. 
+
+> 5:
+
+Receive meta-loss vector mt ∈ RM . 
+
+> 6:
+
+Update cumulative scale: 
+
+Wt = Wt−1 + ∥mt∥2 
+
+> ∞
+
+. 
+
+> 7:
+
+Set adaptive learning rate: 
+
+εt =
+
+r aWt
+
+. 
+
+> 8:
+
+For each expert i ∈ [M ], update 
+
+wt+1 ,i ∝ exp −εttX
+
+> s=1
+
+ms,i 
+
+!
+
+. 
+
+> 9:
+
+end for Lemma 6 (AdaGrad-Hedge) . Let m1, . . . , m T ∈ RM be any sequence of loss vectors, with no distributional assumptions. Let wt be generated by Algorithm 1. Define 
+
+Wt = 1 + 
+
+> t
+
+X
+
+> s=1
+
+∥ms∥2 
+
+> ∞
+
+, (23) 
+
+let a ≥ ln M + 1 , and set 
+
+εt =
+
+r aWt
+
+. (24) 
+
+The weights satisfy 
+
+wt+1 ,i ∝ exp −εttX
+
+> s=1
+
+ms,i 
+
+!
+
+, ∀ i ∈ [M ]. (25) 
+
+Then for any expert i ∈ [M ],
+
+> T
+
+X
+
+> t=1
+
+⟨wt, m t⟩ − 
+
+> T
+
+X
+
+> t=1
+
+mt,i ≤ 3pa W T . (26) 
+
+Proof. This is FTRL with shifted negative entropy 
+
+ϕ(w) = 
+
+> M
+
+X
+
+> i=1
+
+wi ln wi + ln M, 
+
+which is 1-strongly convex with respect to ∥·∥ 1 on the simplex. The update is equivalently 
+
+wt+1 = arg min 
+
+> w∈∆M
+
+(
+
+εttX
+
+> s=1
+
+⟨w, m s⟩ + ϕ(w)
+
+)
+
+.
+
+11 By the standard AdaGrad-FTRL inequality [Orabona, 2019, Theorem 7.35], for any q ∈ ∆M ,
+
+> T
+
+X
+
+> t=1
+
+⟨wt, m t⟩ − 
+
+> T
+
+X
+
+> t=1
+
+⟨q, m t⟩ ≤ ϕ(q)
+
+εT
+
++
+
+> T
+
+X
+
+> t=1
+
+εt ∥mt∥2 
+
+> ∞
+
+. (27) Taking q = ei, we have ϕ(ei) = ln M ≤ a. Since εT = pa/W T ,
+
+ϕ(ei)
+
+εT
+
+≤ a
+
+pa/W T
+
+= paW T .
+
+Also, TX
+
+> t=1
+
+εt ∥mt∥2 
+
+> ∞
+
+= √a
+
+> T
+
+X
+
+> t=1
+
+Wt − Wt−1
+
+√Wt
+
+.
+
+For at ≥ at−1 ≥ 0, at − at−1
+
+√at
+
+≤ 2( √at − √at−1).
+
+Therefore, TX
+
+> t=1
+
+Wt − Wt−1
+
+√Wt
+
+≤ 2pWT .
+
+Hence TX
+
+> t=1
+
+εt ∥mt∥2 
+
+> ∞
+
+≤ 2paW T .
+
+Combining the two terms in (27) gives 
+
+> T
+
+X
+
+> t=1
+
+⟨wt, m t⟩ − 
+
+> T
+
+X
+
+> t=1
+
+mt,i ≤ 3paW T .
+
+Remark 2 (Why standard Hedge fails under heavy tails) . Standard Hedge with fixed learning rate 
+
+ε gives meta-regret 
+
+≤ ln Mε + ε X
+
+> t
+
+∥mt∥2 
+
+> ∞
+
+.
+
+Taking expectations requires E[∥mt∥2
+
+> ∞
+
+] < ∞. In our setting, ∥mt∥∞ ≤ D ∥gt∥, and E[∥gt∥2] may be infinite when p < 2. AdaGrad-Hedge avoids this by bounding √WT pathwise and taking expectations only at the final step, where Lemma 5 applies. 
+
+Remark 3 (Novelty of AdaGrad-Hedge) . The AdaGrad-Hedge update is an AdaGrad-FTRL/Hedge instantiation, related to known parameter-free potentials. The novelty of this paper is not the meta-algorithm in isolation, but rather: (i) the pathwise refined form used here; (ii) its coupling with restarted AdaGrad experts; and (iii) the resulting parameter-free universal dynamic regret guarantee under heavy-tailed noise. 
+
+12 5 Parameter-Free Algorithm 
+
+We now present the main parameter-free algorithm, HT-PAder. It uses AdaGrad-Hedge from Algorithm 1 as its meta-algorithm and restarted AdaGrad experts as base learners. 
+
+Algorithm 2 HT-PAder: Parameter-Free Heavy-Tailed Dynamic Regret 
+
+Require: Horizon T , domain X , diameter D 
+
+> 1:
+
+Let N = ⌈log 2 T ⌉ and M = N + 1.  
+
+> 2:
+
+for i = 0 , . . . , N do  
+
+> 3:
+
+Define Ki = 2 i ∧ T and Li = ⌈T /K i⌉. 
+
+> 4:
+
+Activate expert Ei: restarted AdaGrad with block length Li. 
+
+> 5:
+
+end for  
+
+> 6:
+
+Initialize AdaGrad-Hedge, Algorithm 1, with M experts and parameter a = ln M + 2.  
+
+> 7:
+
+for t = 1 , . . . , T do  
+
+> 8:
+
+Receive x(i) 
+
+> t
+
+from each expert Ei. 
+
+> 9:
+
+Using the current AdaGrad-Hedge weights wt, play 
+
+xt =
+
+> N
+
+X
+
+> i=0
+
+wt,i x(i) 
+
+> t
+
+. 
+
+> 10:
+
+Observe stochastic gradient gt. 
+
+> 11:
+
+Define meta-loss vector 
+
+mt,i =
+
+D
+
+gt, x (i) 
+
+> t
+
+− xt
+
+E
+
+, i = 0 , . . . , N.  
+
+> 12:
+
+Update the meta-weights from wt to wt+1 using AdaGrad-Hedge, Algorithm 1, with meta-loss 
+
+mt. 
+
+> 13:
+
+Send gt to each expert Ei. 
+
+> 14:
+
+end for 
+
+The expert pool is indexed by i = 0 , . . . , N . Expert Ei is associated with a number of blocks 
+
+Ki and block length Li given by 
+
+Ki = 2 i ∧ T, Li =
+
+ TKi
+
+
+
+. (28) Expert Ei partitions [ T ] into consecutive blocks of length Li. At the beginning of each block, it resets its iterate to a fixed point x0 ∈ X and resets its local AdaGrad potential to zero. Inside a block starting at round s, it maintains 
+
+V (i) 
+
+> t
+
+=
+
+> t
+
+X
+
+> r=s
+
+∥gr∥2 , (29) and uses the stepsize 
+
+η(i) 
+
+> t
+
+= D
+
+q
+
+2V (i)
+
+> t
+
+. (30) The expert update is 
+
+x(i) 
+
+> t+1
+
+= Π X
+
+
+
+x(i) 
+
+> t
+
+− η(i) 
+
+> t
+
+gt
+
+
+
+, (31) 13 with the convention that the update is skipped if V (i) 
+
+> t
+
+= 0. At round t, the algorithm combines expert predictions according to 
+
+xt =
+
+> N
+
+X
+
+> i=0
+
+wt,i x(i) 
+
+> t
+
+, (32) where wt is produced by AdaGrad-Hedge. The meta-loss assigned to expert i is 
+
+mt,i =
+
+D
+
+gt, x (i) 
+
+> t
+
+− xt
+
+E
+
+. (33) This choice ensures that the weighted average meta-loss is zero: 
+
+> N
+
+X
+
+> i=0
+
+wt,i mt,i =
+
+*
+
+gt,
+
+> N
+
+X
+
+> i=0
+
+wt,i x(i) 
+
+> t
+
+− xt
+
++
+
+= 0 .
+
+Thus, AdaGrad-Hedge competes against each expert using the relative loss of that expert compared with the algorithm’s current mixture. 
+
+Remark 4 (Parameter-free) . Algorithm 2 uses only D and T . It does not require knowledge of G,
+
+σ, p, or PT . If T is unknown, a standard doubling trick can be applied, adding only logarithmic factors. 
+
+# 6 Main Result 
+
+Theorem 1 (Parameter-Free Dynamic Regret under Heavy-Tailed Noise) . Under the setup de-scribed in Section 3, Algorithm 2 guarantees, for any comparator sequence u1, . . . , u T ∈ X ,
+
+E[D -Regret T ] ≲ GD 
+
+r
+
+T
+
+
+
+1 + PT
+
+> D
+
+
+
++ σD T 1/p 
+
+1 + PT
+
+> D
+
+p−1
+
+> p
+
++ D
+
+
+
+1 + G√T + σT 1/p p log log T . 
+
+(34) 
+
+Equivalently, 
+
+E[D -Regret T ] = eO GD 
+
+r
+
+T
+
+
+
+1 + PT
+
+> D
+
+
+
++ σDT 1/p 
+
+1 + PT
+
+> D
+
+ p−1
+
+> p
+
+!
+
+. (35) 
+
+Corollary 1 (Finite-variance byproduct: double adaptivity) . For p = 2 , Theorem 1 gives 
+
+E[D -Regret T ] = eO (G + σ)D
+
+s
+
+T
+
+
+
+1 + PT
+
+D
+
+!
+
+. (36) 
+
+To our knowledge, this is the first parameter-free minimax universal dynamic regret guarantee for standard finite-variance OCO. 
+
+Remark 5 (Special cases) . • PT = 0 static comparator: recovers the static rate of Liu [2026], matching eO(GD √T + σDT 1/p ).
+
+• σ = 0 deterministic gradients: recovers the minimax rate of Zhang et al. [2018], matching 
+
+O(GD pT (1 + PT /D )) .
+
+The rest of this section proves Theorem 1. The matching lower bound is studied in Appendix B. The proof consists of five main steps: 14 (i) establishing the meta-expert decomposition to separate the meta-regret and the expert regret; (ii) bounding the meta-regret using the pathwise AdaGrad-Hedge guarantee; (iii) bounding the expert regret of a restarted AdaGrad expert for a fixed block length; (iv) selecting a near-optimal block-length expert from the geometric pool; and (v) combining the meta-regret and expert regret bounds. 
+
+Step 1: Meta-Expert Decomposition. By Lemma 1, specifically (11), 
+
+E[D-Regret T ] ≤ E
+
+" TX
+
+> t=1
+
+⟨gt, x t − ut⟩
+
+#
+
+.
+
+For any expert index i ∈ { 0, . . . , N },
+
+> T
+
+X
+
+> t=1
+
+⟨gt, x t − ut⟩ =
+
+> T
+
+X
+
+> t=1
+
+D
+
+gt, x t − x(i)
+
+> t
+
+E| {z } 
+
+> meta-regret relative to i
+
++
+
+> T
+
+X
+
+> t=1
+
+D
+
+gt, x (i) 
+
+> t
+
+− ut
+
+E| {z } 
+
+> expert linear regret for i
+
+. (37) 
+
+Step 2: Bounding the Meta-Regret. Recall the meta-loss vector from (33): 
+
+mt,i =
+
+D
+
+gt, x (i) 
+
+> t
+
+− xt
+
+E
+
+.
+
+Since xt = P 
+
+> i
+
+wt,i x(i) 
+
+> t
+
+, we have 
+
+> N
+
+X
+
+> i=0
+
+wt,i mt,i =
+
+*
+
+gt, X
+
+> i
+
+wt,i x(i) 
+
+> t
+
+− xt
+
++
+
+= 0 .
+
+Therefore, 
+
+D
+
+gt, x t − x(i)
+
+> t
+
+E
+
+=
+
+> N
+
+X
+
+> j=0
+
+wt,j mt,j − mt,i . (38) By Lemma 6, specifically (26), pathwise, 
+
+> T
+
+X
+
+> t=1
+
+D
+
+gt, x t − x(i)
+
+> t
+
+E
+
+≤ 3paW T . (39) Now, 
+
+∥mt∥∞ = max  
+
+> i
+
+|
+
+D
+
+gt, x (i) 
+
+> t
+
+− xt
+
+E
+
+| ≤ D∥gt∥,
+
+so 
+
+WT = 1 + 
+
+> T
+
+X
+
+> t=1
+
+∥mt∥2 
+
+> ∞
+
+≤ 1 + D2
+
+> T
+
+X
+
+> t=1
+
+∥gt∥2 . (40) Thus, 
+
+pWT ≤ 1 + D
+
+vuut TX
+
+> t=1
+
+∥gt∥2. (41) 15 Therefore, from (39) and (41), meta-regret ≤ 3D√a
+
+1 + 
+
+vuut TX
+
+> t=1
+
+∥gt∥2
+
+ .
+
+Taking expectations and applying Lemma 5, specifically (22), 
+
+E[meta-regret] ≤ 3D√a (1 + G√T + σT 1/p ).
+
+Since M = O(log T ) and a = ln M + 2 = O(log log T ), we obtain 
+
+E[meta-regret] ≲ D(1 + G√T + σT 1/p )plog log T . (42) 
+
+Step 3: Bounding the Expert Regret for a Fixed Block Length. We first record the expected regret bound for a restarted AdaGrad expert with a fixed block length. 
+
+Lemma 7 (Expected expert regret for fixed block length) . Fix a block length L. Run AdaGrad with parameter η = D/ √2, restarting every L rounds. For any fixed comparator sequence u1, . . . , u T ∈ X 
+
+with path length PT ,
+
+E
+
+" TX
+
+> t=1
+
+⟨gt, x t − ut⟩
+
+#
+
+≲ (G√L + σL 1/p )
+
+
+
+D
+
+ TL
+
+
+
++ PT
+
+
+
+. (43) 
+
+Proof. Partition [ T ] into K = ⌈T /L ⌉ blocks B1, . . . , B K , each of length at most L. For block Bb,define 
+
+Vb = X
+
+> t∈Bb
+
+∥gt∥2 , Pb = X
+
+> t∈Bb
+> t≥2
+
+∥ut − ut−1∥ . (44) The quantity Pb counts only comparator movement internal to block Bb. Comparator movement across block boundaries is deliberately excluded: its effect is absorbed by the per-block restart cost 
+
+D√Vb, which after summing over blocks yields the DK term. By Lemma 3, specifically (19), pathwise, 
+
+X
+
+> t∈Bb
+
+⟨gt, x t − ut⟩ ≤ CpVb(D + Pb). (45) Taking expectations and applying Lemma 5 to block Bb,
+
+E[pVb] ≤ Gp|Bb| + σ|Bb|1/p ≤ G√L + σL 1/p . (46) Hence 
+
+E
+
+ X
+
+> t∈Bb
+
+⟨gt, x t − ut⟩
+
+ ≲ (G√L + σL 1/p )( D + Pb).
+
+Summing over blocks, 
+
+E
+
+" TX
+
+> t=1
+
+⟨gt, x t − ut⟩
+
+#
+
+≲ (G√L + σL 1/p ) DK +
+
+> K
+
+X
+
+> b=1
+
+Pb
+
+!
+
+. (47) Since P 
+
+> b
+
+Pb ≤ PT and K = ⌈T /L ⌉, (47) implies (43). 16 Step 4: Choosing the Right Block-Length Expert. Define 
+
+K⋆ = 1 + PT
+
+D . (48) Since any comparator sequence in X satisfies PT ≤ D(T − 1), we have K⋆ ≤ T . The expert pool contains experts with Ki = 2 i ∧ T , for i = 0 , . . . , N . Therefore, there exists an index i⋆ such that 
+
+Ki⋆ ∈ [K⋆, 2K⋆]. (49) The corresponding block length is 
+
+Li⋆ =
+
+ TKi⋆
+
+
+
+.
+
+Since Ki⋆ ≥ K⋆, we have 
+
+Li⋆ ≤ TK⋆ + 1 ≤ 2TK⋆ .
+
+By Lemma 7, specifically (43), the expected linear regret of expert i⋆ satisfies 
+
+E[expert regret for i⋆] ≲ (GpLi⋆ + σL 1/p i⋆ )( DK i⋆ + PT ). (50) Using Ki⋆ ≤ 2K⋆, PT = D(K⋆ − 1) ≤ DK ⋆, and Li⋆ ≤ 2T /K ⋆, we have 
+
+DK i⋆ + PT ≲ DK ⋆,
+
+and 
+
+GpLi⋆ + σL 1/p i⋆ ≲ G
+
+r TK⋆ + σ
+
+ TK⋆
+
+1/p 
+
+.
+
+Therefore, (50) gives 
+
+E[expert regret for i⋆] ≲ DK ⋆ G
+
+r TK⋆ + σ
+
+ TK⋆
+
+1/p !
+
+.
+
+Simplifying, 
+
+E[expert regret for i⋆] ≲ GD √T K ⋆ + σDT 1/p (K⋆)1−1/p .
+
+Substituting K⋆ = 1 + PT /D from (48), we obtain 
+
+E[expert regret for i⋆] ≲ GD 
+
+s
+
+T
+
+
+
+1 + PT
+
+D
+
+
+
++ σDT 1/p 
+
+
+
+1 + PT
+
+D
+
+ p−1
+
+> p
+
+. (51) 
+
+Step 5: Combining. From the decomposition (37), the meta-regret bound (42), and the expert-regret bound (51), 
+
+E[D-Regret T ] ≲ GD 
+
+s
+
+T
+
+
+
+1 + PT
+
+D
+
+
+
++σDT 1/p 
+
+
+
+1 + PT
+
+D
+
+ p−1
+
+> p
+
++D(1+ G√T +σT 1/p )plog log T . (52) This completes the proof of Theorem 1. 17 7 Conclusion 
+
+We showed that parameter-free universal dynamic regret is achievable for online convex optimization under heavy-tailed noise without gradient clipping. The key idea is to combine restarted AdaGrad experts with the pathwise AdaGrad-Hedge meta-algorithm from Algorithm 1. The resulting rate recovers the minimax deterministic dynamic regret rate, the optimal static rate of Liu [2026], and, as a byproduct, gives the first parameter-free minimax universal dynamic regret guarantee for finite-variance OCO. 
+
+# A Known-G Precursor: HT-IA 
+
+For comparison, we record here the simpler known-G precursor algorithm, HT-IA. This algorithm is useful because it isolates the role of the heavy-tail-compatible meta-algorithm from the additional parameter-free difficulty of not knowing G.The design of HT-IA is as follows. Since G is known, one can construct a geometric pool of fixed-step OGD experts whose stepsizes cover the natural optimal scale balancing the deterministic and noise terms. Expert i uses stepsize ηi from (53) below and updates by projected stochastic gradient descent as in (55). The meta-algorithm is exactly AdaGrad-Hedge from Algorithm 1. At each round, AdaGrad-Hedge assigns larger weight to experts whose fixed stepsize has performed well so far. Because the meta-regret bound of Lemma 6 is pathwise, the same heavy-tailed gradient oracle can be handled without assuming finite variance of the meta-losses. The key distinction from HT-PAder is that HT-IA’s expert stepsizes depend explicitly on G.Therefore, HT-IA is not parameter-free. HT-PAder removes this dependence by replacing fixed-step OGD experts with restarted AdaGrad experts and using a geometric pool of block lengths instead of stepsizes. 18 Algorithm 3 HT-IA: Heavy-Tailed Improved Ader, requires G
+
+Require: Horizon T , domain X , diameter D, Lipschitz constant G 
+
+> 1:
+
+Let 
+
+ηi = 2 i−1
+
+r D2
+
+8G2T , i = 1 , . . . , N, 
+
+where 
+
+N =
+
+ 12 log 2
+
+ 8G2TD2
+
+ 
+
++ 1 . 
+
+> 2:
+
+Activate fixed-step OGD experts Ei with stepsize ηi:
+
+x(i) 
+
+> t+1
+
+= Π X (x(i) 
+
+> t
+
+− ηigt). 
+
+> 3:
+
+Initialize AdaGrad-Hedge, Algorithm 1, with M = N experts and parameter a = ln N + 2.  
+
+> 4:
+
+for t = 1 , . . . , T do  
+
+> 5:
+
+Receive x(i) 
+
+> t
+
+from each expert Ei. 
+
+> 6:
+
+Using the current AdaGrad-Hedge weights wt, play 
+
+xt =
+
+> N
+
+X
+
+> i=1
+
+wt,i x(i) 
+
+> t
+
+. 
+
+> 7:
+
+Observe stochastic gradient gt. 
+
+> 8:
+
+Define meta-loss vector 
+
+mt,i =
+
+D
+
+gt, x (i) 
+
+> t
+
+− xt
+
+E
+
+. 
+
+> 9:
+
+Update the meta-weights from wt to wt+1 using AdaGrad-Hedge, Algorithm 1, with meta-loss 
+
+mt. 
+
+> 10:
+
+Send gt to each expert.  
+
+> 11:
+
+end for 
+
+More explicitly, the stepsize pool is 
+
+ηi = 2 i−1
+
+r D2
+
+8G2T , i = 1 , . . . , N, (53) with pool size 
+
+N =
+
+ 12 log 2
+
+ 8G2TD2
+
+ 
+
++ 1 . (54) Each expert Ei runs fixed-step OGD: 
+
+x(i) 
+
+> t+1
+
+= Π X (x(i) 
+
+> t
+
+− ηigt). (55) The meta-level weight update is handled by Algorithm 1. Thus, HT-IA can be viewed as a heavy-tailed version of Improved Ader: it keeps the fixed-step expert pool of Improved Ader but replaces the usual finite-variance Hedge analysis with the pathwise AdaGrad-Hedge guarantee. 19 Theorem 2 (Known-G dynamic regret) . Under the setup of Section 3, Algorithm 3 guarantees: 
+
+E[D -Regret T ] ≲p GD 
+
+s
+
+T
+
+
+
+1 + PT
+
+D
+
+
+
++ σDT 1/p 
+
+
+
+1 + PT
+
+D
+
+ p−1
+
+> p
+
++ D(1 + G√T + σT 1/p )plog log T . 
+
+(56) 
+
+Proof. By the meta-expert decomposition, as in (37), the expected dynamic regret of Algorithm 3 is bounded by 
+
+E[D-Regret T ] ≤ E[meta-regret] + E[expert regret for ηi⋆ ], (57) where i⋆ is the index of the expert in the stepsize pool closest to the optimal stepsize. First, we bound the meta-regret. The meta-losses are 
+
+mt,i =
+
+D
+
+gt, x (i) 
+
+> t
+
+− xt
+
+E
+
+. (58) Using Lemma 6, specifically (26), with 
+
+WT = 1 + 
+
+> T
+
+X
+
+> t=1
+
+∥mt∥2
+
+> ∞
+
+,
+
+we have pathwise TX
+
+> t=1
+
+D
+
+gt, x t − x(i)
+
+> t
+
+E
+
+≤ 3paW T . (59) Using ∥mt∥∞ ≤ D∥gt∥, we obtain 
+
+WT ≤ 1 + D2
+
+> T
+
+X
+
+> t=1
+
+∥gt∥2. (60) Taking expectations and applying Lemma 5 over the full horizon [ T ] yields 
+
+E[meta-regret] ≤ 3D√a
+
+1 + E
+
+vuut TX
+
+> t=1
+
+∥gt∥2
+
+
+
+≤ 3D√a
+
+
+
+1 + G√T + σT 1/p 
+
+.
+
+Since N = O(log T ) and a = ln N + 2 = O(log log T ), we have 
+
+E[meta-regret] ≲ D(1 + G√T + σT 1/p )plog log T . (61) Next, we bound the expert regret. For any fixed stepsize ηi from the expert pool, summing the one-step inequality (12) from Lemma 2 over t = 1 , . . . , T with comparator ut yields 
+
+> T
+
+X
+
+> t=1
+
+D
+
+gt, x (i) 
+
+> t
+
+− ut
+
+E
+
+≤
+
+> T
+
+X
+
+> t=1
+
+∥x(i) 
+
+> t
+
+− ut∥2 − ∥ x(i) 
+
+> t+1
+
+− ut∥2
+
+2ηi
+
++ ηiG2T + C(p)ηp−1 
+
+> i
+
+D2−pTX
+
+> t=1
+
+∥ϵt∥p. (62) By standard moving-comparator telescoping, 
+
+> T
+
+X
+
+> t=1
+
+∥x(i) 
+
+> t
+
+− ut∥2 − ∥ x(i) 
+
+> t+1
+
+− ut∥2
+
+2ηi
+
+≤ D2 + 2 DP T
+
+2ηi
+
+. (63) 20 Taking expectations in (62) and using (8) gives 
+
+E
+
+" TX
+
+> t=1
+
+D
+
+gt, x (i) 
+
+> t
+
+− ut
+
+E#
+
+≤ D2 + 2 DP T
+
+2ηi
+
++ ηiG2T + C(p)ηp−1 
+
+> i
+
+D2−pσpT. (64) To optimize the stepsize, we apply Lemma 8 with 
+
+A = D2 + 2 DP T
+
+2 , B = G2T, C = C(p)D2−pσpT. (65) This implies that the optimal stepsize η⋆ satisfies 
+
+Aη⋆ + Bη ⋆ + C(η⋆)p−1 ≲p
+
+√AB + A(p−1) /p C1/p . (66) Substituting the values of A, B, and C from (65), 
+
+√AB = GD 
+
+s
+
+T
+
+
+
+1 + PT
+
+D
+
+
+
+,
+
+and 
+
+A(p−1) /p C1/p ≤ σDT 1/p 
+
+
+
+1 + PT
+
+D
+
+ p−1
+
+> p
+
+.
+
+The geometric stepsize pool constructed in (53)–(54) covers the relevant interval up to a factor of 2. Hence, there exists an expert stepsize ηi⋆ in the pool such that 
+
+ηi⋆ ≤ η⋆ ≤ 2ηi⋆ .
+
+This ensures that 
+
+E[expert regret for ηi⋆ ] ≲p GD 
+
+s
+
+T
+
+
+
+1 + PT
+
+D
+
+
+
++ σDT 1/p 
+
+
+
+1 + PT
+
+D
+
+ p−1
+
+> p
+
+. (67) Combining (57), (61), and (67) completes the proof. 
+
+Lemma 8 (Optimization lemma) . For A, B, C > 0 and p ∈ (1 , 2] ,
+
+min 
+
+> η> 0
+
+ Aη + Bη + Cη p−1
+
+
+
+≲p
+
+√AB + A(p−1) /p C1/p .
+
+Proof. Set η1 = pA/ (2 B) and η2 = ( A/ (2 C)) 1/p . Let η⋆ = η1 ∧ η2.
+
+Case 1: η⋆ = η1 ≤ η2. Then Aη1
+
++ Bη 1 ≲ √AB. 
+
+Also, η1 ≤ η2 implies 
+
+C ≤ Bp/ 2(A/ 2) 1−p/ 2,
+
+and therefore 
+
+Cη p−11 ≤ Bp/ 2(A/ 2) 1−p/ 2
+
+ A
+
+2B
+
+(p−1) /2
+
+≲ √AB. 
+
+21 Case 2: η⋆ = η2 ≤ η1. Then 
+
+Aη2
+
++ Cη p−12 ≲p A(p−1) /p C1/p .
+
+Also, using η2 ≤ η1,
+
+Bη 2 = B
+
+ A
+
+2C
+
+1/p 
+
+≤ B
+
+ A
+
+2B
+
+1/2
+
+≲ √AB. 
+
+Combining the cases proves the lemma. 
+
+# B Lower Bound 
+
+We now prove a lower bound matching the noise-path term in Theorem 1. 
+
+Lemma 9 (Abstract block regret lower bound) . Fix D, Z, δ, L > 0. For each hidden sign ν ∈{− 1, +1 }, define the comparator 
+
+u(ν) 
+
+> t
+
+= −Dν 
+
+and the deterministic linear loss 
+
+ℓ(ν) 
+
+> t
+
+(x) = μν x, μν = 2 Zδ ν. 
+
+Let TL be a measurable space of complete interaction transcripts over L rounds. For ν ∈{− 1, +1 }, let P Lν be a probability measure on TL. A transcript τ ∈ T L determines the learner’s decisions 
+
+xt(τ ) ∈ [−D, D ], t = 1 , . . . , L. 
+
+The measures P L 
+
+> +
+
+and P L 
+
+> −
+
+may arise from learner randomness, environmental randomness, or both; no further probabilistic structure is required. Define the expected block regret under environment ν by 
+
+Rν = Eτ ∼P Lν
+
+" LX
+
+> t=1
+
+
+
+ℓ(ν) 
+
+> t
+
+(xt(τ )) − ℓ(ν) 
+
+> t
+
+(u(ν) 
+
+> t
+
+)
+
+#
+
+.
+
+Then 
+
+R+ + R− ≥ 4DZδL  1 − TV( P L 
+
+> +
+
+, P L 
+
+> −
+
+) . (68) 
+
+Proof. For any transcript τ , since ℓ(ν) 
+
+> t
+
+(x) = μν x,
+
+ℓ(ν) 
+
+> t
+
+(xt(τ )) − ℓ(ν) 
+
+> t
+
+(u(ν) 
+
+> t
+
+) = μν (xt(τ ) − u(ν) 
+
+> t
+
+).
+
+Using u(ν) 
+
+> t
+
+= −Dν and μν = 2 Zδ ν ,
+
+μν (xt(τ ) − u(ν) 
+
+> t
+
+) = 2 Zδ ν (xt(τ ) + Dν ) = 2 Zδ (D + νx t(τ )) .
+
+Thus the instantaneous regret under environment ν is 
+
+ℓ(ν) 
+
+> t
+
+(xt(τ )) − ℓ(ν) 
+
+> t
+
+(u(ν) 
+
+> t
+
+) = 2 Zδ (D + νx t(τ )) .
+
+22 Define the transcript functional 
+
+F (τ ) := 
+
+> L
+
+X
+
+> t=1
+
+(D + xt(τ )) .
+
+Because xt(τ ) ∈ [−D, D ], we have F (τ ) ∈ [0 , 2DL ]. Under ν = +1, the instantaneous regret is 2 Zδ (D + xt), so 
+
+R+ = 2 Zδ E+[F ].
+
+Under ν = −1, the instantaneous regret is 2 Zδ (D − xt). Since 
+
+D − xt = 2 D − (D + xt),
+
+we have LX
+
+> t=1
+
+(D − xt) = 2 DL − F, 
+
+and therefore 
+
+R− = 2 Zδ E−[2 DL − F ] = 2 Zδ (2 DL − E−[F ]) .
+
+Thus 
+
+R+ + R− = 2 Zδ  2DL −  E−[F ] − E+[F ] .
+
+We now bound E−[F ] − E+[F ] using total variation. Let A := 2 DL . We use the layer-cake representation: 
+
+FA =
+
+Z 10
+
+1{F >As } ds. 
+
+Hence E−[F ] − E+[F ]
+
+A =
+
+Z 10
+
+(P−(F > As ) − P+(F > As )) ds. 
+
+For every s ∈ [0 , 1], 
+
+P−(F > As ) − P+(F > As ) ≤ TV( P L 
+
+> +
+
+, P L 
+
+> −
+
+).
+
+Therefore, 
+
+E−[F ] − E+[F ] ≤ A TV( P L 
+
+> +
+
+, P L 
+
+> −
+
+) = 2 DL TV( P L 
+
+> +
+
+, P L 
+
+> −
+
+).
+
+Substituting, 
+
+R+ + R− ≥ 4DZδL  1 − TV( P L 
+
+> +
+
+, P L 
+
+> −
+
+) .
+
+Theorem 3 (Lower bound for dynamic regret under heavy-tailed noise) . Let X = [ −D, D ] with 
+
+D > 0, let σ > 0, and let p ∈ (1 , 2] . For every possibly randomized online algorithm in the stochastic first-order oracle model, every horizon T , and every feasible path-length budget satisfying 
+
+2D ≤ PT ≤ 2D(T − 1) ,
+
+there exist deterministic linear losses 
+
+ℓt(x) = μtx, 
+
+so that 
+
+∇ℓt(x) = μt for all x ∈ X ,
+
+23 and a stochastic first-order oracle returning gradient estimates gt such that, for the natural filtration 
+
+Ft = σ(g1, . . . , g t),
+
+E[gt | F t−1] = ∇ℓt(xt) = μt,
+
+and the conditional p-th central moment condition holds: 
+
+E[|gt − μt|p | F t−1] ≤ σp.
+
+Moreover, there exists a comparator sequence u1, . . . , u T ∈ X with path length at most PT such that 
+
+E[D -Regret T ] ≥ cp σD 1/p T 1/p P 
+
+> p−1
+> p
+> T
+
+, (69) 
+
+where the expectation is over the stochastic first-order oracle and the learner’s internal randomness, and 
+
+cp = 41/p 
+
+128 . (70) 
+
+If PT > 2D(T − 1) , the same statement holds with PT replaced by 2D(T − 1) .Proof. Fix an arbitrary possibly randomized online algorithm. Its internal randomness is included in the transcript distributions below. 
+
+Step 1: Blocking and padding. Define the capped path length ¯PT := min {PT , 2D(T − 1) }.
+
+Set 
+
+K := 
+
+ ¯PT
+
+2D
+
+
+
++ 1 .
+
+Because ¯PT ≤ 2D(T − 1), we have K ≤ T . Let 
+
+L := 
+
+ TK
+
+
+
+, T ′ := KL. 
+
+We use the first T ′ rounds for the construction and pad the remaining T − T ′ rounds with zero losses, zero gradients, and a constant comparator. The padding adds zero expected regret and does not increase the path length. Since K ≤ T , we have L ≥ 1 and T ′ ≥ T / 2. Partition the first T ′ rounds into K consecutive blocks of length L. For t in block k, write 
+
+b(t) := k. In block k, choose an independent hidden sign νk ∈ {− 1, +1 } uniformly at random. The comparator and mean gradient inside block k are 
+
+ut = −Dν b(t), μt = 2 Zδ ν b(t).
+
+The deterministic loss is ℓt(x) = μtx.For any realization of ν1, . . . , ν K , the path length satisfies  
+
+> T′
+
+X
+
+> t=2
+
+|ut − ut−1| ≤ 
+
+> K
+
+X
+
+> k=2
+
+| − Dν k + Dν k−1| ≤ 2D(K − 1) ≤ ¯PT ≤ PT .
+
+Step 2: One-block heavy-tailed construction. Inside each block of length L, define the constants 
+
+q := 14L , δ := 132 L , Z := σ
+
+2 (4 L)1/p . (71) 24 Conditional on the hidden sign ν ∈ {− 1, +1 }, the stochastic first-order oracle returns a gradient estimate g distributed as 
+
+Pν (g = νZ ) = q
+
+2 + δ, Pν (g = −νZ ) = q
+
+2 − δ, Pν (g = 0) = 1 − q. 
+
+The mean gradient is 
+
+μν = νZ 
+
+ q
+
+2 + δ
+
+
+
++ ( −νZ )
+
+ q
+
+2 − δ
+
+
+
+= 2 Zδ ν. 
+
+Thus, for t in block k,
+
+μt = μνk = 2 Zδ ν k.
+
+For a fixed deterministic sign sequence ν1, . . . , ν K , the gradient estimates are independent of the past inside each block, so 
+
+E[gt | F t−1] = μt = ∇ℓt(xt).
+
+Step 3: Verification of the conditional p-th central moment condition. First, 
+
+Eν |g|p = qZ p = 14L
+
+ σ
+
+2
+
+p
+
+(4 L) = 
+
+ σ
+
+2
+
+p
+
+.
+
+Also, 
+
+|μν | = 2 Zδ = 2 · σ
+
+2 (4 L)1/p · 132 L = σ(4 L)1/p 
+
+32 L .
+
+Since p ≥ 1 and L ≥ 1, (4 L)1/p 
+
+32 L = 41/p 
+
+32 L1/p −1 ≤ 432 = 18 .
+
+Hence |μν | ≤ σ/ 8. By Minkowski’s inequality, (Eν |g − μν |p)1/p ≤ (Eν |g|p)1/p + |μν | ≤ σ
+
+2 + σ
+
+8 = 5σ
+
+8 < σ. 
+
+Therefore, 
+
+Eν |g − μν |p ≤ σp.
+
+For a fixed deterministic sign sequence, the same bound holds conditionally on Ft−1. Hence 
+
+E[|gt − ∇ ℓt(xt)|p | F t−1] ≤ σp.
+
+Also, since |μt| ≤ σ/ 8, the deterministic linear losses are G-Lipschitz with G ≤ σ/ 8. 
+
+Step 4: KL divergence, total variation, and data processing. For one round, the two laws 
+
+P+ and P− differ by swapping the probabilities of + Z and −Z. Thus KL( P+∥P−) = 
+
+ q
+
+2 + δ
+
+
+
+log  
+
+> q
+> 2
+
++ δ 
+
+> q
+> 2
+
+− δ +
+
+ q
+
+2 − δ
+
+
+
+log  
+
+> q
+> 2
+
+− δ 
+
+> q
+> 2
+
++ δ
+
+= 2 δ log  
+
+> q
+> 2
+
++ δ 
+
+> q
+> 2
+
+− δ .
+
+With q = 1 /(4 L) and δ = 1 /(32 L), 
+
+q
+
+2 + δ = 532 L , q
+
+2 − δ = 332 L .
+
+25 Therefore, KL( P+∥P−) = 116 L log 53 .
+
+For a block of length L, since the gradient estimates are i.i.d. inside the block, KL( P L 
+
+> +
+
+∥P L 
+
+> −
+
+) = L · KL( P+∥P−) = 116 log 53 .
+
+By Pinsker’s inequality, TV( P L 
+
+> +
+
+, P L 
+
+> −
+
+) ≤
+
+r 12 KL( P L 
+
+> +
+
+∥P L 
+
+> −
+
+) = 
+
+r 132 log 53 < 12 . (72) Now fix a block k. Let H denote the complete pre-block history, including all previous obser-vations, actions, and learner randomness. Let g denote the gradient sequence inside block k, and let τ denote the block-k transcript consisting of the learner’s actions and observations inside that block. Because the current sign νk is chosen independently of the past, the law of H is the same under 
+
+νk = +1 and νk = −1. Let Q denote this common law. Under νk = ν, the joint law of ( H, g) is 
+
+Q ⊗ P Lν . The block transcript τ is obtained from ( H, g) by applying the learner’s policy, which is the same under νk = +1 and νk = −1. By the data-processing inequality for total variation, TV( τ+, τ −) ≤ TV( Q ⊗ P L 
+
+> +
+
+, Q ⊗ P L 
+
+> −
+
+).
+
+Since tensoring with a common probability measure does not change total variation, TV( Q ⊗ P L 
+
+> +
+
+, Q ⊗ P L 
+
+> −
+
+) = TV( P L 
+
+> +
+
+, P L 
+
+> −
+
+).
+
+Hence, for every block k, using (72), TV( τ+, τ −) < 12 .
+
+Step 5: Apply the abstract block lower bound. For block k, let P (k)+ and P (k) 
+
+> −
+
+denote the unconditional marginal laws of the block transcript τ under νk = +1 and νk = −1, respectively. Let R(k)+ and R(k) 
+
+> −
+
+be the corresponding expected block regrets. By Lemma 9, specifically (68), 
+
+R(k)+ + R(k) 
+
+> −
+
+≥ 4DZδL 
+
+
+
+1 − TV( P (k)+ , P (k) 
+
+> −
+
+)
+
+
+
+.
+
+From Step 4, TV( P (k)+ , P (k) 
+
+> −
+
+) < 1/2. Therefore, 
+
+R(k)+ + R(k) 
+
+> −
+
+≥ 2DZδL. 
+
+Since νk is uniform on {− 1, +1 }, the unconditional expected regret in block k is 12
+
+
+
+R(k)+ + R(k)
+
+> −
+
+
+
+≥ DZδL. 
+
+Substituting the chosen constants from (71), 
+
+DZδL = D · σ
+
+2 (4 L)1/p · 132 L · L = 41/p 
+
+64 σDL 1/p .
+
+26 Thus each block contributes at least 41/p 
+
+64 σDL 1/p 
+
+expected regret. 
+
+Step 6: Sum over blocks. By linearity of expectation, the total expected regret over the active 
+
+T ′ rounds in the Bayesian construction satisfies 
+
+E[D-Regret T ′ ] ≥ K · 41/p 
+
+64 σDL 1/p . (73) Since L = ⌊T /K ⌋ and K ≤ T , we have L ≥ T / (2 K). Therefore, from (73), 
+
+E[D-Regret T ′ ] ≥ 41/p 
+
+64 σDK 
+
+ T
+
+2K
+
+1/p 
+
+= 41/p 
+
+64 · 21/p σDT 1/p K1−1/p .
+
+Because 
+
+K =
+
+ ¯PT
+
+2D
+
+
+
++ 1 ≥ ¯PT
+
+2D ,
+
+we obtain 
+
+E[D-Regret T ′ ] ≥ 41/p 
+
+64 · 21/p σDT 1/p 
+
+ ¯PT
+
+2D
+
+ p−1
+
+> p
+
+.
+
+Equivalently, 
+
+E[D-Regret T ′ ] ≥ 41/p 
+
+128 σD 1/p T 1/p ¯P 
+
+> p−1
+> p
+> T
+
+.
+
+The padding rounds contribute zero expected regret, so the same lower bound holds for the full horizon T . When PT ≤ 2D(T − 1), we have ¯PT = PT , giving 
+
+E[D-Regret T ] ≥ 41/p 
+
+128 σD 1/p T 1/p P 
+
+> p−1
+> p
+> T
+
+.
+
+Step 7: From random signs to a deterministic comparator. The construction above first chooses random signs ν1, . . . , ν K . We have shown that 
+
+Eν,g, alg [D-Regret T ] ≥ 41/p 
+
+128 σD 1/p T 1/p P 
+
+> p−1
+> p
+> T
+
+,
+
+where the expectation is over the random signs ν1, . . . , ν K , the stochastic first-order oracle g, and the learner’s internal randomness. Therefore, by averaging, there exists a deterministic sign sequence ν⋆ = ( ν⋆ 
+
+> 1
+
+, . . . , ν ⋆K ) such that 
+
+Eg, alg [D-Regret T | ν1, . . . , ν K = ν⋆ 
+
+> 1
+
+, . . . , ν ⋆K ] ≥ 41/p 
+
+128 σD 1/p T 1/p P 
+
+> p−1
+> p
+> T
+
+.
+
+For this deterministic sign sequence, the comparator path length is at most PT , the losses ℓt(x) = 
+
+μtx are deterministic linear losses, and the stochastic first-order oracle satisfies the conditional p-th central moment condition. This proves the theorem. 
+
+Remark 6 (Matching upper and lower bounds) . For PT ≳ D, the noise term in Theorem 1, specifically (35) , satisfies 
+
+σDT 1/p 
+
+ PT
+
+D
+
+ p−1
+
+> p
+
+= σD 1/p T 1/p P 
+
+> p−1
+> p
+> T
+
+,
+
+which matches the lower bound in Theorem 3, specifically (69) . Thus the exponent (p − 1) /p on PT
+
+is optimal. 
+
+27 References 
+
+John Duchi, Elad Hazan, and Yoram Singer. Adaptive subgradient methods for online learning and stochastic optimization. Journal of machine learning research , 12(7), 2011. Elad Hazan. Introduction to online convex optimization. Foundations and Trends in Optimization ,2(3-4):157–325, 2016. Langqi Liu, Yibo Wang, and Lijun Zhang. High-probability bound for non-smooth non-convex stochastic optimization with heavy tails. In Forty-first International Conference on Machine Learning , 2024. Zijian Liu and Zhengyuan Zhou. Revisiting the last-iterate convergence of stochastic gradient methods. In International Conference on Learning Representations , volume 2024, pages 40394– 40428, 2024. Zijian Liu and Zhengyuan Zhou. Nonconvex stochastic optimization under heavy-tailed noises: Optimal convergence without gradient clipping. In International Conference on Learning Repre-sentations , volume 2025, pages 92529–92554, 2025. Ziyi Liu. Online convex optimization with heavy tails: Old algorithms, new regrets, and applica-tions. arXiv preprint arXiv:2508.07473v3 , 2026. Benoit B Mandelbrot. Fractals and scaling in finance: Discontinuity, concentration, risk. Selecta volume E . Springer Science & Business Media, 2013. Arkadi S. Nemirovski and David B. Yudin. Problem Complexity and Method Efficiency in Opti-mization . John Wiley & Sons, New York, 1983. ISBN 0-471-10345-4. Francesco Orabona. A modern introduction to online learning. arXiv preprint arXiv:1912.13213 ,2019. Mohammad Pedramfar and Vaneet Aggarwal. A generalized approach to online convex optimiza-tion. In Proceedings of the International Conference on Autonomous Agents and Multiagent Systems (AAMAS) , May 2026. Shai Shalev-Shwartz. Online learning and online convex optimization. Foundations and Trends ®
+
+in Machine Learning , 4(2):107–194, 2012. Umut Simsekli, Levent Sagun, and Mert Gurbuzbalaban. A tail-index analysis of stochastic gradient noise in deep neural networks. In International Conference on Machine Learning , pages 5827– 5837. PMLR, 2019. Nuri Mert Vural, Lu Yu, Krishna Balasubramanian, Stanislav Volgushev, and Murat A Erdogdu. Mirror descent strikes again: Optimal stochastic convex optimization under infinite noise vari-ance. In Conference on Learning Theory , pages 65–102. PMLR, 2022. Yuchen Yang, Kaihong Lu, and Long Wang. Online distributed optimization with clipped stochastic gradients: High probability bound of regrets. Automatica , 182:112525, 2025. Jingzhao Zhang and Ashok Cutkosky. Parameter-free regret in high probability with heavy tails. In Advances in Neural Information Processing Systems (NeurIPS) , 2022. 28 Jingzhao Zhang, Sai Praneeth Karimireddy, Andreas Veit, Seungyeon Kim, Sashank J. Reddi, Sanjiv Kumar, and Suvrit Sra. Why are adaptive methods good for attention models? In 
+
+Advances in Neural Information Processing Systems (NeurIPS) , 2020. Lijun Zhang, Sheng Lu, and Zhi-Hua Zhou. Adaptive online learning in dynamic environments. In 
+
+Advances in Neural Information Processing Systems (NeurIPS) , 2018. Peng Zhao, Yu-Jie Zhang, Lijun Zhang, and Zhi-Hua Zhou. Dynamic regret of convex and smooth functions. In Advances in Neural Information Processing Systems (NeurIPS) , 2020. Peng Zhao, Yu-Jie Zhang, Lijun Zhang, and Zhi-Hua Zhou. Adaptivity and non-stationarity: Problem-dependent dynamic regret for online convex optimization. Journal of Machine Learning Research , 25:1–52, 2024. Martin Zinkevich. Online convex programming and generalized infinitesimal gradient ascent. In 
+
+International Conference on Machine Learning (ICML) , 2003. 29

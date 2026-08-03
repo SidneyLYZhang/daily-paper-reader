@@ -1,0 +1,3068 @@
+Title: Variance-Reduced Conditional Gradient Methods under Markovian Sampling for Nonconvex Composite Optimization
+
+URL Source: https://arxiv.org/pdf/2607.25785v1
+
+Published Time: Wed, 29 Jul 2026 01:05:27 GMT
+
+Number of Pages: 41
+
+Markdown Content:
+# Variance-Reduced Conditional Gradient Methods under Markovian Sampling for Nonconvex Composite Optimization 
+
+Zhaojun Peng School of Computer Science Nanjing University of Information Science and Technology 
+
+202592020013@nuist.edu.cn 
+
+July 29, 2026 
+
+Abstract 
+
+We study stochastic composite nonconvex optimization over a compact convex set when gradient samples arrive along a single trajectory of a fixed ergodic Markov chain. Exist-ing single-trajectory variance-reduction theory covers smooth unconstrained objectives. We address the distinct projection-free composite setting and use the generalized Frank–Wolfe gap as the stationarity measure. We propose MC-ALFCG (Markov-Chain Adaptive Lipschitz-Constant-Free Conditional Gradient), which combines a momentum-based conditional-gradient method with coupled capped multilevel Monte Carlo estimation and per-iteration clipping. The deepest nested average uses consecutive states from the same trajectory, giving con-ditional bias O(τmix /T ) uniformly over the starting chain state, while coupling makes the gradient-difference second moment depend on the iterate displacement. Clipping enforces the pathwise bounds required by the adaptive analysis. We prove a reduction to the independent-sampling recursion under σ2 7 → 2Λ G2 
+
+> σ
+
+and L2 7 → 2Λ L2, where Λ = O(τmix log T ). For positive centered noise, the tuned method attains expected sample complexity ˜O(( τ 2mix Gσ +
+
+τ 5/2mix G2 
+
+> σ
+
+)ε−3 + τ 5mix ε−2) to obtain an expected generalized Frank–Wolfe gap at most ε. An exactly noiseless specialization uses a separate parameter choice and attains ˜O(ε−2) with mixing-time-free constants. A mixing-time-oblivious variant, which also requires no cen-tered noise bound, attains ˜O(τ 6mix ε−3 + τ 3mix ε−2). No variant requires the smoothness con-stant. The tuned method requires certified mixing-time and noise bounds, clipping requires a known ̂ G ≥ G, and all complexity statements are in expectation under a fixed transi-tion kernel. For fixed D > 0 and Gσ > 0, a parameter-tuning lower bound matches the leading mixing exponent within the transferred analysis. Two controlled numerical studies examine dependence sensitivity, a genuinely nonconvex composite instance, and the clipping mechanism without claiming absolute empirical superiority. 
+
+Keywords: Nonconvex Optimization, Stochastic Optimization, Markov Chains, Variance Reduction, Conditional Gradient Method, Frank–Wolfe Algorithm, Multilevel Monte Carlo, Convergence Analysis 
+
+1arXiv:2607.25785v1 [math.OC] 28 Jul 2026 Table 1: Representative sample complexities in adjacent nonconvex oracle and problem classes. The rows are not direct comparisons because the feasible geometry, regularity assumptions, and stationarity measures differ. “Streaming Markov” denotes a single trajectory of an ergodic chain. Logarithmic factors are suppressed, and both bounds reported for this paper are expectation guarantees. The compact oblivious expression treats the finite centered-noise bound as a fixed problem constant. Oracle Method class Complexity Reference i.i.d. SGD (no VR) ˜O(ε−4) classical i.i.d. SPIDER / STORM (VR) ˜O(ε−3) (optimal) [5, 9] i.i.d. ALFCG-MVR2 (VR, projection-free) ˜O(σε −3 + ε−2) [31] streaming Markov prox-SGD / AdaGrad / heavy-ball ˜O(ε−4) [1] streaming Markov MaC-SPIDER (VR, smooth and unconstrained) O(τmix π−1/2min ε−3) [28] streaming Markov projection-free composite CG with recursive VR none known streaming Markov this paper (VR, projection-free) ˜O((τ 2mix Gσ + τ 5/2mix G2            
+
+> σ)ε−3+τ5mix ε−2)Theorem 5.5 streaming Markov this paper (oblivious variant) ˜O(τ6mix ε−3+τ3mix ε−2)Theorem 5.8
+
+# 1 Introduction 
+
+We consider the constrained stochastic composite nonconvex problem 
+
+min  
+
+> x∈X ⊂ Rn
+
+F (x) := f (x) + h(x), f (x) = Ez∼π
+
+[f (x; z)], (1) where X is compact and convex, h is proper, closed, and convex, and f is differentiable but possibly nonconvex. Samples z1, z 2, . . . are successive states of a single ergodic Markov chain with stationary distribution π. The samples are consumed in order, without restarts or independent resampling. We target settings in which Euclidean projection onto X is expensive but the linearized composite subproblem over X can be solved efficiently. This geometry motivates the composite linear minimization oracle introduced in Section 3. The fixed-chain streaming model arises when a data source cannot be reset or shuffled, includ-ing optimization driven by Markov chain Monte Carlo, learning from a single time series or sensor stream, dependent-data matrix factorization, and system identification on a non-resettable sys-tem. It also covers off-policy evaluation under a fixed behavior policy with bounded importance ratios. In these settings, the stochastic gradient is conditionally biased given the past, and this bias is correlated across iterations. MaC-SPIDER shows that recursive variance reduction is pos-sible for smooth unconstrained objectives on a single Markovian trajectory [28]. The question addressed here is different: can recursive variance reduction be combined with a projection-free composite oracle and an adaptive conditional-gradient analysis? This question must be distinguished from the episodic policy-gradient model. In the episodic model, trajectories are independent across iterations and Markovian only within an episode. Methods such as SVRPG, STORM-PG, and ProxHSPGA exploit this cross-trajectory indepen-dence [23, 24, 32]. In the streaming model studied here, dependence persists across iterations because all samples belong to one chain. Existing results therefore settle adjacent oracle mod-els or optimization geometries, but not their projection-free composite intersection. Table 1 summarizes this boundary. Two obstacles prevent a direct replacement of the independent-sampling oracle. First, a finite Markovian burst produces a state-dependent conditional bias. Consequently, the gradient-difference estimator no longer satisfies the conditional-unbiasedness identity used in standard 2recursive variance-reduction arguments. The analysis must instead control this bias within a conditional, contractive error recursion. The multilevel Monte Carlo estimator of [6] controls the bias of a single gradient, but its conditional bias must still be absorbed by the recursive estimator used here. Second, capped multilevel sampling produces rare corrections whose magnitude grows with the horizon. The resulting estimator has a useful conditional second moment but no horizon-independent pathwise bound at the scale required by the adaptive step-size analysis. In fact, its error can have essential supremum of order T G σ (Proposition 4.1). Conditional moment control alone is therefore insufficient for transferring the base conditional-gradient argument. We address the two obstacles separately. The proposed method, MC-ALFCG (Algorithm 1), starts from the momentum variance-reduced method ALFCG-MVR2 of [31]. A coupled multilevel estimator evaluates consecutive iterates on the same burst of chain samples, so the difference variance scales with the iterate displacement and the conditional mean equals a sufficiently deep chain average. The chain thus mixes within each burst, yielding conditional bias of order τmix /T 
+
+uniformly in the initial chain state. We then project the recursive gradient estimate onto a known ball of radius ̂ G ≥ G. This clipping step enforces the pathwise bound required by the adaptive analysis. Together, the two modifications recover the structure of the independent-sampling error recursion under the substitutions 
+
+σ2 7 −→ σ2M = 2Λ G2
+
+> σ
+
+, L2 7 −→ L2M = 2Λ L2, Λ = O(τmix log T ).
+
+Here Gσ is a certified upper bound on the centered gradient noise. A formal transfer result ver-ifies the conditional recursion, the pathwise interface, and the weighted cumulative-error bound required by the adaptive descent analysis (Theorem 5.4). Explicit propagation is necessary be-cause the effective noise and recursion smoothness now grow with Λ rather than remaining fixed problem constants. The resulting expected sample complexity for the generalized Frank–Wolfe gap is ˜O(( τ 2mix Gσ +
+
+τ 5/2mix G2
+
+> σ
+
+)ε−3 + τ 5mix ε−2) (Theorem 5.5). The two stochastic branches cover the low- and high-effective-noise regimes and both vanish with Gσ. The exactly noiseless case uses a separate parameter choice and attains ˜O(ε−2) with mixing-time-free constants (Corollary 5.7). These conclusions preserve the Lipschitz-constant-free property of the base method: the smoothness constant does not enter the algorithm. The transfer also yields a mixing-time-oblivious variant with expected sample complexity 
+
+˜O(τ 6mix ε−3 + τ 3mix ε−2) (Theorem 5.8). For fixed D > 0 and Gσ > 0, an in-analysis lower bound shows that retuning the free parameters cannot improve the Λ5/6 exponent of the lead-ing stochastic coefficient within the transferred constant propagation (Theorem 5.9). This is neither an algorithmic nor an information-theoretic lower bound, and it does not rule out a sharper clipping-aware analysis. Two controlled numerical studies further examine dependence sensitivity, a nonconvex composite instance, and the clipping mechanism. The tuned parameters require upper bounds on the mixing time and centered noise level, whereas the oblivious variant removes both requirements at the cost of worse mixing depen-dence. Clipping requires a known gradient-norm bound. All sample-complexity guarantees are in expectation and assume a fixed transition kernel. Decision-dependent sampling processes are outside the model. Section 5.7 gives the precise scope of these qualifications. The remainder of the paper is organized as follows. Section 2 reviews the closest literature, Section 3 states the assumptions and stationarity measure, and Section 4 presents MC-ALFCG .3Section 5 develops the convergence analysis, and Section 6 concludes the paper. A notation summary, complete proofs, and detailed numerical results are provided in the Appendix. 
+
+# 2 Related Work 
+
+The closest literature concerns stochastic optimization with Markovian data, recursive variance reduction, projection-free composite optimization, episodic policy-gradient methods, and clip-ping under heavy-tailed noise. We organize the discussion by oracle model and problem geom-etry because these distinctions determine whether an existing guarantee applies to the setting considered here. 
+
+First-order methods with Markovian data. Early analyses include ergodic mirror descent [7], Markov-chain gradient descent [27], and non-asymptotic biased stochastic approximation [15]. For nonconvex constrained problems, [1] analyzes projected SGD, AdaGrad-norm, heavy-ball, and proximal SGD with a convex regularizer, obtaining ˜O(ε−4) rates under a mixing condition. These methods neither use recursive variance reduction nor call a conditional-gradient oracle. The multilevel estimator of [6], on which our estimator is based, gives mixing-time-oblivious rates for smooth non-composite problems, including an ˜O(ε−4) nonconvex rate without variance reduction. Related results include sharper SGD bounds [8], convex mirror-descent and variational-inequality methods [26], and stochastically constrained convex optimization [16]. Recursive variance reduction under Markovian sampling was posed as an open direction in [29]. MaC-SPIDER subsequently resolved the smooth unconstrained case using a single trajectory [28]. Under mean-squared smoothness, it attains O(τmix π−1/2min ε−3) and provides an algorithm-independent Ω( τ ε −3) lower bound in terms of a hitting-time scale τ . Our setting differs in its compact constraint geometry, composite linear oracle, Lipschitz-constant-free adaptation, and generalized Frank–Wolfe-gap stationarity measure. 
+
+Recursive variance reduction under independent sampling. SPIDER [9] and STORM [5] attain the optimal ˜O(ε−3) complexity for smooth nonconvex problems, matching the lower bound in [2]. STORM+ [19] removes parameter knowledge, and composite extensions include [34]. Standard analyses use conditionally unbiased gradient differences. A fixed-chain Markovian burst violates this identity, so the resulting conditional bias must be controlled within the recursive error analysis. 
+
+Conditional-gradient methods. The Frank–Wolfe method [10, 14] avoids projection by call-ing a linear minimization oracle. Nonconvex analysis began with [17]. Stochastic and variance-reduced variants include [13, 20, 25]. Our base method is the adaptive Lipschitz-constant-free framework ALFCG of [31]. Its momentum variant ALFCG-MVR2 handles convex composite terms through a linear oracle and attains ˜O(σε −3 + ε−2) for the generalized Frank–Wolfe gap under in-dependent sampling. A related line develops Lipschitz-constant-free proximal variance-reduced methods [30]. We extend the conditional-gradient rather than the proximal framework because the compact feasible set and linear-oracle geometry are central to the present Markovian con-struction. Two recent general frameworks are especially close in methodology. An abstract estimator analysis for stochastic Frank–Wolfe methods [22] does not require unbiased gradient estimates, but it does not instantiate that condition for a single fixed-chain Markov trajectory or the 4composite LMO used here. A Lipschitz-constant-free step strategy combined with stochastic and variance-reduced Frank–Wolfe estimators [21] likewise does not cover fixed-chain Markov sampling or the present composite oracle. These results therefore provide neighboring estimator frameworks rather than the conditional recursion and pathwise adaptive interface established here. 
+
+Episodic variance-reduced policy gradient. SVRPG [23], STORM-PG [32], and ProxH-SPGA [24] obtain variance-reduced policy-gradient rates, with ProxHSPGA also handling com-posite objectives. Their trajectories are independent across iterations and are coupled across parameters by importance sampling. This episodic model differs from the fixed-chain streaming model considered here, where temporal dependence persists across iterations. 
+
+Clipping and heavy-tailed estimators. Gradient clipping is a standard safeguard for heavy-tailed stochastic gradients [4, 12, 33]. In our setting, the multilevel multiplier makes the raw estimator heavy-tailed, whereas the adaptive descent analysis requires a pathwise error bound. Clipping at a mixing-time-free radius enforces that interface and does not increase the pointwise estimation error relative to the true gradient (Lemma 5.3). Multilevel estimation itself originates in [3, 11]. Existing results therefore cover either recursive variance reduction for smooth unconstrained objectives on a single Markovian trajectory or projection-free composite optimization under independent sampling. To our knowledge, the remaining intersection addressed here has not been analyzed: a fixed-chain streaming oracle, a composite linear minimization oracle, Lipschitz-constant-free adaptation, and generalized Frank–Wolfe-gap stationarity. 
+
+# 3 Assumptions and Preliminaries 
+
+We first fix the notation, assumptions, oracle, and stationarity measure used throughout the analysis. 
+
+Notation. ‖·‖ is the Euclidean norm. For a convex set B ⊂ Rn, ΠB denotes the Euclidean projection. For r > 0 we write Πr := Π {g:∥g∥≤ r}. Et−1[·] := E[· | F t−1] denotes conditional expectation with respect to the filtration defined in Section 4. ˜O(·) and ˜Θ( ·) hide polylogarithmic factors in T , τmix , and 1/ε , and log := log 2. A summary of all recurring symbols is provided in Appendix A. 
+
+Assumptions. We adopt the following assumptions regarding problem structure, function regularity, and oracle capabilities. 
+
+Assumption 3.1 (Problem structure) . X ⊂ Rn is compact and convex with diameter D := sup x,y ∈X ‖x − y‖. The function h : Rn → R ∪ { +∞} is proper, closed, and convex, is finite and G-Lipschitz on X , and x0 ∈ X ∩ dom h. The feasible domain is nonempty, the value 
+
+F ∗ := inf x∈X F (x) is finite, and it is attained at some x∗ ∈ X . A sufficient condition for the stated Lipschitz property is ∂h (x) 6 = ∅ and ‖ζ‖ ≤ G for every x ∈ X and ζ ∈ ∂h (x).
+
+Assumption 3.2 (Individual smoothness) . For every z ∈ Z , f (· ; z) is differentiable on X and 
+
+‖∇ f (x; z) − ∇ f (y; z)‖ ≤ L‖x − y‖ for all x, y ∈ X . Moreover, differentiation and stationary 5expectation commute: Eπ[∇f (x; z)] = ∇f (x) for every x ∈ X . Consequently f = Eπ[f (· ; z)] is 
+
+L-smooth. 
+
+Assumption 3.3 (Bounded gradients and known clipping radius) . ‖∇ f (x)‖ ≤ G for all x ∈ X ,and the algorithm has access to a constant ̂ G with ̂ G ≥ G.We use G as a common upper bound for the Lipschitz modulus of h on X and for ‖∇ f ‖ on 
+
+X . This is without loss after replacing separate finite bounds by their maximum. The clipping radius ̂ G must bound this common constant. 
+
+Assumption 3.4 (Bounded centered noise) . There exists a finite constant Gσ satisfying sup x∈X , z ∈Z ‖∇ f (x; z)−∇f (x)‖ ≤ Gσ.
+
+Assumption 3.5 (Markovian oracle) . (zk)k≥0 is a time-homogeneous ergodic Markov chain on 
+
+Z with transition kernel P and stationary distribution π. Its mixing behavior is measured by 
+
+dmix (k) := sup 
+
+> z∈Z
+
+dTV 
+
+(P k(z, ·), π ), τmix := min {k ≥ 1 : dmix (k) ≤ 14 },
+
+with τmix < ∞. As usual dmix is non-increasing and dmix (ℓ τ mix ) ≤ 2−ℓ for all ℓ ≥ 1 [18], whence the summability bound ∑ 
+
+> k≥1
+
+dmix (k) ≤ 2τmix that we use repeatedly. The initial state may be deterministic or random and need not have law π.For the tuned method, a certified integer bound ̂ τmix ≥ τmix may replace τmix in all tuned parameters and guarantees. The resulting complexity is then expressed in ̂ τmix . The displayed rates use the canonical τmix for readability. Individual smoothness, rather than smoothness only in expectation, is also assumed by the base method ALFCG-MVR2 [31]. It is needed because the recursive estimator evaluates two iterates on the same sample. Assumption 3.4 instead controls centered gradient noise. The quantity Gσ is distinct from the common deterministic bound G.The tuned method uses a certified value of Gσ, while clipping uses ̂ G from Assumption 3.3. Neither quantity is a smoothness constant. The analysis does not assume that the chain starts in stationarity or that the iterate sequence is ergodic. The oblivious variant of Theorem 5.8 requires knowledge of neither τmix nor Gσ.
+
+Linear minimization oracle (LMO). Following [31], we assume access to an oracle that, for any g ∈ Rn (typically a gradient estimate), returns a point in the solution set 
+
+LMO( g) := arg min 
+
+> v∈X
+
+〈v, g 〉 + h(v).
+
+Stationarity measure. Since F (·) is possibly nonconvex, we use the generalized Frank–Wolfe gap as the stationarity measure. 
+
+Definition 3.6 (FW gap) . For any x ∈ X , the generalized Frank–Wolfe gap is defined as 
+
+G(x) := 〈∇ f (x), x − ˜v〉 + h(x) − h(˜ v), ˜v ∈ LMO( ∇f (x)) , (2) i.e., the largest decrease of the linearized objective over X .6Algorithm 1: MC-ALFCG : Markov-chain adaptive Lipschitz-constant-free conditional gradient with momentum variance reduction 
+
+Input: horizon T , parameters ρ > 0 and β > 0, clipping radius ̂ G ≥ G, initial point 
+
+x0 ∈ X , and chain state z0. 
+
+> 1
+
+Initialize: x−1 = x0, g−1 = 0 , α0 = 1 , jmax = blog T c 
+
+> 2
+
+for t = 0 , 1, . . . , T do 
+
+// S1) adaptive constants (all Ft−1-measurable)  
+
+> 3
+
+if t = 0 then ˆαt = αt = 1  
+
+> 4
+
+else ui := β + L2 
+
+> i
+
+‖xi+1 − xi‖2, ˆαt =
+
+( 1+max i<t ui 
+
+> 1+ ∑
+> i<t ui
+
+)2/3
+
+, αt = min 0≤k≤t ˆαk 
+
+> 5
+
+Lt = ρ(1 + ∑ 
+
+> i<t
+
+L2 
+
+> i
+
+‖xi+1 − xi‖2)1/2α−1/4
+
+> t
+
+// S2) coupled MLMC burst (Equation (3))  
+
+> 6
+
+draw Jt ∼ Geom( 12 ) independently of Ft−1 and the subsequent transition randomness and advance the chain by Nt steps  
+
+> 7
+
+for y ∈ { xt, x t−1} compute ˆgt(y) := ˆ μMLMC  
+
+> t
+
+[∇f (y; ·)] 
+
+// S3) momentum variance reduction (STORM-type, no anchor) + clipping  
+
+> 8
+
+gpre  
+
+> t
+
+= (1 − αt)(gt−1 − ˆgt(xt−1)) + ˆ gt(xt), gt = Π ̂ G(gpre  
+
+> t
+
+)
+
+// S4) composite LMO and adaptive short step  
+
+> 9
+
+vt ∈ LMO( gt) 
+
+> 10
+
+if vt = xt then ¯ηt = 0  
+
+> 11
+
+else ¯ηt = min 
+
+( h(xt)−h(vt)−⟨ gt, v t−xt⟩ 
+
+> Lt∥vt−xt∥2
+
+, 1
+
+) 
+
+> 12
+
+xt+1 = xt + ¯ ηt (vt − xt)
+
+Output: xˆt with ˆt drawn independently and uniformly from {0, . . . , T }
+
+The gap is nonnegative, and G(x) = 0 if and only if x is a first-order stationary point of Equation (1) in the directional sense. On a compact domain it is the natural projection-free analogue of the gradient mapping. When the population gradient is available, one call to the LMO evaluates the gap. Under the stochastic oracle it serves as the population stationarity measure used by the analysis. A point x ∈ X with G(x) ≤ ε is called an ε-approximate stationary point. 
+
+# 4 The Proposed Algorithm 
+
+The Markov-Chain Adaptive Lipschitz-Constant-Free Conditional Gradient ( MC-ALFCG ) method modifies ALFCG-MVR2 [31] in two respects. It replaces each independent mini-batch by a cou-pled capped multilevel burst drawn from the current Markov-chain state, and it clips the result-ing recursive gradient estimate to a known ball. All adaptive quantities are computed before the burst and are therefore measurable with respect to the past filtration. The remaining conditional-gradient update is inherited from the base method. Sections 4.1 and 4.2 describe the new components, and Section 4.3 summarizes the inherited adaptive quantities. 74.1 Gradient Estimation Mechanism: Coupled Capped MLMC 
+
+Fix a horizon T and let jmax := blog T c, so that 2jmax ∈ [T / 2, T ]. At iteration t the algorithm draws Jt ∼ Geom( 12 ) (i.e. P[Jt = j] = 2 −j , j ≥ 1), independently of Ft−1 and of the subsequent chain-transition randomness, and then advances the chain by 
+
+Nt := 
+
+{
+
+2Jt , Jt ≤ jmax ,
+
+1, Jt > j max ,
+
+steps, obtaining consecutive states z(1)  
+
+> t
+
+, . . . , z (Nt) 
+
+> t
+
+(the chain continues from wherever the previous iteration left it). For an Ft−1-measurable map φ : Z → Rn define the prefix averages and the estimator 
+
+ˆμj [φ] := 12j
+
+> 2j
+
+∑
+
+> i=1
+
+φ(z(i)
+
+> t
+
+),
+
+ˆμMLMC  
+
+> t
+
+[φ] := ˆ μ0[φ] + 
+
+{
+
+2Jt (ˆμJt [φ] − ˆμJt−1[φ]), Jt ≤ jmax ,
+
+0, Jt > j max .
+
+(3) Two implementation details are essential. First, Jt is drawn before any samples: if Jt > j max 
+
+only the single base-level sample is drawn. Without this cap the expected burst length would be ∑ 
+
+> j
+
+2−j 2j = ∞. With it, E[Nt] ≤ 1 + log 2 T (Lemma 5.1(d)). Second, the momentum update evaluates the oracle at both xt and xt−1 on the same samples and the same Jt. By linearity of Equation (3), ̂
+
+∆t := ˆ gt(xt) − ˆgt(xt−1) = ˆ μMLMC 
+
+> t
+
+[∇f (xt; ·) − ∇ f (xt−1; ·)],
+
+so the gradient-difference estimate is itself an MLMC estimator of a function whose centered magnitude is at most 2L‖xt − xt−1‖ by individual smoothness (Assumption 3.2). The coupling does not increase the number of chain transitions because ALFCG-MVR2 already evaluates two iterates on each sampled batch. It makes the variance of the difference proportional to the squared displacement. Throughout, sample complexity counts consumed Markov-chain states (equivalently, chain transitions up to the initial state). Each consumed state supports the two coupled gradient evaluations at xt and xt−1, so the number of stochastic gradient evaluations is at most twice the reported sample count. This constant factor does not alter any displayed rate. 
+
+Filtration. Ft−1 collects everything generated before the t-th burst: all iterates, all previous bursts and Js (s < t ), and the current chain state. In particular, F−1 contains the initial point and initial chain state. it need not be trivial. Consequently, xt, xt−1, gt−1, αt, and Lt are 
+
+Ft−1-measurable. The ordering in Algorithm 1 ensures this property. The burst at iteration t
+
+starts from the Ft−1-measurable chain state. 
+
+4.2 The Clipping Safeguard 
+
+The analysis of the adaptive stepsize machinery consumes a bound on the error st := gt − ∇ f (xt)
+
+along each sample path (see Section 5). The clipping step supplies the pathwise interface required by the transferred analysis. For the unclipped estimator no such bound exists at any useful scale, as the following proposition shows. 8Proposition 4.1 (Heavy tail of the raw estimator, proof in Appendix D) . There is a two-state chain and an oracle satisfying Assumptions 3.2 to 3.5 such that the unclipped initial error 
+
+spre 0 = ˆ g0(x0) − ∇ f (x0) obeys ess sup ‖spre 0 ‖ ≥ (T / 2 − 1) Gσ for every T ≥ 2.
+
+The event J0 = jmax combined with a half-and-half sign pattern realizes the 2J multiplier. Clipping at radius ̂ G removes the issue by construction: ‖gt‖ ≤ ̂ G, hence ‖st‖ ≤ G +̂ G ≤ 2̂ G
+
+and δt := Lt‖xt+1 − xt‖ ≤ G +̂ G almost surely (Lemma 5.3). Because the true gradient lies inside the clipping ball, projection is non-expansive toward it, ‖st‖ ≤ ‖ spre  
+
+> t
+
+‖ pointwise. Thus clipping does not increase the pointwise estimation error relative to the true gradient, and every conditional-moment upper bound remains valid. The radius ̂ G is a fixed problem constant that does not depend on τmix or T . Thus, the safeguard preserves mixing-time obliviousness. The corner convention vt = xt ⇒ ¯ηt := 0 makes the short-step update well-defined when its displayed quotient has zero denominator. 
+
+4.3 Adaptive Lipschitz Estimation and the Short Step 
+
+The adaptive quantities αt and Lt are inherited from ALFCG-MVR2 . The self-normalized weight 
+
+αt controls the momentum recursion, whereas Lt tracks curvature through past iterate displace-ments without requiring prior knowledge of the global smoothness constant. After the composite LMO returns vt, the short-step rule minimizes a quadratic upper model along the conditional-gradient direction. Compactness of X then gives ‖xt+1 − xt‖ ≤ D. Moreover, αt ≥ (t + 1) −2/3,and the expected burst length is at most 1 + log 2 T . Hence expected sample complexity differs from iteration complexity by only a logarithmic factor (proofs in Appendix C). 
+
+Parameter regimes. We analyze two positive-noise instantiations of Algorithm 1. The tuned 
+
+regime sets ρ = √Λ and β = 2Λ G2
+
+> σ
+
+, where Λ := 306 τmix (1+log 2 T ). It requires upper bounds on 
+
+τmix and Gσ and, for fixed D > 0 and Gσ > 0, attains the Λ5/6 exponent of the leading stochastic coefficient. Within the transferred analysis, that exponent cannot be improved by retuning 
+
+(ρ, β ) (Theorems 5.5 and 5.9). The oblivious regime uses fixed ρ, β = Θ(1) and requires neither bound (Theorem 5.8). The exactly noiseless specialization uses ρ = Θ(1) and β = ( T + 1) −1
+
+(Corollary 5.7). 
+
+# 5 Convergence and Sample Complexity 
+
+This section provides the convergence analysis of MC-ALFCG . Throughout, Assumptions 3.1 to 3.5 are in force, MC-ALFCG is run for T + 1 iterations, and we write 
+
+Λ := 306 τmix (1 + log 2 T ), σ2M := 2Λ G2
+
+> σ
+
+,L2M := 2Λ L2, T0 := ⌈(128 τmix )3/4⌉. (4) These quantities are, respectively, the second-moment inflation factor and the effective noise, effective smoothness, and burn-in scales. We further use the error and step magnitudes 
+
+st := gt − ∇ f (xt), δt := Lt‖xt+1 − xt‖.
+
+The analysis has four steps. We first establish conditional-bias and second-moment bounds for the coupled estimator. We then use clipping to obtain the pathwise bounds required by the adaptive step-size argument. These ingredients yield a conditional error recursion with the 9same structure as the independent-sampling recursion after two explicit coefficient substitutions. Finally, we propagate the resulting constants to obtain the tuned and oblivious complexities and characterize the best leading mixing exponent obtainable by parameter tuning within this analysis. 
+
+5.1 Conditional Moments of the Coupled MLMC Estimator 
+
+We begin with the structural properties of the estimator Equation (3). All moment bounds below are conditional on Ft−1 and hold uniformly in the chain state from which the burst starts. No ergodicity of the iterate process is invoked anywhere. 
+
+Lemma 5.1 (MLMC conditional moments, proof in Appendix B) . Let φ : Z → Rn be Ft−1-measurable with ¯φ := Eπ[φ] and ˜H := sup z ‖φ(z) − ¯φ‖. Then, for every realization of the 
+
+Ft−1-measurable chain state from which the burst starts, (a) E[ˆμMLMC  
+
+> t
+
+[φ] ∣∣ Ft−1
+
+] = E[ˆμjmax [φ] ∣∣ Ft−1
+
+] (conditional telescoping). (b) ∥∥E[ˆμMLMC  
+
+> t
+
+[φ] ∣∣ Ft−1
+
+] − ¯φ∥∥ ≤ 4 ˜Hτ mix /2jmax ≤ 8 ˜Hτ mix /T .(c) E[‖ˆμMLMC  
+
+> t
+
+[φ] − ¯φ‖2 ∣∣ Ft−1
+
+] ≤ Λ ˜H2.(d) E[Nt] ≤ 1 + log 2 T .
+
+The telescoping identity in part (a) is the key estimator property. Since Jt is independent of the chain and the levels are nested prefix averages of one burst, conditioning on Ft−1 (which is pre -Jt) telescopes the level corrections: 
+
+E[ˆμMLMC  
+
+> t
+
+[φ] ∣∣ Ft−1
+
+] = E[ˆμ0 ∣∣ Ft−1
+
+] +
+
+> jmax
+
+∑
+
+> j=1
+
+2−j · 2j (
+
+E[ˆμj ∣∣ Ft−1
+
+] − E[ˆμj−1 ∣∣ Ft−1
+
+])
+
+= E[ˆμjmax ∣∣ Ft−1
+
+].
+
+The conditional mean is thus the average over 2jmax ≥ T / 2 consecutive samples, and the vector-valued total-variation bound ‖∫ φ d (μ − ν)‖ ≤ 2 dTV (μ, ν ) ˜H (no dimension factor) gives, uni-formly in the start state, 
+
+∥∥∥E[ˆμMLMC  
+
+> t
+
+[φ] ∣∣ Ft−1
+
+] − ¯φ
+
+∥∥∥ ≤ 12jmax 
+
+> 2jmax
+
+∑
+
+> i=1
+
+2 ˜H d mix (i) ≤ 4 ˜H τ mix 
+
+2jmax ≤ 8 ˜H τ mix 
+
+T ,
+
+which is part (b). Bias control is thereby decoupled from the iterate trajectory: the classical small-step argument (bounding ‖xt − xt−τ ‖) is never used. For the second moment (c), the per-level variance must be capped at the trivial bound for levels 2j ≲ τmix . Below the mixing scale the correlation bound is vacuous. This cap is exactly what limits the inflation to Λ = O(τmix log T )
+
+instead of O(τ 2mix ).We apply Lemma 5.1 to the two functions estimated by the algorithm. Define nt := ˆ gt(xt) −∇f (xt) and et := ̂ ∆t − (∇f (xt) − ∇ f (xt−1)) .
+
+Corollary 5.2 (Two instantiations of one lemma, proof in Appendix C) . Conditionally on Ft−1,error ˜H ≤ conditional bias ≤ conditional 2nd moment ≤
+
+nt Gσ 8Gστmix /T ΛG2
+
+> σ
+
+et min {2L‖xt − xt−1‖, 2Gσ} 16 Lτ mix ‖xt − xt−1‖/T 4Λ L2‖xt − xt−1‖2
+
+10 The bound on et uses individual smoothness (Assumption 3.2): the coupled difference is an MLMC estimate of z 7 → ∇ f (xt; z) − ∇ f (xt−1; z), whose centered magnitude is at most 
+
+2L‖xt − xt−1‖ per sample . Note also that both rows use the centered bound: every mixing-time factor multiplies a power of Gσ (or of the step), which yields the noise-sensitive coefficients below. 
+
+5.2 Pathwise Safety by Construction 
+
+Next, we turn to the pathwise bounds. The downstream analysis of [31] is not an expectation-only argument: the stepsize-ratio bound and the logarithmic truncations apply the displacement bound δt ≤ ¯δ along each sample path. The displacement obeys the pathwise inequality (both stepsize branches, Appendix D) 
+
+δt ≤ G + ‖gt‖ ≤ 2G + ‖st‖,
+
+so a pathwise bound on δt is, in substance, a pathwise bound on ‖st‖. For the raw MLMC estimator, no such bound exists at any useful scale (Proposition 4.1). The clipping step supplies exactly this bound by construction, and does so without touching any conditional moment the analysis uses. 
+
+Lemma 5.3 (Clipping enforces the pathwise bounds, proof in Appendix D) . For every t ≥ 0,almost surely: (a) ‖gt‖ ≤ ̂ G and ‖st‖ ≤ G +̂ G ≤ 2̂ G =: ¯ s.(b) δt ≤ G +̂ G ≤ 2̂G.(c) ‖st‖ ≤ ‖ spre  
+
+> t
+
+‖ pointwise, where spre  
+
+> t
+
+:= gpre  
+
+> t
+
+− ∇ f (xt).
+
+Part (c) uses the non-expansiveness of projection toward a ball containing the true gradient. This property lets the error recursion below run on the clipped sequence with no additional bias term. Part (b) holds in both branches of the stepsize rule and under the corner convention. It is the pathwise displacement bound that the adaptive analysis invokes. The transfer uses two structural facts: the descent inequality of [31, Lemma 6] is pathwise algebra valid for an 
+
+arbitrary gt, and the momentum identity enters at the error recursion replaced by Theorem 5.4. For the raw estimator, the corresponding quantities can have essential supremum Θ( T G σ) by Proposition 4.1. 
+
+5.3 The Reduction Theorem 
+
+The conditional moments and pathwise bounds yield an error recursion with the same form as its independent-sampling counterpart. Markov dependence enters this recursion through two explicit scalar substitutions. 
+
+Theorem 5.4 (Reduction to the i.i.d. recursion, proof in Appendix C) . Let T ≥ T0. Then 
+
+E−1‖s0‖2 ≤ ΛG2 
+
+> σ
+
+almost surely, and for every 1 ≤ t ≤ T ,
+
+Et−1‖st‖2 ≤ (1 − αt)‖st−1‖2 + 2 α2 
+
+> t
+
+σ2M + 8 L2M ‖xt − xt−1‖2. (5) Inequality Equation (5) has the same form as the i.i.d. error recursion of [31, Lemma 26(a)], whose right-hand side is (1 − αt)‖st−1‖2 + 2 α2 
+
+> t
+
+σ2 + 8 L2‖xt − xt−1‖2. The required substitutions are 
+
+σ2 7 −→ σ2M = 2Λ G2
+
+> σ
+
+, L2 7 −→ L2M = 2Λ L2 (inside the recursion only) . (6) 11 To show how the conditional bias is absorbed, decompose the momentum error as spre  
+
+> t
+
+= (1 −
+
+αt)st−1 + (1 − αt)et + αtnt, and clipping only shrinks it: ‖st‖ ≤ ‖ spre  
+
+> t
+
+‖ pointwise (Lemma 5.3(c)). Writing ξt := (1 − αt)et + αtnt and bt := Et−1[ξt],
+
+Et−1‖st‖2 ≤ ‖ (1 − αt)st−1‖2 + 2(1 − αt)〈st−1, b t〉 + Et−1‖ξt‖2
+
+> 1
+
+⃝
+
+≤ (1 − αt)‖st−1‖2 + 2 
+
+> αt
+
+‖bt‖2 + Et−1‖ξt‖2,
+
+where 1⃝ is Young’s inequality with weight αt/2 on the cross term, using (1 −αt)(1− αt
+
+> 2
+
+) ≤ 1−αt.No independence between the burst and st−1 is invoked: the cross-time correlation is paid for by the 2/α t factor and absorbed by the contraction (1 −αt). By Corollary 5.2 and the stepsize lower bound αt ≥ (t + 1) −2/3, each component of the bias cost 2 
+
+> αt
+
+‖bt‖2 is at most 128 τmix T −4/3 ≤ 1
+
+times its variance sibling once T ≥ T0. doubling the variance constants absorbs it, which is the factor 2 in σ2M and L2M. This contraction-based absorption is not available unchanged in an anchored SPIDER recursion, whose within-epoch error is additive rather than damped by 
+
+(1 − αt). MaC-SPIDER controls that different structure through Markov-aware batching [28]. Here the momentum variant is the compatible base for the adaptive conditional-gradient chain. Because Equation (5) is conditional, has the same Ft−1-measurable coefficients as its i.i.d. counterpart, and is accompanied by the pathwise bounds of Lemma 5.3, the downstream analysis of [31, Appendix H] can be transferred after the substitutions Equation (6) and ¯s 7 → 2̂G are verified. Appendices D and E carries out this transfer term by term. Table 2 records which constants acquire a factor of Λ.Table 2: Which constants inflate under the substitution Equation (6). “Source of L” distin-guishes the smoothness constant of the descent inequality (never inflated) from the recursion coefficient (inflated). constant definition source of its L or σ inflates? 
+
+¯δ 8( LD + C + ¯ s + ρD ) descent inequality no ( ¯s = 2 ̂ G: no) 
+
+κ (2 + 2 ¯δ2/ρ )1/2 via ¯δ no 
+
+˙B 18(1 + β + ¯δ2) via ¯δ no (but carries β)
+
+¨B 40 L2κ2ρ−1 ln(1 + ¯δ2T ) recursion coefficient yes: L2 7 → L2M
+
+Y1, Z 1 ∝ ρ2, ∝ ρ6 neither no (only via ρ)
+
+σ2 (in Ω) oracle variance recursion yes: 7 → σ2M
+
+5.4 Complexity of the Tuned Variant 
+
+Theorem 5.5 (Tuned complexity, proof in Appendix E) . Fix a problem-class envelope Gσ > 0
+
+and suppose 0 < G σ ≤ Gσ. Run MC-ALFCG with ρ = ρ⋆ := √Λ and β = β⋆ := σ2M = 2Λ G2
+
+> σ
+
+, and suppose T ≥ T0. Then, with L := max {1, ln(1 + ¯δ2MT )} = O(log(Λ T )) ,
+
+E
+
+[ 1 
+
+> T+1
+
+∑Tt=0 G(xt)
+
+]
+
+≤ R (T + 1) −1/3 + S (T + 1) −1/2, (7) 
+
+where 
+
+R ≤ CR L(G1/3 
+
+> σ
+
+Λ2/3 + G2/3 
+
+> σ
+
+Λ5/6), S ≤ CS L3/2 Λ5/2,
+
+12 with CR, C S explicit constants depending only on (L, D, G, ̂ G, G σ), given in Appendix E. In particular, these constants are uniform over 0 < G σ ≤ Gσ. Consequently, for any 0 < ε ≤ 1,the expected number of samples needed to reach E[G(xˆt)] ≤ ε is at most 
+
+˜O(τ 2mix Gσ ε−3 + τ 5/2mix G2 
+
+> σ
+
+ε−3 + τ 5mix ε−2). (8) We sketch where the exponent comes from. Treating problem constants as O(1) and β =Θ( σ2M), the constant map in Table 2 gives 
+
+Y0
+
+ρ = Θ 
+
+( Λ
+
+> ρ
+
+︸︷︷︸ 
+
+> ˙B
+
++ ρ
+
+︸︷︷︸ 
+
+> Y1
+
++ Λ 
+
+> ρ2
+
++ Λ
+
+> ρ
+
+︸ ︷︷ ︸ 
+
+> ¨B
+
+)
+
+=⇒ ρ⋆ = Θ( √Λ) , Y0
+
+ρ⋆ = Θ( √Λ) .
+
+The remaining factor is exact: β1/3/ϑ = β1/6 + β1/3. Hence the two stochastic branches are 
+
+˜Θ( G1/3 
+
+> σ
+
+Λ2/3) and ˜Θ( G2/3 
+
+> σ
+
+Λ5/6). When β⋆ ≥ 1, the latter is the larger branch and yields the exponent 5/2 = 3 × 56 . When β⋆ < 1, the former gives the continuous low-noise companion. The free parameter ρ is what removes one factor of √Λ from ¨B.
+
+Remark 5.6 . We highlight some features of Theorem 5.5. 1⃝ The lower-order term. The ε−2
+
+term of Equation (8) is not free of the mixing time: at ρ⋆ = √Λ the burn-in constant contains a ρ6 contribution. When D > 0, the upper bound S = ˜O(Λ 5/2) is matched by a lower bound of the same order within the transferred constant propagation (Appendix E). For D = 0 , only the upper bound is asserted. 2⃝ Two noise regimes. If β⋆ = 2Λ G2 
+
+> σ
+
+≥ 1, the τ 5/2mix G2
+
+> σ
+
+ε−3
+
+branch dominates its τ 2mix Gσε−3 companion. If β⋆ < 1, the latter must be retained. Dropping it would make the displayed bound discontinuous at small positive noise. 3⃝ Scope of the tuning certificate. For fixed D > 0 and Gσ > 0, Theorem 5.9 shows that no re-tuning of 
+
+(ρ, β ) within the transferred constant propagation can improve the exponent Λ5/6 of the leading rate coefficient. It does not assert uniform optimality in Gσ or an exact minimizer of the full coefficient. 
+
+Corollary 5.7 (Noise-vanishing and exactly noiseless regimes) . With Gσ fixed, both stochastic 
+
+ε−3 terms of Equation (8) vanish as Gσ → 0. In the exactly noiseless case Gσ = 0 , choose 
+
+ρ = Θ(1) and β = ( T + 1) −1. Then st ≡ 0 and the exact-error specialization of the transferred constant propagation gives 
+
+E
+
+[ 1 
+
+> T+1
+
+∑Tt=0 G(xt)
+
+]
+
+= ˜O(( T + 1) −1/2),
+
+so the expected sample complexity is ˜O(ε−2) with mixing-time-free constants. 
+
+The positive-noise and exactly noiseless conclusions use different parameter branches. The latter is not obtained by substituting Gσ = 0 into β⋆. The centered noise level Gσ and the noise-independent clipping radius make this separation explicit. 
+
+5.5 Complexity of the Mixing-Time-Oblivious Variant 
+
+The tuned parameters (ρ⋆, β ⋆) require (upper bounds on) τmix and Gσ. We next show that neither is necessary for the ε−3 rate itself. 13 Theorem 5.8 (Oblivious complexity, proof in Appendix G) . Run MC-ALFCG with any fixed 
+
+ρ, β = Θ(1) chosen independently of τmix and Gσ (the clipping radius ̂ G is likewise τmix -free), and let T ≥ T0. Then, for any 0 < ε ≤ 1, the expected number of samples needed to reach 
+
+E[G(xˆt)] ≤ ε is at most 
+
+˜O(τ 6mix ε−3 + τ 3mix ε−2).
+
+This shorthand treats the finite noise bound Gσ as a fixed problem constant. More explicitly, the proof gives 
+
+˜O
+
+(
+
+(τ 3mix + τ 6mix G6
+
+> σ
+
+)ε−3 + ( τ 3mix + τ 2mix G4
+
+> σ
+
+)ε−2)
+
+.
+
+Thus the method is oblivious to the value of Gσ, but the guarantee is not uniform over an unbounded family of noise levels. 
+
+The algorithm of Theorem 5.8 uses no knowledge of the mixing time and retains an ε−3
+
+stochastic term for the generalized Frank–Wolfe gap. The comparison with the tuned result is regime dependent: the tuned high-effective-noise branch carries τ 5/2mix G2
+
+> σ
+
+ε−3, whereas its low-effective-noise companion carries τ 2mix Gσε−3. The oblivious bound carries τ 6mix ε−3 after fixed noise constants are suppressed. Results in [1, 6] concern different problem structures and sta-tionarity measures, so none of these expressions is interpreted as a direct rate dominance. 
+
+5.6 Optimality of the Exponent within the Analysis 
+
+We next characterize the best exponent obtainable by tuning within the transferred analysis. 
+
+Theorem 5.9 (In-analysis lower bound, proof in Appendix F) . Consider the rate coefficient 
+
+R(ρ, β ) produced by the transferred constant propagation from [31, Appendix H] under the sub-stitutions Equation (6) . Fix D > 0 and Gσ > 0, and let any admissible pathwise bound ¯δ ≥ 0 be used in the propagation. Then, for all ρ > 0 and β > 0,
+
+R(ρ, β ) ≥ 288 √2 D σ 5/3M = 288 √2 · 25/6 D G 5/3 
+
+> σ
+
+Λ5/6.
+
+For fixed (D, G σ), the exponent Λ5/6 in the tuned upper bound is therefore optimal within the transferred constant propagation, up to logarithms. This does not claim uniform optimality in 
+
+Gσ or that (ρ⋆, β ⋆) exactly minimizes the full coefficient. 
+
+The proof uses two inequalities in the transferred constant propagation that are independent of ¯δ: Y0 ≥ 2Y1 ≥ 24 D2ρ2 and Y0 ≥ 96 ˙B ≥ 1728 β. Therefore 
+
+R ≥ 2 Y0
+
+ρ max (β1/3, σ 2Mβ−2/3) ≥ 2 max 
+
+(
+
+24 D2ρ, 1728 βρ
+
+)
+
+max (β1/3, σ 2Mβ−2/3)
+
+≥ 288 √2 D √β max (β1/3, σ 2Mβ−2/3),
+
+using max( a, b ) ≥ √ab , and the map b 7 → √b max( b1/3, σ 2Mb−2/3) is minimized exactly at b = σ2M
+
+with value σ5/3M . The floor Ω(Λ 5/6) follows. This certificate concerns parameter tuning within the transferred analysis. it is not an algorithmic or information-theoretic lower bound. The next proposition complements it by showing that the pre-clipping estimator can attain the multilevel second-moment scale, without making a claim about the clipped estimator. 14 Proposition 5.10 (Pre-clipping second-moment inflation, proof in Appendix F) . There is a two-state chain and an oracle satisfying Assumptions 3.2 to 3.5 such that the MLMC gradient error at t = 0 obeys 
+
+E‖spre 0 ‖2 ≥ G2 
+
+> σ
+
+τmix 
+
+16 log 
+
+( T
+
+64 τmix 
+
+)
+
+− G2
+
+> σ
+
+,
+
+which is Ω( τmix log T · G2
+
+> σ
+
+) = Ω(Λ G2
+
+> σ
+
+) up to absolute constants when T is sufficiently large relative to τmix and the displayed right-hand side is positive. This construction certifies only the asymptotic pre-clipping moment scale. It is not a lower bound for the clipped estimator and is not used by the upper-complexity theorem. 
+
+5.7 Scope and Limitations 
+
+Remark 5.11 . Three limitations delimit the results. First, clipping is an algorithmic modification that enforces the pathwise error bound required by the transferred analysis. For the original i.i.d. MVR2 estimator of [31], establishing this bound remains the open challenge stated in Remark 23. For our raw capped multilevel estimator, Proposition 4.1 rules out a horizon-independent bound at the required scale. Clipping therefore sidesteps, rather than resolves, the original unclipped question. Second, the capped multilevel estimator has expected logarithmic sample cost but remains heavy-tailed, so all sample-complexity statements are in expectation. Third, Theorem 5.9 con-cerns parameter tuning within the transferred constant propagation. It is neither an information-theoretic lower bound nor a lower bound for the clipped estimator. A different estimator or a clipping-aware Lyapunov analysis may therefore improve the mixing dependence. 
+
+# 6 Conclusions 
+
+In this paper, we introduced MC-ALFCG for nonconvex composite optimization under a fixed-chain streaming Markovian oracle. MaC-SPIDER already provides single-trajectory variance reduction for smooth unconstrained optimization [28]. To our knowledge, MC-ALFCG gives the first guarantee at the different intersection of recursive variance reduction, a projection-free composite LMO, and Lipschitz-constant-free conditional-gradient steps. The technical core is a reduction: a coupled MLMC estimator controls the state-dependent conditional bias, clipping supplies the pathwise interface, and the resulting momentum recursion transfers to the adaptive i.i.d. descent analysis. The resulting two scalar substitutions, together with explicit constant propagation, yield ˜O(( τ 2mix Gσ + τ 5/2mix G2
+
+> σ
+
+)ε−3 + τ 5mix ε−2) expected sample complexity for the gen-eralized Frank–Wolfe gap. An exactly noiseless specialization separately attains ˜O(ε−2) with mixing-time-free constants. For fixed D > 0 and positive noise, a parameter-tuning lower bound matches the leading mixing-inflation exponent within the transferred analysis. We also obtain a mixing-time-oblivious variant at ˜O(τ 6mix ε−3 + τ 3mix ε−2) for fixed problem constants. The hidden constant is not uniform in the centered-noise bound. The method remains oblivious to that bound’s value and preserves Lipschitz-constant-freeness. The tuned stochastic terms remain noise-sensitive and vanish with Gσ. The tuned variant requires certified bounds on both τmix 
+
+and Gσ. The oblivious variant requires neither. Two controlled numerical illustrations indicate reduced relative deterioration under stronger dependence and show that clipping suppresses rare estimator excursions on a nonconvex composite instance. They do not show absolute empirical superiority. 15 Limitations. Our scope is the fixed-chain streaming model. The theory does not cover on-policy reinforcement learning, where the transition kernel depends on the decision variable. It also excludes generally nonstationary replay buffers and temporal-difference learning, whose semi-gradient need not be the gradient of an objective of the form f + h. It does cover the fixed-chain applications listed in Section 1, including off-policy evaluation under a fixed behavior policy. Within the model, several costs remain. Clipping requires a known radius ̂ G ≥ G. The tuned variant requires mixing-time knowledge, although the oblivious variant does not. The complexity statements hold in expectation, and the base method requires convex h.
+
+Outlook. Three questions strike us as natural next steps. First, clipping-aware variance analy-sis : our bounds estimate the second moment of the pre-clipped error. Whether clipping provably reduces the effective σ2M itself is open, and would attack the τmix -exponent from the side that Theorem 5.9 leaves open. Second, information-theoretic lower bounds in τmix for the composite conditional-gradient/FW-gap setting. MaC-SPIDER already gives such lower bounds for smooth unconstrained Markovian variance reduction [28], but they do not directly cover our geometry. Third, the same reduction template plausibly applies to other gradient-based methods whose analyses are driven by a STORM-type recursion, including proximal-linearized ADMM and orthogonalized-momentum methods. The mechanism (mixing inside the burst, bias absorbed by contraction) is not specific to conditional gradient. Carrying it out requires reconciling each method’s additional schedules with the Markovian bias term and is left to future work. 
+
+# References 
+
+[1] Ahmet Alacaoglu and Hanbaek Lyu. Convergence of first-order methods for constrained nonconvex optimization with dependent data. In Proceedings of the 40th International Conference on Machine Learning , volume 202 of Proceedings of Machine Learning Research ,pages 458–489. PMLR, 2023. [2] Yossi Arjevani, Yair Carmon, John C. Duchi, Dylan J. Foster, Nathan Srebro, and Blake Woodworth. Lower bounds for non-convex stochastic optimization. Mathematical Program-ming , 199(1–2):165–214, 2023. doi: 10.1007/s10107-022-01822-7. [3] Jose H. Blanchet and Peter W. Glynn. Unbiased Monte Carlo for optimization and functions of expectations via multi-level randomization. In 2015 Winter Simulation Conference , pages 3656–3667. IEEE, 2015. doi: 10.1109/WSC.2015.7408524. [4] Ashok Cutkosky and Harsh Mehta. High-probability bounds for non-convex stochastic optimization with heavy tails. In Advances in Neural Information Processing Systems ,volume 34, pages 4883–4895. Curran Associates, Inc., 2021. [5] Ashok Cutkosky and Francesco Orabona. Momentum-based variance reduction in non-convex SGD. In Advances in Neural Information Processing Systems , volume 32, pages 15236–15245. Curran Associates, Inc., 2019. [6] Ron Dorfman and Kfir Yehuda Levy. Adapting to mixing time in stochastic optimiza-tion with Markovian data. In Proceedings of the 39th International Conference on Ma-chine Learning , volume 162 of Proceedings of Machine Learning Research , pages 5429–5446. PMLR, 2022. 16 [7] John C. Duchi, Alekh Agarwal, Mikael Johansson, and Michael I. Jordan. Ergodic mirror descent. SIAM Journal on Optimization , 22(4):1549–1578, 2012. doi: 10.1137/110836043. [8] Mathieu Even. Stochastic gradient descent under Markovian sampling schemes. In Proceed-ings of the 40th International Conference on Machine Learning , volume 202 of Proceedings of Machine Learning Research , pages 9412–9439. PMLR, 2023. [9] Cong Fang, Chris Junchi Li, Zhouchen Lin, and Tong Zhang. SPIDER: Near-optimal non-convex optimization via stochastic path-integrated differential estimator. In Advances in Neural Information Processing Systems , volume 31, pages 689–699. Curran Associates, Inc., 2018. [10] Marguerite Frank and Philip Wolfe. An algorithm for quadratic programming. Naval Research Logistics Quarterly , 3(1–2):95–110, 1956. doi: 10.1002/nav.3800030109. [11] Michael B. Giles. Multilevel Monte Carlo path simulation. Operations Research , 56(3): 607–617, 2008. doi: 10.1287/opre.1070.0496. [12] Eduard Gorbunov, Marina Danilova, and Alexander Gasnikov. Stochastic optimization with heavy-tailed noise via accelerated gradient clipping. In Advances in Neural Information Processing Systems , volume 33, pages 15042–15053. Curran Associates, Inc., 2020. [13] Elad Hazan and Haipeng Luo. Variance-reduced and projection-free stochastic optimization. In Proceedings of the 33rd International Conference on Machine Learning , volume 48 of 
+
+Proceedings of Machine Learning Research , pages 1263–1271. PMLR, 2016. [14] Martin Jaggi. Revisiting Frank–Wolfe: Projection-free sparse convex optimization. In 
+
+Proceedings of the 30th International Conference on Machine Learning , volume 28 of Pro-ceedings of Machine Learning Research , pages 427–435. PMLR, 2013. [15] Belhal Karimi, Błażej Miasojedow, Eric Moulines, and Hoi-To Wai. Non-asymptotic analy-sis of biased stochastic approximation scheme. In Proceedings of the Thirty-Second Confer-ence on Learning Theory , volume 99 of Proceedings of Machine Learning Research , pages 1944–1974. PMLR, 2019. [16] Yeongjong Kim and Dabeen Lee. Stochastic-constrained stochastic optimization with Markovian data. Journal of Machine Learning Research , 25(416):1–69, 2024. [17] Simon Lacoste-Julien. Convergence rate of Frank–Wolfe for non-convex objectives. arXiv preprint arXiv:1607.00345 , 2016. URL https://arxiv.org/abs/1607.00345 .[18] David A. Levin and Yuval Peres. Markov Chains and Mixing Times . American Mathemat-ical Society, Providence, RI, 2nd edition, 2017. doi: 10.1090/mbk/107. [19] Kfir Y. Levy, Ali Kavis, and Volkan Cevher. STORM+: Fully adaptive SGD with recursive momentum for nonconvex optimization. In Advances in Neural Information Processing Systems , volume 34, pages 20571–20582. Curran Associates, Inc., 2021. [20] Aryan Mokhtari, Hamed Hassani, and Amin Karbasi. Stochastic conditional gradient meth-ods: From convex minimization to submodular maximization. Journal of Machine Learning Research , 21(105):1–49, 2020. 17 [21] Navil Nandhan, Abbas Khademi, and Antonio Silveti-Falls. Boosted stochastic Frank– Wolfe for constrained nonconvex optimization. arXiv preprint arXiv:2605.25255 , 2026. URL 
+
+https://arxiv.org/abs/2605.25255 .[22] Ruslan Nazykov, Aleksandr Shestakov, Vladimir Solodkin, Aleksandr Beznosikov, Gauthier Gidel, and Alexander Gasnikov. Stochastic Frank–Wolfe: Unified analysis and zoo of spe-cial cases. In Proceedings of the 27th International Conference on Artificial Intelligence and Statistics , volume 238 of Proceedings of Machine Learning Research , pages 4870–4878. PMLR, 2024. URL https://proceedings.mlr.press/v238/nazykov24a.html .[23] Matteo Papini, Damiano Binaghi, Giuseppe Canonaco, Matteo Pirotta, and Marcello Restelli. Stochastic variance-reduced policy gradient. In Proceedings of the 35th Inter-national Conference on Machine Learning , volume 80 of Proceedings of Machine Learning Research , pages 4026–4035. PMLR, 2018. [24] Nhan Pham, Lam Nguyen, Dzung Phan, Phuong Ha Nguyen, Marten van Dijk, and Quoc Tran-Dinh. A hybrid stochastic policy gradient algorithm for reinforcement learning. In 
+
+Proceedings of the Twenty Third International Conference on Artificial Intelligence and Statistics , volume 108 of Proceedings of Machine Learning Research , pages 374–385. PMLR, 2020. [25] Sashank J. Reddi, Suvrit Sra, Barnabás Póczos, and Alexander J. Smola. Stochastic Frank– Wolfe methods for nonconvex optimization. In 2016 54th Annual Allerton Conference on Communication, Control, and Computing , pages 1244–1251. IEEE, 2016. doi: 10.1109/ ALLERTON.2016.7852377. [26] Vladimir Solodkin, Andrey Veprikov, Alexander Chernyavskiy, and Aleksandr Beznosikov. Methods for optimization problems with Markovian stochasticity and non-Euclidean geom-etry. In Proceedings of the AAAI Conference on Artificial Intelligence , volume 40, pages 25508–25517. AAAI Press, 2026. doi: 10.1609/aaai.v40i30.39746. [27] Tao Sun, Yuejiao Sun, and Wotao Yin. On Markov chain gradient descent. In Advances in Neural Information Processing Systems , volume 31, pages 9917–9926. Curran Associates, Inc., 2018. [28] Zhenyu Sun and Ermin Wei. Learning from a single markovian trajectory: Optimality and variance reduction. In D. Belgrave, C. Zhang, H. Lin, R. Pascanu, P. Koniusz, M. Ghassemi, and N. Chen, editors, Advances in Neural Information Processing Systems , volume 38, pages 20004–20033. Curran Associates, Inc., 2025. [29] Puyu Wang, Yunwen Lei, Yiming Ying, and Ding-Xuan Zhou. Stability and generaliza-tion for Markov chain stochastic gradient methods. In Advances in Neural Information Processing Systems , volume 35, pages 37735–37748. Curran Associates, Inc., 2022. [30] Ganzhao Yuan. Adaptive extrapolated proximal gradient methods with variance reduction for composite nonconvex finite-sum minimization. arXiv preprint arXiv:2502.21099 , 2025. URL https://arxiv.org/abs/2502.21099 .[31] Ganzhao Yuan. Adaptive Lipschitz-free conditional gradient methods for stochastic com-posite nonconvex optimization. arXiv preprint arXiv:2603.06369 , 2026. URL https: //arxiv.org/abs/2603.06369 .18 [32] Huizhuo Yuan, Xiangru Lian, Ji Liu, and Yuren Zhou. Stochastic recursive momentum for policy gradient methods. arXiv preprint arXiv:2003.04302 , 2020. URL https://arxiv. org/abs/2003.04302 .[33] Jingzhao Zhang, Tianxing He, Suvrit Sra, and Ali Jadbabaie. Why gradient clipping accel-erates training: A theoretical justification for adaptivity. In International Conference on Learning Representations . OpenReview.net, 2020. URL https://openreview.net/forum? id=BJgnXpVYwS .[34] Junyu Zhang and Lin Xiao. Stochastic variance-reduced prox-linear algorithms for non-convex composite optimization. Mathematical Programming , 195(1–2):649–691, 2022. doi: 10.1007/s10107-021-01709-z. 19 A Notation Summary 
+
+Tables 3 and 4 collect the recurring symbols of the paper, grouped by origin. Symbols are listed in order of first appearance. Table 3: Notation: problem, oracle, and algorithm. 
+
+symbol meaning 
+
+Problem and assumptions (Section 3) 
+
+X , D feasible set (compact and convex) and its diameter 
+
+f (· ; z), f , h, F component loss, f = Ez∼π [f (· ; z)] , convex part, and F = f + hx∗ a minimizer of F over X
+
+L individual smoothness constant (Assumption 3.2) 
+
+G bound on ‖∇ f (x)‖ and on subgradients of ĥ
+
+G known clipping radius, ̂ G ≥ G (Assumption 3.3) 
+
+Gσ centered noise level sup x,z ‖∇ f (x; z) − ∇ f (x)‖
+
+P , π transition kernel and stationary distribution (Assumption 3.5) 
+
+dmix (k), τmix mixing coefficient and mixing time 
+
+LMO( g) composite linear minimization oracle arg min v∈X 〈v, g 〉 + h(v)
+
+G(x) generalized Frank–Wolfe gap (Definition 3.6) 
+
+ΠB , Π̂ G Euclidean projection onto B and clipping operator Π{g:∥g∥≤ ̂ G}
+
+Algorithm (Algorithm 1) 
+
+T , ˆt horizon and output index, uniform on {0, . . . , T }
+
+ρ, β parameters of the adaptive scales Lt, αt
+
+ui, ˆαk, αt momentum-weight accumulators and momentum weight 
+
+Lt adaptive Lipschitz-constant-free scale 
+
+gt, gpre  
+
+> t
+
+clipped gradient estimate and its pre-clipping value 
+
+vt, ¯ηt LMO output and adaptive short step 
+
+MLMC estimator (Section 4.1) 
+
+Jt, Nt, jmax MLMC level ∼ Geom( 12 ), burst length, and level cap blog 2 T c
+
+z(1)  
+
+> t
+
+, . . . , z (Nt) 
+
+> t
+
+consecutive chain samples of the t-th burst 
+
+ˆμj [φ], ˆμMLMC  
+
+> t
+
+[φ] prefix averages and capped MLMC estimator Equation (3) 
+
+ˆgt(y),̂ ∆t MLMC gradient estimate at y and coupled difference ˆgt(xt) − ˆgt(xt−1)
+
+Ft−1, Et−1 filtration before the t-th burst and E[ · | F t−1]
+
+# B Proof for Section 5.1: The Conditional-Moment Lemma 
+
+Setup and notation for this appendix. Fix t and abbreviate φi := φ(z(i) 
+
+> t
+
+), Et−1[·] = E[· | Ft−1]. Conditionally on Ft−1 the burst is a Markov chain started from the Ft−1-measurable current state, i.e. z(i) 
+
+> t
+
+∼ P i(zcur , ·) given Ft−1. We use the coupling convention of Section 4.1: let (z(i) 
+
+> t
+
+)i≥1 denote the chain continued indefinitely, on which the prefix averages ˆμj = ˆ μj [φ] are defined for all j ≤ jmax simultaneously. The algorithm reveals only the first Nt states, and for the realized Jt the estimator Equation (3) coincides with the corresponding expression on the coupled trajectory. Jt is independent of Ft−1 and of the trajectory. Finally, for i < k let Gi
+
+denote the σ-algebra generated by Ft−1 and z(1)  
+
+> t
+
+, . . . , z (i) 
+
+> t
+
+, with G0 := Ft−1.We first record the vector-valued total-variation bound used throughout. 20 Table 4: Notation: analysis quantities. 
+
+symbol meaning 
+
+st, spre  
+
+> t
+
+gradient-estimate error gt − ∇ f (xt) and its pre-clipping value 
+
+nt, et single-point MLMC error and coupled-difference error (Corollary 5.2) 
+
+δt step magnitude Lt‖xt+1 − xt‖
+
+Λ second-moment inflation factor 306 τmix (1 + log 2 T ) Equation (4) 
+
+σ2M, L2M effective noise 2Λ G2 
+
+> σ
+
+and effective smoothness 2Λ L2
+
+T0 burn-in horizon d(128 τmix )3/4e
+
+¯s pathwise error bound 2̂G (Lemma 5.3) 
+
+¯δ, ¯δM pathwise displacement bound of the base analysis and its Markov instantiation 
+
+κ, κM stepsize-ratio constant of [31] and its Markov instantiation 
+
+˙B, ¨B ( ˙BM, ¨BM) aggregate recursion constants (Markov instantiations) 
+
+Y0, Y 1, Z 0, Z 1 constants of the chain of [31, Appendix H] 
+
+R, S coefficients of (T + 1) −1/3 and (T + 1) −1/2 in Equation (7) 
+
+L logarithmic factor max {1, ln(1 + ¯δ2MT )}
+
+˜O(·), ˜Θ( ·) hide polylogarithmic factors in T , τmix , and 1/ε , with log := log 2
+
+Lemma B.1 (TV–Bochner bound) . Let μ, ν be probability measures on Z and ψ : Z → Rn with 
+
+sup z ‖ψ(z)‖ ≤ H. Then ‖∫ ψ d (μ − ν)‖ ≤ 2 dTV (μ, ν ) H.Proof. With λ := μ − ν (a signed measure of total variation ‖λ‖TV = 2 dTV (μ, ν )), 
+
+∥∥∥∫
+
+ψ dλ 
+
+∥∥∥ ≤
+
+∫
+
+‖ψ‖ d|λ| ≤ H ‖λ‖TV = 2 dTV (μ, ν ) H. 
+
+No dimension factor appears. 
+
+Lemma B.2 (Second moment of a consecutive-segment average) . For every offset ℓ ≥ 0 and length m ≥ 1, let ˆμ(m) 
+
+> ℓ
+
+:= 1
+
+> m
+
+∑mr=1 φℓ+r be the average of the m samples immediately following 
+
+Gℓ. Then 
+
+E[‖ˆμ(m) 
+
+> ℓ
+
+− ¯φ‖2 ∣∣ Gℓ
+
+] ≤ 24 ˜H2 τmix 
+
+m .
+
+Proof. 
+
+ψr := φℓ+r.
+
+E[‖ˆμ(m) 
+
+> ℓ
+
+− ¯φ‖2 ∣∣ Gℓ
+
+] = 1
+
+m2
+
+> m
+
+∑
+
+> i=1
+> m
+
+∑
+
+> k=1
+
+E[〈ψi − ¯φ, ψ k − ¯φ〉 ∣∣ Gℓ
+
+]
+
+≤ 1
+
+m2
+
+[ m∑
+
+> i=1
+
+E[‖ψi − ¯φ‖2 ∣∣ Gℓ
+
+] + 2 ∑
+
+> i<k
+
+E[〈ψi − ¯φ, E[ψk − ¯φ | G ℓ+i]〉 ∣∣ Gℓ
+
+]]
+
+> 1
+
+⃝
+
+≤ 1
+
+m2
+
+[
+
+m ˜H2 + 2 ∑
+
+> i<k
+
+˜H · 2 ˜H d mix (k − i)
+
+]
+
+> 2
+
+⃝
+
+≤ 1
+
+m2
+
+[
+
+m ˜H2 + 4 ˜H2 · m · 2τmix 
+
+]
+
+≤ 9 ˜H2τmix 
+
+m ≤ 24 ˜H2τmix 
+
+m ,
+
+where 1⃝ uses ‖ψi − ¯φ‖ ≤ ˜H pointwise, the Cauchy–Schwarz inequality, and E[ψk − ¯φ | G ℓ+i] = 
+
+∫ (φ − ¯φ) d(P k−i(z(ℓ+i) 
+
+> t
+
+, ·) − π) combined with Lemma B.1 and the definition of dmix as a supre-21 mum over the start state. 2⃝ uses ∑ 
+
+> i<k
+
+dmix (k − i) ≤ m ∑ 
+
+> d≥1
+
+dmix (d) ≤ 2mτ mix (Assump-tion 3.5), and the last two steps use τmix ≥ 1. (We state the conservative constant 24 for headroom in what follows.) 
+
+Lemma B.3 (Per-level variance) . For 1 ≤ j ≤ jmax let Vj := Et−1‖ˆμj − ˆμj−1‖2. Then 
+
+Vj ≤ min 
+
+{
+
+4 ˜H2, 144 ˜H2τmix 
+
+2j
+
+}
+
+.
+
+Proof. Write n := 2 j−1, and let ˆA := ˆ μj−1 (average of the first n samples) and ˆB := 1
+
+> n
+
+∑2ni=n+1 φi
+
+(average of the second n), so that ˆμj − ˆμj−1 = 12 ( ˆB − ˆA). For the trivial cap, 
+
+‖ˆμj − ˆμj−1‖ = 12 ‖ ˆB − ˆA‖ ≤ 12
+
+(‖ ˆB − ¯φ‖ + ‖ ˆA − ¯φ‖) ≤ ˜H pointwise ,
+
+so Vj ≤ ˜H2 ≤ 4 ˜H2. For the mixing bound, 
+
+Vj = 14 Et−1‖ ˆB − ˆA‖2 ≤ 12 Et−1‖ ˆA − ¯φ‖2 + 12 Et−1‖ ˆB − ¯φ‖2
+
+> 1
+
+⃝
+
+≤ 12 · 24 ˜H2τmix 
+
+n + 12 · 24 ˜H2τmix 
+
+n = 24 ˜H2τmix 
+
+2j−1 = 48 ˜H2τmix 
+
+2j ≤ 144 ˜H2τmix 
+
+2j ,
+
+where 1⃝ applies Lemma B.2 to ˆA with ℓ = 0 , and to ˆB with ℓ = n (the segment following the first-half information), each with m = n = 2 j−1. The tower property then removes the conditioning on Gn in the second bound. 
+
+Proof of Lemma 5.1. (a) Conditional telescoping. Since Jt is independent of Ft−1 and of the coupled trajectory, and each ˆμj is a function of the trajectory alone, 
+
+E[ˆμMLMC  
+
+> t
+
+[φ] ∣∣ Ft−1
+
+] 1⃝
+
+= E[ˆμ0 ∣∣ Ft−1
+
+] +
+
+> jmax
+
+∑
+
+> j=1
+
+P[Jt = j] · 2j (
+
+E[ˆμj ∣∣ Ft−1
+
+] − E[ˆμj−1 ∣∣ Ft−1
+
+])
+
+= E[ˆμ0 ∣∣ Ft−1
+
+] +
+
+> jmax
+
+∑
+
+> j=1
+
+(
+
+E[ˆμj ∣∣ Ft−1
+
+] − E[ˆμj−1 ∣∣ Ft−1
+
+])
+
+= E[ˆμjmax ∣∣ Ft−1
+
+],
+
+where 1⃝ uses E[X1{Jt = j} | F t−1] = 2 −j E[X | F t−1] for trajectory-measurable X. Note the filtration is pre -Jt: the telescoping is conditional precisely because Ft−1 contains no information about Jt.
+
+(b) Bias. With z(i) 
+
+> t
+
+∼ P i(zcur , ·) given Ft−1,
+
+∥∥∥E[ˆμMLMC  
+
+> t
+
+[φ] ∣∣ Ft−1
+
+] − ¯φ
+
+∥∥∥ =
+
+∥∥∥ 12jmax 
+
+> 2jmax
+
+∑
+
+> i=1
+
+(
+
+E[φi
+
+∣∣ Ft−1
+
+] − ¯φ
+
+)∥ ∥∥
+
+> 1
+
+⃝
+
+≤ 12jmax 
+
+> 2jmax
+
+∑
+
+> i=1
+
+2 ˜H d mix (i) ≤ 2 ˜H
+
+2jmax · 2τmix = 4 ˜Hτ mix 
+
+2jmax ≤ 8 ˜Hτ mix 
+
+T ,
+
+where 1⃝ is Lemma B.1 applied to P i(zcur , ·) versus π, and the final step uses 2jmax ≥ T / 2. The bound is uniform over the start state zcur . No stationarity or ergodicity of the iterate process is used. 22 (c) Second moment. Decompose ˆμMLMC  
+
+> t
+
+[φ] − ¯φ = (ˆ μ0 − ¯φ) + 2 Jt (ˆ μJt − ˆμJt−1)1{Jt ≤ jmax }.Then 
+
+Et−1‖ˆμMLMC  
+
+> t
+
+[φ] − ¯φ‖2 ≤ 2 Et−1‖ˆμ0 − ¯φ‖2 + 2 Et−1
+
+∥∥∥2Jt (ˆ μJt − ˆμJt−1)1{Jt ≤ jmax }
+
+∥∥∥2
+
+> 1
+
+⃝
+
+= 2 Et−1‖ˆμ0 − ¯φ‖2 + 2 
+
+> jmax
+
+∑
+
+> j=1
+
+2−j · 4j Vj ≤ 2 ˜H2 + 2 
+
+> jmax
+
+∑
+
+> j=1
+
+2j Vj ,
+
+where 1⃝ again uses Jt ⊥ (Ft−1, trajectory ). only one level is ever drawn, so no cross-level terms appear beyond the single (a + b)2 ≤ 2a2 + 2 b2 above. If T ≥ τmix , split the level sum at the mixing scale (Lemma B.3): 
+
+> jmax
+
+∑
+
+> j=1
+
+2j Vj ≤ ∑ 
+
+> j: 2 j≤τmix
+
+2j · 4 ˜H2 + ∑  
+
+> j:τmix <2j≤2jmax
+
+144 ˜H2τmix 
+
+> 1
+
+⃝
+
+≤ 8 ˜H2τmix + 144 ˜H2τmix 
+
+(1 + log 2(T /τ mix )),
+
+where 1⃝ uses the geometric sum ∑  
+
+> 2j≤τmix
+
+2j ≤ 2τmix and the level count #{j : τmix < 2j ≤
+
+2jmax } ≤ b log 2 T c − b log 2 τmix c ≤ 1 + log 2(T /τ mix ) (the “ +1 ” from the floors is not optional). Hence 
+
+Et−1‖ˆμMLMC  
+
+> t
+
+[φ] − ¯φ‖2 ≤ 2 ˜H2 + [304 + 288 log 2(T /τ mix )] ˜H2τmix 
+
+≤ 306 ˜H2τmix (1 + log 2 T ) = Λ ˜H2,
+
+using 2 ≤ 2τmix , 304 + 2 = 306 , 288 ≤ 306 , and log 2(T /τ mix ) ≤ log 2 T . If instead T < τ mix ,every level takes the trivial cap: ∑ 
+
+> j
+
+2j Vj ≤ 4 ˜H2 ∑ 
+
+> j≤jmax
+
+2j ≤ 8 ˜H2 · 2jmax ≤ 8 ˜H2T < 8 ˜H2τmix ,so the total is at most 2 ˜H2 + 16 ˜H2τmix ≤ 18 ˜H2τmix ≤ Λ ˜H2. Omitting the trivial cap on the low levels would inflate the sum to Θ( τ 2mix ) because the chain has not yet mixed and the correlation bound of Lemma B.2 is vacuous there. The cap limits the inflation to Λ = O(τmix log T ).
+
+(d) Expected samples. By the capped-sampling rule, 
+
+E[Nt] = 
+
+> jmax
+
+∑
+
+> j=1
+
+2−j · 2j + ∑
+
+> j>j max
+
+2−j · 1 = jmax + 2 −jmax ≤ log 2 T + 1 .
+
+Had the algorithm drawn 2Jt samples unconditionally, the expectation would be ∑ 
+
+> j≥1
+
+2−j 2j =
+
+∞. Drawing Jt first and falling back to the base level when Jt > j max is what makes the expected cost logarithmic. 
+
+# C Proofs for Sections 5.1 and 5.3 
+
+We first record two elementary facts about the adaptive weights. 
+
+Lemma C.1 (Deterministic stepsize floor) . For all t ≥ 0, αt ≥ (t + 1) −2/3, deterministically and with no upper bound on the ui required. Proof. Fix 1 ≤ k ≤ t and write Mk := max i<k ui, Sk := ∑ 
+
+> i<k
+
+ui, so that Sk ≤ kM k. Then 
+
+ˆαk =
+
+( 1 + Mk
+
+1 + Sk
+
+)2/3
+
+≥
+
+( 1 + Mk
+
+1 + kM k
+
+)2/3 1⃝
+
+≥ k−2/3,
+
+23 where 1⃝ holds since k(1 + Mk) ≥ 1 + kM k ⇐⇒ k ≥ 1. Together with ˆα0 = 1 , αt =min 0≤k≤t ˆαk ≥ t−2/3 ≥ (t + 1) −2/3 for t ≥ 1, and α0 = 1 .
+
+Lemma C.2 (Reciprocal-increment bound) . For all t ≥ 0,
+
+0 ≤ 1
+
+αt+1 
+
+− 1
+
+αt
+
+≤ 23 deterministically .
+
+Proof. The case t = 0 is immediate because α0 = α1 = 1 . For k ≥ 1, let Sk := ∑ 
+
+> i<k
+
+ui,
+
+Mk := max i<k ui, and rk := (1 + Sk)/(1 + Mk), so ˆα−1 
+
+> k
+
+= r2/3 
+
+> k
+
+. Adding uk gives rk+1 − rk ≤ 1
+
+whenever rk+1 > r k. Indeed, if uk ≤ Mk, the difference is uk/(1 + Mk) ≤ 1. If uk > M k, then 
+
+rk+1 − rk = Sk
+
+1 + uk
+
+− Sk − Mk
+
+1 + Mk
+
+≤ Mk
+
+1 + Mk
+
+≤ 1.
+
+Since rk ≥ 1 and x 7 → x2/3 has derivative at most 2/3 on [1 , ∞), (r2/3 
+
+> k+1
+
+− r2/3 
+
+> k
+
+)+ ≤ 2/3. Finally, 
+
+α−1 
+
+> t
+
+= max 0≤k≤t ˆα−1 
+
+> k
+
+, so taking running maxima preserves the same one-step increment bound. 
+
+Lemma C.3 (Conditional Abel transfer) . Let F−1 ⊆ F 0 ⊆ · · · ⊆ F T be a filtration. Let S−1 = 0 ,let St ≥ 0 be Ft-measurable, let Bt ≥ 0 be Ft−1-measurable for 0 ≤ t ≤ T , and let αt ∈ (0 , 1] be 
+
+Ft−1-measurable for 0 ≤ t ≤ T + 1 . Assume that the displayed expectations below are finite. Set 
+
+At := α−1 
+
+> t
+
+. Suppose α0 = 1 ,
+
+Et−1[St] ≤ (1 − αt)St−1 + Bt, 0 ≤ α−1 
+
+> t+1
+
+− α−1 
+
+> t
+
+≤ 23 .
+
+Then 
+
+E
+
+[ T∑
+
+> t=0
+
+St
+
+]
+
+≤ 3 E
+
+[ T∑
+
+> t=0
+
+Bt
+
+αt
+
+]
+
+. (9) 
+
+Proof. 
+
+Et−1[St] ≤ (1 − αt)St−1 + Bt
+
+⇐⇒ Et−1[St] ≤ (At − 1) (St−1 − Et−1[St]) + AtBt
+
+> 1
+
+⃝
+
+=⇒ E[St] ≤ E[(At − 1)( St−1 − St) + AtBt
+
+].
+
+E
+
+[ T∑
+
+> t=0
+
+St
+
+]
+
+≤ E
+
+[ T∑
+
+> t=0
+
+(At − 1)( St−1 − St) + 
+
+> T
+
+∑
+
+> t=0
+
+AtBt
+
+]
+
+> 2
+
+⃝
+
+= E
+
+[
+
+(A0 − 1) S−1 + (1 − AT +1 )ST +
+
+> T
+
+∑
+
+> t=0
+
+(At+1 − At)St +
+
+> T
+
+∑
+
+> t=0
+
+AtBt
+
+]
+
+≤ 23 E
+
+[ T∑
+
+> t=0
+
+St
+
+]
+
++ E
+
+[ T∑
+
+> t=0
+
+Bt
+
+αt
+
+]
+
+=⇒ E
+
+[ T∑
+
+> t=0
+
+St
+
+]
+
+≤ 3E
+
+[ T∑
+
+> t=0
+
+Bt
+
+αt
+
+]
+
+.
+
+where 1⃝ uses the Ft−1-measurability of At and Bt and the tower property. Step 2⃝ is Abel summation, with A0 = 1 , S−1 = 0 , 1 − AT +1 ≤ 0, and 0 ≤ At+1 − At ≤ 2/3.24 C.1 Proof of Corollary 5.2 
+
+Proof of Corollary 5.2. Both xt and xt−1 are Ft−1-measurable, so φ(1) (z) := ∇f (xt; z) and 
+
+φ(2) (z) := ∇f (xt; z) − ∇ f (xt−1; z) are Ft−1-measurable maps. By linearity of Equation (3) in φ
+
+(same Jt, same samples), 
+
+ˆgt(xt) = ˆ μMLMC  
+
+> t
+
+[φ(1) ],̂ ∆t = ˆ gt(xt) − ˆgt(xt−1) = ˆ μMLMC  
+
+> t
+
+[φ(2) ].
+
+For φ(1) , ¯φ(1) = ∇f (xt) and ˜H ≤ Gσ by Assumption 3.4. For φ(2) , ¯φ(2) = ∇f (xt) − ∇ f (xt−1),and pointwise in z,
+
+‖φ(2) (z) − ¯φ(2) ‖ ≤ ‖∇ f (xt; z) − ∇ f (xt−1; z)‖ + ‖∇ f (xt) − ∇ f (xt−1)‖ ≤ 2L‖xt − xt−1‖,
+
+by individual smoothness (Assumption 3.2, which also implies smoothness of f ). Alternatively, 
+
+‖φ(2) (z) − ¯φ(2) ‖ ≤ ‖∇ f (xt; z) − ∇ f (xt)‖ + ‖∇ f (xt−1; z) − ∇ f (xt−1)‖ ≤ 2Gσ.
+
+All four bounds of the corollary now follow from Lemma 5.1(b)–(c) with the respective ˜H.
+
+C.2 Proof of Theorem 5.4 
+
+Proof of Theorem 5.4. Initialization. At t = 0 , α0 = 1 and g−1 = 0 give gpre 0 = ˆ g0(x0), hence 
+
+spre 0 = n0. By Lemma 5.3(c) and Corollary 5.2, the following holds almost surely: 
+
+E−1‖s0‖2 ≤ E−1‖n0‖2 ≤ ΛG2
+
+> σ
+
+.
+
+Decomposition. Fix t ≥ 1. From the definition of gpre  
+
+> t
+
+(in which gt−1 is the clipped iterate of the previous step, so that st−1 = gt−1 − ∇ f (xt−1) is exactly the clipped error and is Ft−1-measurable), 
+
+spre  
+
+> t
+
+= (1 − αt)(gt−1 − ˆgt(xt−1)) + ˆ gt(xt) − ∇ f (xt)= (1 − αt) st−1 + (1 − αt) et + αt nt =: (1 − αt) st−1 + ξt,
+
+by adding and subtracting (1 − αt)∇f (xt−1) and αt∇f (xt). Write bt := Et−1[ξt].
+
+Conditional expansion. Using Lemma 5.3(c) and the Ft−1-measurability of αt and st−1,
+
+Et−1‖st‖2 ≤ Et−1‖spre  
+
+> t
+
+‖2
+
+= (1 − αt)2‖st−1‖2 + 2(1 − αt)〈st−1, b t〉 + Et−1‖ξt‖2
+
+> 1
+
+⃝
+
+≤ (1 − αt)2‖st−1‖2 + (1 − αt)
+
+[ αt 
+
+> 2
+
+‖st−1‖2 + 2 
+
+> αt
+
+‖bt‖2]
+
++ Et−1‖ξt‖2
+
+> 2
+
+⃝
+
+≤ (1 − αt)‖st−1‖2 + 2 
+
+> αt
+
+‖bt‖2 + Et−1‖ξt‖2,
+
+where 1⃝ is Young’s inequality 2〈st−1, b t〉 ≤ αt 
+
+> 2
+
+‖st−1‖2 + 2 
+
+> αt
+
+‖bt‖2 applied inside the factor (1 −αt),and 2⃝ uses (1 − αt)(1 − αt
+
+> 2
+
+) ≤ 1 − αt and 1 − αt ≤ 1, valid for all αt ∈ (0 , 1] . No independence between the burst and st−1 is used: the cross term is controlled by Cauchy–Schwarz–Young pointwise, and the price 2/α t is paid to the contraction. 
+
+Variance. By Corollary 5.2 and (a + b)2 ≤ 2a2 + 2 b2,
+
+Et−1‖ξt‖2 ≤ 2(1 − αt)2 Et−1‖et‖2 + 2 α2 
+
+> t
+
+Et−1‖nt‖2 ≤ 8Λ L2‖xt − xt−1‖2 + 2 α2 
+
+> t
+
+ΛG2
+
+> σ
+
+.
+
+25 Bias. Again by Corollary 5.2 and (a + b)2 ≤ 2a2 + 2 b2,
+
+2
+
+αt
+
+‖bt‖2 ≤ 2
+
+αt
+
+[
+
+2
+
+( 16 Lτ mix ‖xt − xt−1‖
+
+T
+
+)2
+
++ 2 α2
+
+> t
+
+( 8Gστmix 
+
+T
+
+)2]
+
+= 4
+
+αt
+
+( 16 Lτ mix ‖xt − xt−1‖
+
+T
+
+)2
+
++ 4 αt
+
+( 8Gστmix 
+
+T
+
+)2
+
+.
+
+Define rt := 128 τ 2mix /(αtΛT 2). Each component equals rt times its variance sibling, including the zero-noise and zero-displacement cases: 
+
+4α−1
+
+> t
+
+( 16 Lτ mix ‖xt − xt−1‖
+
+T
+
+)2
+
+= rt 8Λ L2‖xt − xt−1‖2,
+
+4αt
+
+( 8Gστmix 
+
+T
+
+)2
+
+= rt 2α2 
+
+> t
+
+ΛG2
+
+> σ
+
+.
+
+The common multiplier is controlled by 
+
+128 τ 2mix 
+
+αtΛT 2
+
+> 1
+
+⃝
+
+≤ 128 τ 2mix (T + 1) 2/3
+
+ΛT 2
+
+> 2
+
+⃝
+
+≤ 128 · 22/3 τ 2mix 
+
+Λ T 4/3
+
+> 3
+
+⃝
+
+≤ 128 · 22/3
+
+306 · τmix 
+
+T 4/3 ≤ 128 τmix T −4/3 ≤ 1,
+
+where 1⃝ is Lemma C.1 with t ≤ T . Step 2⃝ uses (T +1) 2/3 ≤ (2 T )2/3. Step 3⃝ uses Λ ≥ 306 τmix ,and the final step holds precisely when T 4/3 ≥ 128 τmix , i.e. T ≥ (128 τmix )3/4, which is the burn-in T ≥ T0. (The margin at step 3⃝ is in fact a further factor 128 · 22/3/306 < 0.67 . We keep the conservative threshold.) 
+
+Conclusion. Each bias component is at most its variance sibling, so 
+
+Et−1‖st‖2 ≤ (1 − αt)‖st−1‖2 + 2 (8Λ L2‖xt − xt−1‖2 + 2 α2 
+
+> t
+
+ΛG2
+
+> σ
+
+)
+
+= (1 − αt)‖st−1‖2 + 2 α2 
+
+> t
+
+σ2M + 8 L2M‖xt − xt−1‖2,
+
+with σ2M = 2Λ G2 
+
+> σ
+
+and L2M = 2Λ L2: the factor 2 in each effective constant is exactly the absorption margin for the conditional bias. Because the recursion is stated conditionally, with all coefficients 
+
+Ft−1-measurable, and links the clipped errors to themselves (via Lemma 5.3(c) at each step), it can be iterated by the tower property with no auxiliary unclipped sequence. 
+
+Remark C.4 (Why the momentum recursion, and not an anchored one) . The absorption above leans on the contraction (1 − αt): the bias enters once per step and is damped geometrically, so paying 2/α t in the Young step costs only the relative factor 128 τmix T −4/3. An anchored (SPIDER-type) recursion accumulates the per-step conditional bias additively over an epoch with no damping. There is no analogous absorption, and the corresponding composition fails. This is the structural reason the momentum variant ALFCG-MVR2 is the right base for the Markovian extension. 
+
+# D Proofs for Sections 4.2 and 5.2: Pathwise Bounds and Trans-ferred Constant Propagation 
+
+D.1 Proof of Lemma 5.3 
+
+Proof of Lemma 5.3. (a). ‖gt‖ ≤ ̂ G is the definition of the projection onto the ball of radius ̂ G.Then, by Assumption 3.3, 
+
+‖st‖ ≤ ‖ gt‖ + ‖∇ f (xt)‖ ≤ ̂ G + G ≤ 2̂ G. 
+
+26 (c). Since ‖∇ f (xt)‖ ≤ G ≤̂ G, the true gradient is a fixed point of the projection, and projections onto convex sets are non-expansive: 
+
+‖st‖ = ∥∥Π̂ G(gpre  
+
+> t
+
+) − Π̂ G
+
+(∇f (xt))∥ ∥ ≤ ‖ gpre  
+
+> t
+
+− ∇ f (xt)‖ = ‖spre  
+
+> t
+
+‖ pointwise .
+
+(b). By Assumption 3.1, h is G-Lipschitz on X . Three cases. If vt = xt, the corner convention gives ¯ηt = 0 , so δt = 0 . If ¯ηt < 1, the stepsize attains the unconstrained minimizer, and 
+
+δt = Lt ¯ηt ‖vt − xt‖ = h(xt) − h(vt) − 〈 gt, v t − xt〉‖vt − xt‖≤ G‖xt − vt‖ + ‖gt‖ ‖ vt − xt‖‖vt − xt‖ = G + ‖gt‖.
+
+If ¯ηt = 1 , the ratio in the stepsize rule is at least 1, so 
+
+Lt‖vt − xt‖2 ≤ h(xt) − h(vt) − 〈 gt, v t − xt〉 ≤ (G + ‖gt‖)‖vt − xt‖
+
+=⇒ δt = Lt‖vt − xt‖ ≤ G + ‖gt‖.
+
+In all cases δt ≤ G + ‖gt‖ ≤ G +̂ G by part (a). We record the intermediate form for later use: 
+
+δt ≤ G + ‖gt‖ ≤ 2G + ‖st‖ almost surely. (10) Inequality Equation (10) explains why a pathwise bound on ‖st‖ is the essential object: the displacement bound the downstream analysis invokes is, in substance, an error bound. It also explains why some algorithmic device is necessary. Proposition 4.1, proved next, shows that the raw estimator has no almost-sure bound on ‖s0‖ at any scale o(T )Gσ exists. 
+
+D.2 Proof of Proposition 4.1 
+
+Proof of Proposition 4.1. Let Z = {− 1, +1 } with the symmetric kernel P (z, −z) = p for a fixed 
+
+p ∈ (0 , 12 ), whose stationary law π is uniform. Fix a unit vector u ∈ Rn and a smooth f0 with bounded gradient on X , and set 
+
+f (x; z) := f0(x) + Gσ z 〈u, x 〉,
+
+so that ∇f (x; z) = ∇f0(x) + Gσz u , f = Eπf (·; z) = f0 (as Eπ[z] = 0 ), Assumption 3.2 holds with the L of f0, and the centered noise is exactly Gσ. At t = 0 , α0 = 1 and g−1 = 0 give 
+
+spre 0 = n0 = ˆ μMLMC 0 [φ] − ¯φ with φ(z) = ∇f (x0; z).Let n := 2 jmax ≥ T / 2 and consider the event 
+
+E := {J0 = jmax 
+
+} ∩ {z(1) 0 = · · · = z(n/ 2) 0 = +1 , z (n/ 2+1) 0 = · · · = z(n)0 = −1}.E has positive probability: P[J0 = jmax ] = 2 −jmax > 0, and every finite sign pattern has positive probability under P since p ∈ (0 , 12 ). On E,
+
+ˆμjmax − ¯φ = Gσu · 1
+
+n
+
+( n 
+
+> 2
+
+− n
+
+> 2
+
+)
+
+= 0 , ˆμjmax −1 − ¯φ = Gσu, ˆμ0 − ¯φ = Gσu, 
+
+so that 
+
+n0 = (ˆ μ0 − ¯φ) + 2 jmax (ˆμjmax − ˆμjmax −1) = Gσu + n (0 − Gσu) = −(n − 1) Gσ u, 
+
+whence ‖spre 0 ‖ = ( n − 1) Gσ ≥ (T / 2 − 1) Gσ on E.27 The mechanism is the MLMC multiplier 2J applied to a level difference that fails to be small when the burst straddles a long excursion of the chain. The event is rare, which is why the 
+
+second moment remains O(Λ G2
+
+> σ
+
+). Essential suprema do not depend on rarity. 
+
+D.3 Transfer of the constant propagation in [31] 
+
+We now make precise the claim that the downstream analysis of [31, Appendix H] applies to MC-ALFCG under re-parameterisation. Throughout, “the base coefficient system” refers to (notation of [31], with C := 2 G the Lipschitz constant of F on X , A := LD + C, and ¯F := sup x∈X (F (x) − F ∗) ≤ 2GD ): 
+
+¯δ = 8 (A + ¯ s + ρD ), κ =
+
+(
+
+2 + 2¯δ2
+
+> ρ
+
+)1/2
+
+, ˙B = 18 (1 + β + ¯δ2), ¨B = 40 L2κ2 
+
+> ρ
+
+ln (1 + ¯δ2T ),Y1 = 12 D2ρ2 + 144 ¯F 2ρ2, Z1 = 27 P 30 , P0 = 1 + 4 ¯F ρ + 4 D2ρ2 + 4Lκ ρ ,Y2 = 96 ( ˙B + ¨B), Z2 = (48 ¨B)3/2 + 96 ˙B
+
+(
+
+σ2 + σ2
+
+> β
+
+)
+
+,Y0 = max(2 Y1, Y 2), Z0 = max(2 Z1, Z 2),
+
+(11) with ϑ = β1/6/(1 + β1/6), culminating in [31, Lemma 27 and Appendix H.5]: 
+
+E
+
+[ 1 
+
+> T+1
+
+∑Tt=0 G(xt)
+
+]
+
+≤ 2 Y0 max (β1/3, ϑ 2, σ 2β−2/3)
+
+ρ ϑ 
+
+︸ ︷︷ ︸ 
+
+> =: R(ρ,β )
+
+(T + 1) −1/3 + 2 Z0
+
+ρ
+
+︸︷︷︸  
+
+> =: S(ρ,β )
+
+(T + 1) −1/2. (12) 
+
+Proposition D.1 (Transfer) . Under Assumptions 3.1 to 3.5, for MC-ALFCG with ρ > 0, β > 0,and T ≥ T0, the bound Equation (12) holds with the substitutions 
+
+σ2 7 → σ2M, L2 7 → L2M (inside ¨B only) , ¯s 7 → 2̂ G. (13) 
+
+Proof. The analysis of [31, Appendix H] consumes the gradient estimator only through three interfaces, which we verify in turn. 
+
+(i) The descent inequality is pathwise algebra, valid for arbitrary gt. [31, Lemma 6] states that for all γt ∈ (0 , 1] ,
+
+γtG(xt) + F (xt+1 ) − F (xt) + δ2
+
+> t
+
+4Lt
+
+≤ δ2 
+
+> t
+
+L
+
+2L2
+
+> t
+
++ 2‖st‖2
+
+Lt
+
++ γ2 
+
+> t
+
+LtD2
+
+(here γt is a free comparison parameter of the analysis, not the algorithm’s step ¯ηt). Its proof uses only the L-smoothness of f , the convexity of h, the optimality of vt in the composite LMO for the same gt the algorithm used , and pointwise Cauchy–Schwarz–Young steps. No unbiasedness, distributional property, or momentum structure of gt enters. It therefore holds verbatim for the clipped gt. (Under the corner convention, if vt = xt then δt = 0 , xt+1 = xt, and by LMO optimality at v = xt the composite gap evaluated at gt is zero, so the inequality degenerates to a true statement.) 
+
+(ii) The momentum identity is consumed at exactly one point. In [31, Appendix H] the update rule for gt is invoked once to derive the error recursion [31, Lemma 26(a)]. Every subsequent step uses the estimator only through st, δt, and αt. We replace that single derivation 28 by Theorem 5.4, which is stated conditionally with Ft−1-measurable coefficients and self-links on the clipped sequence via Lemma 5.3(c). Set St := ‖st‖2, S−1 := 0 , and 
+
+˜B0 := 2 σ2M, ˜Bt := 2 α2 
+
+> t
+
+σ2M + 8 L2M‖xt − xt−1‖2 (1 ≤ t ≤ T ).
+
+The initialization in Theorem 5.4 gives E−1[S0] ≤ ΛG2 
+
+> σ
+
+= σ2M/2 ≤ ˜B0 almost surely, while its conditional recursion gives Et−1[St] ≤ (1 − αt)St−1 + ˜Bt for t ≥ 1. Therefore Lemma C.3, with the reciprocal increment from Lemma C.2, yields the exact cumulative interface 
+
+E
+
+[ T∑
+
+> t=0
+
+‖st‖2]
+
+≤ 3E
+
+[ T∑
+
+> t=0
+
+˜Bt
+
+αt
+
+]
+
+= 3 E
+
+[
+
+2σ2M +
+
+> T
+
+∑
+
+> t=1
+
+(
+
+2αtσ2M + 8L2M
+
+αt
+
+‖xt − xt−1‖2)] 
+
+.
+
+(14) This is precisely the input used after [31, Eq. (43)]. Thus, the random predictable weights are transferred by a proved conditional Abel argument, rather than by treating them as determin-istic. 
+
+(iii) The pathwise displacement bound is available by construction. The remaining proba-bilistic ingredient of the analysis is the displacement bound δt ≤ ¯δ, which is invoked along each sample path: in the stepsize-ratio bound [31, Lemma 25(c)] and in the logarithmic truncation inside the proof of [31, Lemma 26(b)] (where ln(1 + ∑  
+
+> t′≤T−1
+
+δ2 
+
+> t′
+
+) ≤ ln(1 + ¯δ2T ) is applied path-wise). By Lemma 5.3(b), δt ≤ G +̂ G ≤ 8( A + 2 ̂ G + ρD ) = ¯δ∣∣¯s=2 ̂ G almost surely, so every such invocation is valid with ¯s = 2 ̂ G. This bound holds by construction , with no uniform-error hypothesis. (Similarly ‖st‖ ≤ 2̂G a.s. strengthens the second-moment role of ¯s wherever it is used.) Since the chain Equation (11) is monotone non-decreasing in ¯δ and in σ2, and the only occurrences of the recursion constants are the σ2 inherited from [31, Lemma 26(a)] (our σ2M)and the L2 of ¨B (traceable to the displacement-variance coefficient of the recursion, our L2M), the entire chain and the master bound Equation (12) hold under Equation (13). The L appearing in ¯δ and in P0 originates in the descent inequality of step (i), not in the recursion, and is not 
+
+inflated. Tracing this distinction (Table 2) determines the resulting Λ-powers. For completeness, we also make the expectation-level case split in [31, Appendix H.4] ex-plicit. This avoids interpreting a case distinction made after taking expectations as a pathwise statement. Set 
+
+X := E[Γ] , S := E
+
+[ T∑
+
+> t=0
+
+‖st‖2]
+
+, M := max (β1/3, ϑ 2, σ 2β−2/3),A0 := 48 ˙Bσ 2(
+
+1 + 1
+
+β
+
+)
+
++ 48( ˙B + ¨B)M (T + 1) 1/3, b := 48 ¨B. 
+
+The transferred cumulative-error calculation in [31, Appendix H.3(b)], now justified by Equa-tion (14), gives 
+
+S ≤ ˙Bσ 2(
+
+1 + 1
+
+β + β−2/3T 1/3)
+
++ ¨B E[(Γ + T β )1/3]
+
+≤ ˙Bσ 2(
+
+1 + 1
+
+β
+
+)
+
++ ( ˙B + ¨B)M (T + 1) 1/3 + ¨BX 1/3,
+
+29 where the second step uses Jensen’s inequality and (a + b)1/3 ≤ a1/3 + b1/3. Together with the descent calculation preceding [31, Eq. (47)], this yields 
+
+48 S ≤ A0 + bX 1/3,X ≤ Z1 + 24 S + Y1M (T + 1) 1/3. (15) If 24 S ≤ X/ 2, then 
+
+max( X, 48 S) ≤ 2Z1 + 2 Y1M (T + 1) 1/3.
+
+If 24 S > X/ 2, then X < 48 S and Equation (15) yields 
+
+X < A 0 + bX 1/3 ≤ A0 + X
+
+3 + 23 b3/2
+
+=⇒ X ≤ 2A0 + b3/2,
+
+48 S ≤ A0 + bX 1/3 ≤ A0 + X
+
+3 + 23 b3/2 ≤ 2A0 + b3/2.
+
+Consequently, in both cases, 
+
+max( X, 48 S) ≤ max(2 Z1, Z 2) + max(2 Y1, Y 2)M (T + 1) 1/3 = Ω ,
+
+where the definitions of Z2 and Y2 in Equation (11) follow from 2A0 +b3/2. Thus the downstream use of both E[Γ] and the cumulative estimator error is justified without a random-event case split. Two elementary proof details, recorded for completeness. First, the summation inside the logarithmic truncation of [31, Lemma 26(b)] runs over t′ ≤ T −1 (with δ−1 = 0 ), so the truncation constant is ln(1 + ¯δ2T ) exactly as stated. Second, in the case analysis of [31, Appendix H.4] we resolve the inequality x ≤ A0 + bx 1/3 by Young’s inequality, 
+
+bx 1/3 ≤ x 
+
+> 3
+
++ 23 b3/2 =⇒ x ≤ 32 A0 + b3/2 ≤ 2A0 + b3/2,
+
+which reproduces the constants Y2, Z2 of Equation (11). 
+
+Remark D.2 (On the necessity of the pathwise interface) . The need for an almost-sure inter-face comes from the adaptive constant propagation, not from Markovian sampling. The same interface is used in the i.i.d. analysis. For the original estimator of [31], establishing the bound remains the open challenge stated in Remark 23. For our raw capped multilevel estimator, Proposition 4.1 rules out a horizon-independent bound at the required scale. Clipping instead enforces the interface for our algorithm by construction. It does not settle the original unclipped question. 
+
+# E Proof for Section 5.4 
+
+Throughout this appendix the substitutions Equation (13) are in force, all constants refer to Equation (11) so instantiated, and 
+
+ρ⋆ = √Λ, β⋆ = σ2M = 2Λ G2
+
+> σ
+
+, ¯s1 := 2 ̂ G, L = max {1, ln(1 + ¯δ2MT )},
+
+30 with the standing hypotheses of Theorem 5.5: T ≥ T0 and 0 < G σ ≤ Gσ, where Gσ > 0 is the fixed problem-class envelope. Since Λ ≥ 1 and the chain Equation (11) is monotone in ¯δ, and 
+
+2̂G ≤ √Λ ¯ s1 for Λ ≥ 1, we may conservatively carry out the constant propagation with 
+
+¯δM = 8 (A + √Λ ¯ s1 + ρ⋆D), (16) which also covers any intermediate constant choice between the clipped scale 2̂ G and the natural second-moment scale Θ( √Λ Gσ) of the raw error (Proposition 5.10). The definition of L takes a maximum with 1 so that multiplying log-free terms by L in Step 6 below is a valid relaxation. 
+
+Lemma E.1 (Rate coefficient at the tuned parameters) . Under the above, 
+
+R(ρ⋆, β ⋆) ≤ CR L
+
+(
+
+G1/3 
+
+> σ
+
+Λ2/3 + G2/3 
+
+> σ
+
+Λ5/6)
+
+,CR := 2 · 21/3[
+
+24 D2 + 288 ¯F 2 + 1728 c1 + 7680 c2L2]
+
+.
+
+where c1 := 1 + 2 G2 
+
+> σ
+
++ 192 (A2 + ¯ s21 + D2) and c2 := 2 + 384 (A2 + ¯ s21 + D2).Proof. All steps use Λ ≥ 1 (hence √Λ ≥ 1 and Λ/√Λ = √Λ). 
+
+Step 1 ( ¯δ2M). By Equation (16) and (a + b + c)2 ≤ 3( a2 + b2 + c2),
+
+¯δ2M ≤ 192 (A2 + Λ¯ s21 + Λ D2) ≤ 192 (A2 + ¯ s21 + D2) Λ.
+
+Step 2 ( κ2M). 
+
+κ2M = 2 + 2¯δ2M
+
+ρ⋆ ≤ 2 + 384 (A2 + ¯ s21 + D2)Λ
+
+√Λ ≤ c2
+
+√Λ.
+
+Step 3 ( ˙BM). 
+
+˙BM = 18 (1 + β⋆ + ¯δ2M
+
+) ≤ 18 (1 + 2Λ G2 
+
+> σ
+
++ 192( A2 + ¯ s21 + D2)Λ ) ≤ 18 c1 Λ=⇒ 96 ˙BM
+
+ρ⋆ ≤ 1728 c1
+
+√Λ.
+
+Step 4 (absorption of the double inflation in ¨BM). With L2M = 2Λ L2 and ln(1 + ¯δ2MT ) ≤ L ,
+
+¨BM = 40 L2M κ2M
+
+ρ⋆ ln (1 + ¯δ2MT ) ≤ 80Λ L2 · c2
+
+√Λ · L √Λ = 80 c2L2 L Λ=⇒ 96 ¨BM
+
+ρ⋆ ≤ 7680 c2L2 L √Λ.
+
+Note that ¨BM is only ˜O(Λ) , not ˜O(Λ 2): the choice ρ⋆ = √Λ exactly cancels the √Λ of κ2M. This cancellation is the entire function of the tuning. 
+
+Step 5 ( Y1). 2Y1
+
+ρ⋆ = (24 D2 + 288 ¯F 2) ρ⋆ = (24 D2 + 288 ¯F 2)√Λ.
+
+Step 6 (merge). Using Y0 = max(2 Y1, Y 2) ≤ 2Y1 + 96 ˙BM + 96 ¨BM and L ≥ 1,
+
+Y0
+
+ρ⋆ ≤
+
+[
+
+24 D2 + 288 ¯F 2 + 1728 c1 + 7680 c2L2]
+
+L √Λ =: CY L √Λ.
+
+31 Step 7 (the max and ϑ). For every β⋆ = σ2M > 0, ϑ = β⋆1/6/(1 + β⋆1/6) and ϑ2 ≤ β⋆1/3,hence 
+
+max (β⋆1/3, ϑ 2, σ 2Mβ⋆−2/3) = max (σ2/3M , ϑ 2, σ 2/3M
+
+) = σ2/3M = (2Λ G2
+
+> σ
+
+)1/3.
+
+Step 8 (conclusion). 
+
+R(ρ⋆, β ⋆) = 2Y0
+
+ρ⋆
+
+β⋆1/3
+
+ϑ
+
+= 2Y0
+
+ρ⋆
+
+(β⋆1/6 + β⋆1/3)
+
+≤ 2CY L
+
+(
+
+21/6G1/3 
+
+> σ
+
+Λ2/3 + 2 1/3G2/3 
+
+> σ
+
+Λ5/6)
+
+,
+
+which is bounded by the claimed expression because 21/6 ≤ 21/3.
+
+Lemma E.2 (Burn-in coefficient at the tuned parameters) . Under the same hypotheses, with 
+
+CP := 1 + 4 ¯F + 4 D2 + 4 L√c2,
+
+6912 D6 Λ5/2 ≤ S (ρ⋆, β ⋆) ≤ CS L3/2 Λ5/2,CS := 2 
+
+[
+
+54 C3 
+
+> P
+
++ (3840 c2L2)3/2 + 1728 c1(1 + 2 G2
+
+> σ
+
+)
+
+]
+
+.
+
+Proof. Upper bound. At ρ⋆ = √Λ, using Step 2 of Lemma E.1 ( κM ≤ √c2 Λ1/4) and Λ ≥ 1,
+
+P0 = 1 + 4 ¯F ρ ⋆ + 4 D2ρ⋆2 + 4Lκ M
+
+ρ⋆ ≤ 1 + 4 ¯F Λ + 4 D2Λ + 4 L√c2 Λ−1/4 ≤ CP Λ,
+
+so 2Z1 = 54 P 30 ≤ 54 C3 
+
+> P
+
+Λ3. For Z2, by Steps 3–4 of Lemma E.1 and β⋆ = σ2M,
+
+Z2 = (48 ¨BM)3/2 + 96 ˙BM
+
+(β⋆ + 1 ) ≤ (3840 c2L2)3/2 L3/2 Λ3/2 + 1728 c1(1 + 2 G2
+
+> σ
+
+) Λ 2.
+
+Hence, padding every term with L3/2 ≥ 1 and Λ3 ≥ Λ2 ≥ Λ3/2,
+
+S = 2Z0
+
+ρ⋆ ≤ 2(2Z1 + Z2
+
+)
+
+√Λ ≤ CS L3/2 Λ5/2.
+
+Lower bound. P0 ≥ 4D2ρ⋆2 = 4 D2Λ, so Z1 = 27 P 30 ≥ 1728 D6Λ3 and 
+
+S = 2Z0
+
+ρ⋆ ≥ 4Z1
+
+√Λ ≥ 6912 D6 Λ5/2.
+
+When D > 0, the two bounds in Lemma E.2 yield S = ˜Θ(Λ 5/2) up to logarithmic factors. When D = 0 , the upper bound remains valid, but the displayed lower coefficient vanishes and no matched-order claim is made. This lower bound is why Remark 5.6 states the burn-in term explicitly: at the tuned ρ⋆ the constant Z1 = 27 P 30 scales as ρ⋆6 = Λ 3. This ρ6-dependence drives S = ˜Θ(Λ 5/2), not the ¨B3/2 term, which is only ˜Θ(Λ 3/2) here. (The roles reverse in the oblivious regime. See Appendix G.) Tuning ρ jointly with the target accuracy can trade the two coefficients against each other, but Theorem 5.9 shows the T −1/3 coefficient cannot be improved. 32 Proof of Theorem 5.5. By Proposition D.1 the master bound Equation (12) holds under the substitutions Equation (13). The bounds for its two coefficients follow from Lemmas E.1 and E.2, giving Equation (7). For the complexity claim, let 0 < ε ≤ 1 and choose 
+
+T + 1 ≥ max 
+
+{(2R/ε )3, (2S/ε )2, T 0
+
+}
+
+,
+
+so that each term of Equation (7) is at most ε/ 2, and therefore E[G(xˆt)] = E[ 1 
+
+> T+1
+
+∑ 
+
+> t
+
+G(xt)] ≤ ε
+
+for the uniformly drawn output (and a fortiori E[min t G(xt)] ≤ ε). The burn-in term obeys 
+
+T0 ≤ 1 + (128 τmix )3/4 ≤ C0Λ5ε−2,
+
+for an absolute constant C0, because τmix ≥ 1, Λ ≥ 306 τmix , and ε ≤ 1. Therefore the burn-in horizon is absorbed. By Lemmas E.1 and E.2 and (a + b)3 ≤ 4( a3 + b3) for a, b ≥ 0,
+
+T = ˜O(Λ2 Gσ ε−3 + Λ 5/2 G2 
+
+> σ
+
+ε−3 + Λ 5 ε−2) = ˜O(τ 2mix Gσ ε−3 + τ 5/2mix G2 
+
+> σ
+
+ε−3 + τ 5mix ε−2)
+
+iterations, and by Lemma 5.1(d) the expected number of samples is at most (1 + log 2 T ) times the number of iterations, absorbed in ˜O(·).Two details of the constant propagation remain. First, Λ = 306 τmix (1+log 2 T ) depends on T
+
+through a logarithm only. Solving the displayed condition for T with Λ = Λ( T ) changes the result by polylogarithmic factors, absorbed in ˜O(·). Second, when β⋆ = 2Λ G2 
+
+> σ
+
+≥ 1, the Λ5/2G2
+
+> σ
+
+ε−3 term dominates its low-noise companion, and the original high-effective-noise expression is recovered. 
+
+Lemma E.3 (Exact-oracle transfer) . If Gσ = 0 , then for every T ≥ 1 the master bound Equation (12) holds without the burn-in condition T ≥ T0, with σ2 = 0 , ¯s = 0 , and with the occurrence of L2 inside ¨B replaced by 0. The smoothness constant L in P0 remains unchanged. Proof. Gσ = 0 implies ∇f (x; z) = ∇f (x) for every (x, z ). Hence all levels of the MLMC estimator at a fixed point coincide, and ˆgt(x) = ∇f (x) pointwise. Inductively, g−1 = 0 and 
+
+α0 = 1 give gpre 0 = ∇f (x0). If gt−1 = ∇f (xt−1), then 
+
+gpre  
+
+> t
+
+= (1 − αt)(∇f (xt−1) − ∇ f (xt−1)) + ∇f (xt) = ∇f (xt).
+
+Since ‖∇ f (xt)‖ ≤ G ≤̂ G, clipping is inactive and st = 0 for all t. The three transfer interfaces in the proof of Proposition D.1 therefore hold with the exact recursion Et−1‖st‖2 = 0 , whose noise and displacement coefficients are both zero, and with the pathwise scale ¯s = 0 . The condition 
+
+T ≥ T0 enters only when the Markovian conditional bias is absorbed in Theorem 5.4. Here that bias is identically zero. The downstream deterministic constant propagation thus gives Equation (12) for every T ≥ 1 with the stated specialization. 
+
+Proof of Corollary 5.7. Run MC-ALFCG with fixed ρ = ρ0 = Θ(1) and β = βT := ( T + 1) −1 >
+
+0. In the transferred constant propagation, the exact-oracle transfer of Lemma E.3 sets both recursion-only coefficients to zero, so ¨B = 0 and 
+
+Y0 = O(1) , Z0 = O(1) , ϑ = β1/6
+
+> T
+
+1 + β1/6
+
+> T
+
+.
+
+Moreover, 
+
+max( β1/3 
+
+> T
+
+, ϑ 2, 0) 
+
+ϑ = β1/3
+
+> T
+
+ϑ = β1/6 
+
+> T
+
++ β1/3 
+
+> T
+
+= O((T + 1) −1/6).
+
+33 Substitution into Equation (12) gives 
+
+E
+
+[ 1
+
+T + 1 
+
+> T
+
+∑
+
+> t=0
+
+G(xt)
+
+]
+
+= ˜O((T + 1) −1/2),
+
+and therefore ˜O(ε−2) expected samples after including the logarithmic expected burst cost. No constant in this specialization depends on τmix .
+
+# F Proofs for Section 5.6: An In-Analysis Exponent Bound and Pre-Clipping Inflation 
+
+F.1 Proof of Theorem 5.9 
+
+Proof of Theorem 5.9. Fix any ρ > 0, β > 0, and any ¯δ ≥ 0 substituted into Equation (11). The proof uses only two inequalities in the transferred constant propagation. Both are independent of ¯δ, which makes the bound uniform over every admissible pathwise bound: 
+
+Y0 ≥ 2Y1 = 24 D2ρ2 + 288 ¯F 2ρ2 ≥ 24 D2ρ2 =⇒ Y0
+
+ρ ≥ 24 D2ρ , Y0 ≥ Y2 ≥ 96 ˙B = 96 · 18 (1 + β + ¯δ2) ≥ 1728 β =⇒ Y0
+
+ρ ≥ 1728 βρ .
+
+Hence Y0
+
+ρ ≥ max 
+
+(
+
+24 D2ρ, 1728 βρ
+
+) 1⃝
+
+≥ √24 · 1728 D √β = 144 √2 D √β , 
+
+where 1⃝ is max( a, b ) ≥ √ab (24 · 1728 = 41472 = 2 · 144 2). Using ϑ ≤ 1 in Equation (12), 
+
+R(ρ, β ) ≥ 2 Y0
+
+ρ max (β1/3, σ 2Mβ−2/3) ≥ 288 √2 D g (β), g(b) := √b max (b1/3, σ 2Mb−2/3).
+
+On b ≤ σ2M we have b1/3 ≤ σ2Mb−2/3, so g(b) = σ2M b−1/6, strictly decreasing. On b ≥ σ2M,
+
+g(b) = b5/6, strictly increasing. Hence 
+
+min  
+
+> b> 0
+
+g(b) = g(σ2M
+
+) = σM · (σ2M
+
+)1/3 = σ5/3M ,
+
+and R(ρ, β ) ≥ 288 √2 D σ 5/3M = 288 √2·25/6D G 5/3 
+
+> σ
+
+Λ5/6 for all (ρ, β ). Combining with Lemma E.1 gives the squeeze 
+
+288 √2 · 25/6 D G 5/3 
+
+> σ
+
+Λ5/6 ≤ min  
+
+> ρ,β
+
+R(ρ, β ) ≤ R (ρ⋆, β ⋆) ≤ CR L(G1/3 
+
+> σ
+
+Λ2/3 + G2/3 
+
+> σ
+
+Λ5/6).
+
+For fixed D > 0 and Gσ > 0, the Λ5/6 term dominates the tuned upper bound as Λ → ∞ .Thus the upper and lower bounds have the same asymptotic Λ-exponent, up to L = O(log(Λ T )) .The comparison is not uniform in Gσ, and does not identify the exact minimizer of the full coefficient. 
+
+Remark F.1 (What the surrogate balance certifies) . The minimizer of g is uniquely b = σ2M: the parameter β appears in the numerator through ˙B and in the denominator through the stepsize schedule, and the two branches cross exactly at β = σ2M. This lower-bound surrogate motivates the tuning β⋆ = σ2M, consistent with [31, Remark 29]. It does not prove that β⋆ exactly minimizes the full R(ρ, β ), whose remaining terms also depend on the parameters. 34 F.2 Proof of Proposition 5.10 
+
+Proof of Proposition 5.10. Instance. As in Proposition 4.1, take Z = {− 1, +1 }, P (z, −z) = p
+
+with p ∈ (0 , 14 ], stationary (uniform) initialization, and ∇f (x; z) = ∇f0(x) + Gσz u for a unit vector u, so that at t = 0 (where α0 = 1 , g−1 = 0 ) the pre-clip error is the scalar MLMC error: 
+
+spre 0 = n0 = (ˆμMLMC 0 [φ] − ¯φ) with φ(z) = Gσz u + ∇f0(x0). Write r := 1 − 2p and q := 2 p.Under stationarity Cov (z(i), z (k)) = r|i−k|.
+
+Exact segment moments. For the averages ˆA := 1
+
+> n
+
+∑ni=1 z(i) and ˆB := 1
+
+> n
+
+∑2ni=n+1 z(i) over two adjacent segments of length n, summing the geometric covariances gives 
+
+n2 Var( ˆA) = n(1 + r)
+
+q − 2r(1 − rn)
+
+q2 , n2 Cov( ˆA, ˆB) = r (1 − rn)2
+
+q2 > 0.
+
+With n = 2 j−1, ˆμj − ˆμj−1 = 12 ( ˆB − ˆA)Gσu and Var( ˆA) = Var( ˆB) by stationarity, so 
+
+Vj = G2
+
+> σ
+
+2
+
+(
+
+Var( ˆA) − Cov( ˆA, ˆB)
+
+)
+
+.
+
+The two halves are positively correlated, and the covariance reduces Vj . It must be controlled explicitly, not ignored. 
+
+Controlling the covariance. From (1 − rn)2 ≤ 1, n2 Cov( ˆA, ˆB) ≤ r/q 2, and the same relax-ation bounds the second term of Var( ˆA), so 
+
+n2( Var( ˆA) − Cov( ˆA, ˆB)) ≥ n(1 + r)
+
+q − 3rq2
+
+> 1
+
+⃝
+
+≥ n(1 + r)4q ≥ n
+
+4q ,
+
+where 1⃝ holds whenever n ≥ 2/q = 1 /p : then n(1 + r) ≥ 2 
+
+> q
+
+(1 + r) ≥ 4rq (using r ≤ 1), so  
+
+> 3rq2
+
+≤ 34 · n(1+ r) 
+
+> q
+
+. Consequently, for every level with 2j−1 ≥ 1/p ,
+
+2j Vj = 2 n V j ≥ 2n · G2
+
+> σ
+
+2 · 14qn 2 · n = G2
+
+> σ
+
+4q = G2
+
+> σ
+
+8p .
+
+Conversion to the mixing time. For this chain dmix (k) = 12 rk, so τmix = dln 2 / ln(1 /r )e. For 
+
+p ∈ (0 , 14 ] one has 2p ≤ ln(1 /r ) ≤ 4p, whence 
+
+τmix ≤ 1
+
+p ≤ 6 τmix .
+
+Thus every valid level contributes 2j Vj ≥ G2
+
+> σ
+
+/(8 p) ≥ G2
+
+> σ
+
+τmix /8, and validity 2j−1 ≥ 1/p is implied by 2j ≥ 16 τmix (since 2/p ≤ 12 τmix ). The number of levels j with 16 τmix ≤ 2j ≤ 2jmax 
+
+is at least log (T / (64 τmix )) (using 2jmax ≥ T / 2 and generous rounding). 
+
+Assembling. Write X := ˆ μ0 − ¯φ (so ‖X‖ ≤ Gσ pointwise) and CJ := 2 J0 (ˆ μJ0 − ˆμJ0−1)1{J0 ≤
+
+jmax }. From ‖CJ ‖2 ≤ 2‖X + CJ ‖2 + 2 ‖X‖2 and J0 ⊥ chain, 
+
+E‖spre 0 ‖2 = E‖X + CJ ‖2 ≥ 12 E‖CJ ‖2 − E‖X‖2 = 12
+
+∑
+
+> j≤jmax
+
+2−j 4j Vj − E‖X‖2
+
+≥ 12
+
+∑ 
+
+> j: 16 τmix ≤2j≤2jmax
+
+2j Vj − G2 
+
+> σ
+
+≥ G2
+
+> σ
+
+τmix 
+
+16 log 
+
+( T
+
+64 τmix 
+
+)
+
+− G2
+
+> σ
+
+.
+
+35 Finally, if T ≥ (64 τmix )2 then T / (64 τmix ) ≥ √T , so log( T / (64 τmix )) ≥ 12 log T and the bound is ≥ G2    
+
+> στmix log T
+> 32
+
+− G2 
+
+> σ
+
+= Ω(Λ G2
+
+> σ
+
+) up to absolute constants. (For the displayed constant to be positive at finite T one additionally needs τmix log( T / (64 τmix )) ≥ 32 . We use the bound in its asymptotic reading.) 
+
+Remark F.2 (What Proposition 5.10 certifies) . The proposition shows that the pre-clipping 
+
+MLMC error can attain the scale Θ(Λ G2
+
+> σ
+
+), up to absolute constants. It therefore validates the raw-estimator moment bound used by the black-box reduction. It does not imply that the clipped error has the same lower bound: ‖st‖ ≤ ‖ spre  
+
+> t
+
+‖ and ‖st‖ ≤ 2̂ G pathwise. A clipping-aware recursion could thus improve the effective-noise coefficient. Theorem 5.9 applies only to the transferred constant propagation with the substitution Equation (6). 
+
+# G Proof for Section 5.5 
+
+Proof of Theorem 5.8. Fix ρ = ρ0 and β = β0, constants independent of τmix (for concreteness 
+
+ρ0 = β0 = 1 , while general Θ(1) values only change the constants below). The clipping radius ̂ G
+
+is likewise τmix -free, so the algorithm as a whole uses no mixing-time knowledge. Λ appears in the analysis only. Since β0 is not tied to σ2M, we do not pass through the tuned specialization of [31, Theorem 28], which pre-substitutes β ∝ σ2. We instantiate the general chain Equation (11)– Equation (12) of Proposition D.1 directly. Because clipping gives the Λ-free pathwise scale ¯s = 2 ̂ G, the front of the chain does not inflate at all: 
+
+¯δ = 8 (A + 2 ̂ G + ρ0D) = Θ(1) , κ2 = 2 + 2 ¯δ2 = Θ(1) , ˙B = 18 (2 + ¯δ2) = Θ(1) ,
+
+and Λ enters exactly once, through the recursion coefficient in ¨B:
+
+¨B = 40 L2M κ2 ln (1 + ¯δ2T ) = 80Λ L2κ2 ln (1 + ¯δ2T ) = ˜Θ(Λ) ,
+
+whence Y1 = Θ(1) , Y2 = 96( ˙B + ¨B) = ˜O(Λ) , and Y0 = ˜O(Λ) . For the stepsize block, ϑ = Θ(1) 
+
+and 
+
+max (β1/30 , ϑ 2, σ 2Mβ−2/30
+
+) ≤ C0
+
+(1 + σ2M
+
+) = O(1 + Λ G2
+
+> σ
+
+),
+
+where C0 depends only on the fixed β0. Therefore 
+
+R = 2Y0 max( ·)
+
+ρ0ϑ = ˜O(Λ + Λ 2G2
+
+> σ
+
+),
+
+and for the burn-in block, 
+
+Z1 = 27 P 30 = Θ(1) ,Z2 = (48 ¨B)3/2 + 96 ˙B σ 2M
+
+(
+
+1 + 1
+
+> β0
+
+)
+
+= ˜O(Λ3/2 + Λ G2
+
+> σ
+
+),
+
+so Z0 = ˜O(Λ 3/2 + Λ G2
+
+> σ
+
+) and S = 2 Z0/ρ 0 = ˜O(Λ 3/2 + Λ G2
+
+> σ
+
+). Solving R(T + 1) −1/3 ≤ ε/ 2 and 
+
+S(T + 1) −1/2 ≤ ε/ 2 as in the proof of Theorem 5.5 and multiplying by the O(log T ) expected samples per iteration (Lemma 5.1(d)) gives 
+
+T = ˜O(R3ε−3 + S2ε−2)
+
+= ˜O
+
+(
+
+(Λ 3 + Λ 6G6
+
+> σ
+
+)ε−3 + (Λ 3 + Λ 2G4
+
+> σ
+
+)ε−2)
+
+= ˜O(Λ6 ε−3 + Λ 3 ε−2) = ˜O(τ 6mix ε−3 + τ 3mix ε−2).
+
+36 The penultimate simplification treats the finite Gσ as a fixed problem constant. The preceding line records the non-uniform dependence explicitly. 
+
+Remark G.1 (Where the regimes differ) . In the oblivious upper bound the potentially largest burn-in contribution is the (48 ¨B)3/2 = ˜O(Λ 3/2) term, while Z1 = Θ(1) . In the tuned regime of Appendix E the roles are exactly reversed ( Z1 = Θ(Λ 3) via ρ⋆6, while (48 ¨BM)3/2 = ˜O(Λ 3/2)). The dominant constant depends on the parameter regime. Tracking only one contribution would give an incorrect bound in one of the two regimes. 
+
+Remark G.2 (Effect of parameter independence) . Relative to the tuned theorem, the cost of obliviousness is regime dependent. The tuned high-effective-noise branch scales as τ 5/2mix G2
+
+> σ
+
+ε−3,while its low-effective-noise companion scales as τ 2mix Gσε−3. The oblivious stochastic term scales as τ 6mix ε−3 after fixed noise constants are suppressed. The mixing-time-oblivious baseline of [6] is non-composite, not projection-free, and does not use variance reduction, so its ˜O(ε−4) rate is not a direct comparator. We do not claim simultaneous obliviousness and the tuned high-effective-noise exponent. 
+
+# H Experiments 
+
+The first experiment addresses a focused question: how does each method deteriorate as temporal dependence increases while the stationary objective remains fixed? We reproduce the low-rank multiclass-classification setting used for the base method [31] and replace only the independent data stream by a family of Markov chains with a common stationary distribution. The study assesses robustness to dependence. It does not establish large-scale empirical superiority or verify an asymptotic exponent. 
+
+H.1 Datasets and Tasks 
+
+We minimize f (X) = Ez∼π[f (X; z)] , the multinomial logistic loss, over X = {X ∈ Rd×K :
+
+‖X‖∗ ≤ r} with r = 10 (the LMO returns one dominant singular pair and h = 0 ). The data are a synthetic Gaussian mixture in the spirit of the randn instances of [31], with n = 1000 
+
+unit-normalized points in R50 and K = 10 classes. To isolate mixing from the objective, every experiment uses the same uniform stationary law πi = 1 /n . Only the transition kernel changes: 
+
+Pq = (1 − q)I + q 11 T/n. 
+
+This lazy-refresh family is symmetric and doubly stochastic, hence reversible with respect to the common π. Moreover, its worst-case total-variation distance is available in closed form, 
+
+dmix (k) = (1 − q)k(1 − 1/n ). We choose q so that the mixing time in Assumption 3.5 is exactly 
+
+τmix ∈ { 1, 10 , 100 , 334 }. Thus the four columns optimize the same finite-sum objective and differ only in temporal dependence. 
+
+H.2 Compared Methods 
+
+We compare four methods. (i) MC-ALFCG mixing-aware : ρ = ρ0
+
+√ˆΛ and β = 2 ˆΛ ¯G2
+
+> σ
+
+, where 
+
+ˆΛ = τmix (1 + blog 2 T c) and ¯Gσ = 2 √2 max i‖ai‖ is a computable upper bound on the centered gradient noise. This follows only the parameter scaling prescribed by Theorem 5.5, namely 
+
+ρ ∝ √τmix log T and β ∝ τmix log T ¯G2
+
+> σ
+
+. It does not use the theorem’s absolute constants and 37 Table 5: Final-iterate FW gap (mean ± standard deviation over 10 seeds). MC-ALFCG uses a fixed horizon with expected cost 1.08 × 10 5 samples. Baselines use 1.08 × 10 5 updates. Middle block: mixing-aware variant run with inputs max {b τmix /4c, 1} and 4τmix (at τmix = 1 the former coincides with the true value by construction). Bottom block: ratio to each method’s own i.i.d. value.                                                                                                    
+
+> τmix = 1 τmix = 10 τmix = 100 τmix = 334
+> MC-ALFCG (mixing-aware) 0.183 ±0.039 0.360 ±0.045 0.688 ±0.046 0.784 ±0.029
+> MC-ALFCG (oblivious) 0.205 ±0.046 0.617 ±0.269 1.023 ±0.281 1.082 ±0.364
+> ALFCG-MVR2 , stream as i.i.d. 0.036 ±0.009 0.103 ±0.030 0.258 ±0.037 0.372 ±0.051
+> projected SGD 0.011 ±0.004 0.059 ±0.020 0.261 ±0.049 0.423 ±0.091
+> mixing-aware, τmix /40.183 ±0.039 0.339 ±0.061 0.612 ±0.063 0.651 ±0.050
+> mixing-aware, 4τmix 0.181 ±0.025 0.461 ±0.043 0.821 ±0.032 0.917 ±0.016
+> degradation, mixing-aware 1.0×2.0×3.8×4.3×
+> degradation, oblivious 1.0×3.0×5.0×5.3×
+> degradation, base as i.i.d. 1.0×2.9×7.2×10 .3×
+> degradation, projected SGD 1.0×5.2×23 .1×37 .4×
+
+is therefore not presented as the theorem-level tuned instantiation. (ii) MC-ALFCG oblivious :
+
+(ρ, β ) = ( ρ0, 2 ¯G2
+
+> σ
+
+), with no mixing input. (iii) The base ALFCG-MVR2 is fed the Markovian stream as if it were i.i.d. using single-sample batches, no MLMC, and no clipping. This ab-lation isolates the estimator. (iv) Projected SGD follows the Markovian method in [1], step 
+
+c D/ (̂ G√t + 1) . The calibration values ρ0 and c are selected on independent i.i.d. paths and then fixed across all four mixing settings. Projected SGD is included as a statistical baseline rather than as a projection-cost comparison. The experiment runs the clipped algorithm exactly as stated in Algorithm 1, including the corner convention vt = xt ⇒ ¯ηt = 0 .
+
+H.3 Parameter Settings 
+
+MC-ALFCG is run for exactly T + 1 = 8301 iterations, as in Algorithm 1. With jmax = 13 , its expected sample use is (T + 1)( jmax + 2 −jmax ) ≈ 1.08 × 10 5. The realized total varies across capped-MLMC draws and is reported below. The sample-based baselines run for 1.08 × 10 5
+
+updates. The burn-in condition T ≥ T0 of Theorem 5.4 holds in all four settings. Results aggregate 10 seeds, with the same ten random-number seeds used in every mixing column. On five independent i.i.d. calibration paths (seeds 100 –104 , disjoint from the reporting seeds 0–9), a grid search selects ρ0 = 10 −1 from {10 −3, 3×10 −3, 10 −2, 3×10 −2, 10 −1} for the base method and 
+
+c = 10 −1 from {10 −1, 1, 10 } for projected SGD. Both are then fixed across all reported settings. The naive base ablation uses the base-paper default β = 100 . The clipping radius is the rigorous a-priori bound ̂ G = √2 max i‖ai‖ ≥ G, independent of τmix and T . Across the ten reported seeds, the capped-MLMC methods use (1 .129 ± 0.099) × 10 5 samples (range 9.61 × 10 4–1.35 × 10 5) over their fixed horizon. 
+
+H.4 Results and Discussion 
+
+(a) Dependence sensitivity and absolute performance. Because all four chains share the same stationary distribution, variation across columns reflects temporal dependence rather than a change in the objective. As τmix increases from 1 to 334 , the final gaps of the mixing-aware 38 10 −2                       
+
+> 10 −1
+> 10 0
+> FW gap
+> τmix = 1 (q= 1.0000) τmix = 10 (q= 0.1357)
+> 10 210 310 410 5
+> samples consumed
+> 10 −2
+> 10 −1
+> 10 0
+> FW gap
+> τmix = 100 (q= 0.0138)
+> 10 210 310 410 5
+> samples consumed
+> τmix = 334 (q= 0.0041)
+> MC-ALFCG (mixing-aware) MC-ALFCG (oblivious) base MVR2, stream as i.i.d. projected SGD (Markov)
+
+Figure 1: FW gap Equation (2) versus samples consumed for four kernels with a common uniform stationary law and different exact mixing times. Lines are means over 10 seeds. Bands are ±1
+
+standard deviation (clipped below at one quarter of the mean for the logarithmic display). and oblivious variants increase by factors of 4.3 and 5.3, compared with 10 .3 for the naive base estimator and 37 .4 for projected SGD (Table 5 and Figure 1). The multilevel variants therefore exhibit the smallest relative degradation on this testbed. Their absolute final gaps are nevertheless not the smallest: projected SGD performs best for τmix ∈ { 1, 10 }, whereas the naive base method performs best for τmix ∈ { 100 , 334 }. These results support a robustness-to-dependence interpretation, but not absolute empirical superiority. The table compares the methods at their prescribed terminal iterations. The multilevel methods use a random realized sample count, whereas the baselines use the common expected budget 1.08 × 10 5. Consequently, the table is not an exactly budget-matched comparison. The sample-resolved curves in Figure 1 provide the appropriate within-budget view. 
+
+(b) Clipping frequency. Across all MC-ALFCG runs, the clipping activation frequency #{t :
+
+‖gpre  
+
+> t
+
+‖ >̂ G}/(T + 1) ranges from 1.20 × 10 −4 to 3.61 × 10 −3 (mean 1.60 × 10 −3). Thus clipping is rarely active on this testbed, while the pathwise bound it enforces remains a necessary ingredient of the analysis. 
+
+(c) Sensitivity to the mixing input. The 4τmix input increases the final gap in the dependent settings, whereas the max {b τmix /4c, 1} input decreases it at this finite horizon (Table 5, middle block). Thus the theorem-level tuning should not be interpreted as a finite-horizon constant calibration. The oblivious variant removes the mixing-time input altogether at the exponent cost quantified in Theorem 5.8. 39 10 2 10 3 10 4 10 5           
+
+> samples consumed
+> 10 2
+> 10 1
+> 10 0
+> generalized FW gap
+> mix = 1
+> 10 210 310 410 5
+> samples consumed
+> mix = 100
+> 10 210 310 410 5
+> samples consumed
+> mix = 334
+> MC-ALFCG (mixing-aware)
+> MC-ALFCG (unclipped)
+> MC-ALFCG (oblivious)
+> base MVR2, stream as i.i.d.
+> projected proximal SGD
+
+Figure 2: Generalized Frank–Wolfe gap for the nonconvex composite instance Equation (17). All methods are evaluated against consumed Markov states. Lines and bands show means and one standard deviation over ten paired seeds. 
+
+H.5 Nonconvex Composite Regression 
+
+The second experiment exercises the full model rather than the smooth convex special case of the classification study. For unit-norm ai ∈ R30 , we consider 
+
+min 
+
+> x∈[−3,3] 30
+
+{
+
+Φ( x) := 12n
+
+> n
+
+∑
+
+> i=1
+
+( sin( a⊤ 
+
+> i
+
+x) − bi
+
+)2 + 0 .02 ‖x‖1
+
+}
+
+, n = 800 . (17) The features are normalized Gaussian vectors. A five-sparse vector with nonzero entries in 
+
+{− 2, 2} generates bi = clip(sin( a⊤ 
+
+> i
+
+x⋆) + ξi, −1, 1) , where ξi ∼ N (0 , 0.12). The data seed is 
+
+19 . A deterministic verification found a Hessian eigenvalue −0.0200 for the fixed finite-sum smooth objective, while its directional-gradient finite-difference error was 1.43 × 10 −11 . Thus the instance numerically exercises smooth nonconvexity, and h(x) = 0 .02 ‖x‖1 is nonzero, convex, and nonsmooth. For a gradient vector g, the generalized LMO is separable: 
+
+vj (g) = 
+
+
+
+−3, gj > 0.02 ,
+
+0, |gj | ≤ 0.02 ,
+
+3, gj < −0.02 .
+
+Moreover, | sin( a⊤ 
+
+> i
+
+x) − bi| | cos( a⊤ 
+
+> i
+
+x)| ≤ 2, so ̂ G = 2 and ¯Gσ = 4 are valid deterministic bounds. The same lazy-refresh construction gives exact mixing times 1, 100 , and 334 , with a common uniform stationary distribution and the same finite-sum objective. We compare the mixing-aware clipped method, the same method without clipping, the clipped oblivious variant, single-sample ALFCG-MVR2 that treats the stream as independent, and projected proximal SGD. Independent i.i.d. paths with seeds 100 –104 select the interior grid minimizers ρ0 = 0 .3 and proximal step multiplier 0.3. Report seeds 0–9 are never used for calibration. Every entry in Table 6 evaluates the last recorded iterate at or before the common budget of 90 ,000 consumed states. At the two dependent kernels, clipping lowers the gap in all ten paired runs relative to the otherwise identical unclipped variant (Figure 2 and Table 6). Along the unclipped trajectories, the pre-clipping estimator norm exceeds ̂ G = 2 on 3.40% of iterations on average and reaches 40 Table 6: Budget-matched generalized Frank–Wolfe gap at 90 ,000 consumed states for the non-convex composite instance (mean ± standard deviation, ten paired seeds). The common initial gap is 0.4481 .                                                     
+
+> τmix = 1 τmix = 100 τmix = 334
+> MC-ALFCG (mixing-aware) 0.0355 ±0.0082 0.3751 ±0.0481 0.4001 ±0.0203
+> MC-ALFCG (unclipped) 0.1116 ±0.2166 0.5783 ±0.2984 0.5606 ±0.2023
+> MC-ALFCG (oblivious) 0.0416 ±0.0143 0.7082 ±0.0659 0.7272 ±0.0778
+> ALFCG-MVR2 , stream as i.i.d. 0.0038 ±0.0019 0.2569 ±0.0509 0.3579 ±0.0774
+> projected proximal SGD 0.0020 ±0.0004 0.0338 ±0.0091 0.0799 ±0.0207
+
+252 .2. The clipped trajectories activate the safeguard on only 0.057% of iterations on average. The two frequencies are not directly interchangeable because clipping changes subsequent iter-ates. The clipped method’s paired deterioration relative to its own i.i.d. gap is 11 .1× and 11 .9×,compared with 76 .7× and 111 .1× for the naive base estimator. Nevertheless, projected proxi-mal SGD has the smallest absolute gap in every column. The experiment therefore supports the clipping-stability and relative-dependence interpretations, not universal empirical superior-ity. Twenty-nine of the thirty clipped runs finish below the common initial gap. The retained exception is seed 7 at τmix = 100 , whose terminal gap is 0.477 .41
