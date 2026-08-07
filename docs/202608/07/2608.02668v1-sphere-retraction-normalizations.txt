@@ -1,0 +1,3414 @@
+Title: Sphere Retraction Normalizations
+
+URL Source: https://arxiv.org/pdf/2608.02668v1
+
+Published Time: Wed, 05 Aug 2026 00:03:03 GMT
+
+Number of Pages: 24
+
+Markdown Content:
+Sphere Retraction Normalizations 
+
+Jie Zhang 1,∗, Cheng-Fang Su 2,∗, Yi-Jui Huang 1,3, Min-Te Sun 11Department of Computer Science and Information Engineering, National Central University, Taiwan, 
+
+> 2
+
+Department of Applied Mathematics, National Yang Ming Chiao Tung University, Taiwan, 
+
+> 3
+
+Department of Mathematics, National Central University, Taiwan 
+
+> ∗
+
+Equal contribution 
+
+Residual connections are the de facto mechanism for training deep neural networks stably. Geodesic Normalization (GeoNorm) recasts them on a Riemannian manifold, orthogonalizing each layer output against the current hidden state and applying the resulting update through the Riemannian exponential map. Every hidden state thus keeps a constant ℓ2-norm, confining the residual stream to a hypersphere. The exponential map, however, is only one member of a broad family of retraction maps. We show that on the hypersphere this entire family collapses to a single scalar design choice. What distinguishes one retraction from another is only how the magnitude of an update is converted into a rotation angle within the plane spanned by the hidden state and the update. This view places Euclidean residual connections and GeoNorm in one framework. Instantiating it with the metric projection retraction and the Cayley retraction yields Proj-SpheretNorm and Cay-SpheretNorm , which are exactly norm-preserving yet require only algebraic operations. Both prove to be members of a one-parameter family of angular retractions, p-SpheretNorm , whose rotation angle saturates rather than growing without bound. The two methods above are recovered exactly at p = 1 and p = 2 , while the identity map and GeoNorm arise only as limits at either end. On nanoGPT, all three methods outperform existing lightweight deep connection schemes, and the best validation loss is attained at finite p,indicating that the exponential map is not the preferred retraction for spherical residual streams but merely one end of a spectrum. 
+
+Code: https://github.com/hazdzz/deep_connection 
+
+Correspondence: Jie Zhang ( hazdzz@g.ncu.edu.tw ), Cheng-Fang Su ( scf1204@nycu.edu.tw )
+
+Date: August 5, 2026 
+
+Preprint 
+
+“Geometry is not true, it is advantageous.” — Henri Poincaré 
+
+# 1 Introduction 
+
+Training neural networks in a deep and stable manner remains an open problem. Prior research (Li et al., 2025; Kim et al., 2025; Chen and Wei, 2026) primar-ily tackles this challenge by combining skip connec-tions (He et al., 2016b,a), normalization methods (Ba et al., 2016; Zhang and Sennrich, 2019), and gating mechanisms (Hochreiter and Schmidhuber, 1997; Cho et al., 2014). We refer to this class of methodologies collectively as deep connections . In the Transformer architecture (Vaswani et al., 2017), Post-LayerNorm (Post-LN) (Vaswani et al., 2017) and Pre-LayerNorm (Pre-LN) (Wang et al., 2019; Xiong et al., 2020) have emerged as the two most common choices for the placement of deep connections. However, both Pre-LN and Post-LN exhibit inherent limitations. Transformers with Pre-LN suffer from the curse of depth (Sun et al., 2025), where the con-tribution of deeper layers progressively diminishes. Moreover, the unbounded residual stream in Pre-LN allows massive activations to accumulate across layers, which has been linked to more pronounced attention sinks — a phenomenon in which attention scores concentrate excessively on the first token (Xiao et al., 2024; Sun et al., 2024; Gu et al., 2025). By con-trast, Transformers with Post-LN, on the other hand, suffer from large gradients near the output layer at initialization (Xiong et al., 2020), which destabilizes training and necessitates a carefully tuned learning-rate warm-up schedule that slows down optimization and adds hyperparameter tuning. 1arXiv:2608.02668v1 [cs.LG] 2 Aug 2026 (a) The whole process of SpheretNorm. Fl(·)          
+
+> represents a (non-)linear mapping, the GS pro-cess stands for the Gram–Schmidt process, and
+> Rl(·)denotes the retraction map.
+> (b) Illustration of the geometric meaning of SpheretNorm. The retraction map Rl(·)is de-fined on the hypersphere of radius ∥hl∥2.
+> Figure 1Overview of SpheretNorm (including GeoNorm, Proj-SpheretNorm, Cay-SpheretNorm, and
+> p-SpheretNorm). (a) The overall computational pipeline, and (b) its underlying geometric interpretation.
+
+A recent line of work (Li et al., 2025; Kim et al., 2025; Chen and Wei, 2026) seeks to reconcile the Post-LN and Pre-LN paradigms within Euclidean space. Zheng et al. (2026) pursue a similar goal but take a distinct route: their Geodesic Normalization (GeoNorm) accomplishes the residual connection on a Riemannian manifold. Let hl denote the l-th hid-den state, and let Fl(·) denote the corresponding (non-)linear mapping. Specifically, GeoNorm first orthogonalizes Fl(hl) against hl via a Gram-Schmidt process to obtain an intermediate tensor zl, and then applies an exponential map at hl along zl to produce 
+
+hl+1 . By keeping the ℓ2-norm of every hidden state constant across layers, GeoNorm in effect confines the hidden states to a hypersphere, which stabilizes forward propagation. While GeoNorm offers a compelling geometric per-spective, its update is tied to one specific choice: the exponential map. From the viewpoint of Riemannian geometry, however, the exponential map is merely one member of a broad family of retraction maps (Absil et al., 2007; Absil and Malick, 2012). Thus, a nat-ural question arises: which retraction should a deep connection use on the hypersphere, and how does this choice shape the behavior of a deep neural network? 
+
+Rather than proposing another way to unify Post-LN and Pre-LN into a single normaliza-tion mechanism, we revisit retraction maps on the hypersphere and propose three Sphe re Ret raction Norm alizations (SpheretNorms): 
+
+Proj-SpheretNorm , Cay-SpheretNorm , and 
+
+p-SpheretNorm . We first unify residual connection and GeoNorm within a single framework, under which GeoNorm can be interpreted as a Riemannian residual connection on the hypersphere. Building upon this perspective, we further exploit the metric projection retraction and the Cayley retraction on the hypersphere to derive Proj-SpheretNorm and Cay-SpheretNorm, respectively. We then observe that both Proj-SpheretNorm and Cay-SpheretNorm can be subsumed into a unified for-mulation based on the exponential map with different effective angles. We refer to this generalized formu-lation as p-SpheretNorm with a positive parameter 
+
+p, which recovers Proj-SpheretNorm at p = 1 and Cay-SpheretNorm at p = 2 . Moreover, as p → 0+, p-SpheretNorm reduces to the identity mapping, while as p → +∞ with αl ∈ (0 , 1] , it recovers GeoNorm. Through a single tunable parameter, p-SpheretNorm provides a principled and flexible family of normal-ization layers that bridges existing methods. We evaluate three types of SpheretNorm using nanoGPT (Karpathy, 2022) as the backbone on both pretraining and downstream tasks. Proj-SpheretNorm achieves the best results, attaining the lowest pretraining and validation losses on the medium- and large-size nanoGPT models. Re-sults on the downstream tasks also show that Proj-SpheretNorm achieves high accuracy. Taken together, these results indicate that Proj-SpheretNorm is the strongest of the three SpheretNorm variants across both pretraining and downstream evaluations. 
+
+Contributions. In conclusion, our key contributions are summarized as follows: 1. We unify residual connections and GeoNorm as retraction-based updates, showing that GeoNorm amounts to a Riemannian residual connection driven by the exponential map on the hypersphere. 2. We instantiate two alternative retractions on 2the hypersphere, the metric projection retrac-tion and the Cayley retraction, which yield Proj-SpheretNorm and Cay-SpheretNorm. 3. We generalize both instances into p-SpheretNorm, a single-parameter family that reduces to the identity mapping as p → 0+,recovers Proj-SpheretNorm at p = 1 and Cay-SpheretNorm at p = 2, and recovers GeoNorm as p → +∞.4. On nanoGPT at up to 36 layers and 6.55 Btokens, SpheretNorm attains the lowest pre-training and validation losses at 24 and 36 layers and the highest average zero-shot accuracy on both OpenWebText and FineWeb-Edu, outper-forming Pre-LN, Pre-DyT, Peri-LN, Keel, and GeoNorm, while converging in every setting in which Pre-LN or Keel diverges. 
+
+# 2 Related Work 
+
+Normalization Methods. LayerNorm (Ba et al., 2016) has served as the foundation of Transform-ers (Vaswani et al., 2017) since its inception. Later, RMSNorm (Zhang and Sennrich, 2019), a simplified variant of LayerNorm that drops the re-centering op-eration, became the de facto standard normalization. A closely related and contemporaneous normaliza-tion method, ScaleNorm (Nguyen and Salazar, 2019), differs mainly in that it normalizes by the ℓ2-norm rather than the root mean square, and replaces the per-dimension gain vector with a single tied scalar, making it more parameter-efficient. 
+
+Normalization-Free Normalization Functions. Anoteworthy line of work replaces LayerNorm with a zero-centered, bounded, center-sensitive, monotonic element-wise non-linearity. Zhu et al. (2025) pro-pose the Dynamic Tanh (DyT) function, Stollenwerk (2026) introduce the Dynamic Inverse Square Root Unit (DyISRU) function, and Chen et al. (2026) de-velop the Dynamic erf (Derf) function. By eliminat-ing the reduction along the hidden dimension, these activation functions remove the synchronization bot-tleneck of LayerNorm and can be fused with the pre-ceding linear layer, substantially reducing overhead while preserving the squashing behavior of Layer-Norm. 
+
+Skip Connection, and its Variants. ResNet (He et al., 2016a,b) ushered in the era of very deep neural networks. Later, Bachlechner et al. (2021) proposed ReZero, a residual connection with a learnable step size αl initialized at zero. Touvron et al. (2021) fur-ther enhanced ReZero by using a learnable vector instead of a scalar. Recently, Zheng et al. (2026) proposed GeoNorm, a Riemannian residual connec-tion that preserves the ℓ2-norm of each hidden state throughout forward propagation. Inspired by the property of GeoNorm that maintains a constant ℓ2-norm across hidden layers, we revisit retraction maps on the hypersphere, and propose SpheretNorms. 
+
+Post-LN, Pre-LN, and their Variants. With the ad-vent of Transformers, applying a residual connection followed by LayerNorm, known as Post-LN, became standard practice. However, Transformers using Post-LN typically rely on a carefully tuned learning-rate warm-up schedule. In contrast, Pre-LN applies Layer-Norm before each sub-layer and adds the residual con-nection afterward. While more stable, Transformers with Pre-LN suffer from the curse of depth (Sun et al., 2025), where deeper layers contribute far less to learn-ing and representation than earlier ones, effectively widening the network rather than deepening it. Lay-erNorm Scaling (LNS) (Sun et al., 2025) attenuates the normalized hidden state by a depth-dependent factor before each sub-layer, mitigating the curse of depth. In addition to the conventional Pre-LN and Post-LN designs, Peri-LN (Kim et al., 2025) and Keel (Chen and Wei, 2026) apply LayerNorm twice to reconcile the two paradigms. Collectively, these works explore different placements and scalings of LayerNorm within the residual stream to stabilize and deepen Transformers, yet they all operate within the Euclidean geometry of the hidden representations. 
+
+# 3 Background and Preliminary 
+
+Let hl denote the l-th hidden state, with h1 being the input feature (or the output of the embedding layer, for Transformers), and let Fl(·) denote the l-th (non-)linear mapping in Euclidean space, such as multi-head self-attention (Vaswani et al., 2017) or a multi-layer perceptron. Unless otherwise specified, for notational convenience, all bias terms are omitted throughout this work. Moreover, we assume hl ∈ Rd
+
+and hl̸ = 0. For l = 1 , 2, . . . , L − 1, we take two instances of deep connection methods for illustrating. 
+
+Residual Connection (RC). To facilitate the train-ing of deep CNNs, He et al. (2016a,b) propose ResNet, whose key innovation is the residual connection. It can be formulated as 
+
+hl+1 = hl + Fl(hl). (1) 
+
+Geodesic Normalization (GeoNorm). The expo-nential map in Riemannian geometry is defined as 
+
+exp h(v) = cos( ∥v∥2
+
+∥h∥2
+
+)h + ∥h∥2 sin( ∥v∥2
+
+∥h∥2
+
+) v
+
+∥v∥2
+
+, (2) 3with h⊤v = 0 . Building upon this exponential map, Zheng et al. (2026) propose GeoNorm, which is de-fined as 
+
+zl =
+
+(
+
+I − hlh⊤
+
+> l
+
+∥hl∥2
+
+)
+
+Fl(hl), βl = αl
+
+∥zl∥2
+
+∥hl∥2
+
+,
+
+hl+1 = cos( βl)hl + ∥hl∥2 sin( βl) zl
+
+∥zl∥2
+
+.
+
+(3) Here, αl ∈ (0 , 1] is a learnable parameter 1.
+
+# 4 Proposed Method 
+
+## 4.1 Sphere Retraction Normalizations 
+
+In this subsection, we begin by casting the standard residual connection and GeoNorm into a common framework that exposes their shared computational structure and distinguishes their geometric compo-nents. We single out the retraction map for redesign and consider alternatives to the exponential map. Instantiating the framework with the metric projec-tion and Cayley retractions yields Proj-SpheretNorm and Cay-SpheretNorm, respectively. We then intro-duce a unified one-parameter construction, termed 
+
+p-SpheretNorm, which recovers these two methods as exact special cases. 
+
+4.1.1 Retraction Maps on the Hypersphere 
+
+In a deep neural network, the l-th block maps hl−1
+
+to hl, for l = 1 , . . . , L . Given a manifold M, the tangent-space projection proj ThM, a step size αl, and a retraction Rh, a deep connection can be written abstractly as 
+
+hl = Rhl−1
+
+[
+
+αl · proj Thl−1 M
+
+(Fl(hl−1))]
+
+. (4) Within this framework, RC and GeoNorm share the same computational skeleton and differ only in how the individual components are instantiated. In par-ticular, GeoNorm corresponds to choosing the hyper-sphere as the manifold and the exponential map as the retraction, which makes it a Riemannian resid-ual connection. Table 1 contrasts the two methods component by component. Table 1 shows that GeoNorm chooses the retraction map to be the exponential map on the hypersphere. The exponential map, however, is merely one instance of a broader class of retractions (Absil et al., 2007; Absil and Malick, 2012). We replace the exponential      
+
+> 1The range of αlis not explicitly specified in (Zheng et al., 2026). Given that αlacts as the step size, we deduce its range from this property.
+> Table 1 Residual Connection vs. Geodesic Normalization.
+
+RC GeoNorm 
+
+M Rd Sd−1 
+
+> r
+
+= {h ∈ Rd : ∥h∥2 = r}
+
+ThM Rd {v ∈ Rd : h⊤v = 0 }
+
+proj ThM(u) u
+
+(
+
+I − hh ⊤
+
+∥h∥22
+
+)
+
+u
+
+αl 1 αl ∈ (0 , 1] 
+
+Rh(v) h + v exp h(v)
+
+map with other retractions keeps the framework in-tact while enriching the design space. We recall the definition of a retraction below. 
+
+Definition 1 (Retraction (Absil et al., 2007)) . A
+
+retraction on a manifold M is a smooth mapping 
+
+R : T M → M , (h, v) 7 → R h(v), such that for every h ∈ M and every v ∈ ThM, Rh(0) =
+
+h, ddt Rh(tv)
+
+∣∣∣∣t=0 
+
+= v.
+
+Sphere Metric Projection Retraction Normaliza-tion. We first choose the metric projection retrac-tion on the hypersphere (Absil et al., 2007), also known as the gnomonic retraction on the hyper-sphere (Absil and Malick, 2012), as the foundation for proposing a novel normalization layer, which we name the Sphere Metric Projection Retraction Nor-malization (Proj-SpheretNorm). The definition of the metric projection retraction on the hypersphere is described as blows. 
+
+Definition 2 (Metric Projection Retraction (Absil et al., 2007)) . Let M = Sn−1 
+
+> r
+
+= {h ∈ Rn : ∥h∥2 = r}
+
+be the hypersphere of radius r > 0, endowed with the Riemannian metric induced from the Euclidean inner product. For each h ∈ M , the tangent space is ThM = {v ∈ Rn : ⟨h, v⟩ = 0 }, and the projective retraction is defined by 
+
+RProj  
+
+> h
+
+(v) = r · h + v
+
+∥h + v∥2
+
+, v ∈ ThM. (5) Then RProj is a second-order retraction on M; that is, for every h ∈ M and every v ∈ ThM, the curve c(t) := Rh(tv) satisfies c(0) = h, c′(0) = 
+
+v, Ph (c′′ (0)) = 0, where Ph : Rn → ThM denotes the orthogonal projection onto the tangent space. Based on Eq. (4) and Eq. (5), we have 
+
+zl =
+
+(
+
+I − hlh⊤
+
+> l
+
+∥hl∥2
+
+)
+
+Fl(hl),
+
+hl+1 = ∥hl∥2 · hl + αlzl
+
+∥hl + αlzl∥2
+
+.
+
+(6) 
+
+Sphere Cayley Retraction Normalization. We also consider the Cayley retraction on the hyper-4sphere (Absil et al., 2007), also known as the stereo-graphic retraction on the hypersphere (Absil and Malick, 2012), to propose Sphere Cayley Retrac-tion Normalization (Cay-SpheretNorm). For a skew-symmetric matrix W ∈ so (d), where so (d) ={W ∈ Rd×d : W ⊤ = −W }, the Cayley transform is defined by C(W) = (I − 12 W)−1 (I + 12 W). On the hypersphere, a tangent vector determines a unique skew-symmetric generator supported on the two-dimensional subspace spanned by the current point and the tangent vector. This yields the following closed-form expression. 
+
+Proposition 3. Let h ∈ Sd−1 
+
+> r
+
+and v ∈ ThSd−1 
+
+> r
+
+.There exists a unique matrix W = W(h, v) ∈ so (d)
+
+satisfying Wh = v, range (W) ⊆ span {h, v}, and it is given by 
+
+W(h, v) = vh ⊤ − hv ⊤
+
+r2 . (7) 
+
+Moreover, define ρ = ∥v∥2 
+
+> r
+
+. The corresponding Cayley retraction admits the closed form 
+
+RCay  
+
+> h
+
+(v) = C(W(h, v)) h = 4 − ρ2
+
+4 + ρ2 h + 44 + ρ2 v. (8) The proof is provided in Appendix D.1. Let ρ = βl,based on Eq. (4) and Eq. (8) , the whole process of Cay-SpheretNorm is defined as 
+
+zl =
+
+(
+
+I − hlh⊤
+
+> l
+
+∥hl∥2
+
+)
+
+Fl(hl),
+
+hl+1 = 4 − β2
+
+> l
+
+4 + β2
+
+> l
+
+hl + 4αl
+
+4 + β2
+
+> l
+
+zl.
+
+(9) 
+
+Sphere p-Angular Retraction Normalization. The metric projection and Cayley retractions share the same planar-rotation structure: they update the hid-den state within the two-dimensional plane spanned by the current state and the projected tangent di-rection, differing only in how the normalized step magnitude is converted into a rotation angle. Mo-tivated by this common structure, we introduce a one-parameter family of hyper-spherical retraction normalizations, termed p-SpheretNorm. The param-eter p > 0 controls the saturation of the finite-step rotation angle while preserving the same local behav-ior near the origin. 
+
+Definition 4 (p-SpheretNorm) . Let parameter p ∈
+
+(0 , +∞), and the rotation angle θl = p arctan 
+
+( βl
+
+> p
+
+)
+
+,then the p-SpheretNorm is defined as 
+
+zl =
+
+(
+
+I − hlh⊤
+
+> l
+
+∥hl∥2
+
+)
+
+Fl(hl),βl = αl
+
+∥zl∥2
+
+∥hl∥2
+
+, θl = p arctan 
+
+( βl
+
+p
+
+)
+
+,
+
+hl+1 = cos( θl)hl + ∥hl∥2 sin( θl) zl
+
+∥zl∥2
+
+.
+
+(10) 
+
+Proposition 5. For every fixed p > 0, the p-angular map underlying p-SpheretNorm defines a smooth second-order retraction on the hypersphere. More-over, the following identities and limits hold: 1. When p = 1 , p-SpheretNorm reduces exactly to Proj-SpheretNorm. 2. When p = 2 , p-SpheretNorm reduces exactly to Cay-SpheretNorm. 3. As p → +∞, the p-angular update converges to the exponential-map update used by GeoNorm. 4. As p → 0+, the p-angular update converges point-wise to the identity mapping. 
+
+To make the local geometry explicit, under the local boundedness conditions stated in Appendix D.4, for every fixed p > 0, as αl → 0,
+
+hl+1 = hl + αlzl − α2 
+
+> l
+
+∥zl∥22
+
+2r2
+
+> l
+
+hl + O(α3 
+
+> l
+
+).
+
+The quadratic term is normal to the hypersphere at 
+
+hl; hence its tangent projection vanishes, which is precisely the second-order retraction condition. In particular, since zl = PlFl(hl), we obtain 
+
+hl+1 = hl + αlPlFl(hl) + O(α2 
+
+> l
+
+).
+
+Thus, all members of the p-angular family share the same first-order tangent dynamics and the same second-order normal correction, while the dependence on p first appears at cubic order. The complete proof, including smoothness at zl = 0, is provided in Ap-pendix D.4. 
+
+## 4.2 Implementation Details 
+
+For the p-SpheretNorm, the rotation angle θl in each block is always bounded in (− pπ  
+
+> 2
+
+, pπ  
+
+> 2
+
+). Zheng et al. (2026) suggest that the rotation angle in each block should be restricted to (0 , π 
+
+> 2
+
+), and that restricting it to (0 , π 
+
+> 4
+
+] produces better results than restricting it to (0 , π 
+
+> 2
+
+). Our experiments also support this view. We find that the rotation angle in each block should be restricted to (0 , π 
+
+> 4
+
+] for Cay-SpheretNorm and for 
+
+p-SpheretNorm with p > 1; otherwise, training be-comes unstable and may even suffer from exploding 5gradients. Therefore, for p-SpheretNorm, we choose 
+
+p = 0 .5, in which case the rotation angle in each block is kept in (− π 
+
+> 4
+
+, π 
+
+> 4
+
+).For all three types of SpheretNorm, we further adopt two additional approaches that ensure training sta-bility with fewer loss spikes. First, we adopt a decay method similar to the one in (Zheng et al., 2026): we let αl = λl · Softplus (al), where λl ∈ (0 , 1) is a decay factor and al is a learnable parameter. We find that setting λl = 1 /√l, initializing al = ln (e − 1) , and constraining Softplus (al) ∈ (0 , 1] can ensure training stability with fewer loss spikes. Second, we apply a modified ScaleNorm before the first (non-)linear mapping, i.e., 
+
+h1 ← Softplus( γ) · h1
+
+∥h1∥2
+
+, (11) where γ ∈ R is a learnable parameter that is initial-ized as γ = √d when √d ≥ 20 , and as γ = ln (e √d −1) 
+
+otherwise. We use the torch.clamp function to ensure that Softplus (γ) ∈ [1 , √d], which we find can accelerate model convergence while stabilizing train-ing. 
+
+## 4.3 Analysis 
+
+Our analysis of SpheretNorms focuses on four parts. First, we show that p-angular retraction is a second-order retraction. Second, we analyze the Jacobian to establish training stability. Third, we prove that the modified ScaleNorm in the first layer preserves the hypersphere. Fourth, we discuss the trade-off in choosing different decay factors. For analysis, we de-fine rl = ∥hl∥2, Pl = I − hlh⊤
+
+> l
+> r2
+> l
+
+, zl = PlFl(hl), s l =
+
+∥zl∥2.
+
+p-SpheretNorm based on the second order retrac-tion. Let ηl = sl 
+
+> rl
+
+, β l = αlηl, θ l = p arctan 
+
+( βl
+
+> p
+
+)
+
+.For every fixed p > 0, the p-angular retraction is a second-order retraction. Under the local boundedness conditions stated in Appendix D.4, it also satisfies, as αl → 0,
+
+hl+1 = hl + αlPlFl(hl) + O(α2 
+
+> l
+
+).
+
+The proof is provided in Appendix D.4. Thus, all members of the p-angular family share the same first-order tangent dynamics and differ only through their higher-order finite-step angular responses. 
+
+Jacobian conditioning from signal propagation. 
+
+Exact norm preservation controls the activation scale, but does not by itself control perturbation or gra-dient propagation. Define Al = ∂Fl(hl) 
+
+> ∂hl
+
+, cl = 
+
+> h⊤
+> lFl(hl)
+> r2
+> l
+
+, Bl = Al − clI, and let Jl = ∂hl+1  
+
+> ∂hl
+
+. For 
+
+sl > 0, define Ql = cos ( θl) I + sin( θl)
+
+> rlsl
+
+(zlh⊤ 
+
+> l
+
+− hlz⊤
+
+> l
+
+).
+
+Proposition 6 (Layer-wise and depth-wise Jaco-bian bounds) . For sl > 0, the Jacobian of the l-th SpheretNorm block admits the exact decomposition 
+
+Jl = Ql +El, where ∥Ql∥2 = 1 , σ min (Ql) ≥ | cos ( θl)|.Define ∆l = |αl| (2 ∥Bl∥2 + ηl), ql = |cos ( θl)|, and 
+
+ml = max {0, q l − ∆l}. Then ∥El∥2 ≤ ∆l, and, 
+
+σmax (Jl) ≤ 1 + ∆ l, σmin (Jl) ≥ ml.
+
+Consequently, for GL = ∂hL 
+
+> ∂h1
+
+= JLJL−1 · · · J1, one has 
+
+σmax (GL) ≤ exp 
+
+( L∑
+
+> l=1
+
+∆l
+
+)
+
+, σmin (GL) ≥
+
+> L
+
+∏
+
+> l=1
+
+ml.
+
+The full Jacobian calculation and the smooth sl = 0 
+
+extension are provided in Appendix D.7. The an-gle θl controls the geometric component Ql, whereas 
+
+|αl|∥ Bl∥2 and |βl| control the block-induced pertur-bation. Hence, a cap 
+
+|θl| ≤ θmax < π
+
+2
+
+keeps Ql away from singularity but does not by itself control the full Jacobian; a counterexample is given in Appendix D.8. Moreover, if ml ≥ m∗ > 0, then 
+
+> L
+
+∑
+
+> l=1
+
+∆l = O(1) ,
+
+> L
+
+∑
+
+> l=1
+
+|θl|2 = O(1) 
+
+is a sufficient condition for depth-independent condi-tioning; see Appendix D.5. 
+
+First-layer modified ScaleNorm preserves hyper-sphere. 
+
+Proposition 7 (Fixed-radius spherical dynamics) .
+
+Recall Eq. (11) . For l = 1 , 2, . . . , L , suppose that 
+
+hl+1 is generated from hl by a SpheretNorm update. Then ∥hl∥2 = Softplus (γ). Consequently, ∥hL∥2 ≤
+
+Softplus( γ).
+
+The proof is provided in Appendix D.3. Thus, the first modified ScaleNorm selects the hypersphere 
+
+Sd−1Softplus( γ) = {h ∈ Rd : ∥h∥2 = Softplus (γ)}, while all subsequent SpheretNorm blocks preserve this hy-persphere exactly. For Proj-SpheretNorm, this rela-tion can be made more explicit. By Proposition 7, 
+
+∥hl∥2 = Softplus( γ), and therefore 
+
+hl+1 = Softplus( γ) · hl + αlzl
+
+∥hl + αlzl∥2
+
+= Π Softplus( γ)
+
+(hl + αlPlFl(hl)),
+
+where ΠSoftplus( γ)(u) = Softplus (γ) u 
+
+> ∥u∥2
+
+is the radial projection onto Sd−1Softplus( γ).6Training stability trade-off from different decay factors. The prescribed factor λl remains fixed throughout training. Since 0 < a l ≤ 1, we have 
+
+0 < αl = λlal ≤ λl. Let κl = 2∥Bl∥2 + ηl,
+
+SL = ∑Ll=1 ∆l = ∑Ll=1 λlalκl, and AL = ∑Ll=1 |θl|2.
+
+Proposition 8 (Growth under depth schedules) .
+
+Suppose that there exist constants K, H > 0, inde-pendent of l and L, such that κl ≤ K, alηl ≤ H.Then 
+
+SL ≤ K
+
+> L
+
+∑
+
+> l=1
+
+λl, AL ≤ H2
+
+> L
+
+∑
+
+> l=1
+
+λ2 
+
+> l
+
+.
+
+Consequently, 
+
+λl SL AL
+
+1 O(L) O(L)1/√l O(√L) O(log L)√l O(log L) O(1) 
+
+The proof is provided in Appendix D.6. Thus, the decay factor λl = 1 /l gives the more conservative global worst-case bounds. However, Proposition 8 only provides global upper bounds. A finer dyadic analysis is given in Appendix D.9. At any fixed opti-mization iteration, under the bounded small-step and non-degeneracy assumptions stated there, the accu-mulated squared angular motion over each dyadic in-terval Im has the same asymptotic order as ∑ 
+
+> l∈Im
+
+λ2 
+
+> l
+
+.Hence, the square-root schedule assigns an approx-imately constant squared angular budget to each logarithmic depth scale, whereas the the decay factor 
+
+λl = 1 /l assigns a budget of order m−1.The empirically preferred the decay factor λl = 1 /√l
+
+should be interpreted as a finite-depth compromise: it provides a tighter Jacobian envelope than the non-decaying schedule while preserving stronger trans-formations in deeper layers than the decay factor 
+
+λl = 1 /l . This mechanism is consistent with the empirical advantage of the decay factor λl = 1 /√l,but does not imply uniformly better worst-case con-ditioning or a guaranteed lower loss. 
+
+# 5 Experiments 
+
+Experimental Settings. To evaluate SpheretNorms against other deep connection methods, including Pre-LN (Wang et al., 2019; Xiong et al., 2020), Pre-DyT (Zhu et al., 2025), Peri-LN (Kim et al., 2025), Keel (Chen and Wei, 2026), and GeoNorm (Zheng et al., 2026), we implement all baselines within the nanoGPT framework (Karpathy, 2022). For pre-training, we adopt two datasets: OpenWeb-Text (Gokaslan and Cohen, 2019) and FineWeb-Edu (Penedo et al., 2024). All models are optimized with the AdamW optimizer (Loshchilov and Hutter, 2019) under a cosine annealing learning rate sched-ule with a linear warm-up. We employ bfloat16 
+
+mixed-precision training together with gradient clip-ping. We conducted all experiments on a single node equipped with two 56-core Intel Xeon Platinum 8480+ CPUs, 2 TB of RAM, and eight NVIDIA H100 SXM GPUs, each with 80 GB of memory. The code is implemented in PyTorch (Paszke et al., 2019) using its Distributed Data Parallel (DDP) with the NCCL backend. We train each model for 50,000 iterations (about 6.55 B tokens in total). We fix the random seed to 1337 in all experiments. Detailed hyperpa-rameter configurations are reported in Appendix B. 
+
+## 5.1 Pre-Training Language Models 
+
+To assess whether SpheretNorm attains loss improve-ments comparable to existing residual connection designs, we compare the final training and validation losses in Table 2 and the corresponding validation perplexities in Table 3. At the small scale (12 lay-ers, ∼ 0.12 B parameters), Pre-LN attains the lowest training and validation loss on both FineWeb-Edu and OpenWebText; the best SpheretNorm variant stays within 0.02 nats of it ( 21 .88 vs. 21 .56 valida-tion perplexity on FineWeb-Edu, 21 .79 vs. 21 .35 on OpenWebText) and is on par with Peri-LN. This or-dering changes as depth increases. At the medium scale (24 layers, ∼ 0.35 B), 1-SpheretNorm attains the lowest training and validation loss on both datasets, improving validation perplexity over the strongest baseline, Peri-LN, from 19 .09 to 16 .81 on FineWeb-Edu and from 19 .55 to 19 .18 on OpenWebText. The same holds at the large scale (36 layers, ∼ 0.77 B), where Proj-SpheretNorm reaches 16 .98 and 16 .81 
+
+validation perplexity on the two datasets, ahead of Peri-LN at 17 .18 and 17 .29 . 2-SpheretNorm and 0.5-SpheretNorm track 1-SpheretNorm closely in every setting, with all three variants falling within 0.04 nats of one another, indicating that the benefit is not sen-sitive to the particular choice of p. The methods also differ in stability: training destabilizes for Pre-LN on OpenWebText at the medium scale (validation per-plexity 111 .70 ) and for Keel on FineWeb-Edu at the small scale ( 2081 .50 ), whereas all three SpheretNorm variants converge in all six settings. We show the training and validation losses in FineWeb-Edu in Figure 2. 7Table 2 Loss of trained models. We report training and validation loss at the end of training. To mitigate stochastic fluctuations, training loss is computed as a moving average over the last 200 iterations. 
+
+Dataset FineWeb-Edu OpenWebText Model Scale S M L S M L
+
+Train Val Train Val Train Val Train Val Train Val Train Val Pre-LN 3.057 3.071 2.975 2.976 2.842 2.866 3.062 3.061 4.697 4.716 2.858 2.879 
+
+Pre-DyT 3.626 3.619 3.025 3.019 2.845 2.870 3.539 3.556 3.012 3.035 2.843 2.866 
+
+Peri-LN 3.091 3.088 2.952 2.949 2.817 2.844 3.071 3.089 2.950 2.973 2.828 2.850 
+
+Keel 7.645 7.641 3.006 3.001 2.941 2.959 3.406 3.422 2.997 3.018 2.945 2.964 
+
+GeoNorm 3.176 3.185 3.096 3.088 2.940 2.958 3.209 3.206 3.018 3.039 3.001 3.017 0.5-SpheretNorm 3.089 3.086 2.831 2.828 2.809 2.833 3.067 3.085 2.932 2.955 2.826 2.847 1-SpheretNorm 3.098 3.109 2.825 2.822 2.808 2.832 3.064 3.082 2.931 2.954 2.795 2.822 
+
+2-SpheretNorm 3.119 3.114 2.826 2.824 2.809 2.834 3.063 3.081 2.931 2.955 2.841 2.861                                                        
+
+> Table 3 Perplexity of trained models. We report valida-tion perplexity at the end of training. Dataset FineWeb-Edu OpenWebText Scale SMLSML
+> Pre-LN 21 .56 19 .61 17 .57 21 .35 111 .70 17 .80
+> Pre-DyT 37 .29 20 .48 17 .64 35 .03 20 .79 17 .56
+> Peri-LN 21 .94 19 .09 17 .18 21 .96 19 .55 17 .29
+> Keel 2081 20 .11 19 .27 30 .63 20 .46 19 .37
+> GeoNorm 24 .16 21 .93 19 .27 24 .67 20 .88 20 .42
+> SpheretNorm (ours)
+> 0.521 .88 16 .91 16 .99 21 .86 19 .20 17 .24 122 .40 16 .81 16 .98 21 .81 19 .18 16 .81
+> 222 .52 16 .84 17 .01 21 .79 19 .20 17 .48
+
+## 5.2 Downstream Evaluations 
+
+We evaluate zero-shot performance using the lm-evaluation-harness library (Gao et al., 2021) on eleven benchmarks: ARC-Challenge, ARC-Easy (Clark et al., 2018), BoolQ (Clark et al., 2019), Hel-laSwag (Zellers et al., 2019), OpenBookQA (Mihaylov et al., 2018), PIQA (Bisk et al., 2020), SciQ (Welbl et al., 2017), SocialIQa (Sap et al., 2019), Wino-Grande (Sakaguchi et al., 2021), LAMBADA (Pa-perno et al., 2016), and WikiText-2 (Merity et al., 2017). Tables 4 and 5 report the large-size mod-els trained for 6.55 B tokens on FineWeb-Edu and OpenWebText, respectively. SpheretNorms attain the best score on 11 of the 12 metrics on FineWeb-Edu and 10 of 12 on Open-WebText; the exceptions are SocialIQa on both cor-pora and HellaSwag on OpenWebText, where the leading baseline is ahead by at most 0.52 points. 1-SpheretNorm is the strongest variant overall, though the three stay within about one point of each other on most tasks. The gains are clearest in perplexity, the metric least affected by the noise of zero-shot eval-uation at this scale: on FineWeb-Edu every variant improves over every baseline, with 1-SpheretNorm reaching 46 .74 on LAMBADA against 59 .55 for the best baseline ( 21 .5% relative) and 33 .70 on WikiText-2; on OpenWebText it reaches 31 .13 and 30 .79 .Two baselines warrant comment. Keel, a Post-LN de-sign targeting gradient flow at extreme depth, brings no benefit in our shallow, short-budget regime and is among the weakest configurations. GeoNorm is the closest comparison, sharing our view of the hidden state as a point on a sphere and of each sublayer output as an update direction, but taking the ex-act geodesic step via the exponential map where SpheretNorm uses a retraction. The retraction is the better choice here: our best variant improves over GeoNorm on all twelve metrics on both cor-pora, by margins far larger than those separating the other methods. Since several benchmarks re-main near chance at this scale (e.g., WinoGrande, SocialIQa), our conclusion rests on the perplexities and on the consistency across the two corpora rather than on individual sub-point differences. 
+
+# 6 Limitations 
+
+While the proposed SpheretNorms are designed to stabilize the training of a broad range of deep neural networks, two limitations remain. First, the pro-posed methods are not directly applicable to certain specialized architectures, such as Equivariant Neural Networks (Lim and Nelson, 2022), for which the struc-tural constraints are not naturally compatible with our formulation. Since SpheretNorms rely on ℓ2-norm and the associated projection, they commute with a group representation only when that representation preserves the norm, and they generally break the 8Table 4 Zero-shot evaluation results for large-size models trained on FineWeb-Edu for 6.55 B tokens and evaluated with lm-evaluation-harness. acc means accuracy, acc_n means length-normalized accuracy, and ppl means perplexity.                                                                                                                                    
+
+> nanoGPT w/ ARC-C ARC-E BoolQ HellaSwag LMB. OBQA PIQA SciQ SocialIQa WinoGrande LMB. Wiki. acc_n ↑acc_n ↑acc ↑acc_n ↑acc ↑acc_n ↑acc_n ↑acc ↑acc ↑acc ↑ppl ↓ppl ↓
+> Pre-LN 26 .54 51 .85 55 .81 36 .81 29 .11 33 .40 65 .18 81 .20 37 .56 52 .49 66 .69 36 .23
+> Pre-DyT 27 .39 51 .14 60 .34 36 .64 29 .52 31 .40 65 .02 82 .50 38 .28 50 .75 59 .55 35 .52
+> Peri-LN 26 .62 50 .93 53 .27 38 .09 29 .01 31 .20 64 .85 82 .60 38 .13 52 .33 67 .09 34 .77
+> Keel 26 .45 49 .24 61 .59 34 .39 26 .97 30 .60 64 .25 80 .90 38 .08 48 .62 81 .06 39 .73
+> GeoNorm 27 .82 48 .02 62 .05 34 .35 27 .98 30 .20 63 .93 80 .50 36 .80 51 .78 80 .64 39 .88 0.5-SpheretNorm 27 .90 50 .93 60 .87 37 .77 30 .84 33 .80 66 .27 81 .60 37 .69 52 .88 50 .00 33 .74 1-SpheretNorm 28 .67 52 .78 62 .70 38 .21 32 .93 32 .60 66 .05 82 .10 38 .13 51 .36 46 .74 33 .70
+> 2-SpheretNorm 27 .90 52 .53 61 .34 38 .07 31 .19 34 .40 66 .70 82 .60 37 .26 52 .72 53 .45 33 .85
+
+Table 5 Zero-shot evaluation results for large-size models trained on OpenWebText for 6.55 B tokens and evaluated with lm-evaluation-harness. acc means accuracy, acc_n means length-normalized accuracy, and ppl means perplexity.                                                                                                                                    
+
+> nanoGPT w/ ARC-C ARC-E BoolQ HellaSwag LMB. OBQA PIQA SciQ SocialIQa WinoGrande LMB. Wiki. acc_n ↑acc_n ↑acc ↑acc_n ↑acc ↑acc_n ↑acc_n ↑acc ↑acc ↑acc ↑ppl ↓ppl ↓
+> Pre-LN 23 .38 40 .49 59 .54 32 .73 32 .19 26 .20 62 .89 69 .90 38 .33 51 .54 39 .24 33 .19
+> Pre-DyT 25 .60 40 .87 54 .31 32 .89 33 .92 26 .20 62 .13 71 .60 38 .54 51 .54 33 .40 34 .11
+> Peri-LN 25 .43 42 .00 59 .17 33 .95 33 .73 25 .80 63 .87 73 .20 38 .64 50 .04 31 .48 32 .90
+> Keel 23 .21 38 .80 57 .61 31 .17 30 .70 27 .40 61 .97 71 .90 38 .13 51 .70 44 .43 38 .64
+> GeoNorm 24 .87 37 .84 60 .55 29 .97 30 .00 26 .20 61 .92 69 .30 37 .67 51 .14 51 .91 42 .24 0.5-SpheretNorm 25 .15 42 .21 59 .88 33 .43 34 .60 27 .40 63 .44 73 .20 37 .92 52 .96 31 .38 31 .02 1-SpheretNorm 26 .46 42 .26 61 .04 32 .90 34 .99 27 .80 63 .98 73 .60 37 .36 52 .85 31 .13 30 .79
+> 2-SpheretNorm 25 .32 42 .05 58 .74 32 .86 34 .39 28 .60 64 .20 73 .40 38 .48 51 .14 31 .50 31 .55
+
+equivariance condition for non-orthogonal representa-tions such as the GL (n) and Lorentz groups. Second, owing to limited research resources, we have not eval-uated SpheretNorms on larger-scale deep Transformer models. We leave the extension to such architectures and the verification at larger scales to future work. 
+
+(a) Training loss. 
+
+(b) Validation loss. 
+
+Figure 2 Training and validation losses in the FineWeb-Edu. 
+
+# 7 Conclusion and Future Work 
+
+In this work, we revisit retraction maps on the hyper-sphere and introduce three types of SpheretNorms: Proj-SpheretNorm, Cay-SpheretNorm, and p-SpheretNorm. We analyze the three SpheretNorms from both theoretical and practical perspectives. We implement them within the nanoGPT framework and evaluate them on pre-training and downstream tasks. The experimental results show that all three SpheretNorms achieve lower loss and higher accuracy than the baseline methods. At a deeper level, designing deep connection mecha-nisms is fundamentally a mathematical problem at the intersection of graph theory, optimization, and dynamical systems, raising two intertwined questions: (i) which connection topologies enable non-trivial in-formation propagation across depth while keeping the singular values of the end-to-end Jacobian bounded by constants independent of the depth L; and (ii) among such topologies, is there a unifying principle that identifies the optimal trade-off between infor-mation propagation and Jacobian conditioning? We leave these questions open and regard them as promis-ing directions for future work. 9References 
+
+P.-A. Absil and Jérôme Malick. Projection-like Retrac-tions on Matrix Manifolds. SIAM Journal on Opti-mization , 22(1):135–158, 2012. P.-A. Absil, R. Mahony, and R. Sepulchre. Optimization Algorithms on Matrix Manifolds . Princeton University Press, 2007. ISBN 0691132984. Jimmy Lei Ba, Jamie Ryan Kiros, and Geoffrey E. Hinton. Layer Normalization, 2016. Thomas Bachlechner, Bodhisattwa Prasad Majumder, Henry Mao, Gary Cottrell, and Julian McAuley. ReZero is all you need: fast convergence at large depth. In Cassio de Campos and Marloes H. Maathuis, ed-itors, Proceedings of the Thirty-Seventh Conference on Uncertainty in Artificial Intelligence , volume 161 of Proceedings of Machine Learning Research , pages 1352–1361. PMLR, 07 2021. Yonatan Bisk, Rowan Zellers, Ronan Le Bras, Jianfeng Gao, and Yejin Choi. PIQA: Reasoning about Physical Commonsense in Natural Language. Thirty-Fourth AAAI Conference on Artificial Intelligence , 34(05): 7432–7439, 04 2020. Chen Chen and Lai Wei. Post-LayerNorm Is Back: Stable, Expressive, and Deep, 2026. Mingzhi Chen, Taiming Lu, Jiachen Zhu, Mingjie Sun, and Zhuang Liu. Stronger Normalization-Free Trans-formers. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) ,pages 27418–27428, 06 2026. Kyunghyun Cho, Bart van Merriënboer, Caglar Gulcehre, Dzmitry Bahdanau, Fethi Bougares, Holger Schwenk, and Yoshua Bengio. Learning Phrase Representations using RNN Encoder – Decoder for Statistical Machine Translation. In Proceedings of the 2014 Conference on Empirical Methods in Natural Language Processing (EMNLP) , pages 1724–1734. Association for Computa-tional Linguistics, 10 2014. Christopher Clark, Kenton Lee, Ming-Wei Chang, Tom Kwiatkowski, Michael Collins, and Kristina Toutanova. BoolQ: Exploring the Surprising Difficulty of Natural Yes/No Questions. In Jill Burstein, Christy Doran, and Thamar Solorio, editors, Proceedings of the 2019 Con-ference of the North American Chapter of the Associa-tion for Computational Linguistics: Human Language Technologies, Volume 1 (Long and Short Papers) , pages 2924–2936. Association for Computational Linguistics, 06 2019. Peter Clark, Isaac Cowhey, Oren Etzioni, Tushar Khot, Ashish Sabharwal, Carissa Schoenick, and Oyvind Tafjord. Think you have Solved Question Answering? Try ARC, the AI2 Reasoning Challenge, 2018. Leo Gao, Jonathan Tow, Baber Abbasi, Stella Biderman, Sid Black, Anthony DiPofi, Charles Foster, Laurence Golding, Jeffrey Hsu, Alain Le Noac’h, Haonan Li, Kyle McDonell, Niklas Muennighoff, Chris Ociepa, Ja-son Phang, Laria Reynolds, Hailey Schoelkopf, Aviya Skowron, Lintang Sutawika, Eric Tang, Anish Thite, Ben Wang, Kevin Wang, and Andy Zou. The Language Model Evaluation Harness, 2021. https://github. com/EleutherAI/lm-evaluation-harness .Aaron Gokaslan and Vanya Cohen. OpenWebText Corpus, 2019. https://Skylion007.github.io/ OpenWebTextCorpus .Xiangming Gu, Tianyu Pang, Chao Du, Qian Liu, Fengzhuo Zhang, Cunxiao Du, Ye Wang, and Min Lin. When Attention Sink Emerges in Language Models: An Empirical View. In The Thirteenth International Conference on Learning Representations , 2025. Kaiming He, Xiangyu Zhang, Shaoqing Ren, and Jian Sun. Identity Mappings in Deep Residual Networks. In Bastian Leibe, Jiri Matas, Nicu Sebe, and Max Welling, editors, Computer Vision – ECCV 2016 , pages 630–645. Springer International Publishing, 2016a. Kaiming He, Xiangyu Zhang, Shaoqing Ren, and Jian Sun. Deep Residual Learning for Image Recognition. In 2016 IEEE Conference on Computer Vision and Pattern Recognition (CVPR) , pages 770–778, 2016b. Sepp Hochreiter and Jürgen Schmidhuber. Long Short-Term Memory. Neural Computation , 9(8):1735–1780, 11 1997. Sergey Ioffe and Christian Szegedy. Batch Normalization: Accelerating Deep Network Training by Reducing In-ternal Covariate Shift. In Francis Bach and David Blei, editors, Proceedings of the 32nd International Confer-ence on Machine Learning , volume 37 of Proceedings of Machine Learning Research , pages 448–456. PMLR, 07 2015. Andrej Karpathy. nanoGPT, 2022. https://github. com/karpathy/nanoGPT .Jeonghoon Kim, Byeongchan Lee, Cheonbok Park, Yeon-taek Oh, Beomjun Kim, Taehwan Yoo, Seongjin Shin, Dongyoon Han, Jinwoo Shin, and Kang Min Yoo. Peri-LN: Revisiting Normalization Layer in the Trans-former Architecture. In Aarti Singh, Maryam Fazel, Daniel Hsu, Simon Lacoste-Julien, Felix Berkenkamp, Tegan Maharaj, Kiri Wagstaff, and Jerry Zhu, editors, 
+
+Proceedings of the 42nd International Conference on Machine Learning , volume 267 of Proceedings of Ma-chine Learning Research , pages 30400–30436. PMLR, 07 2025. Pengxiang Li, Lu Yin, and Shiwei Liu. Mix-LN: Un-leashing the Power of Deeper Layers by Combining Pre-LN and Post-LN. In The Thirteenth International Conference on Learning Representations , 2025. Lek-Heng Lim and Bradley J. Nelson. What is an equiv-ariant neural network?, 2022. 
+
+10 Ilya Loshchilov and Frank Hutter. Decoupled Weight Decay Regularization. In The Seventh International Conference on Learning Representations , 2019. Stephen Merity, Caiming Xiong, James Bradbury, and Richard Socher. Pointer Sentinel Mixture Models. In 
+
+International Conference on Learning Representations ,2017. Todor Mihaylov, Peter Clark, Tushar Khot, and Ashish Sabharwal. Can a Suit of Armor Conduct Electricity? A New Dataset for Open Book Question Answering. In Ellen Riloff, David Chiang, Julia Hockenmaier, and Jun’ichi Tsujii, editors, Proceedings of the 2018 Con-ference on Empirical Methods in Natural Language Processing , pages 2381–2391. Association for Compu-tational Linguistics, 10 2018. Toan Q. Nguyen and Julian Salazar. Transformers without Tears: Improving the Normalization of Self-Attention. In Proceedings of the 16th International Conference on Spoken Language Translation . Associa-tion for Computational Linguistics, 11 2019. Denis Paperno, Germán Kruszewski, Angeliki Lazaridou, Ngoc Quan Pham, Raffaella Bernardi, Sandro Pezzelle, Marco Baroni, Gemma Boleda, and Raquel Fernández. The LAMBADA dataset: Word prediction requiring a broad discourse context. In Katrin Erk and Noah A. Smith, editors, Proceedings of the 54th Annual Meeting of the Association for Computational Linguistics (Vol-ume 1: Long Papers) , pages 1525–1534. Association for Computational Linguistics, 08 2016. Adam Paszke, Sam Gross, Francisco Massa, Adam Lerer, James Bradbury, Gregory Chanan, Trevor Killeen, Zeming Lin, Natalia Gimelshein, Luca Antiga, Alban Desmaison, Andreas Kopf, Edward Yang, Zachary De-Vito, Martin Raison, Alykhan Tejani, Sasank Chil-amkurthy, Benoit Steiner, Lu Fang, Junjie Bai, and Soumith Chintala. PyTorch: An Imperative Style, High-Performance Deep Learning Library. In H. Wal-lach, H. Larochelle, A. Beygelzimer, F. d 'Alché-Buc, E. Fox, and R. Garnett, editors, Advances in Neu-ral Information Processing Systems , volume 32, pages 8024–8035. Curran Associates, Inc., 2019. Guilherme Penedo, Hynek Kydlíček, Loubna Ben allal, Anton Lozhkov, Margaret Mitchell, Colin Raffel, Le-andro Von Werra, and Thomas Wolf. The FineWeb Datasets: Decanting the Web for the Finest Text Data at Scale. In A. Globerson, L. Mackey, D. Belgrave, A. Fan, U. Paquet, J. Tomczak, and C. Zhang, editors, 
+
+The Thirty-eighth Conference on Neural Information Processing Systems Datasets and Benchmarks Track ,volume 37, pages 30811–30849. Curran Associates, Inc., 2024. Keisuke Sakaguchi, Ronan Le Bras, Chandra Bhagavatula, and Yejin Choi. WinoGrande: an adversarial winograd schema challenge at scale. Communications of the ACM , 64(9):99–106, 08 2021. Maarten Sap, Hannah Rashkin, Derek Chen, Ronan Le Bras, and Yejin Choi. Social IQa: Commonsense Reasoning about Social Interactions. In Kentaro Inui, Jing Jiang, Vincent Ng, and Xiaojun Wan, editors, Pro-ceedings of the 2019 Conference on Empirical Methods in Natural Language Processing and the 9th Interna-tional Joint Conference on Natural Language Process-ing (EMNLP-IJCNLP) , pages 4463–4473. Association for Computational Linguistics, 11 2019. Felix Stollenwerk. On the Mathematical Relationship Between Layer Normalization and Dynamic Activation Functions. In Vera Demberg, Kentaro Inui, and Lluís Marquez, editors, Proceedings of the 19th Conference of the European Chapter of the Association for Compu-tational Linguistics (Volume 2: Short Papers) , pages 674–681. Association for Computational Linguistics, 03 2026. Mingjie Sun, Xinlei Chen, J Zico Kolter, and Zhuang Liu. Massive Activations in Large Language Models. In First Conference on Language Modeling , 2024. Wenfang Sun, Xinyuan Song, Pengxiang Li, Lu Yin, Yefeng Zheng, and Shiwei Liu. The Curse of Depth in Large Language Models. In The Thirty-ninth Annual Conference on Neural Information Processing Systems ,2025. Hugo Touvron, Matthieu Cord, Alexandre Sablayrolles, Gabriel Synnaeve, and Hervé Jégou. Going Deeper With Image Transformers. In Proceedings of the IEEE/CVF International Conference on Computer Vi-sion (ICCV) , pages 32–42, 10 2021. Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion Jones, Aidan N Gomez, Łukasz Kaiser, and Illia Polosukhin. Attention Is All You Need. In I. Guyon, U. Von Luxburg, S. Bengio, H. Wallach, R. Fergus, S. Vishwanathan, and R. Garnett, editors, 
+
+Advances in Neural Information Processing Systems ,volume 30, pages 5998–6008. Curran Associates, Inc., 2017. Qiang Wang, Bei Li, Tong Xiao, Jingbo Zhu, Changliang Li, Derek F. Wong, and Lidia S. Chao. Learning Deep Transformer Models for Machine Translation. In Pro-ceedings of the 57th Annual Meeting of the Association for Computational Linguistics , pages 1810–1822. Asso-ciation for Computational Linguistics, 07 2019. Johannes Welbl, Nelson F. Liu, and Matt Gardner. Crowdsourcing Multiple Choice Science Questions. In Leon Derczynski, Wei Xu, Alan Ritter, and Tim Bald-win, editors, Proceedings of the 3rd Workshop on Noisy User-generated Text , pages 94–106. Association for Computational Linguistics, 09 2017. Guangxuan Xiao, Yuandong Tian, Beidi Chen, Song Han, and Mike Lewis. Efficient Streaming Language Models with Attention Sinks. In The Twelfth International Conference on Learning Representations , 2024. 
+
+11 Ruibin Xiong, Yunchang Yang, Di He, Kai Zheng, Shuxin Zheng, Chen Xing, Huishuai Zhang, Yanyan Lan, Liwei Wang, and Tieyan Liu. On Layer Normalization in the Transformer Architecture. In Hal Daumé III and Aarti Singh, editors, Proceedings of the 37th Interna-tional Conference on Machine Learning , volume 119 of Proceedings of Machine Learning Research , pages 10524–10533. PMLR, 07 2020. Rowan Zellers, Ari Holtzman, Yonatan Bisk, Ali Farhadi, and Yejin Choi. HellaSwag: Can a Machine Really Finish Your Sentence? In Anna Korhonen, David Traum, and Lluís Màrquez, editors, Proceedings of the 57th Annual Meeting of the Association for Compu-tational Linguistics , pages 4791–4800. Association for Computational Linguistics, 07 2019. Biao Zhang and Rico Sennrich. Root Mean Square Layer Normalization. In H. Wallach, H. Larochelle, A. Beygelzimer, F. d 'Alché-Buc, E. Fox, and R. Gar-nett, editors, Advances in Neural Information Process-ing Systems , volume 32, pages 12360–12371. Curran Associates, Inc., 2019. Chuanyang Zheng, Jiankai Sun, Yihang Gao, Chi Wang, Yuehao Wang, Jing Xiong, Liliang Ren, Bo Peng, Qingmei Wang, Xiaoran Shang, Mac Schwager, An-derson Schneider, Yuriy Nevmyvaka, and Xiaodong Liu. GeoNorm: Unify Pre-Norm and Post-Norm with Geodesic Optimization, 2026. Jiachen Zhu, Xinlei Chen, Kaiming He, Yann LeCun, and Zhuang Liu. Transformers without Normalization. In 
+
+Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) , pages 14901– 14911, 06 2025. 
+
+12 Appendix 
+
+# A Normalization as Hypersphere Projection 
+
+Throughout this appendix we work with idealized normalization maps: we omit the numerical stabilizer 
+
+ε in the denominators, and we set all additive bias terms to zero, since a translation does not affect the projection interpretation. For r > 0, let 
+
+Sd−1 
+
+> r
+
+:= {x ∈ Rd : ∥x∥2 = r},
+
+and, for x ∈ Rd \ { 0}, define the radial projection onto Sd−1 
+
+> r
+
+by 
+
+Πr (x) := r · x
+
+∥x∥2
+
+.
+
+For every nonzero x, the point Πr (x) is also the unique Euclidean metric projection of x onto Sd−1 
+
+> r
+
+.More generally, for a linear subspace V ⊆ Rd we write 
+
+Sr (V) := {y ∈ V : ∥y∥2 = r},
+
+which is a ( dim V − 1) -dimensional sphere isometric to Sdim V− 1 
+
+> r
+
+.
+
+LayerNorm. Inspired by BatchNorm (Ioffe and Szegedy, 2015), Ba et al. (2016) proposed LayerNorm, which normalizes each input vector along its feature dimension. Let 1 = (1 , . . . , 1) ⊤ ∈ Rd and define 
+
+μ = 1
+
+d 1⊤x, P = I − 1
+
+d 11 ⊤.
+
+Since P = P⊤ = P2 and ker P = span {1}, the matrix 
+
+P is the orthogonal projection onto the mean-zero hyperplane 
+
+H = {y ∈ Rd : 1⊤y = 0 }, dim H = d − 1,
+
+and the centered input satisfies x − μ1 = Px . Con-sequently, the coordinate-wise standard deviation of 
+
+x satisfies 
+
+σ =
+
+√√√√ 1
+
+d
+
+> d
+
+∑
+
+> i=1
+
+(xi − μ)2 = ∥Px ∥2
+
+√d ,
+
+so that σ > 0 if and only if Px ̸ = 0, i.e., x /∈ span {1};we restrict attention to this case, on which LayerNorm is well defined. Let γ ∈ Rd denote the learnable gain and let Dγ = diag (γ). LayerNorm can be written as 
+
+LayerNorm( x) = γ ⊙ x − μ1
+
+σ
+
+= Dγ
+
+(√d · Px 
+
+∥Px ∥2
+
+)
+
+= Dγ
+
+(Π√d(Px )) .
+
+(12) Equation (12) shows that, before the coordinate-wise gain is applied, LayerNorm performs two successive projections: the orthogonal projection of x onto H,followed by the radial projection of the centered vec-tor onto S√d(H), a (d − 2) -dimensional sphere of radius √d contained in H. The image of the com-plete map is therefore 
+
+Dγ
+
+(S√d(H)) = {Dγ y : y ∈ S√d(H)},
+
+which lies in the hyperplane Dγ H and is in general an ellipsoid, not necessarily axis-aligned, rather than a sphere. Assume d ≥ 3 and γi̸ = 0 for every i.The image is a round sphere if and only if Dγ acts conformally on H, i.e., PD 2 
+
+> γ
+
+P = c2P for some c > 
+
+0. Testing this identity on the pairs ei − ej and 
+
+ei − ek with i, j, k distinct, which is possible because 
+
+d ≥ 3, yields γ2 
+
+> i
+
+= c2 for every i. Hence the image is a sphere precisely when |γ1| = |γ2| = · · · = |γd|.Since γ is typically initialized at 1, at initialization LayerNorm reduces to x 7 → Π√d(Px ) and all outputs share the same norm √d. Once training drives γ
+
+away from 1, the outputs leave S√d(H); they remain on some sphere only in the special case in which all |γi| coincide, and are otherwise confined to the ellipsoid Dγ
+
+(S√d(H)).
+
+RMSNorm. RMSNorm (Zhang and Sennrich, 2019) dispenses with the mean-centering step of LayerNorm and normalizes an input solely by its root mean square. For x ∈ Rd \ { 0}, define the root mean square (RMS) operation as 
+
+RMS( x) = 
+
+√√√√ 1
+
+d
+
+> d
+
+∑
+
+> i=1
+
+x2 
+
+> i
+
+= ∥x∥2
+
+√d .
+
+Let γ ∈ Rd denote the learnable coordinate-wise gain and let Dγ = diag( γ). RMSNorm is then given by 
+
+RMSNorm( x) = γ ⊙ x
+
+RMS( x)= Dγ
+
+(√d · x
+
+∥x∥2
+
+)
+
+= Dγ Π√d(x).
+
+(13) The normalization stage of RMSNorm, prior to the coordinate-wise gain, is therefore precisely the ra-dial projection onto Sd−1√d . The complete map, how-ever, is in general no longer spherical: its image is 
+
+Dγ
+
+(
+
+Sd−1√d
+
+)
+
+, which, when γi̸ = 0 for every i, is an axis-aligned ellipsoid whose semi-axes have lengths √d |γi|; if some γi vanishes, the image degenerates to a lower-dimensional set. For d ≥ 2, the spheri-cal geometry is retained precisely when all entries of 
+
+γ share a common absolute value c̸ = 0 , in which 13 case the image is the rescaled sphere Sd−1
+
+> c√d
+
+. Since 
+
+γ is typically initialized at 1, RMSNorm coincides with the projection onto Sd−1√d at initialization; once training updates γ, its outputs generally drift off the hypersphere. 
+
+ScaleNorm. Among commonly used normalization methods, ScaleNorm (Nguyen and Salazar, 2019) is the one most directly related to hypersphere projec-tion. For x ∈ Rd \ { 0} it is defined by 
+
+ScaleNorm( x) = g x
+
+∥x∥2
+
+, (14) where g ∈ R is a learnable scalar parameter. If g > 0,then 
+
+ScaleNorm( x) = Π g (x),
+
+so ScaleNorm maps every nonzero input onto the hypersphere Sd−1 
+
+> g
+
+. More generally, when g is uncon-strained, 
+
+∥ScaleNorm( x)∥2 = |g|.
+
+Thus, for g < 0 the spherical interpretation still holds: the map is the composition of the radial projection 
+
+Π|g| onto Sd−1 
+
+> |g|
+
+with the antipodal map x 7 → − x, and only the degenerate case g = 0 collapses the image to the origin. If an explicitly positive radius parameter is needed, one may use a positive reparameterization such as replacing g with Softplus (g), although this is not required for the geometric interpretation. 
+
+Connecting ScaleNorm with Proj-SpheretNorm. 
+
+The relationship between ScaleNorm and Proj-SpheretNorm can be made precise through their com-mon radial-projection structure. Let u ∈ Rd \ { 0}
+
+be the input to a generic Proj-SpheretNorm update, let F denote the associated sub-layer map, and let 
+
+α ∈ R be the residual coefficient. Set 
+
+r = ∥u∥2, Pu = I − uu ⊤
+
+r2 , z = PuF(u).
+
+Here Pu is the orthogonal projection onto u⊥, which is the tangent space of Sd−1 
+
+> r
+
+at u; in particular u⊤z =0 by construction. The Proj-SpheretNorm update can therefore be written as 
+
+u+ = r u + αz
+
+∥u + αz∥2
+
+= Π r
+
+(u + αz). (15) Moreover, orthogonality gives 
+
+∥u + αz∥22 = r2 + α2∥z∥22 > 0,
+
+so the radial projection is well defined whenever u̸ =
+
+0. Equation (15) also gives ∥u+∥2 = ∥u∥2.For l = 1 , 2, . . . , L − 1, the (l + 1) -th hidden state is given by 
+
+hl+1 = SpheretNorm( hl, Fl(hl)) .
+
+When Proj-SpheretNorm is used, the definition in Eq. (6) gives 
+
+hl+1 = Π ∥hl∥2 (hl + αlzl) , zl = Phl Fl(hl),
+
+so that ∥hl+1 ∥2 = ∥hl∥2 for l = 1 , 2, . . . , L − 1. Con-sequently, the residual stream preserves the hidden-state norm across layers, i.e., ∥h1∥2 = ∥h2∥2 = · · · =
+
+∥hL∥2.At the beginning of the residual stream considered in our analysis, we take h1 to be the hidden state produced by the modified ScaleNorm, so that, by construction, 
+
+∥h1∥2 = Softplus( γ),
+
+which is strictly positive for every γ ∈ R. We do not introduce notation for the representations preceding 
+
+h1, and any operations applied after hL lie outside the scope of this analysis. Equation (15) indicates that ScaleNorm and Proj-SpheretNorm share the same radial-projection opera-tion but use it for different purposes. ScaleNorm fixes the radius of the initial hidden state h1, whereas each Proj-SpheretNorm sub-layer forms a tangent residual update and projects the resulting point back onto the sphere determined by the radius of its own input state. Under the above fixed-radius dynamics, every hidden state along the residual stream lies on the same hypersphere Sd−1Softplus( γ).In summary, LayerNorm, RMSNorm, and ScaleNorm are all related to hypersphere projection, but in dif-ferent ways. The normalization stages of LayerNorm and RMSNorm, taken before the gain, are spherical maps: LayerNorm first projects onto the zero-mean hyperplane and then performs a radial projection within that hyperplane, while RMSNorm performs a radial projection in the ambient space. Their com-plete maps, however, generally include a coordinate-wise gain and therefore need not have spherical im-ages. ScaleNorm differs in that it uses a single scalar gain. Its complete map therefore has a spherical image of radius |g|, and coincides exactly with the radial projection Πg when g > 0. This positive-radius case provides the closest traditional counterpart to Proj-SpheretNorm. Specifically, Proj-SpheretNorm replaces the globally learned radius g with the ra-dius ∥hl∥2 carried by the current hidden state, and applies the radial projection to the point obtained after the tangent update. It can thus be viewed as a state-dependent, retraction-based variant of the radial projection used in ScaleNorm, designed to pre-serve the hidden-state norm exactly across the entire depth. 14 B Hyperparameters 
+
+The shared hyperparameters used across all experi-ments are summarized in Table 6. The architecture hyperparameters for the small and medium model sizes are listed in Table 7. The training and validation losses in OpenWebText is illustrated in Figure 3. 
+
+Table 6 Shared hyperparameters. The effective batch size is held fixed across all runs, independent of the number of GPUs. 
+
+Name Value optimizer AdamW 
+
+β1 0.9
+
+β2 0.95 
+
+weight decay 0.1
+
+gradient clip 1.0
+
+dropout 0.0
+
+bias enable # of iterations 50 ,000 
+
+# of learning-rate decay iterations 50 ,000 
+
+# of warm-up iterations 2,000 
+
+block size (sequence length) 1,024 
+
+batch size (per GPU) 16 
+
+effective (global) batch size 128 sequences tokens per update 131 ,072 
+
+total training tokens ∼ 6.55 Bprecision bfloat16 
+
+torch.compile disable vocabulary size 50 ,304 
+
+Table 7 Architecture hyperparameters. Parameter counts include the tied token embedding and are reported for the Pre-LN baseline. All variants have identical parameter counts. 
+
+Name S M L# of layers 12 24 36 
+
+# of heads 12 16 20 
+
+# of params. ∼ 0.12 B ∼ 0.35 B ∼ 0.77 Bhidden dim. 768 1024 1280 
+
+lr 6 × 10 −4 3 × 10 −4 2.5 × 10 −4
+
+min. lr 6 × 10 −5 3 × 10 −5 2.5 × 10 −5
+
+# C Pseudocode for SpheretNorms 
+
+In this section, we provide PyTorch-style pseudocode for our SpheretNorms: Proj-SpheretNorm, Cay-SpheretNorm, and p-SpheretNorm. 
+
+(a) Training loss. 
+
+(b) Validation loss. 
+
+Figure 3 Training and validation losses in the OpenWeb-Text. 
+
+Code 1 PyTorch-style pseudocode for GeoNorm.                                                                                                        
+
+> 1def geonorm(h_in, Fh, decay_method, layer_idx,
+> ↪→num_layers, angle_upper_bound, alpha): 2h_in_norm_sq =(h_in *h_in). sum (dim=-1,
+> ↪→keepdim=True).clamp( min =1e-12) 3h_in_norm =h_in_norm_sq.sqrt() 4h_in_trs_dot_Fh =(h_in *Fh). sum (dim=-1,
+> ↪→keepdim=True) 56z=Fh -(h_in_trs_dot_Fh /h_in_norm_sq) *
+> ↪→h_in 7z_norm_sq =(z *z). sum (dim=-1, keepdim=True).
+> ↪→clamp( min =1e-12) 8z_norm =z_norm_sq.sqrt() 9z_hs =z/z_norm 10 11 if decay_method == 'harmonic ':12 alpha =torch.clamp(F.softplus(alpha), max
+> ↪→=1.0) /layer_idx 13 elif decay_method == 'linear ':14 alpha =torch.clamp(F.softplus(alpha), max
+> ↪→=1.0) *(num_layers -layer_idx) /
+> ↪→num_layers 15 elif decay_method == 'sqrt ':16 alpha =torch.clamp(F.softplus(alpha), max
+> ↪→=1.0) /math.sqrt(layer_idx) 17 18 beta =(alpha *(z_norm /h_in_norm)).clamp( max
+> ↪→=angle_upper_bound) 19 h_out =torch.cos(beta) *h_in +h_in_norm *
+> ↪→torch.sin(beta) *z_hs 20 21 return h_out
+
+# D Technical Proofs for Section 4 
+
+## D.1 Proof of Proposition 3 
+
+Let U = span {h, v}. We first prove uniqueness. Sup-pose that W ∈ so (d) satisfies 
+
+Wh = v, range( W) ⊆ U .
+
+15 Code 2 PyTorch-style pseudocode for Proj-SpheretNorm. 
+
+1 def proj_spheretnorm(h_in, Fh, layer_idx, alpha): 2 h_in_norm_sq = (h_in * h_in). sum (dim=-1, 
+
+↪→ keepdim=True).clamp( min =1e-12) 3 h_in_norm = h_in_norm_sq.sqrt() 4 h_in_trs_dot_Fh = (h_in * Fh). sum (dim=-1, 
+
+↪→ keepdim=True) 56 z = Fh - (h_in_trs_dot_Fh / h_in_norm_sq) *
+
+↪→ h_in 78 alpha = torch.clamp(F.softplus(alpha), max =1.0) 
+
+↪→ / math.sqrt(self.layer_idx) 910 h_plus = h_in + alpha * z11 h_plus_norm_sq = (h_plus * h_plus). sum (dim=-1, 
+
+↪→ keepdim=True).clamp( min =1e-12) 12 h_plus_norm = h_plus_norm_sq.sqrt() 13 h_out = h_in_norm * (h_plus / h_plus_norm) 14 15 return h_out 
+
+Code 3 PyTorch-style pseudocode for Cay-SpheretNorm. 
+
+1 def cay_spheretnorm(h_in, Fh, layer_idx, 
+
+↪→ angle_upper_bound, alpha): 2 h_in_norm_sq = (h_in * h_in). sum (dim=-1, 
+
+↪→ keepdim=True).clamp( min =1e-12) 3 h_in_norm = h_in_norm_sq.sqrt() 4 h_in_trs_dot_Fh = (h_in * Fh). sum (dim=-1, 
+
+↪→ keepdim=True) 56 z = Fh - (h_in_trs_dot_Fh / h_in_norm_sq) *
+
+↪→ h_in 7 z_norm_sq = (z * z). sum (dim=-1, keepdim=True). 
+
+↪→ clamp( min =1e-12) 8 z_norm = z_norm_sq.sqrt() 910 alpha = torch.clamp(F.softplus(alpha), max =1.0) 
+
+↪→ / math.sqrt(layer_idx) 11 12 beta_max = math.tan(angle_upper_bound * 0.5) *
+
+↪→ 2.0 13 gamma = torch.minimum(alpha, beta_max * (
+
+↪→ h_in_norm / z_norm)) 14 beta = gamma * (z_norm / h_in_norm) 15 beta_sq = beta * beta 16 h_out = ((4 - beta_sq) * h_in + 4 * gamma * z) 
+
+↪→ / (4 + beta_sq) 17 18 return h_out 
+
+For every x ∈ U ⊥ and y ∈ U , skew-symmetry gives 
+
+⟨Wx , y⟩ = −⟨ x, Wy ⟩.
+
+Since Wy ∈ U and x ∈ U ⊥, it follows that ⟨Wx , y⟩ =0 for every y ∈ U . On the other hand, Wx ∈ U by the range condition. Therefore, 
+
+Wx = 0, x ∈ U ⊥.
+
+Thus, W is completely determined by its restriction to U.If v = 0, then U = span {h} and Wh = 0. Hence 
+
+W = 0, which agrees with the claimed formula. Suppose now that v̸ = 0, and define the orthonormal vectors 
+
+e1 = h
+
+r , e2 = v
+
+∥v∥2
+
+.
+
+Code 4 PyTorch-style pseudocode for p-SpheretNorm. 
+
+1 def p_spheretnorm(h_in, Fh, layer_idx, 
+
+↪→ angle_upper_bound, alpha, p): 2 h_in_norm_sq = (h_in * h_in). sum (dim=-1, 
+
+↪→ keepdim=True).clamp( min =1e-12) 3 h_in_norm = h_in_norm_sq.sqrt() 4 h_in_trs_dot_Fh = (h_in * Fh). sum (dim=-1, 
+
+↪→ keepdim=True) 56 z = Fh - (h_in_trs_dot_Fh / h_in_norm_sq) * 
+
+↪→ h_in 7 z_norm_sq = (z * z). sum (dim=-1, keepdim=True). 
+
+↪→ clamp( min =1e-12) 8 z_norm = z_norm_sq.sqrt() 9 z_hs = z / z_norm 10 11 alpha = torch.clamp(F.softplus(alpha), max =1.0) 
+
+↪→ / math.sqrt(self.layer_idx) 12 13 beta = alpha * (z_norm / h_in_norm) 14 theta = p * torch.arctan(beta / p) 15 if p > 1.0: 16 theta = torch.clamp(theta, max =
+
+↪→ angle_upper_bound) 17 18 h_out = torch.cos(theta) * h_in + (h_in_norm * 
+
+↪→ torch.sin(theta)) * z_hs 19 20 return h_out 
+
+Since Wh = v, we have 
+
+We 1 = ∥v∥2
+
+r e2.
+
+Skew-symmetry then uniquely determines the action on e2: We 2 = − ∥v∥2
+
+r e1. Together with W = 0 on 
+
+U⊥, this proves that at most one such skew-symmetric matrix exists. Now define ̂
+
+W = vh ⊤ − hv ⊤
+
+r2 .
+
+Then ̂ W⊤ = −̂ W, so ̂ W ∈ so (d). Since h⊤v = 0 
+
+and ∥h∥22 = r2,̂
+
+Wh = vh ⊤h − hv ⊤h
+
+r2 = v.
+
+Moreover, range (̂ W) ⊆ span {h, v}. Therefore, by uniqueness, 
+
+W =̂ W = vh ⊤ − hv ⊤
+
+r2 .
+
+We next derive the closed form of the Cayley update. Define ρ = ∥v∥2
+
+r , we obtain 
+
+Wv = vh ⊤v − hv ⊤v
+
+r2 = −ρ2h.
+
+The matrix I − 12 W is invertible. Indeed, if (I − 12 W) x = 0 , then x = 12 Wx . Taking the inner 16 product with x and using x⊤Wx = 0 gives ∥x∥22 = 0 ,and hence x = 0.Set a = 4−ρ2 
+
+> 4+ ρ2
+
+and b = 44+ ρ2 . Using Wh = v and 
+
+Wv = −ρ2h, we have 
+
+(
+
+I − 12 W
+
+)
+
+(ah + bv) = ah + bv − a
+
+2 v + bρ 2
+
+2 h
+
+=
+
+(
+
+a + bρ 2
+
+2
+
+)
+
+h +
+
+(
+
+b − a
+
+2
+
+)
+
+v.
+
+The definitions of a and b give a + bρ 2 
+
+> 2
+
+= 1 and 
+
+b − a 
+
+> 2
+
+= 12 . Therefore, 
+
+(
+
+I − 12 W
+
+)
+
+(ah + bv) = h + 12 v =
+
+(
+
+I + 12 W
+
+)
+
+h.
+
+Since I − 12 W is invertible, 
+
+C(W )h =
+
+(
+
+I − 12 W
+
+)−1 (
+
+I + 12 W
+
+)
+
+h
+
+= ah + bv
+
+= 4 − ρ2
+
+4 + ρ2 h + 44 + ρ2 v.
+
+This proves the claimed closed-form expression. 
+
+## D.2 Proof of Proposition 5 
+
+For p = 1 , we have θl = arctan( βl), and hence 
+
+cos( θl) = 1
+
+√1 + β2
+
+> l
+
+, sin( θl) = βl
+
+√1 + β2
+
+> l
+
+.
+
+Since βl = αlsl/r l and h⊤ 
+
+> l
+
+zl = 0 , it follows that 
+
+h(1)  
+
+> l+1
+
+= hl + αlzl
+
+√1 + β2
+
+> l
+
+= rl
+
+hl + αlzl
+
+∥hl + αlzl∥2
+
+.
+
+This is precisely the Proj-SpheretNorm update. For p = 2 , the double-angle identities give 
+
+cos 
+
+(
+
+2 arctan βl
+
+2
+
+)
+
+= 4 − β2
+
+> l
+
+4 + β2
+
+> l
+
+, sin 
+
+(
+
+2 arctan βl
+
+2
+
+)
+
+= 4βl
+
+4 + β2
+
+> l
+
+.
+
+Substituting βl = αlsl/r l into Definition 4 yields 
+
+h(2)  
+
+> l+1
+
+= 4 − β2
+
+> l
+
+4 + β2
+
+> l
+
+hl + 4αl
+
+4 + β2
+
+> l
+
+zl,
+
+which is the Cay-SpheretNorm update. For every fixed βl,
+
+lim  
+
+> p→+∞
+
+p arctan 
+
+( βl
+
+p
+
+)
+
+= βl.
+
+The continuity of the sine and cosine functions there-fore gives the exponential-map limit. Finally, 
+
+∣∣∣∣p arctan 
+
+( βl
+
+p
+
+)∣ ∣∣∣ ≤ πp 
+
+2 → 0 as p → 0+.
+
+Thus cos (θl) → 1 and sin (θl) → 0, proving conver-gence to the identity mapping. 
+
+## D.3 Proof of Proposition 7 
+
+Consistent with the L retained hidden states 
+
+h1, . . . , hL, we index the individual SpheretNorm updates by l = 1 , . . . , L − 1. Let 
+
+hl+1 = SpheretNorm (hl, Fl(hl)),
+
+where the step-size and retraction parameters are suppressed from the notation. Define rl = ∥hl∥2,
+
+Pl = I − hlh⊤
+
+> l
+> r2
+> l
+
+, and zl = PlFl(hl). Then h⊤ 
+
+> l
+
+zl = 0 .Suppose first that zl̸ = 0 . For an appropriate intrinsic angle θl, every SpheretNorm variant considered in this work admits the representation 
+
+hl+1 = cos( θl)hl + rl sin( θl) zl
+
+∥zl∥2
+
+.
+
+Since h⊤ 
+
+> l
+
+zl = 0 , the two terms on the right-hand side are orthogonal, and therefore 
+
+∥hl+1 ∥22 = cos 2(θl)∥hl∥22 + r2 
+
+> l
+
+sin 2(θl)
+
+∥∥∥∥
+
+zl
+
+∥zl∥2
+
+∥∥∥∥
+
+> 22
+
+= r2 
+
+> l
+
+.
+
+Hence, ∥hl+1 ∥2 = ∥hl∥2. When zl = 0 , the continu-ously extended update satisfies hl+1 = hl, and the same identity holds. Therefore, by induction, 
+
+∥hl∥2 = ∥h1∥2, l = 1 , . . . , L. 
+
+Since h1 is the output of the modified ScaleNorm operation, 
+
+∥h1∥2 = Softplus( γ).
+
+Consequently, 
+
+∥hl∥2 = Softplus( γ), l = 1 , . . . , L. 
+
+In particular, 
+
+∥hL∥2 = Softplus( γ),
+
+which is stronger than, and therefore implies, the stated upper bound 
+
+∥hL∥2 ≤ Softplus( γ).
+
+17 D.4 Second-Order Retraction and Local Consistency 
+
+We prove the smoothness, second-order retraction, and local-consistency properties used in Section 1.3. Fix p > 0, let h ∈ Sd−1 
+
+> r
+
+, v ∈ ThSd−1 
+
+> r
+
+, and define 
+
+ρ = ∥v∥2 
+
+> r
+
+, θp(ρ) = p arctan 
+
+( ρp
+
+)
+
+.For ρ > 0, define 
+
+ap(ρ) = cos (θp(ρ)), bp(ρ) = sin (θp(ρ))
+
+ρ ,
+
+and set bp(0) = 1 . The p-angular map can then be written as 
+
+R(p) 
+
+> h
+
+(v) = ap(ρ)h + bp(ρ)v.
+
+Smoothness at the zero section. The apparent singularity in bp(ρ) at ρ = 0 is removable. To see this, consider the real-analytic odd function 
+
+˜θp(t) = p arctan 
+
+( tp
+
+)
+
+, t ∈ R.
+
+Define Ap(t) = cos (˜θp(t)) and Bp(t) =
+
+sin (˜θp(t))
+
+t , t̸ = 0 ,
+
+1, t = 0 .
+
+. Since ˜θp is odd, both Ap and 
+
+Bp are even real-analytic functions in a neighbor-hood of the origin. Hence, there exist real-analytic functions ̂ Ap and ̂ Bp, defined near zero, such that 
+
+Ap(t) = ̂ Ap(t2), Bp(t) = ̂ Bp(t2).
+
+Consequently, 
+
+R(p) 
+
+> h
+
+(v) = ̂ Ap
+
+( ∥v∥22
+
+r2
+
+)
+
+h +̂ Bp
+
+( ∥v∥22
+
+r2
+
+)
+
+v.
+
+This representation is smooth at v = 0. Since r > 0
+
+is fixed on Sd−1 
+
+> r
+
+, it also shows that (h, v) → R (p) 
+
+> h
+
+(v)
+
+is smooth on the tangent bundle T Sd−1 
+
+> r
+
+near the zero section. Away from v = 0, smoothness follows directly from the defining formula. 
+
+Sphere-valued property. Since h⊤v = 0 , ∥h∥2 =
+
+r, and ∥v∥2 = rρ , we obtain, for v̸ = 0,
+
+∥∥∥R(p) 
+
+> h
+
+(v)
+
+∥∥∥22
+
+= ap(ρ)2∥h∥22 + bp(ρ)2∥v∥22
+
+= r2 cos 2(θp(ρ)) + r2 sin 2(θp(ρ)) = r2.
+
+The same conclusion is immediate at v = 0. There-fore, R(p) 
+
+> h
+
+(v) ∈ Sd−1 
+
+> r
+
+.
+
+Retraction and second-order properties. As ρ →
+
+0,
+
+θp(ρ) = ρ − ρ3
+
+3p2 + O(ρ5).
+
+It follows that 
+
+ap(ρ) = 1 − ρ2
+
+2 +
+
+( 124 + 13p2
+
+)
+
+ρ4 + O(ρ6),
+
+and 
+
+bp(ρ) = 1 −
+
+( 16 + 13p2
+
+)
+
+ρ2 + O(ρ4).
+
+Equivalently, as s → 0, it follows that ̂
+
+Ap(s) = 1 − s
+
+2 +
+
+( 124 + 13p2
+
+)
+
+s2 + O(s3),
+
+and ̂
+
+Bp(s) = 1 −
+
+( 16 + 13p2
+
+)
+
+s + O(s2).
+
+Fix v ∈ ThSd−1 
+
+> r
+
+, set ρ0 = ∥v∥2 
+
+> r
+
+, and consider the curve c(t) = R(p) 
+
+> h
+
+(tv). Using the even-function rep-resentation above, we have 
+
+c(t) = ̂ Ap(t2ρ20)h + t̂ Bp(t2ρ20)v.
+
+Therefore, 
+
+c(t) = h + tv − t2∥v∥22
+
+2r2 h + O(t3).
+
+Hence, c(0) = h, c′(0) = v and c′′ (0) = − ∥v∥22 
+
+> r2
+
+h.The first two identities verify the defining conditions of a retraction. Moreover, since 
+
+NhSd−1 
+
+> r
+
+= span {h},
+
+the acceleration c′′ (0) is normal to the hypersphere. Equivalently, 
+
+Phc′′ (0) = 0, Ph = I − hh ⊤
+
+r2 .
+
+Hence, the retraction curve has no tangential accelera-tion at the origin, which is precisely the second-order retraction condition. Therefore, R(p) is a second-order retraction on Sd−1 
+
+> r
+
+for every fixed p > 0.
+
+Local expansion of the SpheretNorm update. For the l-th SpheretNorm update, let rl = ∥hl∥2, Pl =
+
+I − hlh⊤
+
+> l
+> r2
+> l
+
+, zl = PlFl(hl), and sl = ∥zl∥2. Applying the preceding expansion to v = αlzl gives 
+
+hl+1 = hl + αlzl − α2 
+
+> l
+
+∥zl∥22
+
+2r2
+
+> l
+
+hl
+
+−
+
+( 16 + 13p2
+
+) α3 
+
+> l
+
+∥zl∥22
+
+r2
+
+> l
+
+zl + O(α4 
+
+> l
+
+).
+
+18 Here, the expansion is taken as αl → 0, with hl and 
+
+zl fixed. More generally, the remainder is uniform over any local regime in which rl is bounded away from zero and ηl = ∥zl∥2 
+
+> rl
+
+remains bounded. The lin-ear term αlzl is tangent to the hypersphere, while the quadratic term − α2 
+
+> l∥zl∥22
+> 2r2
+> l
+
+hl is normal to the hyper-sphere at hl. Moreover, the parameter p first appears in the cubic tangent correction 
+
+−
+
+( 16 + 13p2
+
+) α3 
+
+> l
+
+∥zl∥22
+
+r2
+
+> l
+
+zl.
+
+Thus, all members of the p-angular family have the same first-order tangent dynamics and the same second-order normal correction, while their finite-step dependence on p first appears at cubic order. Finally, since zl = PlFl(hl), we obtain the first-order consistency relation 
+
+hl+1 = hl + αlPlFl(hl) + O(α2 
+
+> l
+
+).
+
+## D.5 Depth-Wise Conditioning Criterion 
+
+We first formulate the conditioning criterion for a generic ordered sequence of individual SpheretNorm updates. Let M denote the number of such updates, and let 
+
+Jj = ∂xj+1 
+
+∂xj
+
+, j = 1 , . . . , M. 
+
+For each j, define qj =
+
+{
+
+| cos( θj )|, sj > 0,
+
+1, sj = 0 , and 
+
+mj = max {0, q j − ∆j }. Assume that there exists a constant m∗ > 0, independent of j and M , such that 
+
+mj ≥ m∗, j = 1 , . . . , M . Since mj ≤ 1, we have 
+
+− log mj =
+
+∫ 1
+
+> mj
+
+dt t ≤ 1 − mj
+
+m∗
+
+.
+
+Because mj > 0, the maximum in its definition is inactive, and hence mj = qj − ∆j . Therefore, 
+
+1 − mj = 1 − qj + ∆ j .
+
+For every real θ, 1 − | cos θ| ≤ 1 − cos θ ≤ θ2 
+
+> 2
+
+. Conse-quently, 1 − mj ≤ |θj |2 
+
+> 2
+
++ ∆ j . It follows that 
+
+− log 
+
+
+
+> M
+
+∏
+
+> j=1
+
+mj
+
+ = −
+
+> M
+
+∑
+
+> j=1
+
+log mj
+
+≤ 1
+
+m∗
+
+ 12
+
+> M
+
+∑
+
+> j=1
+
+|θj |2 +
+
+> M
+
+∑
+
+> j=1
+
+∆j
+
+ .
+
+Hence, 
+
+> M
+
+∏
+
+> j=1
+
+mj ≥ exp 
+
+− 1
+
+m∗
+
+ 12
+
+> M
+
+∑
+
+> j=1
+
+|θj |2 +
+
+> M
+
+∑
+
+> j=1
+
+∆j
+
+ .
+
+Let GM = JM JM −1 · · · J1. Combining the preceding estimate with the layerwise bounds of Proposition 6 gives 
+
+σmax (GM ) ≤ exp 
+
+
+
+> M
+
+∑
+
+> j=1
+
+∆j
+
+
+
+and 
+
+σmin (GM ) ≥ exp 
+
+− 1
+
+m∗
+
+ 12
+
+> M
+
+∑
+
+> j=1
+
+|θj |2 +
+
+> M
+
+∑
+
+> j=1
+
+∆j
+
+ .
+
+Therefore, if ∑Mj=1 ∆j = O(1) and ∑Mj=1 |θj |2 =
+
+O(1) , then both σmax (GM ) and σmin (GM )−1 remain bounded independently of the number M of individ-ual SpheretNorm updates. For the residual stream h1, h2, . . . , hL considered in Appendix A and Appendix D.3, there are M = L − 1
+
+individual SpheretNorm updates. More precisely, setting 
+
+xj = hj , Jj = ∂hj+1 
+
+∂hj
+
+, j = 1 , . . . , L − 1,
+
+gives 
+
+GM = GL−1 = ∂hL
+
+∂h1
+
+= JL−1JL−2 · · · J1.
+
+Therefore, the preceding depth-wise conditioning cri-terion applies to the actual residual stream with 
+
+> L−1
+
+∑
+
+> j=1
+
+∆j = O(1) ,
+
+> L−1
+
+∑
+
+> j=1
+
+|θj |2 = O(1) .
+
+Proposition 6 uses L as the generic number of indi-vidual SpheretNorm updates. When the result is ap-plied to the retained-state indexing h1, . . . , hL, used in Appendix A and Appendix D.3, the corresponding update count is M = L − 1.
+
+## D.6 Proof of the Depth-Schedule Growth Proposition 
+
+The three schedules compared in Proposition 8 are 
+
+λl = 1 , λl = l−1/2, and λl = l−1. In particular, the third schedule is the harmonic schedule λl = l−1, for which 
+
+> L
+
+∑
+
+> l=1
+
+λl = O(log L),
+
+> L
+
+∑
+
+> l=1
+
+λ2 
+
+> l
+
+= O(1) .
+
+19 By definition, SL = ∑Ll=1 λlalκl. Since 0 < a l ≤ 1
+
+and κl ≤ K, it follows that SL ≤ K ∑Ll=1 λl. Fur-thermore, since 
+
+∣∣∣∣p arctan 
+
+( βp
+
+)∣ ∣∣∣ ≤ | β|, β ∈ R,
+
+we have |θl| ≤ | βl| = λlalηl. Using alηl ≤ H, we obtain 
+
+AL =
+
+> L
+
+∑
+
+> l=1
+
+|θl|2 ≤
+
+> L
+
+∑
+
+> l=1
+
+λ2 
+
+> l
+
+(alηl)2 ≤ H2
+
+> L
+
+∑
+
+> l=1
+
+λ2 
+
+> l
+
+.
+
+For the constant schedule λl = 1 , we have ∑Ll=1 λl =
+
+L and ∑Ll=1 λ2 
+
+> l
+
+= L. For the layerwise square-root schedule λl = l−1/2,
+
+> L
+
+∑
+
+> l=1
+
+λl =
+
+> L
+
+∑
+
+> l=1
+
+1
+
+√l ≤ 2√L = O(√L),
+
+while 
+
+> L
+
+∑
+
+> l=1
+
+λ2 
+
+> l
+
+=
+
+> L
+
+∑
+
+> l=1
+
+1
+
+l ≤ 1 + log L = O(log L).
+
+For the harmonic schedule λl = l−1,
+
+> L
+
+∑
+
+> l=1
+
+λl =
+
+> L
+
+∑
+
+> l=1
+
+1
+
+l = O(log L) and 
+
+> L
+
+∑
+
+> l=1
+
+λ2 
+
+> l
+
+=
+
+> L
+
+∑
+
+> l=1
+
+1
+
+l2 ≤ π2
+
+6 = O(1) .
+
+The stated growth rates follow. 
+
+Application to the retained-state indexing. 
+
+Proposition 8 uses L as the generic number of indi-vidual SpheretNorm updates. For the retained-state sequence h1, h2, . . . , hL, the corresponding number of updates is M = L − 1. For l = 1 , . . . , M , let 
+
+αl = λlal and ∆l = λlalκl, where κl = 2 ∥Bl∥2 + ηl.Suppose that 
+
+κl ≤ K, alηl ≤ H, l = 1 , . . . , M. 
+
+Define the accumulated sensitivity envelope and squared angular budget by 
+
+Sres  
+
+> M
+
+=
+
+> M
+
+∑
+
+> l=1
+
+∆l, Ares  
+
+> M
+
+=
+
+> M
+
+∑
+
+> l=1
+
+|θl|2.
+
+Then the preceding estimates give 
+
+Sres  
+
+> M
+
+≤ K
+
+> M
+
+∑
+
+> l=1
+
+λl, Ares  
+
+> M
+
+≤ H2
+
+> M
+
+∑
+
+> l=1
+
+λ2 
+
+> l
+
+.
+
+Since M = L − 1, these estimates are equivalently 
+
+λl Sres  
+
+> L−1
+
+Ares 
+
+> L−1
+
+1 O(L) O(L)1/√l O(√L) O(log L)1/l O(log L) O(1) .
+
+Thus, specializing the generic update count in Propo-sition 8 changes only the endpoint of the sums and does not alter any of the stated asymptotic growth rates. 
+
+## D.7 Full Jacobian and Layerwise Esti-mates 
+
+Indexing convention. Consistent with the retained-state indexing used in Appendix A and Ap-pendix D.3, we consider the sequence h1, h2, . . . , hL,where, for k = 1 , . . . , L − 1,
+
+hk+1 = SpheretNorm (hk, Fk(hk)).
+
+There are therefore N = L − 1 individual SpheretNorm updates between h1 and hL.For notational convenience in the Jacobian calcula-tion, set xk = hk for k = 1 , . . . , N + 1 . Then 
+
+x1 = h1, xN +1 = hL,
+
+and the k-th individual SpheretNorm update is writ-ten as 
+
+xk 7 −→ xk+1 , k = 1 , . . . , N. 
+
+Proposition 6 uses L as a generic count of individual SpheretNorm updates. To avoid conflict with the retained-state count L used here, we denote that generic update count by N . For the retained-state sequence h1, . . . , hL, one has N = L − 1.
+
+Differential of a single SpheretNorm update. For each k = 1 , . . . , N , let Fk denote the mapping as-sociated with the k-th SpheretNorm update, and let αk denote its step size. We assume that Fk is continuously differentiable in a neighborhood of xk.Throughout this subsection, all derivatives are taken with respect to xk, while p and αk are treated as constants. Define rk = ∥xk∥2, Pk = I − xk x⊤
+
+> k
+> r2
+> k
+
+, ck = x⊤   
+
+> kFk(xk)
+> r2
+> k
+
+,
+
+zk = Fk(xk) − ckxk = PkFk(xk), sk = ∥zk∥2, and 
+
+ηk = sk
+
+rk
+
+, βk = αkηk, θk = p arctan 
+
+( βk
+
+p
+
+)
+
+.
+
+Let Ak = DFk(xk) = ∂Fk (xk ) 
+
+> ∂xk
+
+, Bk = Ak − ckI,and define Jk = ∂xk+1  
+
+> ∂xk
+
+. For a perturbation ξ ∈ Rd,differentiation of zk = Fk(xk) − ckxk gives 
+
+Dzk[ξ] = Bkξ − Dc k[ξ]xk.
+
+20 Since Pkxk = 0, we immediately obtain PkDzk[ξ] = 
+
+PkBkξ. We next compute the derivative of ck. Direct differentiation gives 
+
+Dc k[ξ] = ξ⊤Fk(xk) + x⊤ 
+
+> k
+
+Akξ
+
+r2
+
+> k
+
+− 2 x⊤ 
+
+> k
+
+Fk(xk)
+
+r4
+
+> k
+
+x⊤ 
+
+> k
+
+ξ.
+
+Using Fk(xk) = zk + ckxk and Ak = Bk + ckI, the terms containing ckx⊤ 
+
+> k
+
+ξ cancel, yielding 
+
+Dc k[ξ] = z⊤ 
+
+> k
+
+ξ + x⊤ 
+
+> k
+
+Bkξ
+
+r2
+
+> k
+
+.
+
+Suppose first that sk > 0. Since sk = ∥zk∥2 and 
+
+rk = ∥xk∥2, we have ∇xk sk = B⊤  
+
+> kzk
+> sk
+
+and ∇xk rk = xk 
+
+> rk
+
+.Therefore, 
+
+∇xk βk = αk
+
+( B⊤ 
+
+> k
+
+zk
+
+rksk
+
+− skxk
+
+r3
+
+> k
+
+)
+
+.
+
+Moreover, dθ k 
+
+> dβ k
+
+= p2
+
+> p2+β2
+> k
+
+, and hence 
+
+∇xk θk = αkp2
+
+p2 + β2
+
+> k
+
+( B⊤ 
+
+> k
+
+zk
+
+rksk
+
+− skxk
+
+r3
+
+> k
+
+)
+
+.
+
+For sk > 0, the k-th SpheretNorm update is xk+1 =cos (θk)xk + rk sin (θk) zk 
+
+> sk
+
+. Differentiating this expres-sion and substituting the formula for Dc k[ξ] yields 
+
+Jk = cos( θk)I + sin( θk)
+
+rksk
+
+(zkx⊤ 
+
+> k
+
+− xkz⊤
+
+> k
+
+)
+
++ rk sin( θk)
+
+sk
+
+(
+
+Pk − zkz⊤
+
+> k
+
+s2
+
+> k
+
+)
+
+Bk
+
++
+
+( rk cos( θk)
+
+sk
+
+zk − sin( θk)xk
+
+)
+
+(∇xk θk)⊤ .
+
+Define Qk = cos (θk)I + sin( θk ) 
+
+> rksk
+
+(zkx⊤ 
+
+> k
+
+− xkz⊤
+
+> k
+
+). Then 
+
+Jk = Qk + Ek, where 
+
+Ek = rk sin( θk)
+
+sk
+
+(
+
+Pk − zkz⊤
+
+> k
+
+s2
+
+> k
+
+)
+
+Bk
+
++
+
+( rk cos( θk)
+
+sk
+
+zk − sin( θk)xk
+
+)
+
+(∇xk θk)⊤ .
+
+Estimate of the perturbation term. Since Pk − 
+
+> zkz⊤
+> k
+> s2
+> k
+
+is the orthogonal projection onto the subspace of Txk Sd−1 
+
+> rk
+
+orthogonal to zk, its operator norm is at most one. Therefore, 
+
+∥∥∥∥
+
+rk sin( θk)
+
+sk
+
+(
+
+Pk − zkz⊤
+
+> k
+
+s2
+
+> k
+
+)
+
+Bk
+
+∥∥∥∥2
+
+≤ rk| sin( θk)|
+
+sk
+
+∥Bk∥2.
+
+Since |βk| = |αk| sk 
+
+> rk
+
+, we obtain 
+
+∥∥∥∥
+
+rk sin( θk)
+
+sk
+
+(
+
+Pk − zkz⊤
+
+> k
+
+s2
+
+> k
+
+)
+
+Bk
+
+∥∥∥∥2
+
+≤ | αk| | sin( θk)||βk| ∥Bk∥2.
+
+For the second term in Ek, the orthogonality x⊤ 
+
+> k
+
+zk =0 gives 
+
+∥∥∥∥
+
+rk cos( θk)
+
+sk
+
+zk − sin( θk)xk
+
+∥∥∥∥
+
+> 22
+
+= r2 
+
+> k
+
+cos 2(θk) + r2 
+
+> k
+
+sin 2(θk) = r2
+
+> k
+
+.
+
+Hence, 
+
+∥∥∥∥
+
+rk cos( θk)
+
+sk
+
+zk − sin( θk)xk
+
+∥∥∥∥2
+
+= rk.
+
+Furthermore, 
+
+∥∇ xk θk∥2 ≤ p2
+
+p2 + β2
+
+> k
+
+|αk|∥ Bk∥2 + |βk|
+
+rk
+
+.
+
+It follows that ∥Ek∥2 ≤ δexact  
+
+> k
+
+, where 
+
+δexact  
+
+> k
+
+= |αk| | sin( θk)||βk| ∥Bk∥2+ p2
+
+p2 + β2
+
+> k
+
+(|αk|∥ Bk∥2 + |βk|) .
+
+The quotient | sin( θk )||βk | is understood through its con-tinuous extension at βk = 0 .Since | sin (θk)| ≤ | θk| ≤ | βk|, p2
+
+> p2+β2
+> k
+
+≤ 1, and |βk| =
+
+|αk|ηk, we obtain 
+
+δexact  
+
+> k
+
+≤ | αk| (2 ∥Bk∥2 + ηk) .
+
+Define ∆k = |αk| (2 ∥Bk∥2 + ηk). Then ∥Ek∥2 ≤ ∆k.
+
+The zero-tangent case. We now consider sk = 0 .At the point under consideration, zk = 0, βk = 0 .Direct differentiation of βk = αk ∥zk ∥2 
+
+> rk
+
+is not valid at zk = 0, because the Euclidean norm is not dif-ferentiable at the origin. We therefore use the even-function representation established in Appendix D.4. Let ap(β) = cos 
+
+(
+
+p arctan 
+
+( βp
+
+)) 
+
+and 
+
+bp(β) = 
+
+
+
+sin ( p arctan( β/p )) 
+
+β , β̸ = 0 ,
+
+1, β = 0 .
+
+There exist real-analytic functions ̂ Ap and ̂ Bp, defined near zero, such that 
+
+ap(β) = ̂ Ap(β2), bp(β) = ̂ Bp(β2),
+
+with ̂ Ap(0) = ̂ Bp(0) = 1 . For x̸ = 0, define 
+
+zk(x) = 
+
+(
+
+I − xx ⊤
+
+∥x∥22
+
+)
+
+Fk(x), ωk(x) = α2
+
+> k
+
+∥zk(x)∥22
+
+∥x∥22
+
+.
+
+21 The layer map can be written locally as 
+
+Tk(x) = ̂ Ap
+
+(ωk(x))x + αk̂ Bp
+
+(ωk(x))zk(x).
+
+For a perturbation ξ ∈ Rd,
+
+Dω k(xk)[ ξ] = 2α2
+
+> k
+
+r2
+
+> k
+
+z⊤ 
+
+> k
+
+Dzk[ξ] − 2α2
+
+> k
+
+s2
+
+> k
+
+r4
+
+> k
+
+x⊤ 
+
+> k
+
+ξ.
+
+When sk = 0 , we have ωk(xk) = 0 and Dω k(xk)[ ξ] = 0. Consequently, 
+
+DTk(xk)[ ξ] = ξ + αkDzk[ξ].
+
+Since zk = 0, one has Fk(xk) = ckxk. The derivative of ck therefore reduces to 
+
+Dc k[ξ] = x⊤ 
+
+> k
+
+Bkξ
+
+r2
+
+> k
+
+.
+
+Hence, 
+
+Dzk[ξ] = Bkξ − Dc k[ξ]xk
+
+= Bkξ − xkx⊤
+
+> k
+
+r2
+
+> k
+
+Bkξ = PkBkξ.
+
+It follows that Jk = I + αkPkBk when sk = 0 . Define 
+
+δ(0)  
+
+> k
+
+= |αk|∥ PkBk∥2. Weyl’s singular-value perturba-tion inequality gives 
+
+σmax (Jk) ≤ 1 + δ(0) 
+
+> k
+
+and 
+
+σmin (Jk) ≥ max {0, 1 − δ(0)  
+
+> k
+
+}.
+
+Moreover, δ(0)  
+
+> k
+
+≤ | αk|∥ Bk∥2 ≤ ∆k.
+
+Singular-value bounds. For sk > 0, define e1,k = 
+
+> xk
+> rk
+
+, e2,k = zk 
+
+> sk
+
+. On span {e1,k , e2,k }, the matrix of Qk,with respect to this orthonormal basis, is 
+
+(cos( θk) − sin( θk)sin( θk) cos( θk)
+
+)
+
+.
+
+Thus, Qk acts as an isometry on this two-dimensional subspace. On its orthogonal complement, Qk acts as multiplication by cos (θk). Consequently, we obtain that ∥Qk∥2 = 1 and σmin (Qk) ≥ | cos (θk)|. For 
+
+sk > 0, Weyl’s inequality therefore gives 
+
+σmax (Jk) ≤ 1 + ∆ k
+
+and 
+
+σmin (Jk) ≥ max {0, | cos( θk)| − ∆k}.
+
+Define 
+
+qk =
+
+{
+
+| cos( θk)|, sk > 0,
+
+1, sk = 0 ,
+
+and mk = max {0, q k − ∆k}. Combining the cases 
+
+sk > 0 and sk = 0 , we obtain 
+
+σmax (Jk) ≤ 1+∆ k, σmin (Jk) ≥ mk, k = 1 , . . . , N. 
+
+Depth-wise Jacobian. The end-to-end Jacobian over the retained residual stream is 
+
+G = ∂hL
+
+∂h1
+
+= ∂xN +1 
+
+∂x1
+
+.
+
+Since N = L − 1, the chain rule gives G =
+
+JN JN −1 · · · J1 = JL−1JL−2 · · · J1. By submultiplica-tivity, 
+
+σmax (G) ≤
+
+> N
+
+∏
+
+> k=1
+
+σmax (Jk) ≤
+
+> N
+
+∏
+
+> k=1
+
+(1 + ∆ k)
+
+≤ exp 
+
+( N∑
+
+> k=1
+
+∆k
+
+)
+
+.
+
+Equivalently, σmax (G) ≤ exp 
+
+(∑L−1 
+
+> k=1
+
+∆k
+
+)
+
+. Similarly, 
+
+σmin (G) ≥
+
+> N
+
+∏
+
+> k=1
+
+σmin (Jk) ≥
+
+> N
+
+∏
+
+> k=1
+
+mk =
+
+> L−1
+
+∏
+
+> k=1
+
+mk.
+
+A consequence of exact norm preservation. 
+
+Since ∥xk+1 ∥22 = ∥xk∥22 for every admissible xk, dif-ferentiation with respect to xk yields J⊤ 
+
+> k
+
+xk+1 = xk.Therefore, 
+
+∥Jk∥2 = ∥J⊤ 
+
+> k
+
+∥2 ≥ ∥J⊤ 
+
+> k
+
+xk+1 ∥2
+
+∥xk+1 ∥2
+
+= ∥xk∥2
+
+∥xk+1 ∥2
+
+= 1 .
+
+Thus, an individual SpheretNorm update Jacobian cannot be a strict contraction in every ambient direc-tion, although it may still strongly contract particular tangential directions. 
+
+## D.8 Angle Control Alone Is Insufficient 
+
+The intrinsic rotation angle controls the geometric component of the update Jacobian, but it does not control the differential sensitivity of the underlying mapping. The following example shows that even zero angular displacement provides no uniform upper bound on the update-Jacobian norm and does not guarantee nonsingularity. 
+
+Proposition 9. For every R > 1 and every α > 
+
+0, there exist a linear mapping F : R2 → R2 and a hidden state h ∈ S1 such that the corresponding SpheretNorm update satisfies β = 0 and θ(p) = 0 ,while its update Jacobian satisfies ∥J∥2 = R.Proof. Let h = e1 =
+
+(10
+
+)
+
+and define F(x) = Ax 
+
+and A =
+
+(μ 00 μ + K
+
+)
+
+, where μ, K ∈ R. When 22 h = e1, we have F(h) = μe1 and c = h⊤F(h) = μ.Therefore, 
+
+B = A − cI =
+
+(0 00 K
+
+)
+
+.
+
+Moreover, P = I − hh ⊤ =
+
+(0 00 1
+
+)
+
+, and hence z =
+
+PF(h) = 0. Therefore, β = 0 and θ(p) = 0 for every p > 0. Since z = 0, the zero-tangent formula established in Appendix D.7 gives 
+
+J = I + αPB =
+
+(1 00 1 + αK 
+
+)
+
+.
+
+Choosing K = R−1 
+
+> α
+
+gives J =
+
+(1 00 R
+
+)
+
+, and therefore 
+
+∥J∥2 = R.The same construction also shows that zero angu-lar displacement does not imply nonsingularity. In-deed, choosing K = − 1 
+
+> α
+
+gives J =
+
+(1 00 0
+
+)
+
+, so that 
+
+σmin (J) = 0 . Therefore, angular control must be sup-plemented by control of the update-sensitivity term 
+
+|α|∥ B∥2.
+
+## D.9 Dyadic Angular Budget of the Depth Schedules 
+
+The global estimates in Proposition 8 compare the accumulated stability envelopes over the entire se-quence of SpheretNorm updates. We now examine how the available angular motion is distributed across different depth scales. Under the retained-state indexing h1, h2, . . . , hL, the individual SpheretNorm updates are indexed by l =1, . . . , L − 1. For an integer m ≥ 1 satisfying 2m ≤
+
+L, define the dyadic update interval Im = {m, m +1, . . . , 2m − 1}. The condition 2m ≤ L ensures that 
+
+Im ⊆ { 1, . . . , L − 1}.
+
+Proposition 10. Fix an optimization iteration τ
+
+and let p > 0. Suppose that there exist constants 
+
+0 < H − ≤ H+ < ∞
+
+and ε > 0 such that, for every l ∈ Im,
+
+H− ≤ a(τ ) 
+
+> l
+
+η(τ ) 
+
+> l
+
+≤ H+ and 
+
+∣∣∣β(τ )
+
+> l
+
+∣∣∣ ≤ ε. 
+
+Then there exist constants C−, C + > 0, independent of m and L, such that 
+
+C−
+
+∑
+
+> l∈Im
+
+λ2 
+
+> l
+
+≤ ∑
+
+> l∈Im
+
+∣∣∣θ(p)
+
+> l,τ
+
+∣∣∣2
+
+≤ C+
+
+∑
+
+> l∈Im
+
+λ2 
+
+> l
+
+.
+
+Consequently, ∑
+
+> l∈Im
+
+∣∣∣θ(p)
+
+> l,τ
+
+∣∣∣2
+
+= Θ(1) for the lay-erwise square-root schedule λl = l−1/2, while 
+
+∑
+
+> l∈Im
+
+∣∣∣θ(p)
+
+> l,τ
+
+∣∣∣2
+
+= Θ( 1 
+
+> m
+
+) for the harmonic schedule 
+
+λl = l−1.Proof. Define 
+
+ϕp(t) = 
+
+
+
+p arctan( t/p )
+
+t , t > 0,
+
+1, t = 0 .
+
+The function ϕp is continuous and strictly positive on the compact interval [0 , ε ]. Hence there exists a constant cp,ε = min 0≤t≤ε ϕp(t) > 0 such that 
+
+cp,ε t ≤ p arctan 
+
+( tp
+
+)
+
+≤ t, 0 ≤ t ≤ ε. 
+
+Applying this estimate with t = |β(τ ) 
+
+> l
+
+| gives 
+
+cp,ε 
+
+∣∣∣β(τ )
+
+> l
+
+∣∣∣ ≤
+
+∣∣∣θ(p)
+
+> l,τ
+
+∣∣∣ ≤
+
+∣∣∣β(τ )
+
+> l
+
+∣∣∣. Since 
+
+∣∣∣β(τ )
+
+> l
+
+∣∣∣ = λla(τ ) 
+
+> l
+
+η(τ ) 
+
+> l
+
+,the assumptions imply cp,ε H−λl ≤
+
+∣∣∣θ(p)
+
+> l,τ
+
+∣∣∣ ≤ H+λl.Squaring and summing over Im yields 
+
+c2
+
+> p,ε
+
+H2
+
+> −
+
+∑
+
+> l∈Im
+
+λ2 
+
+> l
+
+≤ ∑
+
+> l∈Im
+
+∣∣∣θ(p)
+
+> l,τ
+
+∣∣∣2
+
+≤ H2+
+
+∑
+
+> l∈Im
+
+λ2 
+
+> l
+
+.
+
+Thus, the first assertion holds with C− = c2
+
+> p,ε
+
+H2 
+
+> −
+
+and 
+
+C+ = H2+. For the layerwise square-root schedule 
+
+λl = l−1/2, we have 
+
+> 2m−1
+
+∑
+
+> l=m
+
+λ2 
+
+> l
+
+=
+
+> 2m−1
+
+∑
+
+> l=m
+
+1
+
+l .
+
+Since m ≤ l ≤ 2m − 1 for every l ∈ Im, we have  
+
+> 12m−1
+
+≤ 1 
+
+> l
+
+≤ 1 
+
+> m
+
+. Since Im contains exactly m indices, it follows that m 
+
+> 2m−1
+
+≤ ∑2m−1  
+
+> l=m1
+> l
+
+≤ 1. Hence, 
+
+> 2m−1
+
+∑
+
+> l=m
+
+λ2 
+
+> l
+
+= Θ(1) .
+
+For the harmonic schedule λl = l−1, we have ∑2m−1 
+
+> l=m
+
+λ2 
+
+> l
+
+= ∑2m−1  
+
+> l=m1
+> l2
+
+. Using again m ≤ l ≤ 2m−1,we obtain 1(2 m−1) 2 ≤ 1 
+
+> l2
+
+≤ 1 
+
+> m2
+
+. Therefore, 
+
+m
+
+(2 m − 1) 2 ≤
+
+> 2m−1
+
+∑
+
+> l=m
+
+1
+
+l2 ≤ 1
+
+m .
+
+Since m 
+
+> (2 m−1) 2
+
+≥ 14m , we conclude that 
+
+14m ≤
+
+> 2m−1
+
+∑
+
+> l=m
+
+λ2 
+
+> l
+
+≤ 1
+
+m .
+
+23 Hence, 2m−1∑
+
+> l=m
+
+λ2 
+
+> l
+
+= Θ 
+
+( 1
+
+m
+
+)
+
+.
+
+The stated conclusions follow. Proposition 10 distinguishes the distribution of squared angular motion from the global worst-case stability envelope. The harmonic schedule gives the smaller global accumulated-sensitivity bound, but al-locates progressively less squared angular motion to deeper dyadic update intervals. By contrast, the lay-erwise square-root schedule retains an approximately constant squared angular budget across logarithmic scales of update depth, allowing the transformations associated with deeper SpheretNorm updates to re-main nontrivial. 24
