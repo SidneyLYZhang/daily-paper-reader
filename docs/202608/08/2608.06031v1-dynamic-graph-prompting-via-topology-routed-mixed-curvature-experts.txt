@@ -1,0 +1,541 @@
+Title: Dynamic Graph Prompting via Topology-Routed Mixed-Curvature Experts
+
+URL Source: https://arxiv.org/pdf/2608.06031v1
+
+Published Time: Fri, 07 Aug 2026 01:17:57 GMT
+
+Number of Pages: 9
+
+Markdown Content:
+# Dynamic Graph Prompting via Topology-Routed Mixed-Curvature Experts 
+
+Quanxin Wang 1, Xuanting Xie 1, Bingheng Li 2, Xingtong Yu 3, Shuo Wang 1,4 , Ruiyi Fang 5, Zhao Kang 1∗
+
+> 1
+
+University of Electronic Science and Technology of China 
+
+> 2
+
+Michigan State University 
+
+> 3
+
+Singapore Management University 
+
+> 4
+
+Tsinghua University 
+
+> 5
+
+Western University tranciewang@gmail.com, x624361380@outlook.com, zkang@uestc.edu.cn 
+
+Abstract 
+
+Dynamic graph prompting freezes a pre-trained temporal backbone and adapts it to label-scarce downstream tasks us-ing lightweight prompts. However, existing methods operate within a single, fixed embedding space. In this work, we re-veal that temporal shifts in local clustering and degree het-erogeneity actively reorganize the edge curvature spectrum— indicating that the optimal representation geometry dynam-ically evolves with local topology over time. We formalize this unaddressed mismatch as geometry under-adaptation .To overcome this limitation, we propose CurvPrompt , a topology-routed geometry prompting framework for dynamic graphs. Instead of relying on a single space, CurvPrompt maintains a bank of curvature-diverse Riemannian experts, each paired with a learnable prompt. A topology-aware gate dynamically routes each node–time instance to a sparse subset of experts, constructing a personalized mixed-curvature rep-resentation. To ensure parameter efficiency and training sta-bility under extreme label scarcity, CurvPrompt employs soft routing during pre-training to build a continuous topology– geometry mapping, and transitions to hard Top-K routing with uniform weights during downstream adaptation. Exten-sive experiments across four benchmark datasets show that CurvPrompt significantly advances few-shot link prediction while delivering strong, consistent performance on node clas-sification tasks, validating the necessity of geometry-adaptive prompting. 
+
+Introduction 
+
+Dynamic graphs, in which nodes and edges continuously emerge, vanish, and reconnect over time, arise in a wide range of real-world systems, including social networks, e-commerce platforms, and online education (Kumar, Zhang, and Leskovec 2019; Barros et al. 2021). Dynamic graph neural networks (DGNNs) have emerged as the mainstream technique for modeling such evolving interactions, and are typically pre-trained with temporal link prediction (Xu et al. 2020; Rossi et al. 2020; Yu et al. 2023a). However, this objective leaves a substantial gap from downstream tasks such as node classification, where labeled data are often scarce. Inspired by the success of prompt learning on static graphs (Liu et al. 2023; Sun et al. 2022b, 2023; Fang et al. 2024), recent dynamic graph prompting methods (Yu et al. 2025b; Chen et al. 2024) freeze the pre-trained backbone and adapt it to downstream objectives by tuning only lightweight 
+
+> ∗
+
+Corresponding author. 
+
+prompts. How to efficiently transfer a pre-trained dynamic graph model to label-limited downstream tasks has therefore become an important problem. Despite this, these methods largely inherit a fixed-geometry assumption : both the frozen backbone and the prompts operate in a single, predefined embedding space. This assumption collapses under varying local topology: real-world networks exhibit heterogeneous structures—tree-like hierarchies, dense communities, and cyclic pat-terns—that map naturally to distinct constant-curvature ge-ometries (Chami et al. 2019; Nickel and Kiela 2017; Bach-mann, Bécigneul, and Ganea 2020). In dynamic graphs, such heterogeneity evolves across both space and time as neigh-borhoods continuously reconfigure. Figure 1 provides direct empirical evidence on MOOC in (a): mean local clustering falls from 0.88 to 0.71 while degree variance grows four-fold. (b–c): Concurrently, the edge Ollivier–Ricci curvature spectrum reorganizes toward the negative regime from day 0 (-0.02) to day 30 (-0.15), with near-zero edges shrinking from 75% to 39% and negative-curvature edges rising from 17% to 56%. These observations suggest that the locally preferred representation geometry may evolve from approximately Euclidean-like toward more hyperbolic-like structures over time. We term this mismatch geometry under-adaptation :task-level prompts may be updated in existing works, yet the representation geometry remains time-invariant and fails to track topology-induced curvature drift (Wang et al. 2026; Sun et al. 2022a; Yang et al. 2026; Guo et al. 2025). To enable geometry-adaptive prompting for dynamic graphs, two main issues must be addressed. First, design-ing effective prompts that guide each node–time instance to-ward its optimal representation geometry remains an open challenge, as it introduces new layers of complexity re-lated to topology-aware conditioning, temporal evolution, and instance-level geometric heterogeneity. Second, such geometry adaptation must remain parameter-efficient. Ex-isting few hyperbolic space models (Yang et al. 2026; Guo et al. 2025; Bachmann, Bécigneul, and Ganea 2020) enable mixed-curvature routing, but train all experts end-to-end per task, incurring heavy computation and overfitting under few-shot labels. These considerations lead to our central ques-tion: How can prompts guide each evolving neighborhood toward its optimal representation geometry while preserving arXiv:2608.06031v1 [cs.LG] 6 Aug 2026 0 5 10 15 20 25 Day index 0.700 0.725 0.750 0.775 0.800 0.825 0.850 0.875 0.900 Mean local clustering                     
+
+> (a) MOOC: topology drift
+> -0.5 -0.3 -0.1 0.1 0.3 0.5
+> Edge ORC κ
+> 0612 18 24 29
+> Day
+> 00.2 0.4 0.6 0.8
+> Density
+> (b) Geometry drift (ORC ridgeline)
+> 0510 15 20 25 Day index 0.0 0.2 0.4 0.6 0.8 1.0 Edge fraction
+> neg: 17% →56% near-zero: 75% →39%
+> (c) Curvature strata reorganize
+> 1000 2000 3000 4000 5000 6000 7000 8000 Degree variance
+> 0.0 0.1 0.2 0.3 0.4 0.5
+> Density
+> Clustering (smoothed) Clustering (raw) Deg. var (smoothed) Deg. var (raw) Negative κNear-zero κPositive κ
+
+Figure 1: Topology-induced geometry drift on MOOC (1-day windows, 30 days). (a) Mean local clustering falls while degree variance rises. (b) Edge Ollivier–Ricci curvature (ORC) distributions over time from day 0 (back/inner) to day 30 (front/outer) (black: daily mean ¯κ(t)). (c) Curvature strata ( τ =0 .05 ): near-zero edges shrink while negative-curvature edges expand. 
+
+parameter-efficient downstream adaptation? 
+
+To answer this question, we propose CurvPrompt, a topology-routed geometry prompting framework for dy-namic graphs. CurvPrompt replaces single-space prompt-ing with a bank of curvature-diverse Riemannian prompt experts and routes each node–time instance to a sparse ex-pert subset based on its multi-resolution temporal topol-ogy. This yields personalized mixed-curvature representa-tions and routing-weighted geodesic metrics, enabling both embedding and scoring geometries to adapt jointly to evolv-ing local structures. Additionally, to ensure parameter effi-ciency, we introduce a soft-to-hard routing strategy, where soft routing learns topology–geometry associations during pre-training, while hard routing reuses the frozen routing mechanism for lightweight downstream prompt tuning. To summarize, our contributions are as follows: 
+
+• We identify geometry under-adaptation in dynamic graph prompting and address it through topology-conditioned routing over curvature-diverse experts. 
+
+• To the best of our knowledge, CurvPrompt is the first Riemannian mixture-of-experts framework for graph prompt learning, adapting representation and scoring geometries at the node–time level while remaining parameter-efficient. 
+
+• Extensive experiments on four benchmarks demonstrate strong and consistent performance across tasks, validating the effectiveness of geometry-adaptive prompting. 
+
+Related Work 
+
+Dynamic graph learning. Many real-world graphs evolve continuously over time, motivating the development of continuous-time dynamic graph learning methods. Existing approaches generally update node representations by propa-gating and aggregating temporal messages from neighboring nodes (Skarding, Gabrys, and Musial 2021; Barros et al. 2021). Representative techniques include dynamic random walks for capturing structural evolution (Nguyen et al. 2018; Wang et al. 2021), temporal encoders that fuse structural and temporal information (Xu et al. 2020; Cong et al. 2022; Rossi et al. 2020; Yu et al. 2023a), and temporal point pro-cess models for characterizing interaction dynamics (Kumar, Zhang, and Leskovec 2019; Trivedi et al. 2019; Wen and Fang 2022). Despite their success, most of these methods are opti-mized using link prediction objectives, whereas downstream applications often involve different tasks such as node classi-fication. The resulting objective mismatch limits knowledge transfer and weakens downstream generalization (Chen et al. 2022; Yu et al. 2025b). 
+
+Graph prompt learning. Prompt learning was originally introduced in natural language processing to reduce the dis-crepancy between pre-training and downstream objectives (Brown et al. 2020). Instead of updating the entire pre-trained model, it adapts task-specific prompts while keep-ing the backbone fixed. This paradigm has recently achieved promising results on static graphs (Liu et al. 2023; Sun et al. 2023; Fang et al. 2024; Tan et al. 2023; Yu et al. 2023b, 2025c, 2024, 2025a,d, 2023c), but remains relatively under-explored for dynamic graphs. TIGPrompt (Chen et al. 2024), DyGPrompt (Yu et al. 2025b), and DDGPrompt (Peng et al. 2026) adapt temporal prompts for dynamic graphs, yet still operate in a fixed Euclidean space without geometry adap-tation. Prompt-expert mixtures have also been explored for static graph foundation models (Wang et al. 2025), but re-main Euclidean and non-temporal. 
+
+Riemannian learning on graphs. Constant-curvature and mixed-curvature models show that hierarchical, community-like, and cyclic structures favor different geometries (Chami et al. 2019; Gu et al. 2019; Bachmann, Bécigneul, and Ganea 2020). Curvature-stratified evaluation further suggests that model effectiveness is geometry-dependent (Wang et al. 2026). On dynamic graphs, Riemannian methods remain comparatively limited: some adopt time-varying or hyper-bolic geometries for temporal graphs (Sun et al. 2022a), while recent mixture-of-experts approaches learn topology-aware routing over curvature-diverse manifolds for static topologi-cal heterogeneity (Guo et al. 2025; Cao et al. 2026) or evolv-ing dynamic topologies (Yang et al. 2026). These models typically train experts and routers end-to-end per task, leav-ing the Riemannian framework in prompt learning underex-plored. 
+
+Methodology 
+
+In this section, we present CurvPrompt, a dynamic Rie-mannian mixture-of-prompt-experts framework for temporal graph learning. The proposed framework contains four key components: (1) curvature-diverse Riemannian experts, (2) expert-specific prompts together with node–time conditional prompts, (3) a topology-aware temporal gating mechanism, and (4) mixed-curvature representation alignment. 
+
+Problem Formulation 
+
+Dynamic graph. We consider a continuous-time dynamic graph G = ( V, E, T ), where V is the node set, E is the temporal interaction set, and T is the time domain. Each event (vi, v j , t ) ∈ E represents an interaction between nodes 
+
+vi and vj at time t. Each node v is associated with a temporal feature vector xt,v ∈ Rd at time t. We use 
+
+Nu(t) = {(v, t ′) : ( v, u, t ′) ∈ E , t ′ < t } (1) to denote the historical temporal neighborhood of node u
+
+before time t.A time encoder TE : T → Rdt maps a timestamp to a temporal feature. A common implementation is 
+
+TE( t) = 
+
+r 1
+
+dt
+
+ cos( ω1t), sin( ω1t), . . . , 
+
+cos( ωdt/2t), sin( ωdt/2t),
+
+(2) where {ωi}dt/2 
+
+> i=1
+
+are learnable frequencies (Xu et al. 2020; Cong et al. 2022). 
+
+Constant-curvature manifolds. Let Mdh 
+
+> κ
+
+denote a dh-dimensional constant-curvature manifold. Depending on the sign of κ, it corresponds to a spherical space when κ > 0, a hyperbolic space when κ < 0, and a Euclidean space when 
+
+κ = 0 . We adopt the κ-stereographic model as a unified formulation. The exponential map exp κ(·) and logarithmic map log κ(·) transform representations between the manifold and the tangent space (Bachmann, Bécigneul, and Ganea 2020). 
+
+Diverse Riemannian Experts 
+
+Temporal graphs may contain hierarchical, cyclic, community-like, and approximately Euclidean structures at different time periods. A single Euclidean embedding space is therefore insufficient to faithfully represent all temporal substructures. To address this issue, we replace the Euclidean GNN experts in a conventional mixture-of-experts architec-ture with Riemannian experts operating in different constant-curvature spaces. The expert bank is denoted by 
+
+E = {EH1 , E H2 , . . . , E Ei , . . . , E Si } , (3) where EHi is a hyperbolic expert with κ < 0, EE is a Eu-clidean expert with κ = 0 , and ESi is a spherical expert with 
+
+κ > 0.
+
+Riemannian expert update. We instantiate the experts on a Temporal Graph Network (TGN) backbone (Rossi et al. 2020). Let st,v denote the memory-augmented node state at 
+
+(v, t ):
+
+st,v = mem v (t) + xt,v , (4) where mem v (t) is the TGN memory of node v at time t
+
+and xt,v is the node feature. Let mt,v be the mean-pooled neighborhood message obtained by projecting concatenated neighbor, time-interval, and edge features (using only inter-actions in Nv (t)). An expert Eϵ with curvature κϵ applies a single-layer update: 
+
+zϵt,v = exp κϵ
+
+
+
+σ
+
+
+
+Wϵ, s log κϵ (st,v )+ Wϵ, n log κϵ   exp κϵ (mt,v ) + ct,v + pϵ
+
+ 
+
+.
+
+(5) where σ denotes GELU, pϵ is an expert-specific prompt, and 
+
+ct,v is a shared node–time condition bias produced by a time condition-net (TCN) and a node condition-net (NCN) (Yu et al. 2025b). Diversity thus comes from the expert bank (multiple curvatures and prompts), while each expert itself uses a lightweight single-layer Riemannian update. 
+
+Curvature diversity. Experts of the same geometry type are initialized with different curvature values to capture dif-ferent degrees of geometric bending. The expert curvatures are learnable during pre-training. 
+
+Expert Prompts and Node–Time Conditioning 
+
+Beyond the curvature-diverse expert bank, we introduce prompt and conditioning mechanisms that specialize experts and adapt node–time interfaces. Lightweight structure and time prompts on the TGN backbone serve as feature adapters, while our focus is the expert-specific prompts and the shared node–time condition bias used by both experts and the router. 
+
+Expert-Specific Prompt Each expert Eϵ is equipped with a learnable prompt pϵ ∈ Rdh , injected additively into the tangent-space update in Eq. (5). This gives every curvature space an independent steer, promoting expert specialization without changing the expert backbone weights at downstream time. 
+
+Time Prompt and Condition Bias A shared time prompt 
+
+pT rescales the time encoding, f T 
+
+> t
+
+= pT ⊙ TE( t). Inspired by conditional prompt learning (Zhou et al. 2022; Yu et al. 2025b), we then build a node–time condition bias with dual bottleneck networks: a time condition-net (TCN) and a node condition-net (NCN), 
+
+ct,v = TCN( f T 
+
+> t
+
+) + NCN( xS 
+
+> t,v
+
+), (6) where xS 
+
+> t,v
+
+denotes the (optionally structure-prompted) node feature. Unlike multiplicative dual-prompt pipelines, ct,v is added into both the expert update (Eq. (5)) and the router input below, so expert computation and expert selection share the same node–time context. TIME 
+
+> 𝒕 𝟏
+> 𝒕 𝟐
+> 𝒕 𝟑
+> Node -Time
+> Condition
+> 𝑐 𝑡,𝑣
+
+Routing Layer 
+
+Pre -train      
+
+> 123456
+
+Downstream           
+
+> 123456
+> Soft Top -K(K=3) Hard Top -K(K=3)
+
+Expert Bank  M = 6          
+
+> Hyperbolic
+> (𝜅 < 0)
+> Euclidean
+> (𝜅 = 0)
+> Spherical
+> (𝜅 > 0)
+> 123456
+> 𝒏𝒐𝒅𝒆 𝒔𝒕𝒂𝒕𝒆
+> 𝒔 𝒕,𝒗
+
+𝑬 ℍ𝟏 
+
+Top -K Expert Mixture  (weighted sum) 
+
+> Diverse Expert Prompts
+> TE(t)
+
+Scoring 
+
+Loss      
+
+> 𝒑 𝒑 𝒑 𝒑 𝒑 𝒑
+
+𝑬 𝔼 𝟏  𝑬 𝕊 𝟏 
+
+> Frozen
+> Backbone
+
+𝜅 
+
+𝑬 ℍ𝟐  𝑬 𝔼 𝟐  𝑬 𝕊 𝟐 Figure 2: Overview of CurvPrompt. Left: temporal topology shifts (e.g., rising clustering) indicate changing curvature prefer-ences. Center: a shared node–time condition ct,v drives Soft Top-K routing in pre-training and Hard Top-K routing downstream, while a frozen Temporal Graph Network (TGN) backbone provides st,v ; selected curvature-diverse Riemannian experts (H/E/S) with prompts pϵ are mixed. Right: Scoring, loss and few-shot tasks NC and LP. 
+
+Topology-Aware Temporal Gating 
+
+Different temporal substructures fit different curvatures. We therefore route each node–time instance to a sparse subset of Riemannian experts with a topology-aware gate. 
+
+Multi-resolution topology encoding. Given the retrieved temporal neighbors of v at time t (ordered by recency), we en-code multi-scale local structure by mean-pooling the r most recent neighbors for each neighborhood size r ∈ R (e.g., 
+
+{2, 5, 10 }) and fusing the pooled features with the backbone state st,v :
+
+Tt,v = σ
+
+Wfuse 
+
+st,v 
+
+> r∈R
+
+Pool r
+
+ {st′,u }(u,t ′)∈N v (t)
+
+ .
+
+(7) Here Pool r averages the first r neighbors in the retrieved list; 
+
+r denotes a neighborhood size, not a hop-based radius. 
+
+Conditioned Top-K routing. The router consumes topol-ogy together with the condition bias: 
+
+ℓt,v = ϕgate (Dropout( Tt,v + ct,v )) ∈ RM . (8) During pre-training we use soft Top-K routing 
+
+g(ϵ) 
+
+> t,v
+
+=
+
+
+
+exp( ℓϵt,v /τ g )
+
+P  
+
+> j∈Top -K
+
+exp( ℓjt,v /τ g ) , ϵ ∈ Top -K, 
+
+0, otherwise ,
+
+(9) Soft routing is also consistent with the mixed-geometry na-ture of temporal neighborhoods, which may simultaneously contain hierarchical, community-like, and approximately flat patterns. During few-shot downstream tuning we switch to hard Top-K with uniform weights g(ϵ) 
+
+> t,v
+
+= 1 /K on the se-lected experts, so that the model stably reuses the geometry selection learned in pre-training under scarce labels. Orthog-onality, distortion and load-balancing losses further encour-age geometry-aware, non-collapsed routing. We write W ϵt,v 
+
+for the post-Top-K weight g(ϵ) 
+
+> t,v
+
+.
+
+Mixture and Alignment 
+
+Personalized mixed-curvature embedding. After each expert produces zϵt,v (Eq. (5)), we aggregate the se-lected experts in the shared ambient coordinates of the κ-stereographic model and apply a linear alignment to the backbone state: 
+
+ˆzt,v =
+
+> M
+
+X
+
+> ϵ=1
+
+W ϵt,v zϵt,v , ht,v = Walign ˆzt,v . (10) Geometry is specialized inside each expert; the gate forms a personalized mixed-curvature view for the same node–time instance. 
+
+Geometric scoring. For pairwise comparison we use a routing-weighted curvature ¯κt,v = P 
+
+> ϵ
+
+W ϵt,v κϵ and the geodesic distance d¯κ(ht,u , ht,v ).
+
+Learning Objectives 
+
+We adopt temporal link prediction using binary cross-entropy (BCE) for pre-training and reuse compatible task objectives for downstream NC/LP, together with auxiliary regularizers: embedding distortion for geometry-aware routing and load balancing. 
+
+Pre-Training Objective For each positive temporal inter-action (v, a, t ), we sample a negative node b that does not interact with v at time t, resulting in a tuple (v, a, b, t ). Can-didate pairs are scored with a lightweight decoder that takes the mixed-curvature embeddings and the routing-weighted geodesic distance d¯κ(ht,u , ht,v ),yielding predicted probabilities ˆyv,a , ˆyv,b ∈ (0 , 1) . We optimize BCE: 
+
+Lpre = − X
+
+> (v,a,b,t )∈D pre
+
+h
+
+log ˆ yv,a + log  1 − ˆyv,b 
+
+i
+
+. (11) The distortion loss aligns Riemannian distances with lo-cal graph proximity. We sample pairs S in each mini-batch and use a neighborhood proxy ˜g (0/1/2/capped constant for identical, adjacent, shared-neighbor, and other pairs): 
+
+LD = 1
+
+|S| 
+
+X
+
+> (u,v )∈S
+
+ℓδ
+
+ d¯κ(ht,u , ht,v ), ˜g(u, v ), (12) where ℓδ is the smooth L1 loss. To avoid expert under-utilization, we apply a load-balancing loss that pulls the average gate distribution toward uniform: 
+
+Lbal = MSE 
+
+
+
+¯g, 1
+
+M 1
+
+
+
+, (13) where ¯g ∈ RM is the batch-averaged gate weight over M
+
+experts. To encourage expert specialization, we impose a soft or-thogonality constraint on the expert prompts, where P =[p1, . . . , pM ]⊤ stacks the expert prompts: 
+
+Lortho = PP ⊤ − I 2 
+
+> F
+
+. (14) The overall pre-training objective is 
+
+Lpre -total = Lpre + λ1LD + λ2Lbal + λ3Lortho . (15) 
+
+Downstream Prompt-Tuning Objective During down-stream adaptation, we freeze the Riemannian experts, cur-vatures, topology encoder, router, TCN/NCN, and the pre-trained time encoder, and update only the prompts and the task head. This preserves the geometric and routing knowl-edge from pre-training while keeping downstream adaptation parameter-efficient. 
+
+Temporal node classification. Let Ddown = {(vi, y i, t i)}
+
+denote a labeled downstream dataset. We obtain class predic-tions ˆyvi,t i from a task decoder over the mixed embeddings and optimize BCE: 
+
+Ldown = BCE  ˆyvi,t i , y i
+
+. (16) 
+
+Temporal link prediction. For downstream temporal link prediction, we reuse the same BCE objective as in Eq. (11). The overall prompt-tuning objective is primarily the task loss; auxiliary regularizers may be retained with small weights when beneficial: 
+
+Ldown -total = Ldown + λ1LD + λ2Lbal . (17) 
+
+Experiments 
+
+Experimental Setup 
+
+Datasets We evaluate four public dynamic graph datasets based on continuous-time temporal interaction networks: Wikipedia (Wiki), Reddit, MOOC (Kumar, Zhang, and Leskovec 2019), and Genre (Huang et al. 2023). 
+
+Tasks and evaluation protocol To ensure a fair compari-son, we evaluate temporal node classification and temporal link prediction under both transductive and inductive settings following DyGPrompt (Yu et al. 2025b). Given a chronolog-ically ordered event stream, we use the first 80% of events for pre-training (once per dataset) and the remaining 20% for downstream adaptation, further split into 1%/1%/18% as the training pool, validation pool, and test set. Each few-shot task samples 30 events from the training pool ( 0.01% of the full dataset). We report AUC-ROC (%) averaged over 100 independently sampled tasks with five random seeds. 
+
+Implementation details We build CurvPrompt on a TGN backbone (Rossi et al. 2020) with a node memory mod-ule and M Riemannian experts with Top-K routing un-der diverse curvatures in the κ-stereographic model, and assign diverse curvatures from positive, near-zero to neg-ative to different experts. Each expert is equipped with an expert-specific prompt. The gating network is condi-tioned on multi-resolution temporal neighborhoods (neigh-borhood sizes r ∈ {2, 5, 10 }). Dual node/time prompts and dual condition-nets are combined with these expert-specific prompts. Pre-training uses temporal link prediction with BCE, regularized by prompt orthogonality, embedding distortion and load balancing losses. We score candidate links with a lightweight MLP that takes node embeddings and their geodesic distance as input. In downstream tuning, we freeze the Riemannian experts, curvatures, topology en-coder, router, TCN/NCN, and the time encoder, and optimize prompt-related parameters (time/expert prompts, structure prompts, and the task head). 
+
+Baselines We compare CurvPrompt against state-of-the-art approaches across four categories: (1) Conventional DGNNs: GCN-ROLAND, GAT-ROLAND (You, Du, and Leskovec 2022), TGAT (Xu et al. 2020), TGN (Rossi et al. 2020), TREND (Wen and Fang 2022), and Graph-Mixer (Cong et al. 2022); (2) Dynamic graph pre-training: DDGCL (Tian et al. 2021) and CPDG (Bei et al. 2024); (3) Static graph prompting: GraphPrompt (Liu et al. 2023) and ProG (Sun et al. 2023) (with DGNN backbones); (4) Dy-namic graph prompting: TIGPrompt (Chen et al. 2024) and DyGPrompt (Yu et al. 2025b). DyGPrompt is the strongest baseline and serves as our primary comparison. We report the best numbers from the original papers where available, or re-run them under our unified protocol. 
+
+Overall Performance Comparison 
+
+We compare CurvPrompt against these baselines on all four datasets. Table 1 reports the AUC-ROC (%) for node clas-sification (NC), transductive link prediction (LP-Trans), and inductive link prediction (LP-Indu). Overall, CurvPrompt achieves the best results on all 8 link-prediction settings and on 2 of 4 node-classification settings; it is highly competitive on the remainder. 
+
+Link prediction. CurvPrompt obtains the best AUC-ROC on every LP split, with gains ranging from +0 .5% (Red-dit transductive, vs. TGN-DYGPrompt) to +13 .9% (MOOC transductive, vs. TGN-DYGPrompt). The advantage is most pronounced on MOOC and Genre. On inductive LP, sev-eral non-prompt baselines (e.g., TGN, TGAT, ROLAND-style models) remain near the random-guess regime on Genre, whereas CurvPrompt sustains strong generalization. Combined with its gains over other prompting baselines, this suggests that prompt-based multi-curvature routing fur-ther helps under few-shot adaptation. Compared with DyG-Prompt, these gains show that prompt-guided selection of mixed-curvature spaces is effective. The large margin over GraphMixer further highlights the benefit of our topology-routed mixture-of-experts design. 
+
+Node classification. NC remains harder than LP for all methods, with larger variances and lower absolute AUC. CurvPrompt leads on Reddit (75.60) and MOOC (79.15); on Wiki it ranks second ( 76 .17 , behind TGAT-DYGPrompt 
+
+82 .09 ). On Genre NC, all methods cluster in a narrow band (46 .33 –52 .03 ), with CurvPrompt ( 50 .27 ) lying within this range; this flatness could suggest that Genre’s relatively stable local topology offers less opportunity for geometry-adaptive encoding to differentiate. 
+
+Ablation Study 
+
+We ablate the key components of CurvPrompt on Red-dit and MOOC (Table 2). Removing any module degrades performance relative to the full model, indicating that each design choice contributes. (i) The strongest degradation oc-curs under w/o Expert (i.e., neither multi-expert routing nor multi-κ specialization). LP drops sharply, approaching chance level (e.g., MOOC LP-Old 84.05 →56.32 ), indicating that the curvature-specialized expert mixture is the main con-tributor to interaction modeling. The NC impact is dataset-dependent: Reddit NC falls substantially (75.60 →66.43 , the largest among NC ablations), whereas MOOC NC remains nearly unchanged (79.15 →78.41 ). (ii) w/o Balance yields the second-largest LP degradation on both datasets, indicating that gate-load balancing is necessary to keep multi-κ routing effective and avoid expert under-utilization. (iii) w/o GE (i.e., disabling Lortho and LD ) and w/o Expert Prompt both cause moderate, consistent drops, showing that geometric regular-ization and per-expert prompts are useful. (iv) w/o Topology leaves LP nearly unchanged on Reddit ( < 0.1), but causes clear drops on MOOC ( ≈ 6 points) and consistently hurts NC on both datasets, implying that topology encoding supplies important condition/routing signals. Overall, CurvPrompt benefits from the synergy of topology-conditioned routing, mixed-curvature experts with specialized prompts, balanced gating, and geometric regularization. However, w/o Expert simultaneously removes expert ca-pacity, routing, and curvature specialization; it therefore can-not isolate whether the gains come from MoE capacity or from mixed-curvature geometry. 
+
+Figure 3: Reddit expert gate usage over 31 days. Each stacked region is the daily mean gate weight of one curvature expert. Routing mass shifts from κ=1 .0 toward κ=0 .2, while hyper-bolic experts remain minority. 
+
+Necessity of mixed curvature. To disentangle MoE ca-pacity from geometric diversity, we further compare three geometry configurations with matched expert count and routing (Table 3): Euclidean MoE (all κ=0 ), Single Cur-vature (shared non-Euclidean κ), and Mixed Curvature (CurvPrompt). Euclidean MoE already outperforms w/o Expert on LP, confirming that the expert mixture itself is beneficial; yet it remains clearly below CurvPrompt on both datasets. Replacing all-Euclidean experts with a shared cur-vature improves LP/NC, showing that non-Euclidean geom-etry helps beyond MoE capacity alone. CurvPrompt further improves over Single Curvature, indicating that the gains are not merely from using a curved space, but from multi-κ
+
+specialization across experts. 
+
+Expert Analysis 
+
+To examine whether CurvPrompt adapts expert alloca-tion over the interaction timeline, we freeze a pretrained model and run causal inference on Reddit, recording gate weights for every edge. Edges are then aggregated by day to obtain the mean usage of each curvature expert (Fig. 3). For clearer visualization, we use a four-expert probe (κ∈{− 1.8, −0.5, 0.2, 1}, Top-K=1 ), not the main Reddit setting. The resulting stacked usage reveals a clear tempo-ral shift. Early in the timeline, the high-curvature spherical expert ( κ=1 ) accounts for a substantial share of routing de-cisions, while hyperbolic experts ( κ∈{− 1.8, −0.5}) remain secondary. Over the subsequent days, usage gradually con-centrates on the mild spherical expert ( κ=0 .2), which be-comes dominant by the end of the period; meanwhile, both 
+
+κ=1 and the hyperbolic experts decline. This trend indi-cates that the learned gate does not collapse to a fixed expert mixture. Instead, it redistributes mass across complementary curvature regimes as interactions progress, supporting the necessity of multi-κ MoE routing for temporal graphs. Table 1: AUC-ROC (%) evaluation of temporal node classification and link prediction. The best result is bolded and the runner-up is underlined. 
+
+Methods Node Classification Transductive LP Inductive LP Wiki Reddit MOOC Genre Wiki Reddit MOOC Genre Wiki Reddit MOOC Genre GCN-ROLAND 58.86 ±10.3 48.25 ±9.57 49.93 ±6.74 46.33 ±3.97 49.61 ±3.12 50.01 ±2.53 49.82 ±1.44 49.15 ±3.74 49.60 ±2.37 49.90 ±1.64 49.16 ±2.48 47.25 ±2.97 
+
+GAT-ROLAND 62.81 ±9.88 47.95 ±8.42 50.01 ±6.34 47.26 ±3.49 52.34 ±1.82 50.04 ±1.98 55.74 ±3.71 47.69 ±2.81 52.29 ±1.97 49.85 ±2.35 54.01 ±2.16 49.38 ±2.72 
+
+TGAT 67.00 ±5.35 53.64 ±5.50 59.27 ±4.43 51.26 ±2.31 55.78 ±2.03 62.43 ±1.86 51.49 ±1.30 69.11 ±3.89 48.21 ±1.55 57.30 ±0.70 51.42 ±4.27 48.38 ±4.72 
+
+TGN 50.61 ±13.6 49.54 ±6.23 50.33 ±4.47 50.72 ±2.31 72.48 ±0.19 67.37 ±0.07 54.60 ±0.80 86.46 ±2.84 74.38 ±0.29 69.81 ±0.08 54.62 ±0.72 87.17 ±2.68 
+
+TREND 69.92 ±9.27 64.85 ±4.71 66.79 ±5.44 50.34 ±1.62 63.24 ±0.71 80.42 ±0.45 58.70 ±0.78 52.78 ±1.14 50.15 ±0.90 65.13 ±0.54 57.52 ±1.01 45.31 ±0.43 
+
+GraphMixer 65.43 ±4.21 60.21 ±5.36 63.72 ±4.98 50.15 ±1.49 59.73 ±0.35 61.88 ±0.11 52.42 ±1.38 60.83 ±3.25 51.34 ±0.84 57.64 ±0.31 51.16 ±2.59 56.32 ±3.08 
+
+DDGCL 65.15 ±4.54 55.21 ±6.19 62.34 ±5.13 50.91 ±2.08 54.96 ±1.46 61.68 ±0.81 55.62 ±0.32 68.49 ±5.31 47.98 ±1.11 55.90 ±1.13 55.18 ±2.73 42.70 ±3.26 
+
+CPDG 43.56 ±6.41 65.92 ±6.25 50.32 ±5.06 49.89 ±1.34 52.86 ±0.64 59.72 ±2.53 53.82 ±1.50 49.71 ±2.64 47.37 ±2.23 56.40 ±1.17 53.58 ±2.10 40.01 ±3.59 
+
+GraphPrompt 73.78 ±5.62 60.89 ±6.37 64.60 ±5.76 51.28 ±2.43 55.67 ±0.26 67.46 ±0.31 51.07 ±0.75 86.78 ±3.14 48.46 ±0.28 59.18 ±0.49 50.27 ±0.58 87.45 ±2.57 
+
+ProG 60.86 ±7.43 68.60 ±5.64 63.18 ±4.79 51.46 ±2.38 92.28 ±0.21 93.32 ±0.06 58.73 ±1.58 86.24 ±2.87 89.75 ±0.28 90.69 ±0.08 56.42 ±1.95 85.43 ±3.16 
+
+TGAT-TIGPrompt 69.21 ±8.88 67.70 ±9.64 73.90 ±6.68 51.38 ±2.72 59.54 ±1.41 78.45 ±1.44 51.69 ±1.24 69.71 ±4.16 49.52 ±0.85 65.66 ±2.68 51.58 ±4.02 48.34 ±3.28 
+
+TGN-TIGPrompt 44.80 ±5.45 63.75 ±5.60 55.42 ±3.60 50.84 ±2.75 82.04 ±2.03 83.26 ±2.38 65.00 ±4.73 86.25 ±2.43 81.75 ±1.97 79.51 ±2.58 64.98 ±4.61 86.19 ±3.06 
+
+TGAT-DyGPrompt 82.09 ±6.43 73.50 ±6.47 77.78 ±5.08 52.03 ±2.24 69.88 ±0.18 90.76 ±0.09 53.92 ±0.97 72.04 ±4.71 52.58 ±0.23 75.20 ±0.17 53.29 ±0.87 50.82 ±3.67 
+
+TGN-DyGPrompt 74.47 ±3.44 74.00 ±3.10 69.06 ±3.89 51.97 ±2.16 94.33 ±0.12 96.82 ±0.06 70.17 ±0.75 87.02 ±1.63 92.22 ±0.19 95.69 ±0.08 69.77 ±0.66 87.63 ±1.97 
+
+CurvPrompt 76.17 ±4.89 75.60 ±4.75 79.15 ±3.20 50.27 ±0.48 95.70 ±0.04 97.30 ±0.09 84.05 ±0.31 94.40 ±0.21 93.56 ±0.05 96.33 ±0.09 83.80 ±0.31 93.93 ±0.18 
+
+Table 2: Ablation study on Reddit and MOOC evaluated by AUC-ROC (%). Method Reddit MOOC LP-Trans LP-Indu NC LP-Trans LP-Indu NC 
+
+CurvPrompt 97.30 96.33 75.60 84.05 83.80 79.15 
+
+CurvPrompt (w/o Topology) 97.22 96.31 73.06 78.11 77.77 75.57 CurvPrompt (w/o Expert Prompt) 95.49 93.89 73.53 77.17 77.10 75.61 CurvPrompt (w/o GE) 95.71 94.24 72.53 76.63 77.02 76.75 CurvPrompt (w/o Balance) 93.42 91.92 74.68 72.74 72.63 77.10 CurvPrompt (w/o Expert) 87.29 83.98 66.43 56.32 56.27 78.41 Table 3: Geometry attribution on Reddit and MOOC by AUC-ROC (%). All variants keep the same expert count and gating; only the curvature configuration changes. Method Reddit MOOC LP-Trans LP-Indu NC LP-Trans LP-Indu NC 
+
+CurvPrompt (Mixed Curvature) 97.30 96.33 75.60 84.05 83.80 79.15 
+
+Single Curvature 95.64 94.23 70.65 75.68 75.74 78.56 Euclidean MoE 94.56 92.84 69.18 68.92 69.02 76.57 
+
+Hyperparameter Sensitivity 
+
+Sensitivity to Top-K and curvature. Fig. 4 examines Top-K
+
+routing and the Riemannian experts on Reddit. In Fig. 4(a), while varying (M, K ), each expert’s curvature κ is drawn from a pre-defined multi-type pool (positive, near-zero, and negative values). AUC stays in a narrow band (94.0–97.3), showing that Top-K is robust under such randomized κ
+
+assignments. Fig. 4(b) fixes (M =2 , K =2) and compares different κ experts, where the spread is larger (91.4–96.8): the all-spherical experts performs best, while hyperbolic-containing experts are weaker, consistent with the learned routing behavior on Reddit, where gate mass concentrates on the mild spherical expert while retaining non-trivial weight on hyperbolic experts (Fig. 3). This spread far exceeds that across Top-K settings in (a), indicating that the geometric composition of the expert is the dominant factor. Since the optimal expert is dataset-dependent and unknown a priori, committing to any fixed geometry is brittle. Overall, the cur-vature composition of the expert bank is more consequential than the exact Top-K setting—and across both panels, diver-sity, rather than any single geometry, is the robust choice. M = 2, k = 1 M = 4, k = 2 M = 4, k = 3 M = 6, k = 3 M = 6, k = 2 
+
+80 85 90 95 100 
+
+> AUC (%)
+
+(a) Top-K 
+
+> 96.1 94.8
+> 97.3
+> 94.0 96.7
+
+All-sphere Sph.+Euc. Sph.+Hyp. All-hyp. Hyp.+Euc. 80 85 90 95 100 
+
+> AUC (%)
+
+(b) Riemannian experts(M=2, K=2)   
+
+> 96.8
+> 95.2 92.8 91.8 91.4
+
+Figure 4: Sensitivity analysis on Reddit (LP). (a) AUC (%) under different Top-K settings (M, K ), where each expert’s 
+
+κ is drawn from a pre-defined multi-type pool; the default configuration is shown in bold. (b) AUC (%) of explicit two-expert κ compositions under fixed M =2 , K =2 .
+
+Conclusion 
+
+In this paper, we identify geometry under-adaptation in dynamic graph prompting and propose CurvPrompt, atopology-routed Riemannian mixture-of-experts framework. CurvPrompt utilizes a bank of curvature-diverse experts with learnable prompts and routes each node–time instance via a topology-aware gate, employing soft Top-K routing dur-ing pre-training and hard Top-K routing during downstream adaptation for parameter-efficient geometry adaptation. Ex-tensive experiments demonstrate that CurvPrompt achieves the best few-shot link prediction and strong node classifica-tion across four benchmarks. References 
+
+Bachmann, G.; Bécigneul, G.; and Ganea, O. 2020. Constant Curvature Graph Convolutional Networks. In ICML , 486– 496. Barros, C. D.; Mendonça, M. R.; Vieira, A. B.; and Ziviani, A. 2021. A survey on embedding dynamic graphs. ACM Computing Surveys , 55(1). Bei, Y.; Xu, H.; Zhou, S.; Chi, H.; Zhang, M.; Li, Z.; and Bu, J. 2024. CPDG: A Contrastive Pre-Training Method for Dynamic Graph Neural Networks. ICDE , 1199–1212. Brown, T.; Mann, B.; Ryder, N.; Subbiah, M.; Kaplan, J. D.; Dhariwal, P.; Neelakantan, A.; Shyam, P.; Sastry, G.; Askell, A.; et al. 2020. Language models are few-shot learners. In 
+
+NeurIPS , 1877–1901. Cao, H.; Wang, Y.; Li, T.; Yao, X.; and Zhu, P. 2026. Ge-ometric mixture-of-experts with curvature-guided adaptive routing for graph representation learning. arXiv preprint arXiv:2603.22317 .Chami, I.; Ying, Z.; Ré, C.; and Leskovec, J. 2019. Hyper-bolic Graph Convolutional Neural Networks. In NeurIPS ,4869–4880. Chen, K.-J.; Zhang, J.; Jiang, L.; Wang, Y.; and Dai, Y. 2022. Pre-training on dynamic graph neural networks. Neurocom-puting , 500(C): 679–687. Chen, X.; Zhang, S.; Xiong, Y.; Wu, X.; Zhang, J.; Sun, X.; Zhang, Y.; Zhao, Y.; and Kang, Y. 2024. Prompt Learning on Temporal Interaction Graphs. arXiv preprint arXiv:2402.06326 .Cong, W.; Zhang, S.; Kang, J.; Yuan, B.; Wu, H.; Zhou, X.; Tong, H.; and Mahdavi, M. 2022. Do We Really Need Complicated Model Architectures For Temporal Networks? In ICLR .Fang, T.; Zhang, Y.; Yang, Y.; Wang, C.; and Chen, L. 2024. Universal Prompt Tuning for Graph Neural Networks. In 
+
+NeurIPS , 52464–52489. Gu, A.; Sala, F.; Gunel, B.; and Ré, C. 2019. Learning Mixed-Curvature Representations in Product Spaces. In ICLR .Guo, Z.; Sun, Q.; Yuan, H.; Fu, X.; Zhou, M.; Gao, Y.; and Li, J. 2025. Graphmore: Mitigating topological heterogene-ity via mixture of riemannian experts. In Proceedings of the AAAI Conference on Artificial Intelligence , volume 39, 11754–11762. Huang, S.; Poursafaei, F.; Danovitch, J.; Fey, M.; Hu, W.; Rossi, E.; Leskovec, J.; Bronstein, M. M.; Rabusseau, G.; and Rabbany, R. 2023. Temporal Graph Benchmark for Machine Learning on Temporal Graphs. In NeurIPS .Kumar, S.; Zhang, X.; and Leskovec, J. 2019. Predicting dynamic embedding trajectory in temporal interaction net-works. In SIGKDD , 1269–1278. Liu, Z.; Yu, X.; Fang, Y.; and Zhang, X. 2023. GraphPrompt: Unifying pre-training and downstream tasks for graph neural networks. In WWW , 417–428. Nguyen, G. H.; Lee, J. B.; Rossi, R. A.; Ahmed, N. K.; Koh, E.; and Kim, S. 2018. Continuous-time dynamic network embeddings. In WWW Companion , 969–976. Nickel, M.; and Kiela, D. 2017. Poincaré Embeddings for Learning Hierarchical Representations. In NeurIPS , 6338– 6347. Peng, Y.; Yang, C.; Fan, Z.; and Shi, C. 2026. Data-centric prompt tuning for dynamic graphs. arXiv preprint arXiv:2601.11954 .Rossi, E.; Chamberlain, B.; Frasca, F.; Eynard, D.; Monti, F.; and Bronstein, M. 2020. Temporal graph networks for deep learning on dynamic graphs. arXiv preprint arXiv:2006.10637 .Skarding, J.; Gabrys, B.; and Musial, K. 2021. Foundations and modeling of dynamic networks using dynamic graph neural networks: A survey. IEEE Access , 9: 79143–79168. Sun, L.; Ye, J.; Peng, H.; and Yu, P. S. 2022a. A self-supervised Riemannian GNN with time varying curvature for temporal graph learning. In CIKM , 1827–1836. Sun, M.; Zhou, K.; He, X.; Wang, Y.; and Wang, X. 2022b. GPPT: Graph pre-training and prompt tuning to generalize graph neural networks. In SIGKDD , 1717–1727. Sun, X.; Cheng, H.; Li, J.; Liu, B.; and Guan, J. 2023. All in One: Multi-Task Prompting for Graph Neural Networks. 
+
+SIGKDD , 2120–2131. Tan, Z.; Guo, R.; Ding, K.; and Liu, H. 2023. Virtual Node Tuning for Few-shot Node Classification. In SIGKDD , 2177– 2188. Tian, S.; Wu, R.; Shi, L.; Zhu, L.; and Xiong, T. 2021. Self-supervised representation learning on dynamic graphs. In 
+
+CIKM , 1814–1823. Trivedi, R.; Farajtabar, M.; Biswal, P.; and Zha, H. 2019. DyRep: Learning representations over dynamic graphs. In 
+
+ICLR .Wang, S.; Wang, X.; Wang, Q.; Wu, B.; Wang, B.; Huang, S.; Deng, B.; Liu, H.; Fang, R.; Xu, Z.; et al. 2026. The Post-GCN Decade Revisited: Curvature-Stratified Evaluation of Relational Learning. arXiv preprint arXiv:2606.06397 .Wang, Y.; Chang, Y.-Y.; Liu, Y.; Leskovec, J.; and Li, P. 2021. Inductive Representation Learning in Temporal Networks via Causal Anonymous Walks. In ICLR .Wang, Z.; Zhang, Z.; Wang, S.; Xie, X.; and Kang, Z. 2025. GMoPE: A Prompt-Expert Mixture Framework for Graph Foundation Models. arXiv preprint arXiv:2511.03251 .Wen, Z.; and Fang, Y. 2022. TREND: TempoRal event and node dynamics for graph representation learning. In WWW ,1159–1169. Xu, D.; Ruan, C.; Korpeoglu, E.; Kumar, S.; and Achan, K. 2020. Inductive representation learning on temporal graphs. In ICLR .Yang, J.; Wei, X.; Chen, C.; Feng, Y.; Guo, W.; Fan, R.; Cao, X.; Sun, X.; and Ye, W. 2026. Fast Mixture of Curvature-Aware Experts for Diverse and Dynamic Graph Topologies. In Forty-third International Conference on Machine Learn-ing .You, J.; Du, T.; and Leskovec, J. 2022. ROLAND: Graph learning framework for dynamic graphs. In SIGKDD , 2358– 2366. Yu, L.; Sun, L.; Du, B.; and Lv, W. 2023a. Towards better dy-namic graph learning: New architecture and unified library. In NeurIPS , 67686–67700. Yu, X.; Gong, Z.; Chang, Z.; Fang, Y.; and Hui, Z. 2025a. SAMGPT: Text-free Graph Foundation Model for Multi-domain Pre-training and Cross-domain Adaptation. In 
+
+WWW .Yu, X.; Liu, Z.; Fang, Y.; Liu, Z.; Chen, S.; and Zhang, X. 2023b. Generalized Graph Prompt: Toward a Unification of Pre-Training and Downstream Tasks on Graphs. IEEE TKDE , 36(11): 6237– 6250. Yu, X.; Liu, Z.; Fang, Y.; and Zhang, X. 2023c. HGPrompt: Bridging Homogeneous and Heterogeneous Graphs for Few-shot Prompt Learning. In AAAI , 16578–16586. Yu, X.; Liu, Z.; Zhang, X.; and Fang, Y. 2025b. Node-time conditional prompt learning in dynamic graphs. In Inter-national Conference on Learning Representations , volume 2025, 97811–97830. Yu, X.; Zhang, J.; Fang, Y.; and Jiang, R. 2025c. Non-Homophilic Graph Pre-Training and Prompt Learning. In 
+
+SIGKDD .Yu, X.; Zhou, C.; Fang, Y.; and Zhang, X. 2024. Text-Free Multi-domain Graph Pre-training: Toward Graph Foundation Models. arXiv preprint arXiv:2405.13934 .Yu, X.; Zhou, C.; Kuai, Z.; Zhang, X.; and Fang, Y. 2025d. GCoT: Chain-of-thought prompt learning for graphs. In Pro-ceedings of the 31st ACM SIGKDD Conference on Knowl-edge Discovery and Data Mining V. 2 , 3669–3679. Zhou, K.; Yang, J.; Loy, C. C.; and Liu, Z. 2022. Condi-tional prompt learning for vision-language models. In CVPR ,16816–16825. 
+
+Appendix A Additional Experimental Details 
+
+A.1 Environment 
+
+All experiments are conducted in the following environment: 
+
+• Operating system: Ubuntu 22.04 LTS 
+
+• CPU: 13th Gen Intel Core i9-13900K 
+
+• GPU: 2 × NVIDIA GeForce RTX 3090 (24 GB) 
+
+• Memory: 128 GB RAM 
+
+A.2 Datasets details 
+
+Table 4 summarizes the datasets used in our experiments. Wikipedia, Reddit, and MOOC are bipartite interaction net-works with binary labels and 172-dimensional features over a 30-day span, while Genre is a larger-scale user–genre net-work from TGB with multi-class labels and a much longer time span. 
+
+A.3 Sensitivity to Distortion and Balance Weights 
+
+Figure 5 illustrates the effect of varying (λ1, λ 2) on the MOOC dataset. Performance is sensitive to the relative scale of the two auxiliary weights. The best performance is achieved with moderate distortion regularization ( λ1 ≈
+
+0.02 ) combined with a matched balance weight ( λ2 ∈
+
+Figure 5: Sensitivity of the auxiliary loss weights on MOOC (LP-Trans AUC, %). We sweep λ1 (distortion) and λ2 (bal-ance) over a 5 × 5 grid while keeping all remaining hyper-parameters fixed. Table 4: Summary of datasets.                               
+
+> Dataset Nodes Edges Classes Labels Feat. dim Time span Wikipedia 9,227 157,474 2217 172 30 days Reddit 11,000 672,447 2366 172 30 days MOOC 7,144 411,749 24,066 172 30 days Genre 1,505 17,858,395 474 984 86 1,500 days
+
+{0.01 , 0.02 , 0.05 }), which is also adopted as the default con-figuration. In contrast, mismatched settings—particularly a very small distortion weight paired with a larger balance weight, or a large balance weight without sufficient distortion regularization—lead to noticeable performance degradation. These results indicate that both auxiliary objectives are ben-eficial when properly balanced, although the method is not insensitive to arbitrary weight choices.
