@@ -1,0 +1,913 @@
+Title: Stochastic Dynamics on Persistence Diagram Space via Reinforcement Learning
+
+URL Source: https://arxiv.org/pdf/2608.06276v1
+
+Published Time: Fri, 07 Aug 2026 01:20:31 GMT
+
+Number of Pages: 27
+
+Markdown Content:
+# Stochastic Dynamics on Persistence Diagram Space via Reinforcement Learning 
+
+# Farzana Nasrin 11Department of Mathematics, University of Tennessee, Knoxville, TN -37916, USA 
+
+Abstract 
+
+Persistence diagrams (PDs) provide stable and interpretable summaries of multiscale topological structure. While substantial progress has been made in the statistical analysis of PDs, existing litera-ture often treats diagrams as static objects and provide limited frameworks for probabilistic modeling and stochastic evolution on PD space. We introduce a reinforcement learning framework for stochastic dynamics on PD space, where diagrams evolve through topology aware local edit operations. The dy-namics define controlled Markov processes on spaces of finite PDs with variable cardinality. We establish conditions under which the induced Markov chains are irreducible, aperiodic, and geometrically ergodic, implying the existence of unique stationary probability laws on PD space. To guide the dynamics toward scientifically relevant topological targets, we formulate objectives that encompass distribution matching, task specific topological statistics, and structure-preserving compression. The resulting rewards balance task specific distributional targets, diagram fidelity, and complexity reduction, and yield a framework for adaptive topological simplification and probabilistic modeling. Experiments on synthetic and neu-roimaging PDs demonstrate that the proposed framework can preserve dominant topological structure while reducing diagram complexity. 
+
+keywords. Persistence diagrams, topological data analysis, reinforcement learning, stochastic dynamics, probabilistic modeling 
+
+# 1 Introduction 
+
+Topological data analysis (TDA) provides tools for extracting qualitative and multiscale structure from complex data. Among these tools, persistence diagrams (PDs) encode the birth and death of homological features, such as connected components, loops, and voids, across a filtration [12, 31]. Their stability and interpretability have made them useful in statistical learning and applications [22, 13, 17, 23, 37, 19, 4, 10, 35, 39, 3, 32, 29]. Nevertheless, collections of PDs obtained from noisy or heterogeneous observations present two practical challenges: characterizing the topological variability of the underlying population [27, 38, 24] and reducing diagram complexity while controlling distortion of the information needed for subsequent analysis [34]. Existing methods analyze PDs through functional summaries, kernels, probability measures, and point-process models [5, 33, 7, 27, 2, 25]. Our objective is complementary: to learn transformations that address two related problems, namely, reproducing population-level topological variability and simplifying individual diagrams while controlling information loss. The first supports applications such as uncertainty analysis and rare event simulation, whereas the second can reduce the cost of repeated diagram comparisons while preserving subject level topology and cohort organization. Both problems are naturally sequential because each addition, deletion, or movement changes the current diagram and therefore affects which subsequent edits are available and useful. A fixed pointwise rule cannot account for these cumulative effects or adapt its decisions to the remaining transformation budget. We therefore formulate PD transformation as a sequential decision problem in which a reinforcement learning (RL) policy observes the current diagram, selects a valid topology aware edit, and receives task specific feedback based on the consequences of the resulting sequence [36]. In this formulation, RL provides a common mechanism for learning both stochastic population behavior and adaptive topology preserving simplification. For a fixed policy, topology aware edit operations induce a Markov transition kernel on PD space, whose stationary law provides a probabilistic model for the policy’s long run behavior. Using general-state-space Markov chain arguments based on irreducibility, aperiodicity, and drift and minorization conditions [26], we establish geometric ergodicity and the existence of a unique stationary distribution, with convergence independent of the initial diagram. The ergodic theorem then justifies approximating expectations under the stationary distribution by averages along finite policy generated trajectories and provides the basis for consistency of the empirical distributional objective. Stable discrepancies, including sliced Wasserstein con-structions and kernel maximum mean discrepancy (MMD) [7, 15], can therefore compare the policy induced behavior with empirical target distributions or task specific topological summaries. RL controls this behavior by selecting successive edits according to a task specific reward, providing a common framework for popula-tion level modeling, rare event recovery, uncertainty oriented sampling, and topology aware simplification. We evaluate the framework through synthetic rare event recovery and topology preserving compression of ABIDE neuroimaging PDs [11], illustrating its use for both distributional modeling and sequential sim-plification. The main contributions of this paper are summarized as follows. 
+
+• We introduce an RL framework for stochastic dynamics on PD space, in which topology aware edit operations induce controlled Markov processes acting directly on PD points. 
+
+• We establish irreducibility, aperiodicity, and geometric ergodicity of the induced dynamics, yielding unique stationary probability laws and convergence of the policy-controlled process. 
+
+• We develop distributional objectives based on stable statistical discrepancies, enabling probabilistic modeling and topology preserving simplification directly on PD space. 
+
+• Through synthetic and ABIDE experiments, we demonstrate rare event recovery and sequential com-pression that preserves both diagram level topology and cohort level geometry. The remainder of the paper is organized as follows. Section 2 reviews PDs, statistical models on PD space, and the required background on RL and MCs. Section 3 presents the proposed framework, including the diagram state space, topology aware edit operations and Section 4 establishes the theoretical properties, including existence of a unique stationary distribution and convergence of empirical trajectory measures. Section 5 discusses the practical realization of the framework. Section 6 presents the synthetic rare event recovery and ABIDE neuroimaging experiments. Finally, Section 7 discusses the implications, limitations, and future directions of the work, while some technical proofs are provided in the Appendix. 
+
+# 2 Background 
+
+Persistence diagrams (PDs) provide multiscale summaries of topological features in data, making them well suited for probabilistic modeling and statistical learning. In this section, we review the construction of PDs, existing statistical approaches on diagram space, and the reinforcement learning (RL) background needed for our framework. 
+
+# 2.1 Persistence Diagrams 
+
+We briefly recall the construction of PDs; see [12, 31, 14] for details. Let ( X, d ) be a metric space or a domain endowed with a filtration. Two standard examples are: 1. Sublevel set filtrations: In a sublevel set filtration [12, 31], one considers a scalar function f : X → R,such as pixel intensity in a grayscale image. The sublevel sets Sr = {x ∈ X : f (x) ≤ r} expand as the threshold r increases, and topological features such as connected components ( H0), loops ( H1), and voids ( H2) appear and disappear. Their birth and death times define points in a PD, where persistence reflects lifetime across scales. Figure 1 top row illustrates this process: as r increases, new components form, merge, and occasionally create loops, producing a PD that summarizes image topology. 2. Vietoris Rips filtrations: The Vietoris Rips (VR) complex [14] provides a natural construction for point cloud data. Here, points are connected if their pairwise distance is below a threshold ϵ,(a) (b) (c) (d)    
+
+> (e) (f) (g) (h)
+
+Figure 1: Top row: (a) is a toy grayscale image, (b) - (c) are two intermediate steps of the sublevel set filtration corresponding to r = 0 .2, and r = 0 .6, respectively, and (d) is the corresponding PD. Bottom row: VR filtration for a trefoil-knot point cloud. A 2D projection of a noisy trefoil sampling is shown (e). As the distance threshold ϵ increases, edges are added to form Rips complexes (f) - (g), and topological features appear and vanish across scales. Their birth and death times are summarized in the PD (h). and higher dimensional simplices are added whenever all faces are present. As ϵ grows, connected components merge, loops emerge, and higher order cycles eventually fill in. Because it relies only on pairwise distances, the Rips filtration applies broadly to arbitrary metric datasets. Figure 1 bottom row demonstrates this using a trefoil-knot point cloud: increasing ϵ introduces edges and simplices, recording topological events in a PD that captures the geometry of the knot. Each feature is assigned a birth time b (when it appears) and death time d (when it vanishes), producing a multiset of points ( b, d ) in the wedge 
+
+W = {(b, d ) ∈ R2 : b < d }.
+
+The resulting multiset of birth–death pairs is called the PD. Stability theorems show that small perturbations of the input data induce bounded changes in PDs under bottleneck and Wasserstein distances [9, 8]. We denote by D the space of all finite PDs, modeled as finite multisets of points in the wedge W. This space is commonly equipped with bottleneck or p-Wasserstein metrics, which measure optimal matchings between diagram points while allowing unmatched features to be paired with the diagonal. This metric structure on 
+
+D provides the geometric foundation for defining probability measures and stochastic dynamics directly on PD space. 
+
+# 2.2 Statistical Models for Persistence Diagrams 
+
+A wide range of statistical methodologies have been developed for PDs: 
+
+Functional and vector representations. Persistence landscapes and silhouettes embed PDs into func-tional spaces, enabling classical statistical analysis and convergence theory [5, 8]. Persistence images instead provide stable finite-dimensional vectors suitable for standard statistical and machine learning methods [1]. 
+
+Kernel, optimal-transport, and geometric methods. Positive definite and persistence weighted ker-nels provide reproducing kernel representations of PDs [33, 21, 20], while sliced Wasserstein constructions enable stable and computationally tractable diagram comparisons [7]. The metric geometry of PD space also supports probability measures, Fr´ echet summaries, and nonparametric density estimation [27, 38, 24]. 
+
+Point-process, Bayesian, and neural models. Point-process models treat off-diagonal persistence points as structured spatial patterns. Gibbs, Poisson, and pairwise-interaction formulations capture de-pendence among points, support posterior intensity estimation, and generate random PDs [2, 25, 32], while Bayesian extensions permit inference on generator parameters [29]. Neural methods instead learn task-dependent representations, including trainable persistence-barcode features and the permutation-invariant PersLay architecture [18, 6]. These approaches provide powerful tools for representing, comparing, estimating, and generating PDs. Our objective is complementary: we model a diagram as the state of a controlled stochastic process and learn how it should change through a sequence of local edit operations. This sequential formulation makes the choice of each edit depend on the current diagram and on the cumulative objective of the task, motivating the probabilistic foundation developed in the following section. 
+
+# 2.3 Probability Measures on Persistence Diagrams 
+
+To formally define the probabilistic structure required to define and analyze distributions on PD space we view ( D, d D ) as a metric space equipped with the p–Wasserstein distance 
+
+Wp(D, D ′) = 
+
+⎛⎝ inf 
+
+> γ∈Γ( D,D ′)
+
+∑︂ (x,y )∈γ
+
+∥x − y∥p
+
+> ∞
+
+⎞⎠
+
+> 1/p
+
+,
+
+where Γ( D, D ′) denotes bijections between diagrams after including diagonal points with infinite multiplicity. The bottleneck distance W∞ is the p → ∞ case. These metrics satisfy fundamental stability properties under perturbations of the underlying data [9, 8]. Persistence diagrams equipped with bottleneck or p-Wasserstein distances form a metric space suitable for probability theory, weak convergence, and statistical analysis [27, 38, 8]. Let B(D) denote the Borel σ-algebra generated by the open subsets of ( D, d D ), and let P(D) denote the set of all Borel probability measures on ( D, B(D)). A probability measure μ ∈ P (D) therefore represents a distribution on PD space, arising naturally from stochastic filtrations, sampling variability, Bayesian models, or algorithmically generated stochastic dynamics. Let {μn}n≥1 ⊂ P (D) be a sequence of probability measures on PD space. We say that μn converges weakly to μ, written μn ⇒ μ, if ∫︂ 
+
+f dμ n →∫︂ f dμ for all bounded continuous f : D → R.
+
+# 2.4 Reinforcement Learning and Markov Chains 
+
+Reinforcement learning concerns sequential decision making in stochastic environments [36, 16]. Let S
+
+denote the state space and A the action space. We use St and At for the random state and action at time t,and st and at for their realized values. More generally, s ∈ S denotes a current state, a ∈ A an action, and 
+
+s′ ∈ S a possible next state. For the purposes of this paper, a Markov decision process is specified by: 
+
+• a state space S with Borel σ-algebra B(S); 
+
+• an action space A with Borel σ-algebra B(A); 
+
+• a transition kernel P , where P (E | s, a ) = Pr( St+1 ∈ E | St = s, A t = a), E ∈ B (S); and 
+
+• a one-step reward function r : S × A × S → R, where r(s, a, s ′) evaluates the transition from s to s′
+
+under action a.A stochastic policy πθ assigns a probability distribution over actions to each state, where θ ∈ Θ is the vector of trainable policy parameters. For U ∈ B (A), 
+
+πθ (U | s) = Pr( At ∈ U | St = s).
+
+When A is finite, πθ (a | s) denotes the probability of selecting action a in state s. Given the current state, the agent and environment generate At ∼ πθ (· | St), and St+1 ∼ P (· | St, A t). For a fixed policy, {St}t≥0 is a Markov chain with transition kernel 
+
+Pθ (E | s) = ∫︂ A
+
+P (E | s, a ) dπ θ (a | s), E ∈ B (S).
+
+When A is finite, this becomes Pθ (E | s) = ∑︁ a∈A πθ (a | s)P (E | s, a ). A probability measure μθ ∈ P (S) is stationary for the policy induced chain if 
+
+μθ (E) = ∫︂ S
+
+Pθ (E | s) dμ θ (s), E ∈ B (S).
+
+# 3 Policy Controlled Dynamics on PD Space 
+
+In this section, we formulate PDs as states of a policy controlled stochastic process. The goal is to define valid transition dynamics directly on diagram space and to use RL to shape the long run distribution of the induced Markov chain (MC). 
+
+# 3.1 PD State Space and Edit Operations 
+
+Recall from Section 2 that PD points are defined on the wedge W = {(b, d ) ∈ R2 : 0 ≤ b < d }. Let K ⊂ W
+
+be a compact set of admissible PD coordinates. Let DK denote the space of all finite PDs whose off-diagonal points lie in K. We treat DK as our state space. Restricting the dynamics to a compact wedge simplifies the ergodicity analysis developed later in the paper by ensuring bounded PD coordinates and controlled diagram complexity. The stochastic dynamics are generated through a collection of local edit operations on PDs. 1. Add: insert a new point ( b, d ) ∈ WK into D;2. Move: perturb an existing point ( b, d ) ∈ D by a small vector (∆ b, ∆d) and project back into WK ;3. Delete: remove an existing point from D.In practice, the proposal mechanisms for these edit operations can be made topology aware and we explain this in Section 5. Perturbed coordinates are projected back into the admissible region through Π : R2 −→ K, which preserves the birth–death ordering and ensures that the resulting diagram remains in 
+
+DK ; the theory requires only this validity property, not a particular projection formula. These edits resemble local mechanisms used in spatial point-process samplers and random PD generators [28, 32], but their use is controlled by a learnable policy that adapts the dynamics to the task objective. 
+
+# 3.2 Policy Induced Markov Dynamics 
+
+We now specialize the RL framework from Section 2.4 to PD space. Given a current diagram Dt ∈ D K , the admissible local operations in Section 3.1 induce stochastic dynamics on DK , yielding a policy controlled MC whose long run behavior defines an implicit distributional model for PD. 
+
+3.2.1 Policy and Transition Kernel 
+
+At time t, given the current diagram Dt, an action At ∼ πθ (· | Dt) is sampled, and the environment applies the corresponding edit operation through a transition kernel P (Dt+1 | Dt, A t). Thus, the next state depends only on the current diagram and selected action, so the resulting stochastic process Dt≥0 forms an MC on DK .For a measurable set E ∈ B (DK ), define the transition kernel P (E | D, a ) = Pr( Dt+1 ∈ E | Dt = D, A t = a).
+
+For a fixed policy πθ , the policy induced transition kernel is 
+
+Pθ (E | D) = ∑︂ 
+
+> a∈A
+
+πθ (a | D) P (E | D, a ), E ∈ B (DK ).
+
+Under the conditions established in Section 4, Pθ admits a unique stationary distribution, which we denote by μθ . The subscript θ indicates that this distribution depends on the policy parameters. The measure μθ
+
+represents the long run distribution of PDs generated by the policy and is the probabilistic object that the learning framework seeks to control. 
+
+# 3.3 Distributional Objective 
+
+Let ˆ μ = 1
+
+> n
+
+∑︁ ni=1 δDi denote the empirical distribution of observed PDs {Di}ni=1 ⊂ D K . The objective is to learn policy such that the stationary distribution μθ induced by the policy controlled MC reproduces the topological characteristics of ˆ μ that are relevant to the task. To accommodate both full distributional matching and task specific objectives, let ( Z, d Z ) be a com-plete separable metric space containing the persistence aware representations, and let ϕ : DK −→ Z be a measurable map. We define 
+
+J(θ) = Dist( ϕ#μθ , ϕ # ˆμ) + λΩ( πθ ), (1) where ϕ#μ denotes the pushforward of μ through ϕ, Dist is a discrepancy between probability measures on 
+
+Z and Ω( πθ ) is an optional regularization term with λ ≥ 0. Depending on the application, Dist may be a Wasserstein or sliced Wasserstein distance, a kernel maximum mean discrepancy, or another discrepancy compatible with the chosen representation. Regularization may be used to control diagram complexity, edit cost, policy entropy, or other task dependent requirements. The framework is therefore not tied to one particular discrepancy or topological summary. Because the stationary distribution μθ is generally not available in closed form, it is approximated using a policy-generated trajectory D1, . . . , D T : ˆ μθ,T = 1
+
+> T
+
+∑︁ Tt=1 δDt . The corresponding empirical objective is ˆJT (θ) = Dist( ϕ# ˆμθ,T , ϕ # ˆμ) + λΩ( πθ ). (2) Choosing ϕ to be the identity compares complete distributions of PDs. Choosing a lower-dimensional ϕ
+
+instead matches the induced distribution of a task specific topological statistic. Both are instances of the same persistence aware distributional objective. The framework also accommodates finite-horizon transformations. Suppose a policy induces a map 
+
+Cθ : DK → D K , and let ∆ be a discrepancy between an input diagram and its transformed version. A paired objective is 
+
+Jpair (θ) = 1
+
+n
+
+> n
+
+∑︂ 
+
+> i=1
+
+∆( Di, C θ (Di)) , (3) possibly subject to a task constraint such as a prescribed diagram cardinality. The paired objective controls a transport based discrepancy between the original and transformed populations. Direct likelihood based learning on PD space is generally difficult [29] because PDs are variable cardinality objects in a non-Euclidean metric space without a natural global coordinate system. Equations (1)–(3) instead permit learning through simulated trajectories, empirical measures, and geometry aware discrepancies. 
+
+# 3.4 Reward Function 
+
+The reward is the optimization signal derived from the distributional objective. When the objective is evaluated at the trajectory or episode level, the terminal reward is defined by 
+
+R(T ) = − ˆJT (θ), (4) where T = ( D0, a 0, . . . , D T ) denotes the generated trajectory. When the objective can be evaluated after individual edits, denser feedback may be obtained from the stepwise improvement 
+
+rt = Jt − Jt+1 , (5) where Jt denotes the current value of the relevant objective. In an undiscounted finite-horizon episode, these rewards telescope: ∑︁ T −1 
+
+> t=0
+
+rt = J0 −JT . Maximizing cumulative reward therefore minimizes the final objective whenever J0 is fixed. For a discounted return with discount factor ζ ∈ (0 , 1), the incremental reward Jt −Jt+1 does not telescope exactly. The simplest alternative is therefore to use the terminal reward in Equation (4). If intermediate feedback is desired, one may instead introduce a potential function Φ : DK → R and add the shaping reward 
+
+Ft = ζΦ( Dt+1 ) − Φ( Dt).
+
+This construction changes the intermediate feedback while preserving the optimal policies under the standard conditions for potential-based reward shaping [30]. For example, choosing Φ( D) = −J(D) gives Ft =
+
+J(Dt) − ζJ (Dt+1 ).
+
+Equations (4) and (5) provide two implementations of the same principle. Distributional objectives are naturally assigned as trajectory level rewards, while diagram level fidelity or transformation objectives may provide stepwise rewards. The choice depends on the scale at which the task objective can be estimated, but the sign convention remains consistent throughout: the objective is minimized and the corresponding reward is maximized. 
+
+# 4 Theoretical Properties 
+
+Because the proposed framework defines an implicit distribution through policy induced Markov dynamics rather than an explicit density, its theoretical validity requires a well-defined long run law and reliable trajec-tory based approximations. We establish irreducibility, aperiodicity, and drift and minorization conditions, yielding a unique stationary distribution and convergence independent of the initial diagram. We then prove convergence of empirical trajectory measures to this law, thereby justifying the Monte Carlo approximation used in the distributional objective and simulation-based policy optimization. 
+
+# 4.1 Existence of Stationary Distribution 
+
+To establish existence and uniqueness of the stationary distribution, we verify four standard properties of the policy induced MC: ψ-irreducibility, aperiodicity, a Foster–Lyapunov drift condition, and a minorization condition on a small set. The technical statements and their full proofs are deferred to Appendix A.2. 
+
+Theorem 1 (Existence, uniqueness, and geometric ergodicity) . Fix θ, and let {Dt}t≥0 be the policy-induced Markov chain on DK with transition kernel Pθ . Suppose that the assumptions of Propositions 5–8 hold. Then the chain admits a unique stationary probability measure μθ . Moreover, there exist constants MV < ∞
+
+and ϱV ∈ (0 , 1) such that ⃦⃦ 
+
+P tθ ( · | D) − μθ⃦⃦ TV ≤ MV V (D)ϱtV , D ∈ D K , t ≥ 0,
+
+where P tθ denotes the t-step transition kernel. Consequently, 
+
+L(Dt) −→ μθ
+
+in total variation for every initial diagram. Proof. Propositions 5–8 establish ψ-irreducibility, aperiodicity, geometric Foster–Lyapunov drift, and mi-norization on the corresponding small set. The geometric drift theorem for general-state-space Markov chains [26] therefore gives positive Harris recurrence and geometric ergodicity. Positive Harris recurrence guarantees existence of an invariant probability measure, and ψ-irreducibility guarantees its uniqueness. The stated geometric total-variation bound and convergence follow. Theorem 1 gives total variation convergence to the stationary law. Because the learning objectives use geometric discrepancies on PD space, the following corollary states the corresponding weak convergence and, under an additional second moment condition, convergence in the Wasserstein-2 distance W2.Equipped with the p-Wasserstein metric, the space of PDs is complete and separable, and hence Pol-ish [27]. Since K ⊂ W is compact and separated from the diagonal, the restricted space DK is a closed subspace and is therefore also Polish. As in Section 3.3, any representation space ( Z, d Z ) is also assumed to be Polish. 
+
+Corollary 2 (Convergence of the law) . Under the assumptions of Theorem 1, L(Dt) ⇒ μθ as t → ∞ . If, in addition, their second moments satisfy, for some D0 ∈ D K ,∫︂ 
+
+> DK
+
+dD (D, D 0)2 L(Dt)( dD ) −→ ∫︂ DK
+
+dD (D, D 0)2 μθ (dD ) < ∞,
+
+then 
+
+W2(L(Dt), μ θ ) −→ 0.
+
+Proof. Theorem 1 gives 
+
+∥L (Dt) − μθ ∥TV −→ 0 as t → ∞ .
+
+Total variation convergence implies weak convergence; hence 
+
+L(Dt) ⇒ μθ as t → ∞ ,
+
+The assumed convergence of second moments and the standard characterization of Wasserstein conver-gence [40] then give 
+
+W2(L(Dt), μ θ ) −→ 0 as t → ∞ .
+
+# 4.2 Empirical Measure Convergence 
+
+Because the stationary distribution is not available in closed form, we approximate it using samples from a policy-generated trajectory. 
+
+Theorem 3 (Empirical and pushforward measure convergence) . Under the assumptions of Theorem 1, define ˆμθ,T = 1
+
+> T
+
+∑︁ Tt=1 δDt . Then 
+
+ˆμθ,T ⇒ μθ almost surely as T → ∞ .
+
+If, for some D0 ∈ D K ,∫︂ 
+
+> DK
+
+dD (D, D 0)2 μθ (dD ) < ∞,
+
+then W2(ˆ μθ,T , μ θ ) −→ 0 almost surely. More generally, let ϕ : DK → Z be measurable. If, for some z0 ∈ Z ,∫︂ 
+
+> DK
+
+dZ (ϕ(D), z 0)2 μθ (dD ) < ∞,
+
+then W2,Z (ϕ# ˆμθ,T , ϕ #μθ ) −→ 0 almost surely. Proof. Because DK is Polish, it admits a countable convergence-determining family of bounded continuous functions {fj }j≥1. For every j, the Markov chain ergodic theorem [26] gives ∫︂ 
+
+> DK
+
+fj (D) ˆ μθ,T (dD ) −→ ∫︂ DK
+
+fj (D) μθ (dD ) almost surely .
+
+By countability, these limits hold simultaneously on a common probability-one event, and therefore ˆμθ,T ⇒ μθ almost surely .
+
+Under the stated second-moment condition, applying the ergodic theorem to D ↦ → dD (D, D 0)2 also gives con-vergence of second moments. The characterization of Wasserstein convergence [40] then yields W2(ˆ μθ,T , μ θ ) −→ 
+
+0 almost surely. For the pushforward result, choose a countable convergence-determining family of bounded continuous functions {gj }j≥1 on Z. Since ϕ is measurable, each gj ◦ ϕ is bounded and measurable. The same ergodic argument gives 
+
+ϕ# ˆμθ,T ⇒ ϕ#μθ almost surely .
+
+Applying the ergodic theorem to D ↦ → dZ (ϕ(D), z 0)2 gives convergence of the corresponding second moments, and hence 
+
+W2,Z (ϕ# ˆμθ,T , ϕ #μθ ) −→ 0 almost surely .
+
+Theorem 3 shows that finite policy-generated trajectories consistently approximate both the stationary law and its task-specific pushforward. The following proposition transfers this convergence to the empirical learning objective. 
+
+Proposition 4 (Consistency of the empirical distributional objective) . Fix θ, and let ϕ : DK → Z be the measurable representation defined in Section 3.3. Suppose that, for some z0 ∈ Z ,∫︂ 
+
+> DK
+
+dZ (ϕ(D), z 0)2 μθ (dD ) < ∞.
+
+Define J(θ) = W2,Z (ϕ#μθ , ϕ # ˆμ) and ˆJT (θ) = W2,Z (ϕ# ˆμθ,T , ϕ # ˆμ). Then 
+
+ˆJT (θ) −→ J(θ) almost surely as T → ∞ .
+
+Proof. By Theorem 3, 
+
+W2,Z (ϕ# ˆμθ,T , ϕ #μθ ) −→ 0 almost surely .
+
+The reverse triangle inequality for W2,Z gives ⃓⃓⃓ 
+
+ˆJT (θ) − J(θ)⃓⃓⃓ ≤ W2,Z (ϕ# ˆμθ,T , ϕ #μθ ) .
+
+The right-hand side converges to zero almost surely, proving the result. Together, the stationary-law, ergodic, and objective consistency results justify learning policies from simulated trajectories. We next discuss the policy representations, topology aware proposals, task specific objectives, and simulation based optimization required for implementation. 
+
+# 5 Approximation and Algorithmic Considerations 
+
+We now describe the practical realization of the policy controlled stochastic dynamics on PD space for simulation and learning. Because the stationary distribution and the distributional objective are not available in closed form, training must rely on finite simulated trajectories, empirical discrepancy estimation, and iterative policy optimization. Figure 2 summarizes the computational workflow. 
+
+# 5.1 Policy Conditioning for Variable-Cardinality Diagrams 
+
+A practical challenge in implementing RL on PD space is that the number of points in a diagram may vary across states and along a trajectory. Consequently, a PD cannot be passed directly to a policy model that expects an input vector of fixed dimension. One practical solution is to introduce a measurable policy feature map 
+
+ξ : DK −→ Rm
+
+that converts each diagram into a fixed-dimensional vector. Possible components of ξ(D) include diagram cardinality; summaries of birth, death, and persistence values; total and maximum persistence; persistence entropy; counts above prescribed persistence thresholds; and finite-dimensional summaries of Betti curves or other stable topological representations relevant to the task. Figure 2: Algorithmic workflow for policy controlled PD generation. In a feature based implementation, the policy uses ξ(D) to compute action probabilities and, when necessary, parameters of the associated proposal distributions. We continue to write the policy as πθ (a | D), with the understanding that its computational dependence on D may be mediated through ξ(D). Because 
+
+ξ is a deterministic function of the current diagram, this construction still defines a Markov policy on DK .The feature vector affects how the policy selects actions, but it does not replace the PD as the state of the stochastic process. A fixed-dimensional feature map is not the only possible implementation. Permutation-invariant set networks, attention based models, and other variable cardinality architectures may be used to condition the policy directly on the points of a diagram. The policy-feature map ξ is distinct from the map ϕ
+
+used in the distributional objective. The map ξ provides computational inputs for action selection, whereas 
+
+ϕ specifies the persistence aware quantities whose pushforward distributions are compared during learning. 
+
+# 5.2 Topology Aware Proposal Mechanisms 
+
+The edit operations introduced in Section 3 may be implemented using proposal mechanisms that explicitly exploit the geometry of PD space. Rather than relying on uniform or isotropic proposals, we use topology aware mechanisms that bias the stochastic dynamics toward realistic diagram configurations while preserving dominant structure. The proposal mechanisms are summarized in Table 1. 
+
+# 5.3 Task-Specific Objective Specification 
+
+Section 3.3 defines distributional learning through the representation ϕ and the discrepancy Dist. The map ϕ determines which properties of a PD are compared, while Dist determines how differences between the resulting probability measures are quantified. Taking ϕ to be the identity map compares complete PD distributions. Alternatively, ϕ may return selected persistence aware quantities, such as a vector of Table 1: Topology-aware proposal mechanisms for policy-controlled edit operations. 
+
+Edit Proposal Rule Purpose 
+
+Add qadd (z) = πnoise qnoise (z) + 
+
+πsignal qsignal (z)New PD points are sampled from a two-regime mixture separating near diagonal noise from high persistence signal. Delete wi ∝ exp( −βp i) Deletion probabilities are inversely weighted by persistence 
+
+pi = di − bi, making low persistence features more likely to be removed while preserving stable topological structure. Move (bi, p i) ↦ → (bi + εb, p i + εp) Existing points are perturbed using anisotropic Gaussian noise, allowing different scales of movement in birth and death directions. persistence statistics, a discretized Betti curve, a diagram-complexity measure, or a rare event indicator. Several characteristics can be considered simultaneously by allowing ϕ(D) to contain multiple components. The task specific objective design does not require introducing separate global, structural, and application dependent losses. These requirements can instead be expressed through the choice of ϕ, the metric structure of Z, and the discrepancy Dist. When necessary, the optional regularization term Ω( πθ ) introduced in Section 3.3 may be used to account for requirements that are not naturally expressed through distributional matching. 
+
+# 5.4 Simulation Based Policy Optimization 
+
+The stationary distribution μθ is generally unavailable in closed form, and edit operations can produce discrete changes in both the locations and the number of PD points. Consequently, the objective must be approximated using trajectories generated by the current policy. Although the states along a trajectory are dependent rather than independent samples, the ergodic results developed in Section 4 justify the use of trajectory averages for sufficiently long runs. For fixed policy parameters θ, the policy controlled dynamics generate D1, . . . , D T and hence the empirical measure ˆ μθ,T . The discrepancy between ϕ# ˆμθ,T and ϕ# ˆμ
+
+provides trajectory-level feedback. The appropriate optimization method depends on the policy parameterization and the action mechanism. Likelihood ratio policy gradient estimators and actor–critic methods can be used when the stochastic policy is differentiable with respect to θ. Value-based or gradient-free methods may be preferable when actions are discrete, proposal mechanisms are not differentiable, or evaluating Dist is computationally expensive. The framework therefore does not require one particular RL algorithm. Several practical issues must be handled during optimization. The set of admissible actions may depend on the current diagram; for example, deletion is unavailable for the empty diagram, and all proposed points or movements must remain in K. Invalid actions should therefore be masked or assigned well-defined transition behavior. Exploration must also be sufficient to visit different regions of PD space without placing excessive probability on uninformative configurations. Exploration schedules, policy-entropy regularization, multiple trajectories, and batched discrepancy estimates may be used to improve stability and reduce simulation variability. Algorithm 1 summarizes the general training procedure. Algorithm 1 Policy controlled learning on PD space 
+
+Require: Observed PDs {Di}ni=1 , initial policy πθ , trajectory length T , measurable representation ϕ, and discrepancy Dist  
+
+> 1:
+
+Form the empirical target measure ˆ μ = 1
+
+n
+
+> n
+
+∑︂ 
+
+> i=1
+
+δDi . 
+
+> 2:
+
+while the stopping criterion is not satisfied do  
+
+> 3:
+
+Initialize D0 ∈ D K . 
+
+> 4:
+
+for t = 0 , 1, . . . , T − 1 do  
+
+> 5:
+
+Evaluate the policy at Dt, optionally using the policy features ξ(Dt).  
+
+> 6:
+
+Sample an admissible action At ∼ πθ ( · | Dt).  
+
+> 7:
+
+Generate the next diagram according to Dt+1 ∼ P ( · | Dt, A t).  
+
+> 8:
+
+end for  
+
+> 9:
+
+Form the trajectory empirical measure ˆ μθ,T = 1
+
+T
+
+> T
+
+∑︂ 
+
+> t=1
+
+δDt . 
+
+> 10:
+
+Evaluate ˆJT (θ) = Dist( ϕ# ˆμθ,T , ϕ # ˆμ).  
+
+> 11:
+
+Construct reward feedback from − ˆJT (θ) and update θ using the selected RL method.  
+
+> 12:
+
+end while return The optimized policy πθ .
+
+# 6 Experiments 
+
+We evaluate the proposed framework on one synthetic and one real-data case studies designed to exam-ine how learned distributions on PD space can support different scientific objectives. The experiments demonstrate how distributional learning enables inference on rare topological events, construction of topol-ogy preserving representations, and characterization of heterogeneous topological structure across complex datasets. Across all experiments, the underlying diagram space dynamics remain unchanged; differences arise primarily through the choice of state summaries, task specific objective terms, and evaluation criteria. 
+
+# 6.1 Synthetic Rare Event Recovery 
+
+We first consider a controlled synthetic experiment designed to test whether policy ontrolled PD dynamics can recover a low probability topological event. The purpose of this experiment is to isolate the task specific distributional setting introduced in Section 3.3: the representation ϕ is chosen to retain a scientifically relevant rare event indicator, and the policy is trained to match its pushforward distribution. 
+
+6.1.1 Synthetic data and rare event definition. 
+
+We simulated n = 400 planar point clouds from two regimes. In the common regime, three Gaussian clusters are centered near the vertices of a triangle. In the rare regime, noisy bridge points are added along the triangle edges, increasing the likelihood of a persistent one-dimensional cycle while preserving the overall clustered shape (Figure 3, upper row). Each point cloud was independently assigned to the rare regime with probability 0 .10; the simulated sample contained 49 rare-regime clouds, or 49 /400 = 0 .1225. We then computed the corresponding PDs and applied the topological rare-event criterion defined below (Figure 3, lower row). This criterion depends on the resulting PD rather than the generating regime label. It classified 48 diagrams as rare, giving an empirical rare-event probability of 48 /400 = 0 .120. For each point cloud, we computed its finite H1 PD using a Vietoris–Rips filtration. We selected 
+
+τ = max {︁ 0.15 , Q 0.88 (︁ {pmax (Di)}ni=1 )︁}︁ ,
+
+where Q0.88 denotes the empirical 0 .88 quantile and pmax (D) = max (b,d )∈D (d−b) is the maximum persistence point in a persistence diagram D. This gave τ = 0 .2402. The rare-event indicator is 
+
+Rτ (D) = 1{pmax (D) > τ }.Figure 3: Synthetic construction for rare-event recovery. The upper row shows representative point clouds from the common and rare regimes. The lower row shows their corresponding H1 PDs. In the PD panels, the dashed line is the diagonal and the dotted line is d = b + τ , above which a point has persistence greater than τ .The empirical target probability was therefore 
+
+ωdata =∫︂ DK
+
+Rτ (D) ˆ μ(dD ) = 1
+
+n
+
+> n
+
+∑︂ 
+
+> i=1
+
+Rτ (Di) = 0 .120 .
+
+In the notation of Section 3.3, the primary task specific representation is 
+
+ϕsyn (D) = Rτ (D), ϕsyn : DK −→ { 0, 1}.
+
+Consequently, ( ϕsyn )# ˆμ is a Bernoulli distribution with success probability ωdata . Matching the success probability therefore matches the complete pushforward distribution on {0, 1}.
+
+6.1.2 Policy controlled edit process. 
+
+The state of the controlled process is the current PD. For policy conditioning, each diagram is represented by a ten-dimensional feature vector ξ(D) containing scaled cardinality; the mean, standard deviation, and maximum of persistence; the fraction and number of points with persistence greater than τ ; the mean and standard deviation of birth; the mean death; and the indicator Rτ (D). As discussed in Section 5.1, these features are computational inputs to the policy and do not replace D as the state. The policy selects among six edit actions: A = {add low , add high , delete low , delete random , move small , move large }. The two add actions sample, with small jitter, from empirical pools of PD points whose persistence d − b is at most or greater than τ , respectively. The deletion actions either favor low persistence points or select a point uniformly. The move actions perturb a uniformly selected point at one of two scales in birth–death coordinates. All edited points are returned to the admissible region K. A two-hidden-layer policy network maps ξ(D) to a categorical distribution over these six actions. 
+
+6.1.3 Empirical objective and reward. 
+
+For a retained training trajectory D1, . . . , D T , let ˆωθ,T =∫︂ DK
+
+Rτ (D) ˆ μθ,T (dD ) = 1
+
+T
+
+> T
+
+∑︂ 
+
+> t=1
+
+Rτ (Dt).
+
+The squared difference (ˆ ωθ,T − ωdata )2 compares the empirical pushforward distributions through their Bernoulli parameters. In fact, for the linear kernel on {0, 1}, this difference is squared MMD. We therefore define the primary task specific discrepancy by Dist rare (( ϕsyn )# ˆμθ,T , (ϕsyn )# ˆμ) = (ˆ ωθ,T − ωdata )2.
+
+Let δT = ˆ ωθ,T − ωdata . During training, we used an asymmetric version of this discrepancy to discourage overestimation of the rare-event frequency: 
+
+ℓrare (δT ) = (︁ 1 + 4 1{δT >0})︁ δ2 
+
+> T
+
+.
+
+Thus, positive deviations receive five times the squared-error penalty of negative deviations. The imple-mentation also included regularization for mean maximum persistence, mean cardinality, and diagram com-plexity. Define ˆmmax ,T = 1
+
+> T
+
+∑︁ Tt=1 pmax (Dt), m max ,data = 1
+
+> n
+
+∑︁ ni=1 pmax (Di), and ˆmN,T = 1
+
+> T
+
+∑︁ Tt=1 |Dt|,
+
+mN, data = 1
+
+> n
+
+∑︁ ni=1 |Di|.
+
+Let λrare , λ max , λ card , λ complexity ≥ 0 be user-specified weights controlling the overshoot penalty and the relative contributions. Define the empirical regularization by ˆΩsyn  
+
+> T
+
+(θ) = λmax (︁ ˆmmax ,T − mmax ,data )︁ 2 + λcard (︁ ˆmN,T − mN, data )︁ 2 + λcomplexity ˆmN,T .
+
+The complete empirical objective is therefore ˆ︁ 
+
+Jsyn  
+
+> T
+
+(θ) = λrare ℓrare (δT ) + ˆ︁ Ωsyn  
+
+> T
+
+(θ).
+
+The corresponding terminal reward was rterminal = − ˆJsyn  
+
+> T
+
+(θ). Thus, the dominant component of the reward directly targets the pushforward distribution of the rare event indicator, while the optional regularization provides weaker control of persistence magnitude and diagram size. 
+
+6.1.4 Training and reference generator. 
+
+The policy was trained for 350 epochs with 10 simulated episodes per epoch. Each episode contained 55 edits. The first 15 edited states were treated as burn-in and excluded, and the remaining T = 40 states were reindexed as D1, . . . , D T when constructing ˆ μθ,T . Policy parameters were updated with a REINFORCE estimator using a moving reward baseline. Every 25 epochs, the current policy was evaluated using 1000 generated diagrams; the checkpoint with the smallest rare event probability error was retained. As a non-learning comparison, we implemented a self contained generator inspired by the generator for random PDs [32]. We call it random persistence diagram generator (RPDG) style generator and it starts from a randomly selected observed diagram and chooses add, delete, and move operations with fixed probabilities. The original generic proposal settings produced diagrams that were poorly aligned with the coordinate scale, persistence distribution, and cardinality of the observed diagrams. We therefore adapted the proposal distributions to the present data while retaining the generator’s fixed, non-learning add–delete– move mechanism. Table 2: Recovery of the target rare event probability in the synthetic experiment. Method Rare event probability Absolute error Target 0.120 0.000 RPDG style reference 0.012 0.108 RL policy 0.084 0.036 
+
+6.1.5 Results and interpretation. 
+
+The RPDG style reference produced a rare event probability of 0 .012, giving an absolute error of 0 .108. The learned policy produced a probability of 0 .084 and reduced the absolute error to 0 .036. Equivalently, the learned policy recovered 70% of the target rare event frequency, whereas the RPDG style reference recovered only 10%. Figure 4 shows how this improvement appears in PD space. The pooled diagrams in the upper row locate the generated points relative to the threshold line, while the middle row aggregates this information at the diagram level through maximum persistence. The RPDG style reference concentrates most generated diagrams below the threshold. In contrast, the learned policy increases the upper tail mass, producing substantially more diagrams that satisfy Rτ (D) = 1. The lower row reports the resulting improvement in the target quantity directly. This improvement illustrates how the pushforward objective and sequential control work together. By choosing ϕsyn (D) = Rτ (D), the distributional feedback directly measures the rare topological event of interest, while the RL policy adapts its sequence of edit probabilities to reduce disagreement with the target distribution. Unlike fixed random edit dynamics, the learned process therefore moves substantially closer to the target rare event frequency. Other distributional characteristics can be incorporated through a richer task specific representation and discrepancy. 
+
+# 6.2 Topology Preserving Compression of ABIDE PDs 
+
+We evaluate the proposed framework on resting-state functional magnetic resonance imaging (rs-fMRI) from the Autism Brain Imaging Data Exchange (ABIDE) [11]. In neuroimaging studies, PDs may contain many topological features for each participant and may be compared repeatedly across large, heterogeneous cohorts. This experiment examines whether a diagnosis independent policy can learn a sequence of point deletions that reduces the cost of repeated PD comparisons while preserving individual diagram topology and the population geometry of the complete cohort. Because the analyzed cohort contains participants with autism spectrum disorder (ASD) and typically developing controls, we additionally examine whether population geometry is preserved separately within each diagnostic group. Figure 5 summarizes the complete pipeline. 
+
+6.2.1 Data and PD construction. 
+
+We use preprocessed region of interest (ROI) time series from 60 ABIDE participants, comprising 24 in-dividuals with ASD and 36 controls, obtained with the C-PAC preprocessing pipeline and the Automated Anatomical Labeling atlas. ROIs with zero temporal variance are removed separately for each subject be-fore computing the Pearson correlation matrix C = ( Cij ). Connectivity is converted to the symmetric dissimilarity ∆ij = 1 − | Cij |, ∆ii = 0 .
+
+Thus, strong positive and strong negative correlations are both treated as strong functional connectivity and enter the filtration early. We use ∆ as the edge-weight matrix of a Rips-type clique filtration: at threshold ϵ,an edge ( i, j ) is present when ∆ ij ≤ ϵ, and a higher dimensional simplex is present when all of its edges are present. We then compute H1 points. Across the 60 subjects, the resulting diagrams contain 3,715 points in total, with a mean cardinality of 61.92. Figure 4: Synthetic rare-event recovery results. The upper row compares the pooled PD points, with the dotted line indicating d = b + τ . The middle row compares the distributions of maximum persistence. The lower panel reports the target and generated rare-event probabilities. 
+
+6.2.2 Sequential compression problem. 
+
+For an original diagram D = {(bi, d i)}Ni=1 , the state at step t is the current diagram Dt. An action selects one of its points for deletion: 
+
+A(Dt) = {1, . . . , |Dt|} , Dt+1 = Dt \ { (bat , d at )}.
+
+The episode begins at D0 = D and ends when |Dt| = ⌈N/ 2⌉, where ⌈x⌉ denotes the smallest integer greater than or equal to x. Consequently, all methods are compared at the same subject specific target cardinality. 
+
+6.2.3 Finite horizon objective and reward. 
+
+This experiment uses the finite horizon form of the general learning framework rather than matching a stationary pushforward distribution. Let ret t = |Dt||D| be the retained fraction. We measure subject level distortion using the L2 distance dBetti between Betti curves, the Wasserstein-1 distance dpers between the multisets of persistence values, and the maximum-persistence deviation 
+
+dmax (D, D t) = |pmax (D) − pmax (Dt)| . (6) Figure 5: ABIDE experimental pipeline. The two persistence based terms play complementary roles: dpers measures changes across the complete persistence value distribution, whereas dmax prevents the loss of the single most persistent feature, whose contribution to a distributional distance may be diluted in diagrams containing many points. Unlike the synthetic experiment, the ABIDE experiment does not match a generated distribution of PDs to an observed population distribution. Instead, it uses a finite horizon, diagram level discrepancy that compares each compressed diagram with its original diagram. For a diagram D = {(bi, d i)}Ni=1 , and persistence values 
+
+pi = di − bi, let 
+
+FD (s) = 1
+
+|D|
+
+> n
+
+∑︂ 
+
+> i=1
+
+1 {pi ≤ s}
+
+denote the empirical cumulative distribution function of its persistence values. We define the persistence distribution discrepancy between the original and current diagrams as 
+
+dpers (D, D t) = ∫︂ 
+
+> ∞
+> 0
+
+|FD (s) − FDt (s)| ds. (7) This quantity is the Wasserstein-1 distance between the empirical distributions of the persistence values. It is distinct from the PD Wasserstein distance used later to compare complete PDs in the cohort analysis. We define the task specific discrepancy by the weighted sum of the quantities in Equations (6), (7), and dBetti 
+
+as Dist task (D, D t) = λBetti dBetti (D, D t) + λpers dpers (D, D t) + λmax dmax (D, D t).
+
+For a fixed original diagram D, the finite horizon compression objective is 
+
+JD (Dt) = Dist task (D, D t) − λcomp (1 − ret t).Table 3: ABIDE compression at approximately 50% retention. Values are mean ± standard deviation over 60 subjects; lower distortion is better.                      
+
+> Method dBetti dpers Retained fraction RL policy 0.982 ±0.310 0.0220 ±0.0051 0.5045 ±0.0046 Minimum persistence 0.988 ±0.303 0.0222 ±0.0052 0.5045 ±0.0046
+
+The first term measures the topological distortion introduced by the deletions, while the second term rewards reduction in diagram cardinality. The step reward is the decrease in the task objective produced by the selected deletion: 
+
+rt = JD (Dt) − JD (Dt+1 ).
+
+Thus, an action receives a larger reward when it removes a point while causing only a small increase in topological discrepancy. Because every completed episode has the same terminal cardinality, the total amount of compression is fixed; the policy must therefore distinguish deletion sequences according to their effects on the three topological distances. 
+
+6.2.4 Policy representation and training. 
+
+The policy is conditioned on a seven dimensional feature vector ξ(D) of the current state : retained fraction; mean, standard deviation, maximum, and total persistence; and the mean and maximum of the Betti curve. Each candidate point is described by five features: normalized birth, death, and persistence, its current persistence rank, and its nearest neighbor distance in the diagram. A linear action-value model uses the state features, candidate features, and their pairwise interactions to score every admissible deletion. Actions are selected by an ε-greedy rule, and the action-value parameters are updated by Q-learning with learning rate 0 .01, discount factor 0 .95, and an exploration rate that decays from 1 .0 to a minimum of 0 .05. The agent is trained for 2,000 episodes on one representative 46-point diagram and then applied, without subject-specific retraining, to all 60 subjects. This design tests whether the learned sequential rule transfers across diagrams of different cardinalities. 
+
+Minimum persistence baseline. The comparison method is the existing greedy heuristic that deletes the currently least-persistent point, 
+
+agreedy  
+
+> t
+
+= arg min  
+
+> i∈A (Dt)
+
+pi.
+
+This is a natural local baseline because it treats the feature nearest the diagonal as the safest deletion at each step. Unlike the learned policy, it does not evaluate the cumulative consequences of a sequence of edits. 
+
+Experiment 1: Final individual level fidelity. Both methods start from the same subject diagram and stop at the same target cardinality. Table 3 reports the final distortions and retained fraction over all 60 subjects. At the same retained cardinality, the learned policy has modestly lower mean Betti curve and persistence distribution distortion than the greedy heuristic. Both methods preserve the original maximum persistence for every subject, so the corresponding maximum persistence deviation is zero and is omitted from the table. These results do not establish a large separation in final fidelity; instead, they show that the learned policy matches or slightly improves the two reported individual level criteria while following a substantially different deletion strategy. 
+
+Experiment 2: Sequential compression trajectories. Figure 6 shows a representative diagram at matched points along the two deletion trajectories. The learned policy does not simply reproduce the minimum persistence rule: it selects deletions according to their predicted cumulative effect on the multi-term objective. 
+
+Experiment 3: learned deletion behavior. We examine one representative compression trajectory to determine whether the learned policy simply repeats the minimum persistence rule. At each step, we rank the points remaining in the diagram by persistence, with rank one assigned to the point having the smallest persistence. The greedy method always deletes the point with rank one. The RL policy and the greedy method never select the same point at the same step. Because the two methods can delete some of the same points at different steps, their final sets of deleted points partially overlap; the Jaccard overlap between these sets is 0.353. The points selected by the RL policy have a mean persistence rank of 17 .65 and a median rank of 19. Thus, the learned policy does not reproduce the minimum persistence rule. Figure 6: Representative sequential compression trajectories for the RL policy and the minimum persistence heuristic. Table 4: Deletion behavior in the representative RL trajectory. “Higher persistence” is the percentage of steps at which the RL policy deletes a more persistent point than the greedy heuristic.             
+
+> Stage Steps Higher persistence Mean RL rank Early 7100% 23.71 Middle 875% 15.88 Late 850% 14.13
+
+Table 4 shows how the deletion choices change during the trajectory. Compared with the greedy method, the RL policy deletes a point with higher persistence in 100% of the early steps, 75% of the middle steps, and 50% of the late steps. The policy therefore uses different deletion behavior at different stages of compression rather than applying one fixed ranking rule throughout the episode. These values describe the representative trajectory and are not intended as cohort wide averages. 
+
+Experiment 4: External validation of population geometry. The policy is trained using diagram level fidelity terms only; it is not given pairwise cohort distances, diagnostic labels, or participant neighborhoods. We therefore use these quantities as an external test of whether the compressed diagrams retain information needed for cohort comparisons. Let W = ( Wij ) and ˜︂ W = ( ˜︂ Wij ) denote the pairwise PD Wasserstein distance matrices before and after RL compression, respectively. Global distance preservation is measured by the Pearson correlation between the upper-triangular entries of the original and compressed distance matrices: 
+
+ρdist = corr (︂ vec △(W ), vec △(˜︂ W ))︂ .
+
+For local geometry, let Nk(i) and ˜︁ Nk(i) be the sets of the k nearest neighbors of participant i before and after compression. We define NP k = 1
+
+n
+
+> n
+
+∑︂ 
+
+> i=1
+
+⃓⃓⃓ 
+
+Nk(i) ∩˜︁ Nk(i)⃓⃓⃓ 
+
+k .
+
+Because the cohort contains both participants with ASD and controls, we compute these measures for the complete cohort and separately within each diagnostic group. This provides a robustness check of whether the overall preservation result holds in both components of the cohort. Results are shown in Table 5 and Figure 7. Table 5: Preservation of population geometry after approximately 50% of each diagram is retained.                                        
+
+> Analysis set ρdist NP 5NP 10
+> Complete cohort ( n= 60) 0.9950 0.8267 ±0.1625 0.8967 ±0.0736 Autism group ( n= 24) 0.9971 0.8833 ±0.1167 0.9625 ±0.0576 Control group ( n= 36) 0.9929 0.8556 ±0.1403 0.9444 ±0.0607 0.0 0.5 1.0 1.5 2.0 2.5 3.0 3.5 Original Wasserstein distance 0.0 0.5 1.0 1.5 2.0 2.5 3.0 3.5 RL-compressed Wasserstein distance
+> Global geometry preservation Pearson r= 0.995
+> k= 5 k= 10 0.0 0.2 0.4 0.6 0.8 1.0 Neighborhood preservation  0.827 0.897
+> Local neighborhood preservation
+
+Figure 7: Population geometry after RL compression. The first panel compares the strict upper-triangular entries of the original and compressed pairwise persistence-diagram Wasserstein distance matrices for the complete cohort. The second panel reports complete-cohort nearest-neighbor preservation for k = 5 and 
+
+k = 10. Thus, after approximately half of every diagram has been removed, the RL compressed diagrams closely preserve both global pairwise geometry and local neighborhoods. The group specific results further show that the overall preservation is not driven solely by one diagnostic group. Because cohort distances, diagnostic labels, and neighborhoods do not appear in the reward, these findings provide external evidence that the learned edit policy retains meaningful cohort organization beyond the diagram level criteria on which it was trained. 
+
+# 7 Discussion 
+
+This work introduces a process based perspective on PDs. Rather than treating a PD only as a static topological summary, we model it as the state of a controlled stochastic system that evolves through local, topology aware edits. RL provides a mechanism for selecting these edits according to their cumulative consequences. The main innovation is therefore not simply the application of a learning algorithm to features extracted from PDs; it is the formulation of learnable stochastic dynamics acting directly on PD space. This formulation supports both long run distributional modeling and finite horizon tasks such as rare event recovery and topology preserving compression, respectively. The theoretical results provide a probabilistic foundation for this perspective. Under the stated regularity conditions, the policy controlled edit process is irreducible and aperiodic and satisfies appropriate drift and minorization conditions, leading to a unique stationary probability law. The ergodic results justify using finite policy generated trajectories to approximate expectations under this law, while the consistency result connects empirical distributional objectives to their population counterparts. Together, these results explain why trajectories produced through successive local edits can be used for probabilistic learning on a variable cardinality and non-Euclidean state space. The theory applies to the stationary formulation, while the same edit based framework can also be used with task specific objectives. The two experiments illustrate these complementary uses. In the synthetic study, the objective empha-sizes recovery of a rare topological regime. The results show that the policy controlled process can be directed toward scientifically important but infrequent structure rather than merely reproducing the most common diagrams. In the ABIDE study, the framework is used for finite horizon compression. At approximately 50% retention, the learned policy produces modestly lower average Betti curve and persistence distribution dis-tortion than the minimum persistence heuristic, while both methods preserve maximum persistence. These results do not establish uniform superiority over greedy deletion, but they show that a learned sequential policy can achieve comparable or slightly improved fidelity without being restricted to a fixed pointwise ranking rule. An interesting observation of the ABIDE study is that the learned policy preserves structure that it is never explicitly trained to preserve. Although the reward is defined entirely through diagram level fidelity and compression, the compressed diagrams retain both the global geometry and the large majority of local neighborhoods of the original cohort. This preservation remains strong when the ASD and control groups are examined separately, indicating that the result is not driven by only one component of the cohort. The policy achieves this without access to diagnostic labels, pairwise cohort distances, or neighborhood information. These findings show the principal advantage of the sequential formulation. Several methodological directions could extend this work and benefit the broader research community. Future research may develop richer edit mechanisms, more expressive policies for variable cardinality dia-grams, and adaptive objectives that balance multiple topological and scientific requirements without relying on fixed weights. Extending the theoretical analysis to broader policy classes, continuous action parame-ters, and data dependent transition mechanisms would further strengthen the connection between stochastic process theory and RL on topological spaces. Scalable training procedures will also be important for large collections of diagrams and for settings involving several homological dimensions. Finally, systematic bench-marks, repeated evaluations, and uncertainty measures for generated or simplified diagrams would provide a common basis for comparing methods and identifying when sequential topological editing offers a genuine advantage. This work establishes a foundation for a broader research direction in which PDs are not only analyzed as final summaries, but are treated as states of learnable stochastic processes. By combining controlled local edits, probabilistic dynamics, and reinforcement learning, the proposed framework connects sequential decision making with statistical modeling directly on PD space. The theoretical results show that these dynamics can possess well-defined long run behavior and support consistent distributional learning, while the experiments demonstrate that they can recover targeted rare structure and perform non-greedy compression without destroying important diagram level or cohort level organization. The central contribution is therefore a change in how PDs can be modeled: from static outputs of a filtration to dynamic objects that can be generated, transformed, and simplified according to a scientific objective. This perspective opens a new route toward adaptive and task aware methods for topological data analysis. 
+
+# A Technical Proofs for Section 4 
+
+This appendix gives sufficient conditions for irreducibility, aperiodicity, geometric drift, and minorization of the policy-induced Markov chain. Together, these conditions imply the stationary and geometric-convergence results in Theorem 1. 
+
+# A.1 Reference Measure on PD Space 
+
+To establish irreducibility of the policy induced MC, we introduce a reference measure on PD space. For each k ≥ 0, let DkK = {D ∈ D K : |D| = k} denote the subset of PDs with exactly k points. Recall the definitions of K and DK from Section 3.1. For k ≥ 1, let Kk = K × · · · × K
+
+⏞ ⏟⏟ ⏞ 
+
+> ktimes
+
+⊂ R2k denote the space of ordered k-tuples of admissible PD points. Define the canonical quotient map 
+
+κk : Kk −→ D kK , κk(x1, . . . , x k) = {{ x1, . . . , x k}} ,which sends an ordered tuple to the corresponding unordered PD. In particular, tuples that differ only by a permutation are mapped to the same diagram. Since κk is Borel measurable, for any Borel set E ⊂ D kK we define 
+
+ψk(E) = Leb 2k(︁ κ−1 
+
+> k
+
+(E))︁ ,
+
+where Leb 2k denotes 2 k-dimensional Lebesgue measure on R2k. Here, κ−1 
+
+> k
+
+(E) denotes the preimage of the set E, not an inverse function. The map κk is generally not injective because tuples that differ only by a permutation represent the same PD. Because κ−1 
+
+> k
+
+(E) ⊆ Kk, the measure is evaluated only on the admissible coordinate region Kk. For k = 0, define ψ0 = δ∅, the Dirac measure concentrated at the empty diagram 
+
+∅. Let ( wk)k≥0 be a strictly positive summable sequence; for example, let w0 = 1 and wk = 2 −k for k ≥ 1. Define 
+
+ψ(E) = 
+
+> ∞
+
+∑︂ 
+
+> k=0
+
+wk ψk(E ∩ D kK ), E ∈ B (DK ).
+
+Then ψ is a σ-finite measure on DK . The reference measure is connected to the transition mechanism as follows. If E ∈ B (DK ) satisfies ψ(E) > 0, then there exists some k ≥ 0 such that 
+
+ψk(E ∩ D kK ) > 0.
+
+Consequently, Leb 2k(︁ κ−1 
+
+> k
+
+(E ∩ D kK ))︁ > 0.
+
+Suppose that the policy assigns positive probability to the delete action at every nonempty diagram and to the add action at every diagram. Assume also that every existing point can be selected for deletion with positive probability and that the conditional add-proposal density is strictly positive on K. Starting from any finite diagram D, the chain can then reach the empty diagram through a finite sequence of delete operations with positive probability. From the empty diagram, it can reach E ∩ D kK through k consecutive add operations with positive probability. Therefore, every set of positive ψ measure is accessible from every initial diagram, which establishes ψ-irreducibility. Furthermore, for n ≥ 0, let 
+
+P nθ (E | D) = Pr( Dn ∈ E | D0 = D) (8) denote the n-step transition probability of the policy induced MC. By convention, P 0 
+
+> θ
+
+(E | D) = 1E (D) [26]. 
+
+# A.2 Propositions supporting Theorem 1 
+
+In this section we establish fundamental probabilistic properties required for Theorem 1, including irre-ducibility, aperiodicity, drift, and minorization of the policy induced Markov chain on DK .
+
+Proposition 5. Assume that the policy assigns positive probability to every admissible add and delete action, every point of a nonempty diagram can be selected for deletion with positive probability, and the conditional add-proposal density is strictly positive on K. Then the policy induced Markov chain on DK is ψ-irreducible. Proof. Fix an initial diagram D ∈ D K and a measurable set E ∈ B (DK ) satisfying ψ(E) > 0. We show that there exists an integer n ≥ 1 such that P nθ (E | D) > 0, where P nθ (E | D) is defined in Equation (8). Let 
+
+m = |D| denote the number of points in the initial diagram. By the definition of ψ, there exists some k ≥ 0such that, with Ek = E ∩ D kK , we have ψk(Ek) > 0.
+
+First suppose that k ≥ 1. By the assumptions on the policy and the delete mechanism, the chain can remove all m points of D and reach the empty diagram in m steps with positive probability: 
+
+P mθ ({∅} | D) > 0,
+
+where the expression equals one when m = 0. By the construction of ψk,Leb 2k(︁ κ−1 
+
+> k
+
+(Ek))︁ > 0.
+
+Starting from ∅, consider k consecutive add operations. Because the policy selects the add action with positive probability and the conditional add proposal density is strictly positive on K, every subset of Kk
+
+with positive 2 k-dimensional Lebesgue measure is generated with positive probability. Therefore, 
+
+P kθ (Ek | ∅) > 0.By the Chapman–Kolmogorov identity, 
+
+P m+kθ (E | D) = ∫︂ DK
+
+P kθ (E | D′) P mθ (dD ′ | D).
+
+Restricting the integral to the intermediate state ∅ and using Ek ⊆ E, we obtain 
+
+P m+kθ (E | D) ≥ P mθ ({∅} | D) P kθ (E | ∅) ≥ P mθ ({∅} | D) P kθ (Ek | ∅) > 0.
+
+It remains to consider k = 0. In this case, ψ0(E0) > 0 implies that ∅ ∈ E. If m ≥ 1, repeated delete operations give 
+
+P mθ (E | D) ≥ P mθ ({∅} | D) > 0.
+
+If m = 0, the chain starts at ∅. It can perform one add operation followed by one delete operation, both with positive probability, and return to ∅. Hence, P 2 
+
+> θ
+
+(E | ∅) > 0. Thus, for every D ∈ D K and every 
+
+E ∈ B (DK ) satisfying ψ(E) > 0, there exists n ≥ 1 such that 
+
+P nθ (E | D) > 0.
+
+Therefore, the policy induced MC is ψ-irreducible. 
+
+Proposition 6. Under the assumptions of Proposition 5, suppose additionally that the policy selects the 
+
+move action with positive probability at every singleton diagram and that the move proposal has positive probability of remaining in K. Then the policy-induced Markov chain is aperiodic. Proof. By Proposition 5, the policy induced Markov chain is ψ-irreducible. Recall that ψ0 = δ∅ and w0 > 0, so ψ({∅}) = w0 > 0. Starting from the empty diagram, the chain can return to ∅ in two steps by first adding a point and then deleting that point. Because the policy assigns positive probability to both actions, the add proposal assigns positive probability to admissible points in K, and the unique point can subsequently be selected for deletion, 
+
+P 2 
+
+> θ
+
+({∅} | ∅) > 0.
+
+The chain can also return to ∅ in three steps by adding a point, moving it within K, and then deleting it. The move proposal has positive probability of producing an admissible perturbation, and the policy assigns positive probability to each of these actions. Therefore, 
+
+P 3 
+
+> θ
+
+({∅} | ∅) > 0.
+
+Define the set of possible return times to the empty diagram by per ∅ = {n ≥ 1 : P nθ ({∅} | ∅) > 0} .
+
+The preceding arguments show that both 2 and 3 belong to this set of possible return times. Since gcd(2 , 3) = 1, we have per( ∅) = 1 . Because the chain is ψ-irreducible and ψ({∅}) > 0, the policy induced MC is aperiodic. Irreducibility and aperiodicity describe the accessibility and cyclic behavior of the chain, but they do not control its behavior far from the target diagrams. To formulate the Lyapunov drift condition needed for the subsequent stability analysis, we introduce the one-step transition operator (Pθ f )( D) := Eθ [f (Dt+1 ) | Dt = D]for any nonnegative measurable function f : DK → R.
+
+Proposition 7 (Geometric Foster–Lyapunov drift) . Let {D∗ 
+
+> i
+
+}ni=1 ⊂ D K be fixed target PDs and define 
+
+V (D) = 1 + 1
+
+n
+
+> n
+
+∑︂ 
+
+> i=1
+
+W2(D, D ∗ 
+
+> i
+
+)2.Suppose that there exist a measurable set GV ⊂ D K and a constant ηV ∈ (0 , 1) such that 
+
+Eθ [V (Dt+1 ) − V (Dt) | Dt = D] ≤ − ηV V (D), D / ∈ G V .
+
+Assume also that 
+
+cV = sup 
+
+> D∈G V
+
+[( Pθ V )( D) − (1 − ηV )V (D)] + < ∞.
+
+Then 
+
+(Pθ V )( D) ≤ λV V (D) + cV 1GV (D), D ∈ D K ,
+
+where λV = 1 − ηV ∈ (0 , 1) .Proof. Because conditioning on Dt = D fixes the current diagram, 
+
+Eθ [V (Dt+1 ) − V (Dt) | Dt = D] = ( Pθ V )( D) − V (D).
+
+For D / ∈ G V , the assumed drift inequality gives (Pθ V )( D) − V (D) ≤ − ηV V (D),
+
+and hence (Pθ V )( D) ≤ (1 − ηV )V (D) = λV V (D).
+
+For D ∈ G V , the definition of cV gives (Pθ V )( D) ≤ λV V (D) + cV .
+
+Combining the two cases yields (Pθ V )( D) ≤ λV V (D) + cV 1GV (D).
+
+The final condition is minorization. A measurable set H ⊆ D K is called an m-step small set if there exist an integer m ≥ 1, a constant εmin > 0, and a probability measure ν on DK such that 
+
+P mθ (E | D) ≥ εmin ν(E)for every D ∈ H and every E ∈ B (DK ). This minorization condition means that the m-step transition distributions from all diagrams in H share a common probabilistic component. In the geometric drift theorem, the condition is imposed on the same set GV that appears in the Foster–Lyapunov inequality. We establish this condition through a uniform reset mechanism. From every D ∈ G V , the chain reaches the empty diagram ∅ within a fixed number m0 of steps with a uniformly positive probability. An additional add operation then generates a singleton PD from a proposal density bounded below on Kadd . This produces a common lower bound for P m0+1  
+
+> θ
+
+(E | D) over all D ∈ G V ; other possible transitions contribute nonnegative probability and therefore do not affect this lower bound. 
+
+Proposition 8 (Minorization on the drift set) . Assume that there exist an integer m0 ≥ 1 and a constant 
+
+α0 > 0 such that 
+
+P m0 
+
+> θ
+
+({∅} | D) ≥ α0, D ∈ G V .
+
+Suppose also that, from ∅, the policy selects the add action with probability at least αadd > 0 and that the add-proposal density satisfies 
+
+qadd (x | ∅) ≥ qmin > 0, x ∈ Kadd ,
+
+for some Borel set Kadd ⊂ K with Leb 2(Kadd ) > 0.Then GV is an (m0 + 1) -step small set. In particular, there exist εmin > 0 and a probability measure ν
+
+such that 
+
+P m0+1  
+
+> θ
+
+(E | D) ≥ εmin ν(E), D ∈ G V , E ∈ B (DK ).Proof. Define 
+
+ν(E) = Leb 2 ({x ∈ Kadd : {{ x}} ∈ E})Leb 2(Kadd ) .
+
+Starting from ∅, the add-proposal assumptions give 
+
+Pθ (E | ∅) ≥ αadd qmin Leb 2(Kadd )ν(E).
+
+For D ∈ G V , the Chapman–Kolmogorov identity and the uniform reset assumption therefore imply 
+
+P m0+1  
+
+> θ
+
+(E | D) ≥ P m0 
+
+> θ
+
+({∅} | D) Pθ (E | ∅)
+
+≥ α0αadd qmin Leb 2(Kadd )ν(E).
+
+Thus the minorization condition holds with 
+
+εmin = α0αadd qmin Leb 2(Kadd ) > 0.
+
+Hence GV is an ( m0 + 1)-step small set. 
+
+# References 
+
+[1] Henry Adams, Andrew Emerson, Michael Kirby, Rachel Neville, Chris Peterson, Patrick Shipman, Sofya Chepushtanova, Eric Hanson, Francesco Motta, and Lori Ziegelmeier. Persistence images: Astable vector representation of persistent homology. Journal of Machine Learning Research , 18(8):1–35, 2017. [2] R.J. Adler and S. Agami. Modelling persistence diagrams with planar point processes, and revealing topology with bagplots. J Appl. and Comput. Topology , 3:139–183, 2019. [3] E. J. Amezquita, F. Nasrin, K. M. Storey, and M. Yoshizawa. Genomics data analysis via spectral shape and topology. PLOS ONE , 18(4):1–19, 2023. [4] A. Bernstein, E. Burnaev, M. Sharaev, E. Kondrateva, and O. Kachan. Topological data analysis in computer vision. In Twelfth International Conference on Machine Vision (ICMV 2019) , volume 11433, page 114332H. International Society for Optics and Photonics, 2020. [5] Peter Bubenik. Statistical topological data analysis using persistence landscapes. Journal of Machine Learning Research , 16(3):77–102, 2015. [6] Mathieu Carriere, Frederic Chazal, Yuichi Ike, Theo Lacombe, Martin Royer, and Yuhei Umeda. Perslay: A neural network layer for persistence diagrams and new graph topological signatures. In Proceedings of the Twenty Third International Conference on Artificial Intelligence and Statistics , volume 108 of 
+
+Proceedings of Machine Learning Research , pages 2786–2796. PMLR, 26–28 Aug 2020. [7] Mathieu Carri` ere, Marco Cuturi, and Steve Oudot. Sliced Wasserstein kernel for persistence diagrams. In 
+
+Proceedings of the 34th International Conference on Machine Learning (ICML) , volume 70 of Proceedings of Machine Learning Research , pages 664–673, 2017. [8] Fr´ ed´ eric Chazal, Brittany Terese Fasy, Fabrizio Lecci, Alessandro Rinaldo, and Larry Wasserman. Stochastic convergence of persistence landscapes and silhouettes. In Proceedings of the Thirtieth An-nual Symposium on Computational Geometry , SOCG’14, page 474–483, New York, NY, USA, 2014. Association for Computing Machinery. [9] David Cohen-Steiner, Herbert Edelsbrunner, and John Harer. Stability of persistence diagrams. Discrete & Computational Geometry , 37(1):103–120, 2007. [10] V. Deshmukh, S. Baskar, T. E. Berger, E. Bradley, and J. D. Meiss. Comparing feature sets and machine-learning models for prediction of solar flares: Topology, physics, and model complexity. Astronomy & Astrophysics , 674:A159, 2023. [11] Adriana Di Martino, Chao-Gan Yan, Qian Li, Erin Denio, F. Xavier Castellanos, Kaat Alaerts, Jeffrey S. Anderson, Michal Assaf, Susan Y. Bookheimer, Mirella Dapretto, et al. The autism brain imaging data exchange: Towards a large-scale evaluation of the intrinsic brain architecture in autism. Molecular Psychiatry , 19(6):659–667, 2014. [12] Herbert Edelsbrunner and John Harer. Persistent homology—a survey. Contemporary Mathematics ,453:257–282, 2008. [13] M. Gabella. Topology of learning in feedforward neural networks. IEEE Transactions on Neural Net-works and Learning Systems , 32(8):3588–3592, 2021. [14] Robert Ghrist. Barcodes: The persistent topology of data. Bulletin of the American Mathematical Society , 45(1):61–75, 2008. [15] Arthur Gretton, Karsten M Borgwardt, Malte J Rasch, Bernhard Sch¨ olkopf, and Alexander Smola. A kernel two-sample test. In Journal of Machine Learning Research , volume 13, pages 723–773, 2012. [16] Tuomas Haarnoja, Aurick Zhou, Pieter Abbeel, and Sergey Levine. Soft actor-critic: Off-policy max-imum entropy deep reinforcement learning with a stochastic actor. In International Conference on Machine Learning , pages 1861–1870. PMLR, 2018. [17] S. Heydenreich, B. Br¨ uck, and J. Harnois-D´ eraps. Persistent homology in cosmic shear: Constraining parameters with topological data analysis. Astronomy & Astrophysics , 648:A74, 2021. [18] Christoph Hofer, Roland Kwitt, Marc Niethammer, and Andreas Uhl. Learning representations of persistence barcodes. Journal of Machine Learning Research , 20(126):1–45, 2019. [19] T. Ichinomiya, I. Obayashi, and Y. Hiraoka. Protein-folding analysis using features obtained by persis-tent homology. Biophysical Journal , 118(12):2926–2937, 2020. [20] Genki Kusano, Kenji Fukumizu, and Yasuaki Hiraoka. Persistence weighted gaussian kernel for topolog-ical data analysis. In Proceedings of the 33rd International Conference on Machine Learning (ICML) ,volume 48 of Proceedings of Machine Learning Research , pages 2004–2013, 2016. [21] Roland Kwitt, Stefan Huber, Marc Niethammer, Weili Lin, and Ulrich Bauer. Statistical topological data analysis - a kernel perspective. In C. Cortes, N. Lawrence, D. Lee, M. Sugiyama, and R. Garnett, editors, Advances in Neural Information Processing Systems , volume 28. Curran Associates, Inc., 2015. [22] S. Liu et al. Scalable topological data analysis and visualization for evaluating data-driven models in scientific applications. IEEE Transactions on Visualization and Computer Graphics , 26(1):291–300, 2019. [23] V. Maroulas, C. Micucci, and F. Nasrin. Topological learning for classifying the structure of biological networks. Bayesian Analysis , 2021. [24] Vasileios Maroulas, Joshua L. Mike, and Christopher Oballe. Nonparametric estimation of probability density functions of random persistence diagrams. Journal of Machine Learning Research , 20(151):1–49, 2019. [25] Vasileios Maroulas, Farzana Nasrin, and Christopher Oballe. A Bayesian framework for persistent homology. SIAM Journal on Mathematics of Data Science , 1(1):48–74, 2019. [26] Sean Meyn and Richard L Tweedie. Markov Chains and Stochastic Stability . Springer, 2012. [27] Yuriy Mileyko, Sayan Mukherjee, and John Harer. Probability measures on the space of persistence diagrams. Inverse Problems , 27(12):124007, 2011. [28] Jesper Møller and Rasmus Plenge Waagepetersen. Statistical Inference and Simulation for Spatial Point Processes . CRC Press, 2003. [29] Farzana Nasrin, Theodore Papamarkou, Austin Lawson, Na Gong, Orlando Rios, and Vasileios Maroulas. Bayesian random persistence diagram generation: An application to material microstruc-ture analysis. Foundations of Data Science , 6(3):361–378, 2024. [30] Andrew Y. Ng, Daishi Harada, and Stuart Russell. Policy invariance under reward transformations: Theory and application to reward shaping. In Proceedings of the Sixteenth International Conference on Machine Learning , pages 278–287. Morgan Kaufmann, 1999. [31] Steve Y. Oudot. Persistence theory: From quiver representations to data analysis , volume 209 of 
+
+Mathematical Surveys and Monographs . American Mathematical Society, 2015. [32] Theodore Papamarkou, Farzana Nasrin, Austin Lawson, Na Gong, Orlando Rios, and Vasileios Maroulas. Random persistence diagram generator. Statistics and Computing , 32(5):88, 2022. [33] Jan Reininghaus, Stefan Huber, Ulrich Bauer, and Roland Kwitt. A stable multi-scale kernel for topological machine learning. In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (CVPR) , pages 4741–4748, 2015. [34] Donald R. Sheehy and Siddharth Sheth. Sketching persistence diagrams. In 37th International Sym-posium on Computational Geometry (SoCG 2021) , volume 189 of Leibniz International Proceedings in Informatics (LIPIcs) , pages 57:1–57:15. Schloss Dagstuhl–Leibniz-Zentrum f¨ ur Informatik, 2021. [35] H. Sun, W. Manchester IV, and Y. Chen. Improved and interpretable solar flare predictions with spatial and topological features of the polarity inversion line masked magnetograms. Space Weather ,19(12):e2021SW002837, 2021. [36] Richard S Sutton and Andrew G Barto. Reinforcement Learning: An Introduction . MIT Press, 2nd edition, 2018. [37] J. Townsend, C. P. Micucci, J. H. Hymel, V. Maroulas, and K. D. Vogiatzis. Representation of molecular structures with persistent homology for machine learning applications in chemistry. Nature Communi-cations , 11(1):1–9, 2020. [38] Katharine Turner, Yuriy Mileyko, Sayan Mukherjee, and John Harer. Fr´ echet means for distributions of persistence diagrams. Discrete & Computational Geometry , 52(1):44–70, 2014. [39] S. Tymochko, E. Munch, J. Dunion, K. Corbosiero, and R. Torn. Using persistent homology to quantify a diurnal cycle in hurricanes. Pattern Recognition Letters , 133:137–143, 2020. [40] C´ edric Villani. Optimal Transport: Old and New , volume 338 of Grundlehren der mathematischen Wissenschaften . Springer, Berlin, Heidelberg, 2009.

@@ -1,49 +1,108 @@
-<div class="dpr-home-notice-card">
-  <h3 class="dpr-home-notice-title">🚀 Start Here</h3>
-  <ul class="dpr-home-notice-list">
-    <li><a href="#/tutorial/README">使用教程</a></li>
-  </ul>
+<div class="dpr-home-notice-card dpr-home-panel">
+  <div class="dpr-home-notice-header dpr-home-panel-header">
+    <h3 class="dpr-home-notice-title">公告与更新</h3>
+    <a class="dpr-home-notice-tutorial" href="#/tutorial/README">使用教程 <span aria-hidden="true">›</span></a>
+  </div>
+  <div class="dpr-home-notice-entry">
+    <time class="dpr-home-notice-date" datetime="2026-07-20">07.20</time>
+    <div>
+      <strong class="dpr-home-notice-entry-title">反馈功能上线</strong>
+      <span class="dpr-home-notice-entry-summary">新增反馈功能，欢迎大家踊跃反馈各种建议，我们会第一时间查看并协调处理。</span>
+    </div>
+  </div>
+  <div class="dpr-home-notice-entry">
+    <time class="dpr-home-notice-date" datetime="2026-07-19">07.19</time>
+    <div>
+      <strong class="dpr-home-notice-entry-title">首页新增社区统计</strong>
+      <span class="dpr-home-notice-entry-summary">现在可以看到今天看论文的人数和项目加入人数。</span>
+    </div>
+  </div>
+  <div class="dpr-home-site-stats" data-dpr-site-stats hidden aria-live="polite">
+    <span>今天有 <strong class="dpr-home-site-stat-value" data-dpr-daily-readers>--</strong> 人在看论文</span>
+    <span class="dpr-home-site-stat-separator" aria-hidden="true">·</span>
+    <span>昨天有 <strong class="dpr-home-site-stat-value" data-dpr-yesterday-readers>--</strong> 人在看论文</span>
+    <span class="dpr-home-site-stat-separator" aria-hidden="true">·</span>
+    <span>已有 <strong class="dpr-home-site-stat-value" data-dpr-fork-count>--</strong> 人加入 Daily Paper Reader</span>
+    <span class="dpr-home-history">
+      <button type="button" class="dpr-home-history-trigger" data-dpr-history-trigger aria-label="查看最近 14 天阅读趋势"><span aria-hidden="true">🔍</span></button>
+      <span class="dpr-home-history-popover" data-dpr-history-popover role="tooltip">
+        <span class="dpr-home-history-header">近 14 天阅读趋势</span>
+        <span class="dpr-home-history-meta">
+          <span data-dpr-history-range>--</span>
+          <span>峰值 <strong data-dpr-history-peak>--</strong></span>
+        </span>
+        <span class="dpr-home-history-chart" data-dpr-history-chart></span>
+      </span>
+    </span>
+  </div>
 </div>
 
-## 每次日报
-- 最新运行日期：2026-08-09
-- 运行时间：2026-08-09 21:08:29 UTC
-- 运行状态：成功
-- 本次总论文数：5
-- 精读区：0
-- 速读区：5
+<div class="dpr-home-dashboard-grid">
+<section class="dpr-home-dashboard-card dpr-home-report-card">
+  <div class="dpr-home-dashboard-header">
+    <div>
+      <span class="dpr-home-dashboard-kicker">2026-08-10</span>
+      <h3 class="dpr-home-dashboard-title">今日汇总</h3>
+    </div>
+    <strong class="dpr-home-dashboard-count">共 9 篇</strong>
+  </div>
+  <dl class="dpr-home-dashboard-stats">
+    <div class="dpr-home-dashboard-stat"><dt>累计更新</dt><dd>1 次</dd></div>
+    <div class="dpr-home-dashboard-stat"><dt>精读</dt><dd>4</dd></div>
+    <div class="dpr-home-dashboard-stat"><dt>速读</dt><dd>5</dd></div>
+  </dl>
+  <p class="dpr-home-dashboard-body">最近更新：2026-08-10 21:32:04 UTC<br>状态：成功</p>
+</section>
+<section class="dpr-home-dashboard-card dpr-home-brief-card">
+  <div class="dpr-home-dashboard-header">
+    <div>
+      <span class="dpr-home-dashboard-kicker">合并后生成</span>
+      <h3 class="dpr-home-dashboard-title">今日简报</h3>
+    </div>
+    <strong class="dpr-home-dashboard-count">AI</strong>
+  </div>
+  <div class="dpr-home-dashboard-body">
+<p>今日共读9篇，其中精读4篇、速读5篇，重点聚焦强化学习与鲁棒学习理论。</p>
+<p>最值得看的是《Flowing Through States》提出的神经ODE正则化（9.0分），以及分布鲁棒PAC学习的样本复杂度分析（8.0分）。</p>
+<p>建议优先从这两篇高分论文入手，先理解方法框架，再延伸至图像恢复与特征检测的速读材料。</p>
+  </div>
+</section>
+<section class="dpr-home-dashboard-card dpr-home-deep-card">
+  <div class="dpr-home-dashboard-header">
+    <div>
+      <span class="dpr-home-dashboard-kicker">今日累计</span>
+      <h3 class="dpr-home-dashboard-title">精读推荐</h3>
+    </div>
+    <strong class="dpr-home-dashboard-count">4 篇</strong>
+  </div>
+  <div class="dpr-home-dashboard-body">
+<ul class="dpr-home-dashboard-paper-list"><li><span class="dpr-home-dashboard-paper-title" title="Flowing Through States: Neural ODE Regularization for Reinforcement Learning">Flowing Through States: Neural ODE Regularization for Reinforcement Learning</span></li><li><span class="dpr-home-dashboard-paper-title" title="The Sample Complexity of Distributionally Robust PAC Learning under Cressie--Read Divergences">The Sample Complexity of Distributionally Robust PAC Learning under Cressie--Read Divergences</span></li><li><span class="dpr-home-dashboard-paper-title" title="Stochastic Dynamics on Persistence Diagram Space via Reinforcement Learning">Stochastic Dynamics on Persistence Diagram Space via Reinforcement Learning</span></li></ul>
+  </div>
+  <div class="dpr-home-dashboard-tags"><span class="dpr-home-dashboard-tag">npl-bdl-saig <strong>2</strong></span><span class="dpr-home-dashboard-tag">rl-semantic <strong>2</strong></span></div>
+</section>
+<section class="dpr-home-dashboard-card dpr-home-skim-card">
+  <div class="dpr-home-dashboard-header">
+    <div>
+      <span class="dpr-home-dashboard-kicker">今日累计</span>
+      <h3 class="dpr-home-dashboard-title">速读推荐</h3>
+    </div>
+    <strong class="dpr-home-dashboard-count">5 篇</strong>
+  </div>
+  <div class="dpr-home-dashboard-body">
+<ul class="dpr-home-dashboard-paper-list"><li><span class="dpr-home-dashboard-paper-title" title="Flow-Map Distillation on Relation Manifolds for Image Restoration">Flow-Map Distillation on Relation Manifolds for Image Restoration</span></li><li><span class="dpr-home-dashboard-paper-title" title="Cascading Through the Hierarchy: Regularizer-Induced Feature Detection as Phase Transitions in Deep Linear Neural Networks">Cascading Through the Hierarchy: Regularizer-Induced Feature Detection as Phase Transitions in Deep Linear Neural Networks</span></li><li><span class="dpr-home-dashboard-paper-title" title="Bridging Differential Privacy and Random Triangles">Bridging Differential Privacy and Random Triangles</span></li></ul>
+  </div>
+  <div class="dpr-home-dashboard-tags"><span class="dpr-home-dashboard-tag">ml-theory <strong>2</strong></span><span class="dpr-home-dashboard-tag">rl-semantic <strong>2</strong></span><span class="dpr-home-dashboard-tag">npl-bdl-saig <strong>1</strong></span></div>
+</section>
+</div>
 
-### 今日简报（AI）
-今日速读5篇论文，聚焦知识注入与推理增强方向。
-最值得关注的是《RING》，提出检索内化生成以解决持续大规模知识注入；《BODHI》探讨LLM异构推理能力，也值得一瞥。
-建议优先精读RING，对比其与传统RAG在知识更新上的效果差异。
-- 详情：[/202608/09/README](/202608/09/README)
-
-### 精读区论文标签
-- 本次无精读推荐。
-
-### 速读区论文标签
-1. [RING: Retrieval-Internalized Generation for Continual Large-Scale Knowledge Injection](/202608/09/2608.01630v1-ring-retrieval-internalized-generation-for-continual-large-scale-knowledge-injection)  
-   标签：评分：7.0/10、query:rl-semantic
-   evidence：基于强化学习的参数化记忆空间搜索
-2. [BODHI: Do LLMs Branch Out and Discover Heterogeneous Inferences?](/202608/09/2608.02867v1-bodhi-do-llms-branch-out-and-discover-heterogeneous-inferences)  
-   标签：评分：6.0/10、query:rl-semantic
-   evidence：基于语义等价从RLVR推理轨迹中提取BODHI树，将语义结构构建与强化学习分析相结合
-3. [Neurosymbolic Reasoning with Incremental Knowledge for Sample Efficient Hierarchical Reinforcement Learning](/202608/09/2608.02993v1-neurosymbolic-reasoning-with-incremental-knowledge-for-sample-efficient-hierarchical-reinforcement-learning)  
-   标签：评分：6.0/10、query:rl-semantic
-   evidence：带符号状态抽象的分层强化学习
-4. [Optimal Deterministic Oracle Complexity for Weakly Convex Optimization](/202608/09/2608.03246v1-optimal-deterministic-oracle-complexity-for-weakly-convex-optimization)  
-   标签：评分：6.0/10、query:ml-theory
-   evidence：弱凸非凸优化的预言机复杂度下界，与非凸优化训练深度网络需求直接相关
-5. [SJEPA: Learning Elegant Latent Dynamics with Hybrid Symbolic-Neural Predictors](/202608/09/2608.04060v1-sjepa-learning-elegant-latent-dynamics-with-hybrid-symbolic-neural-predictors)  
-   标签：评分：6.0/10、query:rl-semantic
-   evidence：用符号-神经混合预测器学习潜在动态的联合嵌入预测架构
-
-
-<div class="dpr-home-promo-card">
-  <h3 class="dpr-home-promo-title">💬 社区与支持</h3>
-  <ul class="dpr-home-promo-list">
-    <li>欢迎 Star / Fork / Issue / PR</li>
-    <li>QQ群：583867967（欢迎交流，已有：1151人）</li>
-  </ul>
+<div class="dpr-home-promo-card dpr-home-panel">
+  <div class="dpr-home-panel-header">
+    <h3 class="dpr-home-promo-title">社区与支持</h3>
+  </div>
+  <p class="dpr-home-promo-copy">欢迎通过 Star、Fork、Issue 或 PR 一起完善 Daily Paper Reader。</p>
+  <div class="dpr-home-promo-meta">
+    <span>QQ群 <strong>583867967</strong></span>
+    <span class="dpr-home-promo-separator" aria-hidden="true">·</span>
+    <span>已有 <strong>1,491</strong> 人参与交流</span>
+  </div>
 </div>
