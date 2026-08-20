@@ -41,7 +41,7 @@
 <section class="dpr-home-dashboard-card dpr-home-report-card">
   <div class="dpr-home-dashboard-header">
     <div>
-      <span class="dpr-home-dashboard-kicker">2026-08-17</span>
+      <span class="dpr-home-dashboard-kicker">2026-08-20</span>
       <h3 class="dpr-home-dashboard-title">今日汇总</h3>
     </div>
     <strong class="dpr-home-dashboard-count">共 21 篇</strong>
@@ -51,7 +51,7 @@
     <div class="dpr-home-dashboard-stat"><dt>精读</dt><dd>8</dd></div>
     <div class="dpr-home-dashboard-stat"><dt>速读</dt><dd>13</dd></div>
   </dl>
-  <p class="dpr-home-dashboard-body">最近更新：2026-08-17 21:04:57 UTC<br>状态：成功</p>
+  <p class="dpr-home-dashboard-body">最近更新：2026-08-20 21:05:42 UTC<br>状态：成功</p>
 </section>
 <section class="dpr-home-dashboard-card dpr-home-brief-card">
   <div class="dpr-home-dashboard-header">
@@ -62,9 +62,9 @@
     <strong class="dpr-home-dashboard-count">AI</strong>
   </div>
   <div class="dpr-home-dashboard-body">
-<p>今日精读聚焦神经网络理论：临界动力学与广义凸性优化双获9分高分；速读覆盖机器人操作与不确定性生成模型。</p>
-<p>最值得看：临界性下的关联流学习机制，以及用共轭对偶统一深度网络优化理论，为理解训练动态提供新视角。</p>
-<p>下一步可优先深挖这两篇理论文章，再与机器人操作等应用方向交叉验证。</p>
+<p>今日共读21篇，精读8篇，速读13篇，聚焦几何与信息论前沿。</p>
+<p>最值得关注：双流形几何引导表示学习、消息传递的信息几何，均获9.0高分。</p>
+<p>建议优先精读这两篇高分论文，速读可关注分位数时序差分与布朗核阶梯等热点。</p>
   </div>
 </section>
 <section class="dpr-home-dashboard-card dpr-home-deep-card">
@@ -76,9 +76,9 @@
     <strong class="dpr-home-dashboard-count">8 篇</strong>
   </div>
   <div class="dpr-home-dashboard-body">
-<ul class="dpr-home-dashboard-paper-list"><li><span class="dpr-home-dashboard-paper-title" title="Correlation flow governs learning at criticality">Correlation flow governs learning at criticality</span></li><li><span class="dpr-home-dashboard-paper-title" title="Generalized Convexity and Smoothness via Conjugate Duality: Optimization Theory for Deep Neural Networks">Generalized Convexity and Smoothness via Conjugate Duality: Optimization Theory for Deep Neural Networks</span></li><li><span class="dpr-home-dashboard-paper-title" title="Latent On-Policy Self-Distillation">Latent On-Policy Self-Distillation</span></li></ul>
+<ul class="dpr-home-dashboard-paper-list"><li><span class="dpr-home-dashboard-paper-title" title="Dual-Manifold Geometry Guided Representation Learning: Adaptive Coupling between Kernel and Data Spaces">Dual-Manifold Geometry Guided Representation Learning: Adaptive Coupling between Kernel and Data Spaces</span></li><li><span class="dpr-home-dashboard-paper-title" title="Information Geometry of Message Passing">Information Geometry of Message Passing</span></li><li><span class="dpr-home-dashboard-paper-title" title="Revisiting Shannon&#x27;s Source Coding Theorem with Distributional Uncertainty under the Nonlinear Expectation Theory">Revisiting Shannon&#x27;s Source Coding Theorem with Distributional Uncertainty under the Nonlinear Expectation Theory</span></li></ul>
   </div>
-  <div class="dpr-home-dashboard-tags"><span class="dpr-home-dashboard-tag">ml-theory <strong>4</strong></span><span class="dpr-home-dashboard-tag">npl-bdl-saig <strong>3</strong></span><span class="dpr-home-dashboard-tag">rl-semantic <strong>1</strong></span></div>
+  <div class="dpr-home-dashboard-tags"><span class="dpr-home-dashboard-tag">ml-theory <strong>3</strong></span><span class="dpr-home-dashboard-tag">npl-bdl-saig <strong>3</strong></span><span class="dpr-home-dashboard-tag">rl-semantic <strong>2</strong></span></div>
 </section>
 <section class="dpr-home-dashboard-card dpr-home-skim-card">
   <div class="dpr-home-dashboard-header">
@@ -89,9 +89,9 @@
     <strong class="dpr-home-dashboard-count">13 篇</strong>
   </div>
   <div class="dpr-home-dashboard-body">
-<ul class="dpr-home-dashboard-paper-list"><li><span class="dpr-home-dashboard-paper-title" title="JEPA-WAM: Learning Vision-Language-Action Policies with Joint-Embedding World Modeling">JEPA-WAM: Learning Vision-Language-Action Policies with Joint-Embedding World Modeling</span></li><li><span class="dpr-home-dashboard-paper-title" title="SLIM-0.5B: Learning Action-Grounded Predictive Latents for Robot Manipulation">SLIM-0.5B: Learning Action-Grounded Predictive Latents for Robot Manipulation</span></li><li><span class="dpr-home-dashboard-paper-title" title="ELVAE: Evidential Learning-Based Variational Autoencoder for Uncertainty-Aware Generation">ELVAE: Evidential Learning-Based Variational Autoencoder for Uncertainty-Aware Generation</span></li></ul>
+<ul class="dpr-home-dashboard-paper-list"><li><span class="dpr-home-dashboard-paper-title" title="Online Inference for Quantile Temporal Difference Learning in Distributional Reinforcement Learning">Online Inference for Quantile Temporal Difference Learning in Distributional Reinforcement Learning</span></li><li><span class="dpr-home-dashboard-paper-title" title="Variation Brownian Kernel Ladders">Variation Brownian Kernel Ladders</span></li><li><span class="dpr-home-dashboard-paper-title" title="Conjugate Equivariant Neural Network for Precoder Learning">Conjugate Equivariant Neural Network for Precoder Learning</span></li></ul>
   </div>
-  <div class="dpr-home-dashboard-tags"><span class="dpr-home-dashboard-tag">rl-semantic <strong>7</strong></span><span class="dpr-home-dashboard-tag">npl-bdl-saig <strong>5</strong></span><span class="dpr-home-dashboard-tag">ml-theory <strong>1</strong></span></div>
+  <div class="dpr-home-dashboard-tags"><span class="dpr-home-dashboard-tag">ml-theory <strong>5</strong></span><span class="dpr-home-dashboard-tag">npl-bdl-saig <strong>4</strong></span><span class="dpr-home-dashboard-tag">rl-semantic <strong>4</strong></span></div>
 </section>
 </div>
 

@@ -1,0 +1,2833 @@
+Title: Predicting When Random Low-Dimensional Reparameterizations Train Neural Networks
+
+URL Source: https://arxiv.org/pdf/2608.12597v1
+
+Published Time: Fri, 14 Aug 2026 00:22:07 GMT
+
+Number of Pages: 59
+
+Markdown Content:
+# Predicting When Random Low-Dimensional Reparameterizations Train Neural Networks 
+
+Andrew Cheng †1,2 , Ali Eslamian †3, Jie Cheng 4, Mehdi Zargham 5, and Qiang Cheng *3,6 
+
+> 1
+
+Department of Computer Science, Tsinghua University, Beijing, China 
+
+> 2
+
+Department of Computer Science, The University of Manchester, Manchester, UK 
+
+> 3
+
+Department of Computer Science, University of Kentucky, Lexington, KY, USA 
+
+> 4
+
+Department of Computer Science, Miami University, Oxford, OH, USA 
+
+> 5
+
+Department of Computer Science, University of Dayton, Dayton, OH, USA 
+
+> 6
+
+Institute for Biomedical Informatics, University of Kentucky, Lexington, KY, USA 
+
+> †
+
+These authors contributed equally to this work. 
+
+> *
+
+Corresponding author: Qiang Cheng, qiang.cheng@uky.edu 
+
+Abstract 
+
+Neural networks can often be trained or fine-tuned using random low-dimensional reparame-terization : instead of optimizing all model parameters directly, one optimizes a small latent vector that is mapped into a full parameter update through a frozen random map. This procedure restricts training to a randomly chosen low-dimensional search space and raises a practical question: how large must this search space be to access parameters that achieve low loss? Random low-dimensional training is known to exhibit a sharp accessibility transition governed by the geometry of the low-loss region. We first express this phenomenon in an equivalent conic form, in which the transition for compact convex targets is centered at the statistical dimension of the polar cone. Our main theoretical contribution is an operational quadratic analysis that goes beyond this geometric characterization. We derive an orientation-resolved master formula that predicts the random-slice residual from both the curvature spectrum and the reference-to-solution displacement profile, thereby making explicit how displacement ori-entation relative to curvature affects the required latent dimension. The formula yields a new self-consistent isotropic-orientation predictor and, in its conservative radius-only specialization, recovers the earlier Gaussian-width quadratic bound. Building on this analysis, we introduce Random Mapping Networks (RaMaN), a scalable framework that instantiates the predicted latent dimension d using structured Hadamard mappings or seed-regenerated Gaussian maps for a net-work with P parameters. These constructions eliminate the O(dP ) frozen-map storage required by dense random generators and reduce optimizer-state memory from O(P ) to O(d). We further develop matrix-free curvature approximations and sweep-free dimension-selection procedures, and design a benchmark that measures accessibility transitions across tasks, architectures, and map families while accounting for trainable parameters, frozen-map storage, optimizer-state memory, checkpoint size, and runtime. Across controlled quadratic and neural-curvature experiments, the orientation-resolved predictor closely tracks measured transition locations and substantially improves over orientation-agnostic approximations in settings where displacement direction mat-ters; end-to-end experiments further demonstrate sharp, protocol-dependent training transitions across image and language models. 
+
+# 1 Introduction 
+
+Modern deep neural networks are typically trained by directly optimizing all parameters of a high-dimensional weight vector θ ∈ RP , where P may range from millions to billions or more. Although 1arXiv:2608.12597v1 [cs.LG] 12 Aug 2026 this direct parameterization is highly expressive, it is also expensive: optimizers must maintain gradients and auxiliary states for every parameter, checkpoints scale with P , and unrestricted optimization may overfit when the effective degrees of freedom required by the task are much smaller than the ambient parameter dimension. This gap between the ambient dimension of the model and the effective dimension of the optimization problem motivates low-dimensional reparameterization. In low-dimensional reparameterization , the full parameter vector θ ∈ RP is not optimized directly. Instead, it is generated from a much smaller trainable latent vector z ∈ Rd, with d ≪ P , through a fixed or partially fixed mapping 
+
+θ = gω(z),
+
+where ω denotes random, structured, or otherwise non-trainable parameters of the mapping. Equivalently, one may write 
+
+θ = θref + ∆ θ(z),
+
+where θref is a reference point, such as a random initialization, a pretrained model, or a pilot solution, and ∆ θ(z) is a constrained parameter displacement generated from the low-dimensional latent variable z. Training then optimizes only z, while the target network performs its standard forward computation using the generated weights θ(z). This idea has a simple geometric interpretation. Direct training searches over the full parameter space RP , whereas low-dimensional reparameterization restricts training to the image Im( gω) = {gω(z) : z ∈ Rd},
+
+where ω denotes the frozen random draw defining the map. When gω is smooth, this image has at most d local degrees of freedom, because the Jacobian of gω at any z ∈ Rd has rank at most 
+
+d. Such a restriction can be beneficial if the low-loss region is wide in most parameter directions and constrained only along a relatively small number of important directions. In this case, the low-dimensional image need not cover the full ambient space RP ; it only needs enough degrees of freedom to satisfy these effective constraints. We refer to the corresponding number of constrained directions as the effective codimension of the low-loss region. This viewpoint provides a geometric explanation for empirical observations that neural networks can often be trained or fine-tuned successfully in surprisingly small random subspaces [1, 14]. However, the central challenge is not merely whether a low-dimensional random search space can reach a low-loss region. Prior work has already shown that random-subspace trainability exhibits a sharp geometric transition as the latent dimension increases [14, 11]. The practically important question is whether this transition can be predicted from quantities that are accessible without performing an exhaustive sweep over latent dimensions. In particular, given a frozen map 
+
+gω : Rd → RP drawn from a random or structured random family, we would like to determine a dimension d for which Im( gω) ∩ Sε̸ = ∅
+
+with high probability over ω, where 
+
+Sε = {θ : L(θ) ≤ L ⋆ + ε}
+
+is an ε-low-loss sublevel set. A related algorithmic question is whether gradient-based optimization over the resulting latent variables can exploit such an accessible low-loss region under realistic training budgets and map constructions. Recent approaches provide substantial evidence that optimizing a small number of trainable variables can sometimes approach or match full-parameter training, including intrinsic-dimension 2training [14], low-dimensional fine-tuning [1], random-basis parameterizations [16, 9], and Mapping Networks [20]. Mapping Networks, for example, optimize a low-dimensional latent vector z ∈ Rd that modulates a randomly initialized mapping network with frozen base weights to generate the P ≫ d
+
+parameters of a target network. These methods establish the practical feasibility of low-dimensional parameterizations, but they do not by themselves provide a prospective rule for selecting the latent dimension from the local geometry of the target loss. Larsen et al. [11] provided an important geometric explanation for this phenomenon. They characterized random-subspace trainability through the angular Gaussian width of a low-loss sublevel set viewed from the initialization, relating the observed transition to the geometry of the target region. This characterization, however, is difficult to use prospectively: the Gaussian width of an unknown neural-network low-loss region is generally not directly available before performing the dimension sweeps one would like to avoid. Moreover, in the quadratic setting, the resulting radius-only approximation depends on the Hessian spectrum and the scalar distance from the reference point to a minimum, but does not explicitly resolve how that displacement is oriented relative to the curvature eigendirections. This leaves an operational gap between a geometric characterization of the transition and a computable predictor that can be used for latent-dimension selection. We address this gap in two stages. First, for compact convex target sets, we express the known random-slice accessibility transition in an equivalent conic form, in which its location is characterized by the statistical dimension of the polar cone generated by the shifted low-loss region. This formulation provides a convenient effective-codimension interpretation and a bridge to the local quadratic analysis. Our main theoretical contribution is then an orientation-resolved quadratic predictor. For a positive-semidefinite local curvature model, we derive a master formula that predicts the random-slice residual using both the curvature spectrum and the complete reference-to-solution displacement profile. Consequently, two problems with the same Hessian spectrum and the same displacement norm can have different predicted latent dimensions when their displacements are oriented differently relative to the curvature eigenspaces. A new self-consistent isotropic-orientation predictor follows by imposing an equal-energy displacement model, while an orientation-uniform radius-only specialization recovers the earlier quadratic bound of Larsen et al. [11]. The latter provides a conservative choice when directional displacement information is unavailable. This local quadratic setting is both analytically tractable and empirically relevant: studies of deep-network Hessians commonly report a small number of large outlier eigenvalues together with a bulk of near-zero eigenvalues, corresponding to a few stiff directions and many nearly flat directions [19, 5, 17]. Because exact spectral information is unavailable at modern network scale, we further develop matrix-free approximations based on leading curvature directions and stochastic estimates of the unresolved spectral mass. These approximations support practical latent-dimension selection without requiring a full sweep over candidate dimensions. Building on this analysis, we introduce Random Mapping Networks (RaMaN), a scalable frame-work that couples latent-dimension selection with fixed random low-dimensional reparameterizations. RaMaN supports orientation-resolved selection when an estimated displacement profile is available, radius-based selection when only a displacement scale is known, and nested adaptive expansion when neither estimate is sufficiently reliable. The selected dimension is instantiated using scalable map families, including structured Hadamard mappings (SHM), motivated by fast structured Hadamard constructions such as SRHT and Fastfood [2, 21, 12], and seed-regenerated Gaussian maps. Aglobal seed-regenerated Gaussian construction realizes the uniformly random subspace assumed by Theorem 1, while the default layer-wise Gaussian construction corresponds to the independent layer-wise setting of Corollary 3 under its product-structure assumptions. SHM provides a structured, memory-efficient alternative whose empirical behavior is evaluated separately. These constructions 3avoid storing a dense P × d random mapping object and reduce optimizer-state memory from O(P )to O(d). Our goal is not to claim that all large neural networks can be trained through only a few thousand latent variables. Rather, we ask when a substantial reduction in trainable dimension is geometrically plausible, whether the required dimension can be predicted from measurable local curvature and displacement information, and how map structure, optimizer, and training protocol affect the resulting transition. This perspective turns low-dimensional reparameterization from a purely empirical dimension-sweep procedure into a framework with explicit, falsifiable predictions. Our main contributions are summarized as follows: 
+
+• Theory. Building on the Gaussian-width characterization of random-subspace training, we recast the accessibility transition in an equivalent conic/statistical-dimension form and derive a new orientation-resolved quadratic master formula. Unlike prior radius-only quadratic bounds, the master-formula predictor depends jointly on the curvature spectrum and the reference-to-solution displacement profile. Two useful specializations of this predictor follow: a new self-consistent isotropic-orientation predictor, and an orientation-uniform predictor that recovers the earlier radius-only bound as a special case. 
+
+• Method. We develop Random Mapping Networks (RaMaN), which couple curvature- and displacement-informed latent-dimension selection with scalable frozen random reparameteriza-tions. RaMaN supports orientation-resolved and radius-based sweep-free selection together with nested adaptive dimension expansion that preserves the previously active random search space. To instantiate the selected dimension without storing a dense P × d map, we develop a seeded Structured Hadamard Mapping (SHM) based on nested selection of Hadamard basis directions, crop HDI Ω, and a seed-regenerated Gaussian construction whose active columns form prefixes of a fixed virtual Gaussian matrix. These constructions preserve the fixed-slice interpretation underlying the theory while providing scalable matrix-free training. 
+
+• Measurement. We design a benchmark for measuring the phase transition of random low-dimensional training across tasks, architectures, and mapping families. The benchmark evaluates the orientation-resolved master-formula predictor and its isotropic-orientation and orientation-uniform specializations, compares Gaussian and structured random-map families and practical dimension-selection strategies, and reports not only trainable parameters but also frozen-map storage, optimizer-state memory, checkpoint size, and wall-clock cost. 
+
+# 2 Related Work 
+
+Low-dimensional reparameterization and intrinsic dimension. A growing line of work suggests that the number of degrees of freedom required to train or adapt a neural network can be much smaller than its ambient parameter dimension. Li et al. [14] introduced the notion of the intrinsic dimension of an objective landscape by training networks within randomly oriented linear subspaces and measuring the subspace dimension at which successful solutions first appear. Their large-scale experiments also used structured Fastfood projections [12] to avoid explicitly storing dense random projection matrices, motivating the use of scalable structured maps for random-subspace training. Li et al. provided important empirical evidence for a sharp dimension-dependent transition but did not derive a geometric theory predicting its location. Larsen et al. [11] subsequently provided such a geometric explanation using Gordon’s escape-through-a-mesh theorem. They defined the local angular dimension of a low-loss sublevel set as the squared Gaussian width of its spherical projection about the initialization and related the 4threshold training dimension to the complement of this quantity. For quadratic wells, they further derived a radius-only bound based on the Hessian spectrum and the distance from the initialization to a minimum. Our work builds directly on this geometric perspective. For compact convex targets, we express the same accessibility geometry through the statistical dimension of the cone generated by the shifted low-loss set and its polar. Our main distinction is operational: we derive an orientation-resolved quadratic master formula that retains the complete reference-to-solution displacement profile relative to the curvature eigendirections. Its self-consistent isotropic-orientation specialization provides a new predictor, whereas its conservative orientation-uniform specialization recovers the radius-only quadratic bound of Larsen et al. Aghajanyan et al. [1] extended the intrinsic-dimension viewpoint to language-model fine-tuning, showing that pretrained models can often be adapted through very low-dimensional random reparameterizations. VeRA [10] further reduces the trainable parameter count in parameter-efficient fine-tuning by sharing frozen random low-rank matrices across layers and learning only small scaling vectors. These studies demonstrate the practical utility of low-dimensional and frozen-random parameterizations, while the required latent dimension is typically selected or assessed empirically rather than predicted from the local curvature and displacement geometry of the target loss. 
+
+Random-basis and generator-based parameterizations. Gressmann et al. [7] studied neural-network optimization in low-dimensional random bases and introduced independent random projec-tions for different parts of a network together with on-demand pseudorandom generation from shared seeds to reduce projection storage. Their optimization strategy differs fundamentally from the frozen random-slice setting considered here: they found that keeping a projection fixed could impair optimization and instead redraw the random subspace during training. RaMaN retains a fixed random map because its geometric question concerns whether a particular frozen random search space can access a prescribed low-loss region; seed regeneration is used as a scalable implementation mechanism. Other methods parameterize neural weights through frozen random bases. PRANC [16] represents a model as a linear combination of randomly initialized frozen basis networks, training only the combination coefficients. NOLA [9] applies a related idea to parameter-efficient fine-tuning by representing low-rank LoRA updates [8] as linear combinations of random basis matrices. These approaches reduce trainable parameters and checkpoint size but do not provide a prospective rule for selecting the dimension of a fixed random search space from the local geometry of the target objective. Mapping Networks [20] take a generator-based approach in which a compact trainable latent representation is mapped into the much higher-dimensional parameter space of a target network. This provides further evidence that target-network parameters can be controlled through far fewer trainable degrees of freedom. However, such a generator-based construction does not by itself characterize the accessibility threshold of a particular frozen random parameterization. Moreover, a dense linear random map from Rd to RP , when used to realize such a low-dimensional parameteri-zation directly, requires O(dP ) frozen storage. RaMaN therefore combines dimension prediction with matrix-free structured or seed-regenerated map realizations, rather than treating random-map generation itself as the principal contribution. 
+
+Conic geometry and random intersection theory. Our theoretical development builds on tools from high-dimensional convex geometry and Gaussian process theory. Gordon’s escape-through-a-mesh theorem provides foundational probability bounds for when random subspaces avoid a subset of the sphere [6]. Conic integral geometry sharpens this picture for convex cones: 5random cone intersections undergo phase transitions governed by statistical dimension [3]. Related Gaussian-width and high-dimensional probability tools are summarized by Vershynin [22] and have played central roles in convex optimization, compressed sensing, and high-dimensional statistics. Larsen et al. [11] brought this random-intersection viewpoint directly to neural-network training through the Gaussian width of a loss sublevel set viewed from the initialization. Our conic analysis should therefore be viewed as a refinement and reformulation of this geometric foundation rather than as the first random-intersection characterization of low-dimensional training. For compact convex targets, the spherical set used in the Gaussian-width analysis is the spherical section of the cone generated by the shifted target, allowing the transition to be expressed equivalently through the statistical dimension of that cone or its polar. This effective-codimension formulation provides the geometric foundation for our main extension: an orientation-resolved quadratic residual analysis that turns the otherwise difficult-to-evaluate geometric threshold into an operational predictor based on curvature and displacement information. Together with its isotropic-orientation and orientation-uniform specializations, this predictor motivates the sweep-free dimension-selection procedures used by RaMaN. 
+
+# 3 Methodology 
+
+3.1 Problem Setup and Random Reparameterization 
+
+Let θ ∈ RP denote the parameter vector of the target network, where P is the total number of param-eters, and let L(θ) denote the training objective. We consider low-dimensional reparameterizations of the form 
+
+θ = gω(z), z ∈ Rd, d ≪ P, 
+
+where z is trainable and ω denotes random, structured, or otherwise non-trainable parameters of the mapping. Equivalently, for fine-tuning or residual parameterization, we write 
+
+θ(z) = θref + ∆ θ(z),
+
+where θref is a reference parameter vector, such as a pretrained model, a random initialization, or a pilot solution. In the geometric analysis below, we write θ0 := θref for this reference point. For a target tolerance ε > 0, define the low-loss sublevel set 
+
+Sε := {θ : L(θ) ≤ L ⋆ + ε} ,
+
+where L⋆ denotes the best achievable loss within the parameter region under consideration. For a set A ⊆ RP , define its conic hull by cone( A) := {ta : t ≥ 0, a ∈ A} ,
+
+where the closure ensures that the resulting cone is closed. Given the reference point θ0, we write 
+
+Cε := cone( Sε − θ0).
+
+Geometrically, Cε contains the rays from θ0 toward the low-loss region. Its polar cone is 
+
+C◦ 
+
+> ε
+
+:= v ∈ RP : ⟨v, u ⟩ ≤ 0 for all u ∈ Cε .
+
+For a general neural-network objective, Sε and Cε need not be convex. The conic phase-transition results below therefore apply to localized compact convex targets. In particular, in the local quadratic setting we use 
+
+S = Sε ∩ B(θ0, R loc )6and write 
+
+C = cone( S − θ0).
+
+For the compact convex targets used in our theorems, this generated cone is already closed, so no additional closure is required (Lemma 1). For a closed convex cone C, its statistical dimension is 
+
+δ(C) := Eg∼N (0 ,I P )
+
+∥ΠC (g)∥22
+
+ ,
+
+where Π C (g) denotes the Euclidean projection of g onto C. Statistical dimension plays the role of an effective dimension for a convex cone. Its polar counterpart δ(C◦) will characterize the effective number of constrained directions that a random low-dimensional reparameterization must capture. 
+
+Remark 1 (Relation to the local angular dimension of Larsen et al.) . For the localized compact convex target S, define its spherical view from θ0 by Σθ0 (S) := 
+
+ θ − θ0
+
+∥θ − θ0∥2
+
+: θ ∈ S
+
+
+
+.
+
+Since C = cone( S − θ0), Σθ0 (S) = C ∩ SP −1.
+
+Larsen et al. [11] characterize random-subspace trainability through the squared Gaussian width of this spherical set, which they term the local angular dimension. For a closed convex cone, squared Gaussian width and statistical dimension satisfy 
+
+w2 C ∩ SP −1 ≤ δ(C) ≤ w2 C ∩ SP −1 + 1 [3]. Thus, the statistical-dimension formulation used here provides an equivalent conic refinement of the earlier Gaussian-width perspective: the corresponding Gaussian-width and statistical-dimension transition centers differ by at most one dimension. We use this conic formulation as a convenient geometric foundation for the orientation-resolved quadratic analysis developed below. With this notation, we study two related questions. First, can the latent dimension required for a frozen random search space to access a prescribed low-loss region be predicted from measurable properties of the local loss geometry, rather than identified through an exhaustive sweep over d?Second, once such a low-loss region is accessible within the random parameterization, how effectively can gradient-based optimization over z reach it under practical training conditions? 
+
+3.2 Critical Dimension and Hessian Predictors 
+
+We first state the geometric accessibility transition underlying random low-dimensional reparam-eterization and then address the more operational question of predicting its location from local curvature and displacement information. Choosing d too small makes access to a prescribed low-loss region unlikely, whereas choosing it unnecessarily large weakens the computational advantages of low-dimensional training. The conic formulation characterizes the accessibility transition through the effective codimension of the localized low-loss region, quantified by the statistical dimension of the corresponding polar cone. As discussed in Remark 1, this provides an equivalent statistical-dimension refinement of the Gaussian-width perspective of Larsen et al. [11]. Because this geometric quantity is generally intractable for neural-network losses, our main theoretical development focuses on the local quadratic regime. In this setting, we derive an orientation-resolved master formula that depends jointly on 7(a) Random-slice accessibility geometry (b) Predict latent dimension from curvature and displacement              
+
+> Curvature
+> flat bulk
+> Displacement
+> specializations
+> isotropic radius only
+> (c) RaMaN: frozen matrix-free maps at the predicted dimension
+> trainable latents
+> ⋮
+> frozen random map layer 1
+> ⋮
+> layer
+> SHM (Hadamard)
+> matrix-free,
+> Seed-regenerated Gaussian
+> regenerated on the fly, never stored gradients only to latents (identity ):
+> FROZEN-MAP STORAGE or seed-only OPTIMIZER STATE RaMaN CHECKPOINT latents + seeds
+> slice ,θ+0Az z ∈Rd
+
+θ0
+
+θ(z )⋆
+
+S                
+
+> C= cone( S−θ), S=0S∩ε(θ,R)B0loc
+> P[ hit S]
+> ddconic
+
+d =conic P − δ(C) = δ(C )∘          
+
+> {λ}iΔi
+> Δ=i⟨θ−†θ,v⟩0i
+
+(d; Δ ) = ρMF 0 Δ
+
+> i
+
+∑ λ + κ(d)i
+
+κ(d) λii
+
+> 2
+
+κ(d) : λ /( λ +∑i i i κ) = d
+
+=dMF min {d : (d; Δ ) ≤ρMF 0 ε }, ε =q q 2ε
+
+diso  
+
+> ⋆
+
+d =unif reff 
+
+z ∈1 Rd1
+
+z ∈L RdL
+
+Δθ =(l) β R (ϕ (z ))l l l l
+
+θ(z) = θ +ref Δθ(z)
+
+> L
+
+L
+
+I →Ωl D →l H →Pl crop Pl   
+
+> O(log )PlPl
+
+s →l 
+
+> seed
+
+A , R (z ) = l l l A z l l         
+
+> ϕl∇L=zlβR∇Lll
+> ⊤Δθ(l)
+
+O(dP ) → O(P ) O(P ) → O(d)Figure 1: Overview of Random Mapping Networks (RaMaN). (a) Random low-dimensional training is formulated as an intersection problem: a random affine slice from θ0 succeeds when it intersects the localized target S, with C = cone( S − θ0) and the conic transition centered at dconic =
+
+δ(C◦). (b) In the local quadratic regime, the transition is estimated from the curvature spectrum and reference-to-solution displacement using the orientation-resolved master-formula predictor, with isotropic-orientation and radius-only effective-rank specializations when less directional information is available. (c) RaMaN instantiates the predicted latent dimension with frozen matrix-free maps, including Structured Hadamard Mapping (SHM) and seed-regenerated Gaussian maps. Only the latent variables {zl}Ll=1 are trained; each generates a layer-wise update ∆ θ(l) = βlRl(ϕl(zl)), reducing dense-map storage and optimizer-state memory. the curvature spectrum and the reference-to-solution displacement profile. A new self-consistent isotropic-orientation predictor follows as one specialization, while the conservative orientation-uniform specialization recovers the earlier radius-only quadratic bound. These results motivate the practical three-mode dimension-selection procedure in Algorithm 1. The general conic intersection result for compact convex target sets is stated and proved in Appendix A. The theory is stated for a positive-semidefinite Hessian at a local minimum. Away from such a point, we use either the positive spectral part of the Hessian or a positive-semidefinite curvature surrogate, such as the Gauss–Newton or Fisher matrix. These substitutions are practical approximations rather than consequences of Theorem 1. 
+
+Theorem 1 (Conic transition for a localized quadratic target) . Let θ† be a local minimizer with local 8quadratic model eL(θ) = L(θ†) + 12 (θ − θ†)⊤H(θ − θ†), H ⪰ 0,
+
+and, for ε > 0 and localization radius Rloc > 0, define 
+
+S =
+
+n
+
+θ : 12 (θ − θ†)⊤H(θ − θ†) ≤ ε
+
+o
+
+∩ B(θ0, R loc ),
+
+assumed nonempty, with reference point θ0 /∈ S. Let 
+
+C =
+
+n
+
+t(θ − θ0) : t ≥ 0, θ ∈ S
+
+o
+
+.
+
+Let E be a uniformly random d-dimensional subspace of RP , and let A ∈ RP ×d be any matrix with range( A) = E, so that the random slice is 
+
+θ0 + E = θ(z) := θ0 + Az : z ∈ Rd ,
+
+where z ∈ Rd is the trainable latent vector. Equivalently, A may be taken to have i.i.d. N (0 , 1) entries, in which case A has rank d almost surely and E = range( A) is uniformly distributed; the intersection event depends only on E, not on the particular basis A.The slice reaches S if and only if E ∩ C̸ = {0}. Moreover, for every η ∈ (0 , 1), the intersection probability is at least 1 − η when 
+
+d ≥ P − δ(C) + aη
+
+√P , 
+
+and at most η when 
+
+d ≤ P − δ(C) − aη
+
+√P , 
+
+where 
+
+aη = p8 log(4 /η ).
+
+Thus, the conic transition is centered at 
+
+dconic := P − δ(C) = δ(C◦),
+
+within an O(√P ) transition window (Theorem 2, proved in Appendix A). 
+
+Implications of the theorem. Figure 1 summarizes the progression from the geometric phase-transition result to its quadratic predictors and scalable RaMaN implementation. The identity 
+
+dconic = δ(C◦)gives the key geometric interpretation: the transition is governed by the effective codimension of the low-loss set as seen from θ0, namely the effective number of constrained directions that the random slice must satisfy, rather than directly by the ambient parameter dimension. Small-dimensional accessibility is therefore predicted only in the fat-cone regime, δ(C) ≈ P , where S is wide in most parameter directions and narrow along relatively few directions. Whether this fat-cone regime holds depends on the localized geometry of the low-loss set relative to the reference point θ0. In the quadratic model, such a regime is favored by a Hessian spectrum with a small number of large eigenvalues and a bulk of near-zero eigenvalues, although the actual transition also depends on the displacement orientation, loss tolerance, and localization radius. Under this spectral structure, the quadratic surrogates introduced below can predict a transi-tion at a latent dimension substantially smaller than P . The orientation-resolved master formula 9incorporates both the Hessian spectrum and the displacement profile, while the orientation-uniform predictor reff (ε, R ) provides a conservative spectrum-based mean-level estimate when only a dis-placement radius is available. This qualitative spectral profile is widely reported in empirical studies of deep-network Hessians [19, 5, 17], and our benchmark tests whether the associated quadratic surrogates predict the measured random-slice transitions. Thus, the conic theorem identifies the geometric quantity controlling random-slice accessibility, but it does not by itself provide a practical way to evaluate that quantity for a neural-network loss. The quadratic predictors developed next address this operational problem. 
+
+Remark 2 (Two extreme geometries) . Two examples delimit the regimes. (i) Round target. If S is a ball of radius ρ centered at distance D > ρ from θ0, then C is a circular cone with half-angle 
+
+α = arcsin( ρ/D ).
+
+Its statistical dimension is approximately [3] 
+
+δ(C) ≈ P sin 2 α = P ρ2
+
+D2 ,
+
+so 
+
+dconic ≈ P
+
+
+
+1 − ρ2
+
+D2
+
+
+
+.
+
+Thus, random slices are essentially ineffective for small, well-rounded targets: for a fixed point at distance D from θ0, a Haar-random d-dimensional slice through θ0 has expected squared distance 
+
+D2(1 − d/P ) from that point, giving the typical scale 
+
+D
+
+r P − dP .
+
+(ii) Rank-k quadratic residual. If 
+
+H = λ(Ik ⊕ 0P −k),
+
+then the unlocalized quadratic residual depends only on the k stiff directions. Under the isotropic displacement model, the least-squares/master-formula transition can be computed exactly and is controlled by k rather than by P ; see Appendix B.5. This example illustrates how a small effective curvature dimension can produce a low-dimensional random-slice residual transition. For the localized conic theorem, however, δ(C◦) also depends on the reference point, tolerance, and localization radius. Empirical Hessian studies of deep networks often exhibit the qualitative local-curvature structure underlying case (ii), namely a small number of stiff directions and many nearly flat directions. Our experiments test whether this local spectral structure yields the small quadratic random-slice transition predicted by the Hessian-based surrogates. The conic transition center dconic = δ(C◦) is geometric but generally not directly computable from standard neural-network diagnostics. We therefore seek an operational quadratic surrogate that retains information discarded by radius-only approximations, in particular the orientation of the reference-to-solution displacement relative to the curvature eigenspaces. 
+
+Definition 1 (Orientation-resolved master-formula predictor) . Let 
+
+H =
+
+> P
+
+X
+
+> i=1
+
+λiviv⊤ 
+
+> i
+
+, λi ≥ 0,
+
+10 be the eigendecomposition of the positive-semidefinite curvature operator, and let ∆0 := θ† − θ0, ∆i := ⟨∆0, v i⟩.
+
+Thus, ∆ i is the component of the reference-to-solution displacement along the ith curvature eigenvector. Let 
+
+r := rank( H), εq := 2 ε, 
+
+where ε is the loss-excess tolerance in the quadratic model and εq is the corresponding quadratic-form tolerance. For each candidate dimension d ∈ (0 , r ), let κ(d) > 0 denote the unique solution of 
+
+d = tr 
+
+h
+
+H H + κ(d)I−1i
+
+=
+
+> P
+
+X
+
+> i=1
+
+λi
+
+λi + κ(d) . (1) The orientation-resolved master-formula predictor , a deterministic-equivalent mean-level approxima-tion to the expected minimum quadratic residual at latent dimension d, is 
+
+bρMF (d; ∆ 0) := 
+
+> P
+
+X
+
+> i=1
+
+κ(d)λi
+
+λi + κ(d) ∆2 
+
+> i
+
+. (2) The corresponding predicted critical dimension is 
+
+bdMF := min {d ∈ { 1, . . . , r − 1} : bρMF (d; ∆ 0) ≤ εq} . (3) If the reference point already satisfies ∆ ⊤ 
+
+> 0
+
+H∆0 ≤ εq, we set bdMF = 0. If the set in (3) is empty, we set bdMF = r.The predictor in Definition 1 is orientation resolved: two displacements having the same Euclidean norm can yield substantially different predicted dimensions if their energy is distributed differently across the curvature eigenvectors. Directions with large λi are more costly because displacement along them contributes more strongly to the quadratic residual and must therefore be represented more accurately by the random search subspace. The master formula is a mean-level predictor rather than an exact high-probability guarantee. Its derivation, given in Appendix B, is exact up to the deterministic-equivalent approximation for the expected Gaussian-span projector. Accordingly, bdMF estimates the quadratic random-slice transition but is distinct from the rigorous conic transition center 
+
+dconic = δ(C◦)of Theorem 1. The orientation-resolved predictor in Definition 1 requires the complete displacement profile 
+
+{∆i}Pi=1 . When this directional information is unavailable, the master formula yields two useful spectrum-based specializations. 
+
+Definition 2 (Specialized Hessian predictors) . Adopt the notation of Definition 1. Let R > 0 denote a displacement-radius bound satisfying 
+
+∥∆0∥2 ≤ R, 
+
+and let 
+
+r := rank( H).
+
+11 When the displacement norm is known exactly, we take R = ∥∆0∥2.For d ∈ (0 , r ), let κ(d) > 0 be determined by (1). All expressions involving κ(d) at d = 0 and 
+
+d = r are interpreted by continuity, corresponding respectively to κ → +∞ and κ → 0. (i) Isotropic-orientation predictor. Under the isotropic-orientation model with displacement norm R,∆2 
+
+> i
+
+= R2
+
+P , i = 1 , . . . , P, 
+
+the orientation-resolved master formula reduces to 
+
+bρiso (d) = R2
+
+P
+
+> P
+
+X
+
+> i=1
+
+κ(d)λi
+
+λi + κ(d) = R2
+
+P κ(d)d. 
+
+The isotropic-orientation predictor d⋆ 
+
+> iso
+
+is determined by 
+
+d⋆ 
+
+> iso
+
+=
+
+> P
+
+X
+
+> i=1
+
+λi
+
+λi + κ⋆ , κ⋆d⋆ 
+
+> iso
+
+= 2εP R2 . (4) (ii) Orientation-uniform predictor. For every displacement satisfying ∥∆0∥2 ≤ R, the master formula obeys 
+
+bρMF (d; ∆ 0) = 
+
+> P
+
+X
+
+> i=1
+
+κ(d)λi
+
+λi + κ(d) ∆2
+
+> i
+
+≤ κ(d)
+
+> P
+
+X
+
+> i=1
+
+∆2
+
+> i
+
+≤ κ(d)R2.
+
+Imposing the sufficient condition κ(d)R2 ≤ εq gives the orientation-uniform predictor 
+
+dunif (ε, R ) := 
+
+> P
+
+X
+
+> i=1
+
+λi
+
+λi + εq/R 2
+
+=
+
+> P
+
+X
+
+> i=1
+
+λiR2
+
+λiR2 + εq
+
+.
+
+(5) We equivalently denote this effective-rank predictor by 
+
+reff (ε, R ) := dunif (ε, R ). (6) 
+
+Remark 3 (Recovery of the quadratic radius bound of Larsen et al.) . Larsen et al. [11] derive, for a positive-definite quadratic well, the approximation 
+
+dlocal (ε, R ) ≳ X
+
+> i
+
+r2
+
+> i
+
+R2 + r2
+
+> i
+
+, r2 
+
+> i
+
+= 2ελi
+
+.
+
+The corresponding complementary threshold expression is 
+
+P − X
+
+> i
+
+r2
+
+> i
+
+R2 + r2
+
+> i
+
+= X
+
+> i
+
+λiR2
+
+λiR2 + 2 ε = reff (ε, R ),
+
+where εq = 2 ε in Definition 1. Thus, the orientation-uniform specialization of the master formula recovers the earlier radius-only quadratic expression of Larsen et al., while the orientation-resolved predictor developed here extends it by retaining the full displacement profile {∆i}Pi=1 .12 The three predictors correspond to different levels of displacement information. The master-formula predictor bdMF uses the complete orientation profile {∆i}Pi=1 . The isotropic predictor d⋆
+
+> iso
+
+replaces that profile with an equal-energy orientation model, whereas the orientation-uniform predic-tor dunif = reff removes the orientation dependence through a uniform upper bound. Consequently, the isotropic-orientation predictor is sharper when its equal-energy assumption is a reasonable approximation, whereas the orientation-uniform predictor applies when only a displacement-radius estimate is available. The proof of Theorem 1 applies the conic kinematic formula to the cone C = cone( S − θ0)associated with the localized quadratic low-loss set S. The corresponding general result for compact convex target sets is stated and proved in Appendix A. Because direct computation of δ(C◦) is generally intractable for neural-network losses, Definitions 1 and 2 provide operational quadratic-model surrogates for the corresponding accessibility transition. These results motivate the three-mode dimension-selection procedure developed next. When a reliable displacement profile is available, we use the orientation-resolved master-formula predictor; when only a displacement radius is available, we use the orientation-uniform predictor dunif = reff ;and when neither estimate is reliable, we use nested adaptive latent-dimension expansion. The isotropic-orientation predictor d⋆ 
+
+> iso
+
+is retained primarily as a sharper diagnostic predictor when its equal-energy orientation model is appropriate. 
+
+3.3 Latent Dimension Selection 
+
+For practical curvature estimation, all eigenvalues, eigenvectors, and trace estimates are computed from the same positive-semidefinite curvature operator. This operator is the Hessian when it is positive semidefinite, its positive spectral part when explicitly estimated, or a standard positive-semidefinite surrogate such as the generalized Gauss–Newton or Fisher matrix. For notational simplicity, we continue to denote this operator by H. The resulting quantities are practical surrogates for the quadratic predictors of Definition 1; when H is replaced by a positive-semidefinite surrogate, they should not be interpreted as direct estimators of the rigorous conic quantity dconic = δ(C◦). Define the unresolved spectral mass by 
+
+bTtail := 
+
+"btr H −
+
+> k
+
+X
+
+> i=1
+
+λi
+
+#
+
+> +
+
+,
+
+where [ x]+ := max {x, 0}. We model the P − k uncomputed eigenvalues by their common average 
+
+bλtail := bTtail 
+
+P − k , k < P. (7) When k = P , all tail terms below are defined to be zero. This equal-tail spectral representation is exact when the unresolved eigenvalues are equal. Within the deterministic-equivalent master formula, it also avoids the artificial saturation that can arise when all unresolved spectral contributions are linearized at zero curvature. 
+
+Mode 1: orientation-resolved selection. Suppose that a pilot, related-task, or diagnostic solution bθ provides the displacement estimate 
+
+b∆0 := bθ − θref .
+
+Its estimated components in the leading curvature eigenspace are 
+
+b∆i := ⟨ b∆0, v i⟩, i = 1 , . . . , k, 
+
+13 and the remaining displacement energy is 
+
+bR2tail := 
+
+"
+
+∥ b∆0∥22 −
+
+> k
+
+X
+
+> i=1
+
+b∆2
+
+> i
+
+#
+
+> +
+
+. (8) For each candidate dimension d, let bκ(d) > 0 solve 
+
+d =
+
+> k
+
+X
+
+> i=1
+
+λi
+
+λi + bκ(d) + ( P − k) bλtail 
+
+bλtail + bκ(d) . (9) The corresponding practical master formula is 
+
+bρ(k)MF (d; b∆0) := 
+
+> k
+
+X
+
+> i=1
+
+bκ(d)λi
+
+λi + bκ(d) b∆2
+
+> i
+
++ bκ(d)bλtail 
+
+bλtail + bκ(d)
+
+bR2tail .
+
+(10) Define the estimated rank of the equal-tail curvature representation by 
+
+br := # {i ≤ k : λi > 0} + ( P − k) 1{bλtail > 0}. (11) For interior dimensions d ∈ { 1, . . . , br − 1}, bκ(d) > 0 is determined by (9). At the two endpoints, we define the practical residual by continuity: 
+
+bρ(k)MF (0; b∆0) := 
+
+> k
+
+X
+
+> i=1
+
+λi b∆2 
+
+> i
+
++ bλtail bR2tail , bρ(k)MF (br; b∆0) := 0 .
+
+The raw orientation-resolved estimate is then 
+
+edMF := min 
+
+n
+
+d ∈ { 0, . . . , br} : bρ(k)MF (d; b∆0) ≤ εq
+
+o
+
+. (12) Since bρ(k)MF (d; b∆0) is nonincreasing in d, the smallest qualifying interior dimension can be found efficiently by integer bisection. 
+
+Mode 2: orientation-uniform radius selection. If the full displacement profile is unavailable but a displacement-radius estimate or upper bound R is available, we use the equal-tail approximation to the orientation-uniform effective-rank predictor: 
+
+breq eff (ε, R ) := 
+
+> k
+
+X
+
+> i=1
+
+λiR2
+
+λiR2 + εq
+
++ ( P − k) bλtail R2
+
+bλtail R2 + εq
+
+.
+
+(13) When R is a genuine upper bound on ∥θ† − θref ∥2, this retains the orientation-uniform interpre-tation of Definition 2. When R is estimated empirically, the resulting quantity should instead be regarded as a radius-calibrated practical predictor. The equal-tail representation of the uncomputed spectrum remains an additional approximation. 14 Algorithm 1 Three-mode latent-dimension selection for RaMaN: compact version 
+
+Require: Reference parameters θref , parameter dimension P , loss tolerance ε, multiplicative safety factor γ ≥ 1, additive calibration margin b ≥ 0, optional curvature operator H, optional displacement estimate b∆0, optional radius estimate R, and adaptive-expansion controls.  
+
+> 1:
+
+Set εq ← 2ε. 
+
+> 2:
+
+if a reliable curvature operator H and displacement estimate b∆0 are available then  
+
+> 3:
+
+Estimate the leading curvature eigenpairs and unresolved spectral tail.  
+
+> 4:
+
+Compute the orientation-resolved estimate edMF using (8)–(12).  
+
+> 5:
+
+Set 
+
+d ← min 
+
+n
+
+P, 
+
+l
+
+γ edMF + b
+
+mo 
+
+, mode ← MF . 
+
+> 6:
+
+else if a reliable curvature operator H and radius estimate R are available then  
+
+> 7:
+
+Estimate the leading curvature eigenvalues and unresolved spectral tail.  
+
+> 8:
+
+Compute breq eff (ε, R ) using (13).  
+
+> 9:
+
+Set 
+
+d ← min P, γbreq eff (ε, R ) + b , mode ← Radius . 
+
+> 10:
+
+else  
+
+> 11:
+
+Apply nested adaptive expansion to obtain d and an adaptive success/failure flag.  
+
+> 12:
+
+Set mode ← Adaptive.  
+
+> 13:
+
+end if  
+
+> 14:
+
+return Selected latent dimension d, selection mode, and, for the adaptive mode, the suc-cess/failure flag. The compact three-mode selection procedure is summarized in Algorithm 1. The orientation-resolved and radius modes use matrix-free curvature estimates of the leading spectrum and unresolved spectral mass, while the adaptive mode uses nested latent-dimension expansion that preserves previously active random directions and latent coordinates. Algorithm 1 separates prediction from fallback. The orientation-resolved mode is preferred when a pilot or related-task displacement provides a reliable estimate of the displacement orientation relative to the curvature eigenspaces. The radius mode discards this directional information and is therefore more conservative when R is a valid displacement bound. The adaptive mode makes no quadratic-model prediction and instead identifies a sufficient dimension through successive training runs. The multiplicative factor γ and additive margin b convert the raw mean-level predictor into a practical operating dimension. They are calibration parameters rather than consequences of the conic theorem or high-probability guarantees for the master formula. The conic theorem provides a rigorous transition window centered at dconic = δ(C◦), but it does not control the deterministic-equivalent approximation error, the spectral-tail approximation, or the accuracy of a pilot displacement estimate. Nestedness is essential in the adaptive mode. When the dimension is expanded from d to dnew ,all previously active random directions and latent coordinates must remain unchanged. For a seed-regenerated Gaussian map, this is achieved by treating the active matrix as a column prefix of a fixed virtual Gaussian matrix generated from the same seed. For SHM, the coordinate sets are likewise generated as prefixes of one fixed seeded ordering: Ω( d) = ( ω1, . . . , ω d), Ω( dnew ) = ( ω1, . . . , ω dnew ), d < d new ,
+
+where Ω( d) is a prefix of Ω( dnew ), while the sign operator and Hadamard transform are retained 15 unchanged. These constructions ensure 
+
+Rdnew ([ zd; 0]) = Rd(zd).
+
+Resampling the Gaussian columns or SHM coordinate ordering after an expansion would change the underlying random subspace rather than enlarge the existing one. For the current HDI SHM implementation, the sign pattern is also kept fixed to preserve exact parameterization continuity; its active signs can be absorbed into the latent coordinates and therefore do not change the reachable SHM subspace. For AdamW dimension sweeps and adaptive expansion, we initialize the learning-rate schedule across latent dimensions using 
+
+α(d) = α(d0)
+
+r d0
+
+d .
+
+This scaling is motivated by the dimension dependence of the induced parameter-space update under the Gaussian map. For AdamW, however, adaptive moment normalization modifies the exact step scaling, so this rule should be regarded as an optimization heuristic rather than as part of the geometric dimension-selection theory. 
+
+Remark 4 (Conservative versus equal-tail correction) . The equal-tail correction in (13) avoids the saturation that can occur when the unresolved spectral contribution is linearized. If a conservative upper estimate is required, it may be replaced by 
+
+brupper tail := min 
+
+
+
+P − k, R2
+
+εq
+
+bTtail 
+
+
+
+.
+
+This follows from λR 2
+
+λR 2 + εq
+
+≤ λR 2
+
+εq
+
+.
+
+The upper correction is conservative but may substantially overestimate the required dimension. The equal-tail correction is typically less conservative, but its accuracy depends on how well the average unresolved eigenvalue represents the spectral tail. 
+
+3.4 Random Mapping Networks 
+
+As summarized in Figure 1, RaMaN instantiates the selected latent dimensions using frozen matrix-free random maps. Given a reference parameter vector θref , it trains only the low-dimensional latent vectors {zl}Ll=1 .
+
+3.4.1 Scalable Random Map Instantiations 
+
+A dense random map from Rd to RP requires storing a frozen P × d matrix, which is prohibitive for modern networks. RaMaN avoids this persistent storage bottleneck using either seed-regenerated Gaussian maps or Structured Hadamard Mapping (SHM). In the idealized i.i.d. Gaussian construc-tion, a global seed-regenerated Gaussian map realizes the uniformly random subspace assumed in Theorem 1, while the default layer-wise construction corresponds to the independent layer-wise setting of Corollary 3 under its product-structure assumptions. SHM provides a structured, memory-efficient alternative whose behavior is evaluated empirically rather than identified with the Haar-random model of the theorem. We therefore consider two default instantiations: SHM RaMaN, which uses a seeded random selection of Hadamard basis directions implemented through a fast Walsh–Hadamard transform, 16 and seed-regenerated Gaussian RaMaN, which regenerates Gaussian projection blocks on the fly from fixed random seeds. We now specify the layer-wise RaMaN parameterization. Let the target network have parameter vector 
+
+θ = θ(1) , . . . , θ (L), θ(l) ∈ RPl , P =
+
+> L
+
+X
+
+> l=1
+
+Pl.
+
+RaMaN parameterizes the target weights as 
+
+θ(z) = θref + ∆ θ(z),
+
+where θref is either a random initialization for training from scratch or a pretrained parameter vector for fine-tuning. The update ∆ θ(z) is generated from low-dimensional trainable latent variables rather than learned directly in RP .In the layer-wise form used by default, each layer receives its own latent vector 
+
+zl ∈ Rdl , dl ≪ Pl,
+
+and the corresponding parameter update is ∆θ(l) = βlRl
+
+ ϕl(zl), l = 1 , . . . , L. 
+
+Here Rl : Rdl → RPl is a frozen random map, βl > 0 is a layer-wise update scale, and ϕl is an optional low-dimensional nonlinear modulation. Unless otherwise stated, we set βl = 1 for all layers. In the simplest and default version, 
+
+ϕl(zl) = zl,
+
+yielding a linear random reparameterization. When nonlinear modulation is used, we take 
+
+ϕl(zl) = zl + αlψl(zl),
+
+where ψl is a small frozen nonlinear map satisfying 
+
+ψl(0) = 0 , Dψ l(0) = 0 .
+
+Consequently, Dϕ l(0) = I, so the local Jacobian at the origin is determined by the random map 
+
+Rl, while the nonlinear term acts as a controlled higher-order perturbation. The parameter αl
+
+controls the strength of this modulation. In the nonlinear SHM ablation used in our experiments, 
+
+ψl(z) = tanh( z) − z and αl = 0 .5, giving 
+
+ϕl(z) = 0 .5z + 0 .5 tanh( z).
+
+Layer-wise latent-dimension selection. The latent dimensions {dl}Ll=1 may be selected by applying the curvature-based modes of Algorithm 1 either to individual layer blocks or to the full parameter space. Let 
+
+Hl = X
+
+> i
+
+λ(l) 
+
+> i
+
+v(l)
+
+> i
+
+ v(l)
+
+> i
+
+⊤
+
+denote the lth diagonal block of the positive-semidefinite curvature operator, where Hl ∈ RPl×Pl .Treating the layers independently is a block-diagonal curvature approximation because cross-layer curvature terms are omitted. 17 Let εl ≥ 0 be a layer-wise loss budget satisfying 
+
+> L
+
+X
+
+> l=1
+
+εl ≤ ε
+
+under this block-diagonal quadratic approximation, and define εq,l := 2 εl. The layer-wise budgets 
+
+{εl} are user-specified subject to P 
+
+> l
+
+εl ≤ ε. In the absence of reliable blockwise information, our default implementation instead selects a global d and uses the proportional allocation in (16). When a reliable pilot, related-task, or diagnostic displacement is available, define 
+
+b∆(l)0 := bθ(l) − θ(l)ref .
+
+We then apply the orientation-resolved mode of Algorithm 1 to the lth curvature block and loss budget. Let ed(l)MF denote the resulting raw master-formula estimate. The calibrated layer-wise dimension is 
+
+dl = min 
+
+n
+
+Pl,
+
+l
+
+γ ed(l)MF + b
+
+mo 
+
+. (14) When the displacement orientation is unavailable but a layer-wise displacement-radius estimate or upper bound Rl is available, we instead apply the orientation-uniform radius mode of Algorithm 1. Let breq eff ,l (εl, R l) denote the corresponding equal-tail estimate. Then 
+
+dl = min 
+
+n
+
+Pl,
+
+l
+
+γbreq eff ,l (εl, R l) + b
+
+mo 
+
+. (15) Thus, (14) uses the estimated displacement orientation, whereas (15) discards this directional information and is conservative when Rl is a valid upper bound. When Rl is estimated empirically rather than known as an upper bound, the resulting quantity should be regarded as a radius-calibrated practical predictor. Under the product-structure assumptions of Corollary 3, a separate theorem-level simultaneous intersection statement can be obtained by assigning failure probability η/L to each layer and applying a union bound. This probabilistic statement concerns the conic threshold conditions of the corollary and should not be interpreted as a guarantee for the calibrated master-formula dimensions in (14) or (15). If reliable blockwise curvature information is unavailable, we first use Algorithm 1 to select a global dimension d. For the default layer-wise RaMaN parameterization, we then allocate that total dimension approximately in proportion to the layer sizes: 
+
+dl ≈ d Pl
+
+P ,
+
+> L
+
+X
+
+> l=1
+
+dl = d, (16) with integer rounding adjusted to preserve the total dimension. This proportional allocation is a practical heuristic and does not, by itself, inherit the layer-wise probabilistic statement of Corollary 3. When neither reliable displacement nor radius estimates are available, we use the adaptive mode of Algorithm 1. In the layer-wise implementation, expansion must be nested within every affected layer: previously active random directions and latent coordinates are preserved, and newly added latent coordinates are initialized to zero. For general neural-network losses, where cross-layer curvature and target-set interactions need not vanish, both the block-diagonal predictor and the proportional allocation in (16) are practical approximations whose accuracy is evaluated empirically. 18 Structured Hadamard Mapping RaMaN. The first scalable instantiation uses a Hadamard-based structured mapping (SHM), motivated by fast structured projection methods based on Walsh–Hadamard transforms, including SRHT [2, 21] and Fastfood [12]. Li et al. [14] also used Fastfood to realize scalable random-subspace experiments. Our SHM construction is not itself an SRHT; rather, it uses a seeded random selection of Hadamard basis directions together with a fast Walsh–Hadamard implementation. For each layer l, let ePl be the smallest power of two satisfying 
+
+ePl ≥ Pl.
+
+Let H ePl ∈ R ePl× ePl be the normalized Walsh–Hadamard matrix, and let Dl be a fixed random diagonal Rademacher sign matrix of the same size. Using a fixed layer-wise seed, sample once an ordered sequence Ωmax  
+
+> l
+
+=  ωl, 1, . . . , ω l,d l, max 
+
+
+
+of distinct indices from {1, . . . , ePl}, where 
+
+dl, max ≤ Pl
+
+is the maximum latent dimension allowed for layer l. Equivalently, Ω max  
+
+> l
+
+may be taken as the first 
+
+dl, max entries of a seeded uniformly random permutation of {1, . . . , ePl}. At active dimension dl,define Ωl(dl) :=  ωl, 1, . . . , ω l,d l
+
+.
+
+Thus, each Ω l(dl) has the distribution of a uniformly sampled ordered dl-tuple of distinct indices, while dimensions are nested: 
+
+dl < d l, new =⇒ Ωl(dl) is a prefix of Ω l(dl, new ).
+
+Define the coordinate-injection operator 
+
+IΩl(dl) : Rdl → R ePl
+
+by 
+
+IΩl(dl)u 
+
+> j
+
+=
+
+(
+
+ua, j = ωl,a for some a ∈ { 1, . . . , d l},
+
+0, j / ∈ { ωl, 1, . . . , ω l,d l }.
+
+Because the coordinate sequence itself is sampled uniformly, no separate permutation operator is required. The SHM random map is defined by 
+
+RSHM  
+
+> l,d l
+
+(u) = 
+
+sePl
+
+Pl
+
+crop Pl
+
+
+
+H ePl DlIΩl(dl)u
+
+
+
+, u ∈ Rdl .
+
+The factor 
+
+qePl/P l normalizes the Euclidean norm of each cropped Hadamard basis column: before this scaling, a normalized Hadamard column restricted to the first Pl coordinates has squared norm 
+
+Pl/ ePl.Because Dl is diagonal, 
+
+DlIΩl(dl) = IΩl(dl)DΩl(dl),
+
+19 where 
+
+DΩl(dl) := I∗
+
+> Ωl(dl)
+
+DlIΩl(dl)
+
+is an invertible dl × dl diagonal sign matrix. Therefore, range 
+
+
+
+crop Pl H ePl DlIΩl(dl)
+
+
+
+= range 
+
+
+
+crop Pl H ePl IΩl(dl)
+
+
+
+.
+
+Thus, for the default identity modulation, the randomness of the reachable SHM search subspace is determined by the seeded selection Ω l(dl) of Hadamard basis directions. We retain Dl for implementation convenience, not as an additional source of subspace randomization. The sign operator Dl, the Hadamard transform H ePl , and the ordered coordinate sequence Ω max 
+
+> l
+
+are fixed throughout training. Consequently, for dl < d l, new ,
+
+RSHM 
+
+> l,d l, new
+
+ [u; 0]  = RSHM  
+
+> l,d l
+
+(u). (17) This prefix construction is required by adaptive dimension expansion: resampling Ω l after an expansion would replace the existing structured search subspace rather than enlarge it. The sign pattern is also retained unchanged to preserve exact parameterization continuity, although, as shown above, its active signs can be absorbed into the latent coordinates and do not alter the reachable SHM subspace. The cropping operation removes the padded coordinates. The map is evaluated from right to left without materializing either Dl or H ePl . The operator IΩl(dl) is implemented as a sparse coordinate scatter, Dl as elementwise multiplication by a fixed or seed-regenerated Rademacher sign vector, and 
+
+H ePl using an in-place fast Walsh–Hadamard transform. Consequently, the map requires O( ePl log ePl)computation and O( ePl) transform working memory, rather than persistent storage of a dense ePl × dl
+
+random matrix. The backward pass applies the adjoints of the forward operators in reverse order. Given 
+
+gl = ∇∆θ(l) L ∈ RPl ,
+
+we first zero-pad gl to length ePl and then compute 
+
+∇ul L = βl
+
+sePl
+
+Pl
+
+I∗
+
+> Ωl(dl)
+
+DlH ePl pad ePl (gl) ∈ Rdl .
+
+Here, 
+
+I∗ 
+
+> Ωl(dl)
+
+: R ePl → Rdl
+
+denotes the adjoint of the coordinate-injection operator IΩl(dl). It gathers the coordinates indexed by Ω l(dl); specifically, for any x ∈ R ePl ,
+
+h
+
+I∗
+
+> Ωl(dl)
+
+x
+
+i 
+
+> a
+
+= xωl,a , a = 1 , . . . , d l.
+
+In the real Euclidean setting, pad ePl is the adjoint of crop Pl , while D∗ 
+
+> l
+
+= Dl and H∗
+
+> ePl
+
+= H ePl
+
+because Dl is a real diagonal sign operator and H ePl is the normalized symmetric Hadamard transform. Thus, both forward and backward SHM operations use fast transforms rather than dense matrix multiplication. 20 Seed-regenerated Gaussian RaMaN. The second instantiation uses a Gaussian random map that is never stored. For each layer, define 
+
+RSG  
+
+> l
+
+(u) = Alu, Al ∈ RPl×dl ,
+
+where (Al)ij = 1
+
+√Pl
+
+ξij , ξij ∼ N (0 , 1) .
+
+The normalization does not affect the Gaussian column space but controls the scale of the induced parameter update. Instead of materializing Al, its entries are regenerated on demand using a counter-based pseudorandom number generator with fixed layer seed sseed  
+
+> l
+
+. The counter indexing is chosen so that increasing dl exposes a column prefix of one fixed virtual Gaussian matrix, thereby preserving nestedness under adaptive dimension expansion. For memory-efficient evaluation, the rows of Al are partitioned into Bl blocks: 
+
+Al =
+
+
+
+A(1) 
+
+> l
+
+A(2) 
+
+> l
+
+...
+
+A(Bl)
+
+> l
+
+ , A(b) 
+
+> l
+
+∈ Rmb×dl ,
+
+> Bl
+
+X
+
+> b=1
+
+mb = Pl.
+
+During the forward pass, each row block A(b) 
+
+> l
+
+is regenerated to compute the corresponding output block A(b) 
+
+> l
+
+u. During the backward pass, the output gradient is partitioned conformably as 
+
+gl =
+
+
+
+g(1) 
+
+> l
+
+g(2) 
+
+> l
+
+...
+
+g(Bl)
+
+> l
+
+ , g(b) 
+
+> l
+
+∈ Rmb ,
+
+and the same row blocks are regenerated to accumulate 
+
+A⊤ 
+
+> l
+
+gl =
+
+> Bl
+
+X
+
+> b=1
+
+
+
+A(b)
+
+> l
+
+⊤
+
+g(b) 
+
+> l
+
+.
+
+Consequently, for ul = ϕl(zl) and ∆ θ(l) = βlAlul, the latent gradient is 
+
+∇zl L = βlDϕ l(zl)⊤A⊤ 
+
+> l
+
+gl, gl := ∇∆θ(l) L.
+
+For the identity modulation ϕl(zl) = zl, this reduces to 
+
+∇zl L = βlA⊤ 
+
+> l
+
+gl.
+
+Thus, in the idealized random-map model, seed-regenerated Gaussian RaMaN realizes the same i.i.d. Gaussian projection as a materialized dense map. In implementation, the projection requires no persistent Pl × dl matrix: the persistent map state is the random seed, while temporary block storage is controlled by the chosen block size. 21 3.5 Training and Complexity 
+
+Training objective. RaMaN trains only the latent variables 
+
+z = {zl}Ll=1 .
+
+The target network is used in the standard forward pass with parameters θ(z). Given the training dataset D, the latent variables are optimized according to min  
+
+> z
+
+L fθ(z); D,
+
+where L denotes the task-specific empirical loss evaluated on D. Gradients are propagated through the frozen random maps Rl:
+
+∇zl L = βlDϕ l(zl)⊤R⊤ 
+
+> l
+
+∇∆θ(l) L.
+
+When ϕl is the identity, this reduces to 
+
+∇zl L = βlR⊤ 
+
+> l
+
+∇∆θ(l) L.
+
+Thus optimizer states are maintained only for the latent vectors {zl} rather than for all P target parameters. 
+
+Remark 5 (Optimization on the slice) . In the quadratic model of Theorem 1, with the linear slice 
+
+θ(z) = θ0 + Az , optimization over z reduces to the convex least-squares problem min 
+
+> z
+
+12 H1/2(Az − ∆0) 22 , ∆0 := θ† − θ0.
+
+Thus, whenever the slice intersects Sε, the global least-squares optimum attains loss within the prescribed tolerance. The convergence rate of gradient descent is governed by the spectrum of 
+
+A⊤HA ∈ Rd×d.For isotropic Gaussian A, one has 
+
+E[A⊤HA ] = tr( H)
+
+P Id,
+
+suggesting that random reparameterization can also improve conditioning when the projected curvature concentrates around its expectation. A quantitative analysis of this effect is left to future work. 
+
+Memory and computational complexity. Dense Mapping-Network implementations can require O(dP ) frozen mapping parameters in addition to the target-network parameters. This becomes prohibitive for large models because P may range from millions to billions. RaMaN removes this bottleneck. With SHM maps, the random projection is represented by signs, coordinate subsets, and Hadamard transforms, requiring O(P ) memory or only random seeds when the random objects are regenerated. With seed-regenerated Gaussian maps, the projection has the same distribution as a dense Gaussian map but requires O(d) trainable memory plus O(1) seed storage. The optimizer-state memory is reduced from O(P ) to O(d), or from O(Pl) to O(dl) per layer. Seed regeneration removes the O(Pldl) storage cost but does not remove the corresponding dense arithmetic: each forward or backward application of the Gaussian map requires O(Pldl) operations, in addition to random-number regeneration overhead. By contrast, the SHM requires O( ePl log ePl)operations. Thus, the two RaMaN instantiations provide different memory–computation tradeoffs: 22 the Gaussian variant exactly preserves the relevant random-subspace distribution in the settings described above, whereas the SHM variant offers substantially faster structured transforms. Importantly, RaMaN does not claim to reduce the number of parameters used by the target network during inference unless combined with orthogonal compression techniques such as pruning, quantization, or low-rank decomposition. Its primary advantages are reduced trainable dimension, reduced optimizer-state memory, reduced checkpoint size, and removal of the dense P × d frozen-mapping memory wall. 
+
+3.6 RaMaN Algorithm 
+
+A compact version of the RaMaN training algorithm is shown in Algorithm 2. 
+
+Algorithm 2 RaMaN training: compact version 
+
+Require: Reference parameters θref , loss L, training data D, latent dimensions {dl}Ll=1 , map type type ∈ { SHM , SeedGaussian }. 
+
+> 1:
+
+For each layer l, initialize the trainable latent vector zl = 0 ∈ Rdl and a frozen random map 
+
+Rl : Rdl → RPl . 
+
+> 2:
+
+repeat  
+
+> 3:
+
+Generate layer-wise updates ∆θ(l) = βlRl(ϕl(zl)) , l = 1 , . . . , L.  
+
+> 4:
+
+Set 
+
+θ(l) = θ(l)ref + ∆ θ(l). 
+
+> 5:
+
+Evaluate L(fθ(z); D) and update only the latent variables {zl}Ll=1 by backpropagating through the frozen maps {R l}Ll=1 . 
+
+> 6:
+
+until convergence  
+
+> 7:
+
+return Trained latents {zl}Ll=1 and the random seeds defining the frozen maps; generate θ(z)on demand when needed. 
+
+# 4 Experimental Results 
+
+We evaluate the geometric theory, its quadratic predictors, and the resulting Random Mapping Network (RaMaN) training procedure through twelve experiments. Experiments 1–3 examine the quadratic random-slice model: the existence and location of the phase transition, its dependence on displacement orientation, and its transfer to curvature operators obtained from trained neural networks. Experiment 4 tests whether end-to-end RaMaN optimization exhibits a comparable transition on MLP and CNN models. Experiments 5–6 evaluate the frozen-map families and the three-mode latent-dimension selection procedure. Experiments 7–9 extend the end-to-end study to a vision transformer, a pretrained language model, and a deep residual network. Experiments 10–11 examine the sensitivity of the measured training midpoint to the optimizer and the loss-excess tolerance. Finally, Experiment 12 applies the quadratic-probe pipeline to a ViT-scale curvature surrogate. Unless stated otherwise, d denotes the global latent dimension; for a layer-wise parameterization, it denotes the total latent dimension d = PLl=1 dl.23 4.1 Experimental Protocol 
+
+Quadratic hit criterion and empirical transition. For a positive-semidefinite curvature operator H, a reference-to-solution displacement ∆ 0 = θ† − θ0, and a random Gaussian map 
+
+A ∈ RP ×d, we evaluate the least-squares residual from (B.1), 
+
+ρ(A) = min 
+
+> z∈Rd
+
+(Az − ∆0)⊤H(Az − ∆0).
+
+A trial is successful when ρ(A) ≤ εq, where εq = 2 ε. For each candidate d, the empirical success probability bp(d) is the fraction of random-map trials satisfying this criterion. We denote by dp the interpolated dimension at which bp(d) = p; in particular, d50 is the empirical transition midpoint and d90 − d10 is its empirical width. 
+
+Quadratic predictors. We compare the empirical transition with the three mean-level predic-tors defined in Section 3.2: the orientation-resolved master-formula predictor bdMF , the isotropic-orientation predictor d⋆
+
+> iso
+
+, and the orientation-uniform predictor dunif = reff (ε, R ). When only leading Ritz eigenpairs and a stochastic trace estimate are available, we use the practical estimates edMF 
+
+and breq eff from Section 3.3. These predictors are tested directly in Experiments 1–3. Experiment 12 extends the same calculation to a ViT-scale GGN–Ritz surrogate. Because its measured midpoint and its practical predictors are computed from the same Ritz-plus-tail approximation, Experiment 12 is an internal consistency test of the surrogate rather than an independent validation of the true network curvature or of the end-to-end training midpoint. 
+
+End-to-end success criterion. For RaMaN training, a run is counted as successful when its training loss reaches the prescribed target Ltarget used by the dimension-sweep protocol. The empirical training-success probability and d50 are computed across random seeds. For the layer-wise map families, d always denotes P 
+
+> l
+
+dl. For the AdamW sweeps, the learning-rate search is initialized using 
+
+α(d) = α(d0)
+
+r d0
+
+d ,
+
+which approximately normalizes the induced parameter-space step across latent dimensions. This scaling is used as an initialization for per-d tuning rather than as an optimizer-independent rule; Experiment 10 treats SGD separately. 
+
+Role of the full-parameter reference. Experiments 1–3 are designed to evaluate the quadratic transition predictors and do not constitute comparisons of RaMaN generalization against full-parameter training. In the end-to-end experiments, the full-parameter model primarily defines the training-loss target and provides a descriptive accuracy reference. Unless a protocol-matched control is explicitly stated, differences in test accuracy should therefore not be interpreted as compute-matched generalization comparisons. The corresponding d50 values characterize the training transition under the specified reference and optimization protocol. 
+
+Datasets, models, and roles. Table 1 summarizes the neural-network experiments. The smallest MNIST model admits a complete eigendecomposition of the positive spectral part of the Hessian. Larger curvature probes use the generalized Gauss–Newton (GGN) operator, leading Ritz eigenpairs, and a stochastic trace estimate. The ViT experiments include both end-to-end training sweeps and a separate quadratic probe based on a GGN–Ritz surrogate. The pretrained language-model 24 Table 1: Neural-network settings used in the experiments. “Exact H+” denotes a complete eigendecomposition of the positive spectral part of the Hessian; “GGN–Ritz” denotes a matrix-free GGN approximation based on leading Ritz eigenpairs and a stochastic trace estimate.                                                     
+
+> Model Dataset Input/setting Experimental role Parameter count TinyMLP MNIST 14 ×14 Exact H+; training P= 6 ,634 SmallMLP MNIST 28 ×28 GGN–Ritz probe P= 109 ,386 SmallCNN CIFAR-10 32 ×32 GGN–Ritz; training P= 19 ,466 ResNet-18 CIFAR-10/100 32 ×32 Training transition; generalization controls P≈11 .2×10 6
+> ViT-Tiny CIFAR-10 patch size 4 Training transition; GGN–Ritz probe P= 1 ,806 ,538 ViT-Tiny CIFAR-100 patch size 4 Training transition; GGN–Ritz probe P= 1 ,823 ,908
+> bert-tiny SST-2 Pretrained Fine-tuning transition P= 4 ,386 ,178
+> Prep = 413 ,314
+
+experiment is an end-to-end fine-tuning study only. For bert-tiny , the embedding module is held fixed; consequently, we distinguish the full parameter count P from the reparameterized count Prep .
+
+Data subsets and evaluation splits. Unless otherwise stated, all from-scratch image-classification experiments use fixed subsets of 10,000 training examples, with the same subset used for the full-parameter and RaMaN conditions. This protocol applies to the MNIST and CIFAR experiments in Experiments 3–7, 9–12, except that Experiments 10 and 11 reuse the saved runs from Experiment 4 and Experiment 12 reuses the ViT-Tiny data configuration from Experiment 7. For Experiment 8, we use 8,000 of the 67,349 SST-2 training examples and evaluate on all 872 validation examples. Test-set sizes, data augmentation, and the data subsets used to estimate Hessian or GGN curvature are specified below for the applicable experiments. 
+
+Transition localization and reporting. An initial dimension grid brackets each transition, after which a denser local grid estimates d10 , d50 , and d90 . Unless otherwise stated, reported uncertainty bands and error bars summarize variation across the evaluated random seeds. 
+
+4.2 Controlled Quadratic Phase Transitions 
+
+Experiment 1: transition location. We construct five synthetic positive-semidefinite quadratic instances whose spectra span low-rank, rapidly decaying, outlier-plus-bulk, and slowly decaying regimes. In every case, we use an equal-energy displacement, ∆ 2 
+
+> i
+
+= R2/P . Figure 2 shows the empirical success curves, and Table 2 compares their midpoints with d⋆ 
+
+> iso
+
+and the orientation-uniform predictor dunif .Across the five spectra, whose empirical midpoints span almost a 50 × range, the absolute relative error of d⋆ 
+
+> iso
+
+is at most 1 .1% and has median 0 .36%. The orientation-uniform predictor does not underestimate d50 in these tests, but its ratio to d50 ranges from approximately 1 .1 to 17 .5. 
+
+Transition width and localization diagnostic. To separate transition width from transition location, we repeat the block-spectrum experiment at three ambient dimensions while holding the stiff rank k = 128 and the tolerance fraction fixed. The right panel of Figure 3 is a diagnostic rather than a validation of the localization assumption in Theorem 1. In particular, the unconstrained least-squares minimizer can lie well outside the ball of radius ∥∆0∥2, especially for a spectrum with a hard rank boundary. Consequently, Experiments 1–3 25 0 20 40 60 80 100 120                                  
+
+> latent dimension d
+> 0.00 0.25 0.50 0.75 1.00 1.25
+> success probability  p(d)
+> d50
+> diso
+> dunif
+> Block, k= 128 exactly solvable (App. B.5)
+> 10 010 110 2
+> latent dimension d
+> 0.00 0.25 0.50 0.75 1.00 1.25
+> success probability  p(d)
+> d50
+> diso
+> dunif
+> Power law, ii2
+> 0100 200 300 400
+> latent dimension d
+> 0.00 0.25 0.50 0.75 1.00 1.25
+> success probability  p(d)
+> diso
+> d50
+> dunif
+> Exponential, = 50
+> 10 010 110 210 3
+> latent dimension d
+> 0.00 0.25 0.50 0.75 1.00 1.25
+> success probability  p(d)
+> d50
+> diso
+> dunif
+> Outliers + near-zero bulk deep-network-like
+> 0200 400 600 800 1000
+> latent dimension d
+> 0.00 0.25 0.50 0.75 1.00 1.25
+> success probability  p(d)
+> d50
+> diso
+> dunif
+> Power law, ii1
+> negative control
+> measured p(d)empirical d50 diso dunif
+
+Figure 2: Controlled quadratic phase transitions. Empirical success probability bp(d) as a function of latent dimension for five curvature spectra, using 300 independent random-slice trials per evaluated dimension. The first four cases use P = 4 ,096, whereas the slowly decaying power-law negative control, λi ∝ i−1, uses P = 1 ,024. Under the equal-energy displacement used here, d⋆
+
+iso 
+
+closely matches the empirical midpoint d50 , whereas dunif is conservative to a spectrum-dependent degree. test the quadratic residual predictors; a direct test of the localized conic theorem would additionally need to enforce or independently calibrate the search-radius constraint. 
+
+4.3 Orientation-Resolved Prediction 
+
+Experiment 2: dependence on displacement orientation. We next vary the displacement direction while keeping its Euclidean norm fixed. The interpolation begins at a baseline random direction constrained to be orthogonal to the leading curvature eigenvector and ends at complete alignment with that stiff direction. The baseline endpoint is therefore not the equal-energy model used to define d⋆
+
+iso . For each spectrum, the tolerance is calibrated once using the equal-energy reference displacement and then held fixed throughout the orientation sweep, so the curvature spectrum, displacement norm, and target sublevel set remain unchanged as α varies. Figure 4 shows how the empirical transition midpoint and the corresponding quadratic predictors change across the orientation sweep. As shown in Figure 4, the measured transition changes substantially as the displacement becomes increasingly aligned with the stiff curvature direction, even though the curvature spectrum and 
+
+R = ∥∆0∥2 remain fixed. Across the three spectra, orientation changes the transition midpoint by as much as a factor of 37. Table 4 summarizes the prediction accuracy over all 30 orientation–spectrum combinations: bdMF has a median absolute relative error of 0 .45% and a maximum absolute relative error of 5 .36%. These results support retaining the full displacement profile when it can be estimated 26 Table 2: Empirical transition midpoints for five controlled synthetic curvature spectra under the equal-energy displacement model. Here, rnum = # {i : λi > 10 −14 λmax } is the numerical rank used by the residual solver, and dunif = reff (ε, R ). The first four cases use P = 4 ,096, whereas the slowly decaying power-law control uses P = 1 ,024. 
+
+Spectrum P rnum d50 d⋆ 
+
+> iso
+
+dunif d⋆
+
+> iso
+
+/d 50 
+
+Block, k = 128 4,096 128 114.8 115.2 127.6 1.004 Power law, λi ∝ i−2 4,096 4,096 13.8 13.9 241.3 1.007 Exponential, τ = 50 4,096 1,612 180.9 180.7 335.5 0.999 Outliers with near-zero bulk 4,096 4,096 27.7 28.0 439.9 1.010 Power law, λi ∝ i−1 1,024 1,024 685.8 686.8 763.6 1.002 80 90 100 110 120 130                          
+
+> latent dimension d
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> p(d)
+> exact diso
+> (a) Block spectrum across ambient P
+> P= 1024
+> P= 4096
+> P= 16384
+> 10 310 4
+> ambient dimension P
+> 2 × 10 1
+> 3 × 10 1
+> 4 × 10 1
+> transition width
+> (b) Width of the transition
+> measured d90 d10
+> reference P
+> constant-width reference
+> 01234
+> d/d50
+> 10 1
+> 10 0
+> 10 1
+> 10 2
+> Az  2/R (median, band to  q90 )
+> Az 2=R
+> (c) Localization check
+> Block, k= 128 Power law, ii2
+> Exponential, = 50
+
+Figure 3: Scaling and localization diagnostics. Left: empirical success curves for the block spectrum at three ambient dimensions. Middle: the measured width d90 − d10 remains approximately constant over the tested 16 × range of P ; the plotted √P curve is a normalized reference rather than a prediction that the measured width must follow. Right: norm of the unconstrained least-squares minimizer relative to ∥∆0∥2. The smooth spectra remain below approximately three over the plotted range, whereas the block spectrum grows much larger near its hard rank boundary. reliably and explain why a spectrum-only specialization can be either sharp or conservative depending on displacement orientation. 
+
+4.4 Quadratic Probes of Neural-Network Curvature 
+
+Experiment 3: transfer to trained-network curvature. We apply the same quadratic hit test to curvature operators obtained from trained neural networks. The reference point is either the random initialization or a short pilot solution, and the diagnostic displacement points from that reference to the final full-parameter solution obtained under the prescribed training schedule. To quantify anisotropy, let I1% contain the largest-curvature one percent of eigen-directions and define 
+
+mstiff := 
+
+P 
+
+> i∈I 1%
+
+λi∆2
+
+> i
+
+PPi=1 λi∆2
+
+> i
+
+.
+
+Values near one indicate that most of the curvature-weighted displacement is concentrated in a small set of stiff directions, whereas values near zero indicate that the displacement places little curvature-weighted mass in those directions and is instead distributed primarily over less-curved directions. Intermediate values reflect progressively mixed orientation between these two regimes. 27 Table 3: Transition width for the block spectrum as the ambient dimension increases. The approximately constant observed width is narrower than the general O(√P ) envelope in Theorem 1 and is compatible with the refined fat-cone window in Remark 7. 
+
+P k d50 d⋆ 
+
+> iso
+
+d90 − d10 
+
+1,024 128 114.5 115.2 12.4 4,096 128 114.3 115.2 12.0 16,384 128 114.4 115.2 12.9 0.0 0.2 0.4 0.6 0.8 1.0                   
+
+> stiff alignment
+> 110 115 120 125
+> latent dimension
+> Block, k= 128
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> stiff alignment
+> 050 100 150 200 250
+> Power law, ii2
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> stiff alignment
+> 0100 200 300 400
+> Outliers + near-zero bulk
+> = 0: baseline random direction = 1: aligned with leading stiff direction empirical d50
+> transition band [ d10 ,d90 ]
+> dMF
+> diso
+> dunif
+
+Figure 4: Orientation dependence of the transition. Empirical midpoint d50 as the displacement changes from a baseline random direction orthogonal to the leading curvature eigenvector ( α = 0) to complete alignment with that stiff direction ( α = 1). The shaded transition band spans [ d10 , d 90 ], and the orientation-resolved master-formula prediction bdMF tracks the empirical midpoint throughout the sweep. Horizontal references show d⋆ 
+
+> iso
+
+and dunif ; the former corresponds to the idealized equal-energy model ∆ 2 
+
+> i
+
+= R2/P and therefore need not coincide with the α = 0 endpoint. Figure 5 summarizes the representative empirical success curves together with cross-case predictor comparisons, and Table 5 reports the corresponding numerical transition midpoints and anisotropy scores. As shown by the representative success curves in Figure 5, the empirical transition remains sharply defined after replacing synthetic quadratic spectra by curvature operators extracted from trained neural networks. The lower panels of Figure 5 further show that the orientation-resolved MF prediction closely follows the measured midpoint across all six verified cases, while d⋆ 
+
+> iso
+
+can substantially underestimate the required dimension and the radius-only predictor is typically conservative. Table 5 quantifies these trends. The MF prediction differs from the measured midpoint by at most 0 .91% across the six verified cases. By contrast, d⋆ 
+
+> iso
+
+underestimates the required dimension by as much as 21 .0× and returns zero in one case. The observed range mstiff ∈ [0 .105 , 1] spans markedly different orientation regimes, from displacements with relatively little curvature-weighted mass in the stiffest directions to cases in which that mass is almost entirely concentrated there. Thus, the agreement of the orientation-resolved predictor is not confined to a narrow class of displacement geometries, while the failures of the equal-energy specialization become more pronounced when the displacement is strongly aligned with stiff directions. 28 Table 4: Accuracy of the orientation-resolved master-formula predictor over 30 orientation–spectrum combinations.     
+
+> Quantity Value Median absolute relative error 0.45% Maximum absolute relative error 5.36% Largest transition range induced by orientation 37 ×
+
+Table 5: Quadratic phase-transition probes on trained neural networks. “MF prediction” denotes 
+
+bdMF when the full spectrum is available and edMF for the matrix-free GGN cases.                                                    
+
+> Model / reference Curvature PRd50 MF prediction d⋆
+> iso mstiff
+> TinyMLP / initialization Exact H+6,634 9.540 1,478.3 1,480.4 998.1 0.105 TinyMLP / pilot Exact H+6,634 3.300 1,378.6 1,374.9 985.1 0.305 SmallMLP / initialization GGN–Ritz 109,386 16.040 151.3 151.6 7.2 1.000 SmallMLP / pilot GGN–Ritz 109,386 6.073 109.7 110.4 0.0 1.000 SmallCNN / initialization GGN–Ritz 19,466 9.487 431.0 434.9 90.7 0.943 SmallCNN / pilot GGN–Ritz 19,466 4.862 743.9 742.1 309.3 0.854
+
+Predictor-only scale test. The same matrix-free pipeline is applied to ResNet-18. The model has P = 11 ,173 ,962 parameters. Empirical verification is not feasible on the available 20 GB GPU because the diagnostic least-squares calculation scales as O(rd 2) time and O(rd ) memory per random trial. From a random initialization, the reported predictor values are d⋆ 
+
+> iso
+
+= 8 .6 and edMF = 437. We treat this run as a scale diagnostic, not as a verified transition measurement. 
+
+4.5 End-to-End RaMaN Training on MLP and CNN Models 
+
+Experiment 4: optimization transition. We next replace exact quadratic minimization by gradient-based RaMaN training. We compare a global seed-regenerated Gaussian map, which realizes the uniformly random subspace used by the theory, with the default layer-wise seed-regenerated Gaussian and Structured Hadamard Mapping (SHM) parameterizations. Figure 6 shows the resulting training-success transitions and test-accuracy curves, while Table 6 summarizes the corresponding empirical transition midpoints. As shown in Figure 6, all evaluated RaMaN constructions display a clear optimization transition: below a model-dependent latent dimension, successful training is rare, whereas beyond the transition the training-success probability rises rapidly toward one. The lower panels of Figure 6 further show that test accuracy improves in parallel with this transition and approaches the full-parameter baseline more closely as d increases. Because the RaMaN sweeps and the full-parameter reference use different training budgets and tuning protocols, these accuracy curves are intended as descriptive references rather than as controlled generalization comparisons; the primary quantity measured in this experiment is the training-success transition. Table 6 quantifies both the transition location and the predictive performance achieved over the evaluated dimension range. For TinyMLP, the global seed-regenerated Gaussian map and the layer-wise seed-regenerated Gaussian map have the same empirical midpoint ( d50 = 939), while layer-wise SHM requires a somewhat larger latent dimension ( d50 = 1 ,195). All three constructions nevertheless attain best observed test accuracies within approximately two percentage points of the 92 .55% full-parameter baseline. At d50 , however, the transition criterion only indicates that the empirical probability of reaching the prescribed training-loss target is 0 .5; test accuracy has not 29 0 500 1000 1500 2000 2500                             
+
+> latent dimension d
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> success probability  p(d)
+> (a) TinyMLP / MNIST Exact H+, initialization
+> 0500 1000 1500 2000 2500
+> latent dimension d
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> (b) TinyMLP / MNIST Exact H+, pilot
+> 050 100 150 200 250
+> latent dimension d
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> (c) SmallMLP / MNIST GGN--Ritz, initialization
+> 10 110 210 310 4
+> measured midpoint d50
+> 10 1
+> 10 2
+> 10 3
+> 10 4
+> predicted midpoint
+> perfect agreement
+> diso = 0 (off scale)
+> (d) Predicted vs. measured midpoints
+> TinyMLP/init TinyMLP/pilot SmallMLP/init SmallMLP/pilot SmallCNN/init SmallCNN/pilot
+> 10 2
+> 10 1
+> 10 0
+> 10 1
+> predicted / measured
+> 0 (off scale)
+> (e) Prediction-to-measurement ratio
+> measured p(d)empirical d50 MF predictor diso radius-only predictor
+
+Figure 5: Quadratic probes of neural-network curvature. Top: representative empirical success curves for exact-Hessian and GGN–Ritz curvature probes. Bottom left: predicted versus measured transition midpoints across the six model/reference combinations. Bottom right: prediction-to-measurement ratios, where unity denotes perfect agreement. The orientation-resolved MF prediction remains close to the measured midpoint, whereas the equal-energy specialization d⋆
+
+iso can substantially underestimate the transition when the displacement is concentrated in stiff directions. The radius-only predictor is conservative, particularly for the GGN–Ritz cases. yet saturated and continues to improve as the latent dimension d increases beyond the transition. For SmallCNN, the ordering reverses: layer-wise SHM transitions earlier ( d50 = 3 ,072) than the layer-wise seed-regenerated Gaussian construction ( d50 = 6 ,144), although the latter achieves the higher best observed test accuracy over the evaluated dimension range (59 .71% versus 55 .56%). Thus, transition location and eventual predictive performance need not induce the same ordering across map families. 
+
+4.6 Ablation Studies 
+
+Experiments 5–6 examine two practical design choices of RaMaN: the frozen-map family and the strategy for selecting or expanding the latent dimension. 
+
+4.6.1 Map-Family Accuracy and Cost Experiment 5: frozen-map implementation. All map families are trained at a fixed dimension above the largest measured transition midpoint for the corresponding model: d = 1 ,912 for TinyMLP 30 0.0 0.2 0.4 0.6 0.8 1.0                 
+
+> training success probability
+> (a) TinyMLP / MNIST 14x14
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> (b) SmallCNN / CIFAR-10
+> 416 64 256 1024 2048
+> latent dimension d
+> 10 20 30 40 50 60 70 80 90
+> test accuracy (%)
+> (c) TinyMLP / MNIST 14x14
+> 16 256 2048 8192 16384
+> latent dimension d
+> 10 20 30 40 50 60
+> (d) SmallCNN / CIFAR-10
+> global seed-Gaussian layer-wise seed-Gaussian layer-wise SHM empirical d50 full-parameter baseline
+
+Figure 6: End-to-end RaMaN transition on MLP and CNN models. Top: training-success probability as a function of latent dimension. Bottom: mean test accuracy, with the dash-dotted horizontal line denoting the corresponding full-parameter baseline. Vertical dashed lines indicate the empirical midpoint d50 for each random-map construction. Both models exhibit a pronounced optimization transition, and test accuracy improves substantially once the transition region is crossed. For layer-wise maps, d = P 
+
+> l
+
+dl.and d = 9 ,831 for SmallCNN. We report accuracy together with measured frozen-map storage, optimizer-state memory, checkpoint size, peak GPU memory, and wall-clock time. The full-parameter rows are baselines measured under the ablation protocol and therefore need not coincide exactly with the references in Experiment 4. Figure 7 summarizes the resulting accuracy–systems-cost tradeoffs across map families, while Table 7 reports the corresponding numerical measurements. For the nonlinear SHM ablation, we use 
+
+ϕl(z) = z + 0 .5 tanh( z) − z = 0 .5z + 0 .5 tanh( z).
+
+This coordinate-wise map is bijective and therefore leaves the reachable SHM subspace unchanged; the ablation tests the effect of nonlinear latent modulation on optimization rather than an enlargement of the representable parameter set. The full-parameter row is included as a descriptive reference rather than as a compute-matched accuracy baseline; the primary comparisons in this ablation are among the random-map implementations at the same latent dimension. Figure 7 illustrates the central implementation tradeoff: matrix-free parameterizations remove the potentially dominant frozen-map and checkpoint storage associated with a dense Gaussian map, but this storage advantage does not necessarily imply lower runtime or identical predictive performance. In particular, the accuracy and time costs of the different map families remain model dependent. 31 Table 6: Empirical training-transition midpoint and predictive performance by model and random-map construction. “Best RaMaN accuracy” denotes the highest mean test accuracy observed over the evaluated latent dimensions. The global Gaussian construction is omitted for SmallCNN because its direct per-step cost scales as O(dP ). 
+
+Model Random-map construction d50 Best RaMaN accuracy Full-parameter accuracy TinyMLP ( P = 6 ,634) Global seed-regenerated Gaussian 939 90.67% 92.55% Layer-wise seed-regenerated Gaussian 939 91.09% 92.55% Layer-wise SHM 1,195 91.27% 92.55% SmallCNN ( P = 19 ,466) Layer-wise seed-regenerated Gaussian 6,144 59.71% 61.25% Layer-wise SHM 3,072 55.56% 61.25% Full Dense G Seed G SHM SHM+          
+
+> 88.00 90.00 92.00 94.00
+> TinyMLP / MNIST
+> Test accuracy (%)
+> Full Dense G Seed G SHM SHM+
+> 0.01 0.1 110
+> Checkpoint (MB)
+> Full Dense G Seed G SHM SHM+
+> 2 × 10 2
+> 3 × 10 2
+> 4 × 10 2
+> Optimizer state (MB)
+> Full Dense G Seed G SHM SHM+
+> 0.00 0.10 0.20 0.30 0.40
+> Time (s/epoch)
+> Full Dense G Seed G SHM SHM+
+> 50.00 52.00 54.00 56.00 58.00 60.00
+> SmallCNN / CIFAR-10
+> Full Dense G Seed G SHM SHM+
+> 0.1 110 1e+02 Full Dense G Seed G SHM SHM+
+> 0.1 8 × 10 2
+> 9 × 10 2
+> Full Dense G Seed G SHM SHM+
+> 0.00 0.20 0.40 0.60 0.80
+> Full Dense G Seed G SHM SHM+
+
+Figure 7: Map-family accuracy and systems cost. Test accuracy, checkpoint size, optimizer-state memory, and time per epoch for full-parameter training and four random-map parameterizations. Matrix-free maps eliminate dense frozen-map storage, while their accuracy and wall-clock cost remain model dependent. Error bars denote one standard deviation over the evaluated seeds. Table 7 quantifies these differences. Seed regeneration differs from dense-Gaussian accuracy by only 0 .34 percentage points on TinyMLP and 0 .85 points on SmallCNN while eliminating storage of the P × d random map. Relative to the dense Gaussian implementation, checkpoint size falls from 45 .41 to 0 .01 MB on TinyMLP and from 267 .73 to 0 .04 MB on SmallCNN. SHM differs from the dense Gaussian result by only 0 .31 points on TinyMLP but by 3 .75 points on SmallCNN, again indicating model-dependent behavior. The optional nonlinear modulation yields no resolved accuracy improvement over the corresponding SHM baseline at the evaluated seed counts. At these model sizes, however, the storage reductions do not translate into lower wall-clock time because map regeneration and per-layer transform overhead dominate. 
+
+4.6.2 Sweep-Free Latent-Dimension Selection Experiment 6: sweep-free dimension selection. We evaluate three strategies for obtaining a workable latent dimension without performing a full independent sweep. The oracle strategy 32 Table 7: Map-family ablation. Memory and checkpoint values are measured. For random-map parameterizations, accuracy is reported as mean ± one standard deviation over three seeds; each full-parameter baseline is a single reference run and is therefore reported without an uncertainty estimate. The full-parameter baseline directly optimizes all P model parameters without a random reparameterization map; all other rows optimize only the latent d variables.                                                                                             
+
+> Model Parameterization Trainable parameters Frozen map (MB) Optimizer state (MB) Checkpoint (MB) Peak GPU (MB) Time (s/epoch) Test accuracy (%) TinyMLP MNIST Full parameters 6,634 0.00 0.05 0.03 18 0.08 93 .40 Dense Gaussian 1,912 45.40 0.02 45.41 109 0.11 89 .83 ±0.45 Seed-regenerated Gaussian 1,912 0.00 0.02 0.01 137 0.18 90 .17 ±0.62 SHM 1,912 0.00 0.02 0.01 19 0.36 89 .52 ±0.32 SHM with nonlinear ϕl1,912 0.00 0.02 0.01 19 0.40 89 .55 ±0.46 SmallCNN CIFAR-10 Full parameters 19,466 0.00 0.16 0.08 47 0.13 60 .10 Dense Gaussian 9,831 267.69 0.08 267.73 405 0.20 58 .48 ±0.65 Seed-regenerated Gaussian 9,831 0.00 0.08 0.04 364 0.56 57 .63 ±1.12 SHM 9,831 0.00 0.08 0.04 91 0.74 54 .73 ±1.25 SHM with nonlinear ϕl9,831 0.00 0.08 0.04 91 0.81 54 .18 ±0.71
+
+Table 8: Sweep-free latent-dimension selection for TinyMLP/MNIST. The oracle and pilot strategies report both the conservative linear-tail selection and the equal-tail default. The reference dref 50 = 939 is the global seed-regenerated Gaussian midpoint from Experiment 4, whereas the selection experiments use global SHM maps; therefore, d/d ref 50 is a cross-map reference ratio rather than a same-map overshoot factor. For oracle and pilot, verification is the fraction of retraining seeds that reach the target loss. Adaptive expansion is evaluated on its returned trajectory. 
+
+Strategy R Conservative-tail d Default selected d d/d ref 50 Verification Oracle radius 9.54 6,518 3,353 3.57 1.00 Pilot radius 7.26 4,602 2,779 2.96 1.00 Adaptive expansion – – 2,048 2.18 Reached 
+
+uses curvature estimated at the final full-parameter solution together with the diagnostic radius 
+
+R = ∥θ† − θref ∥2, whereas the pilot strategy uses the corresponding curvature and radius estimates from a short pilot run. The adaptive strategy uses nested adaptive expansion and requires neither quantity. For the oracle and pilot strategies, we compare the conservative linearized-tail correction of Remark 4 with the equal-tail approximation in (13), which is used by the practical default of Algorithm 1. Figure 8 and Table 8 compare the three sweep-free strategies. The conservative linear-tail correction remains highly conservative: the oracle and pilot strategies select d = 6 ,518 and d = 4 ,602, corresponding to approximately 98% and 69% of the full parameter count P = 6 ,634. Replacing this correction by the equal-tail default reduces the selected dimensions to 3 ,353 and 2 ,779, respectively, a reduction of approximately 40–49% while retaining successful retraining in all evaluated verification runs. Adaptive expansion reaches the target at the smallest selected dimension, d = 2 ,048, without requiring either a displacement profile or an explicit radius estimate. Its result, however, is obtained on the expansion trajectory itself rather than from an independent retraining ensemble and should therefore not be interpreted as a directly comparable success probability. 33 oracle pilot adaptive  
+
+> 01,000 2,000 3,000 4,000 5,000 6,000 7,000
+> selected latent dimension  d
+> dref 50 = 939
+> 6,518 3,353 4,602 2,779 2,048
+> conservative tail equal-tail default adaptive expansion
+
+Figure 8: Sweep-free dimension selection on TinyMLP/MNIST. Selected latent dimensions for the conservative linear-tail rule, the equal-tail default, and adaptive expansion. The horizontal dashed line marks the cross-map Gaussian reference dref 50 = 939 from Experiment 4. All three selection experiments use global SHM maps; oracle and pilot use curvature–radius estimates, whereas adaptive expansion increases d until the target-loss criterion is reached. All three strategies therefore provide feasible alternatives to a full dimension sweep, but with different tradeoffs. The equal-tail approximation substantially reduces the conservatism of the linearized tail correction, whereas adaptive expansion provides a curvature-free fallback when no reliable curvature–radius estimate is available. Because the sweep reference and the selection experiments use different random-map families, the ratios in Table 8 quantify relative scale only; they do not measure same-map excess dimension above the true transition. 
+
+4.7 Extensions to Larger and More Diverse Architectures 
+
+Experiments 7–9 test whether the sharp end-to-end training transition from Experiment 4 persists for an attention-based model trained from scratch, a pretrained language model adapted from a nonrandom reference point, and a deep residual network. 
+
+4.7.1 Vision Transformer Training from Scratch Experiment 7: ViT-Tiny on CIFAR-10 and CIFAR-100. We train a patch-based vision transformer with patch size 4, embedding dimension 192, and depth 6. The model contains 
+
+P = 1 ,806 ,538 parameters on CIFAR-10 and P = 1 ,823 ,908 on CIFAR-100. Each sweep evaluates seven latent dimensions, two layer-wise map families, and five random seeds. Both tasks exhibit a sharp transition, but the transition location changes substantially with the dataset: the CIFAR-100 midpoint is approximately 5 .1× higher than the CIFAR-10 midpoint for the Gaussian map and 8 .7× higher for SHM. The map-family ordering also reverses across the two tasks at fixed architecture. The relative midpoints are approximately 2 .1 × 10 −4–1 .8 × 10 −3 of P ,much smaller than those measured for TinyMLP and SmallCNN in Experiment 4. The accuracy curves exceed the original full-parameter reference after the transition, but this 34 10 3 10 4   
+
+> latent dimension d
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> training success probability
+> ViTTiny / CIFAR-10
+> layer-wise seed-Gaussian layer-wise SHM
+> 10 310 4
+> latent dimension d
+> 0.34 0.36 0.38 0.40 0.42 0.44 0.46 0.48
+> test accuracy
+> full training
+> RaMaN training transition: success probability and accuracy versus latent dimension
+
+Figure 9: ViT-Tiny training transition on CIFAR-10. Empirical training-success probability (top) and test accuracy (bottom) as functions of total latent dimension d for layer-wise seed-regenerated Gaussian and SHM maps. The dashed line is the full-parameter reference under the reported baseline protocol. apparent advantage is sensitive to the reference training protocol. Retraining the full-parameter model under a protocol matched more closely to RaMaN raises the reference accuracy substantially and removes the apparent RaMaN advantage. Because the original ViT sweeps do not retain the per-seed losses needed to recompute the transition under the stricter matched target, we therefore interpret Experiment 7 primarily as evidence for the existence and approximate location of the training transition under the reported protocol, rather than as an accuracy comparison with full-parameter training. 
+
+Runtime at ViT scale. The reported production sweeps required 150.8–155.4 minutes for the layer-wise seed-regenerated Gaussian map and 211.4–233.0 minutes for SHM on a single V100-32GB GPU. At the very small ratios d/P selected here, the fixed per-layer Hadamard-transform overhead dominates, so SHM is slower despite its more favorable scaling as d approaches P .
+
+4.7.2 Pretrained Language-Model Fine-Tuning Experiment 8: bert-tiny on SST-2. We next set θref to a pretrained bert-tiny checkpoint and fine-tune it on SST-2 through layer-wise random maps. The model contains P = 4 ,386 ,178 parameters. Because the word, position, and token-type embedding tensors account for most of the model and are held fixed at their pretrained values, only Prep = 413 ,314 parameters are reparameterized. Thus, the relevant denominator for the reported latent fraction is Prep , not the full model size. Both map families exhibit a sharp transition between the tested dimensions. The empirical 35 10 3 10 4   
+
+> latent dimension d
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> training success probability
+> ViTTiny / CIFAR-100
+> layer-wise seed-Gaussian layer-wise SHM
+> 10 310 4
+> latent dimension d
+> 0.04 0.06 0.08 0.10 0.12 0.14 0.16 0.18
+> test accuracy  full training
+> RaMaN training transition: success probability and accuracy versus latent dimension
+
+Figure 10: ViT-Tiny training transition on CIFAR-100. The same protocol as Figure 9. The transition occurs at a larger latent dimension than on CIFAR-10 despite the nearly identical parameter count, showing that the required dimension depends on the task and training objective rather than on P alone. midpoint uses only 0 .43–0 .62% of the reparameterized budget, approximately 35–75 × smaller as a fraction than the 14–32% observed for TinyMLP and SmallCNN trained from scratch. This is qualitatively consistent with prior evidence that pretrained models can be adapted in very low-dimensional random subspaces [1, 14]. The comparison is not a controlled magnitude comparison, however: the model, dataset, initialization, training budget, frozen embedding tensors, and success criterion differ from the earlier experiments. Because only one small pretrained language model and one task are evaluated, these results should not be generalized to large language models without additional experiments. 
+
+4.7.3 Deep Residual Network Training Experiment 9: ResNet-18 on CIFAR-10 and CIFAR-100. We next examine whether the end-to-end training transition persists for a substantially deeper architecture. The GroupNorm-based ResNet-18 contains P = 11 ,173 ,962 parameters on CIFAR-10 and P = 11 ,220 ,132 on CIFAR-100. Because seed-regenerated Gaussian maps are prohibitively expensive for this architecture, we use the layer-wise SHM parameterization. Under the same transition-measurement protocol used in the preceding experiments, both tasks exhibit a sharp training-success transition at latent dimensions that are small fractions of the full parameter count. The measured midpoint is approximately 6 × 10 3 on CIFAR-10 and d50 = 10 ,752 on CIFAR-100, corresponding to latent fractions of order 10 −4–10 −3 of P .These numerical midpoints should be interpreted as protocol-dependent end-to-end thresholds rather than intrinsic constants of the architecture or dataset. In particular, retraining the full-36 Task Map construction d50 d50 /P                         
+
+> Full-parameter accuracy (%) CIFAR-10 Layer-wise seed-regenerated Gaussian 597 3.31 ×10 −435.55 CIFAR-10 Layer-wise SHM 384 2.13 ×10 −435.55 CIFAR-100 Layer-wise seed-regenerated Gaussian 3,072 1.68 ×10 −314.25 CIFAR-100 Layer-wise SHM 3,328 1.82 ×10 −314.25
+
+Table 9: Empirical training-transition midpoints for ViT-Tiny. The last column reports the full-parameter reference accuracy under the baseline protocol used to define the target loss. The reported transition values and reference accuracies are conditional on that protocol. Table 10: Empirical fine-tuning midpoint for bert-tiny /SST-2. The ratio is computed relative to the reparameterized budget Prep = 413 ,314. The full fine-tuning reference has validation accuracy 76 .83%.          
+
+> Random-map construction d50 d50 /P rep Full val. accuracy Layer-wise seed-regenerated Gaussian 1,792 0.43% 76.83% Layer-wise SHM 2,560 0.62% 76.83%
+
+parameter reference under an optimization protocol matched to RaMaN substantially lowers the reference training loss, and none of the latent dimensions in the original ResNet-18 grid reaches the resulting stricter target. Consequently, a protocol-matched d50 is not defined over the evaluated grid rather than simply being shifted to a larger measured value. The initially observed post-transition accuracy gap is not, by itself, evidence of an unavoidable cost of random reparameterization. We therefore repeated the CIFAR-10 comparison under a conventional training protocol with standard data augmentation, a 5,000-example validation split, and validation-selected learning rate and checkpoint. The epoch budget, optimizer, weight decay, cosine schedule, training data, and seed count were matched between RaMaN and full-parameter training. Because the learning-rate grids used in the original comparison placed both conditions at their respective grid boundaries, we additionally widened the learning-rate search for both conditions. Table 11 reports the resulting protocol-matched comparison at ntrain = 45 ,000. At d = 1 ,048 ,576, corresponding to only 9 .4% of the full parameter count, RaMaN reaches 90 .33% test accuracy, 0 .38 percentage points above the 89 .95% full-parameter reference. This improves the RaMaN result at the same dimension by 1 .64 percentage points relative to the original narrow-grid run. Notably, RaMaN attains this test accuracy despite lower training accuracy (96 .33% versus 98 .89%), resulting in a smaller generalization gap (6 .0 versus 8 .9 percentage points). Thus, the remaining accuracy deficit observed under the original learning-rate grid is not intrinsic to the random reparameterization: under the matched tuning protocol, the test-accuracy crossover occurs by d/P = 9 .4%. Because the resulting test-accuracy margin is small and the selected full-parameter learning rate remains at the boundary of its search grid, we interpret this result primarily as evidence of accuracy parity and crossover rather than as a statistically resolved superiority claim. 37 10 1 10 2 10 3 10 4     
+
+> latent dimension d
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> training success probability
+> bert-tiny / SST-2
+> layer-wise seed-Gaussian layer-wise SHM
+> 10 110 210 310 4
+> latent dimension d
+> 0.55 0.60 0.65 0.70 0.75
+> test accuracy
+> full training
+> RaMaN training transition: success probability and accuracy versus latent dimension
+
+Figure 11: RaMaN fine-tuning transition for bert-tiny on SST-2. Empirical training-success probability (top) and validation accuracy (bottom) as functions of total latent dimension. Word, position, and token-type embeddings remain fixed at their pretrained values. The dashed line is the full fine-tuning reference. Table 11: Protocol-matched ResNet-18/CIFAR-10 generalization comparison with 45 ,000 training examples. Both RaMaN and full-parameter training use the same augmentation, validation split, epoch budget, optimizer, weight decay, and cosine schedule, with learning rate and checkpoint selected by validation performance from widened learning-rate grids. The generalization gap is training accuracy minus test accuracy. Results use three seeds. 
+
+Method / d d/P Train acc. Test acc. Gen. gap Full parameters 100% 98 .89% 89 .95% 8.9RaMaN, 1 ,048 ,576 9.4% 96 .33% 90 .33% 6.0RaMaN, 1 ,572 ,864 14 .1% 99 .22% 90 .61% 8.6RaMaN, 2 ,097 ,152 18 .8% 98 .13% 90 .36% 7.8
+
+38 4.8 Sensitivity Analyses 
+
+Experiments 10–11 examine two factors involved in measuring an end-to-end training transition: the optimizer used to search the random slice and the loss-excess tolerance used to define training success. These experiments test the robustness of the observed transition and clarify which quantities must accompany a reported training midpoint d50 .
+
+4.8.1 Optimizer Sensitivity Experiment 10: AdamW versus SGD. The end-to-end training midpoint combines two effects: whether the random slice contains a low-loss solution and whether the chosen optimizer finds it. To assess the optimization contribution to the observed transition, we repeat the layer-wise Gaussian and SHM sweeps using SGD with momentum 0 .9, while holding the model, latent-dimension grid, random seeds, reference solution, and success tolerance fixed. Because the 1 /√d learning-rate scaling used for AdamW is not an optimizer-independent rule, SGD receives a wider per-d learning-rate search. Figure 12 shows that the sharp end-to-end training transition persists under both optimizers on SmallCNN, but its location shifts toward larger latent dimensions under SGD. The corresponding test-accuracy curves remain broadly similar across optimizers, indicating that the main effect of the optimizer change in this experiment is on the dimension required to reach the prescribed training-loss criterion rather than on a qualitatively different accuracy trend. Table 12 quantifies the transition locations across both models. The two optimizers agree within the resolution of the evaluated grid on TinyMLP, whereas SGD requires approximately 1 .6–2 .0×
+
+more latent dimensions on SmallCNN. Thus, the existence of a sharp transition is not specific to AdamW, but the empirical end-to-end midpoint is optimizer dependent. End-to-end d50 should therefore be reported together with the optimizer and tuning protocol. This dependence does not alter the optimizer-free least-squares transitions of Experiments 1–3 and 12. For TinyMLP, the optimizer-ablation sweep uses the common comparison grid rather than the denser transition-localization grid used in Experiment 4; hence its AdamW midpoint is a grid-level estimate and need not coincide exactly with the refined value reported there. 
+
+4.8.2 Sensitivity to the Loss-Excess Tolerance Experiment 11: varying ε. The end-to-end success event is defined by 
+
+L(θRaMaN ) ≤ L (θfull ) + ε. 
+
+The main experiments use ε = 0 .05. We evaluate alternative tolerances to determine whether the observed sharp transition depends on this particular choice of ε.Figure 13(a–b) shows representative training-success curves as the loss-excess tolerance varies over ε ∈ { 0.01 , 0.02 , 0.05 , 0.10 , 0.20 }. As expected, relaxing the tolerance shifts the transition toward smaller latent dimensions because every run that succeeds at a stricter tolerance also succeeds at a looser one. More importantly, the representative curves remain sharply localized throughout this 20 × tolerance range rather than becoming diffuse as the success criterion changes. Figure 13(c–d) extends this comparison to both optimizers and both map families, while Table 13 reports the corresponding AdamW midpoints numerically. Across the tested tolerance range, the AdamW midpoint changes by factors of 1 .3–2 .6, depending on the model and map family. Thus, the existence of a sharp end-to-end transition is robust to the particular tolerance used to define success, although its numerical location is necessarily tolerance dependent. Empirical midpoints should therefore be compared only under a common ε.39 10 2 10 3 10 4    
+
+> latent dimension d
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> empirical training-success probability  (a) SmallCNN / CIFAR-10
+> AdamW, Gaussian AdamW, SHM SGD (momentum 0.9), Gaussian SGD (momentum 0.9), SHM
+> 10 210 310 4
+> latent dimension d
+> 0.1 0.2 0.3 0.4 0.5 0.6
+> test accuracy
+> full-parameter baseline
+> (b)
+
+Figure 12: Optimizer sensitivity of the SmallCNN transition. (a) Empirical training-success probability and (b) test accuracy versus total latent dimension under AdamW and SGD with momentum 0 .9, for layer-wise seed-regenerated Gaussian and SHM maps. Both optimizers retain a sharp training transition, but SGD shifts its location toward larger d on SmallCNN. TinyMLP results, for which no corresponding shift is resolved on the evaluated grid, are summarized in Table 12. This tolerance dependence should not be interpreted as uncertainty in a midpoint measured at fixed ε. Likewise, predictor comparisons performed at a common tolerance remain well defined. If the quadratic predictors are compared across different tolerances, however, they must be recomputed using the corresponding quadratic tolerance εq = 2 ε.40 Table 12: Empirical training midpoint under AdamW and SGD with momentum 0 .9 at the common success tolerance ε = 0 .05. The comparison is resolved only to the spacing of the dimension grid. 
+
+> †
+
+The SGD/Gaussian estimate for SmallCNN is potentially upper biased because the selected learning rate reached the boundary of the search grid near the crossing.                      
+
+> Model Layer-wise map AdamW d50 SGD d50 SGD/AdamW TinyMLP Seed-regenerated Gaussian 768 768 1.00 SHM 1,195 1,195 1.00 SmallCNN Seed-regenerated Gaussian 6,144 9,728 †1.58 SHM 3,072 6,144 2.00
+
+Table 13: AdamW transition midpoint as the success tolerance varies over a 20 × range, using the common comparison-grid sweeps from Experiment 10. All values are recomputed from the same saved per-seed training losses without retraining; “Spread” denotes the ratio of the largest to the smallest midpoint within each row.                                    
+
+> d50 at tolerance ε
+> Model Layer-wise map 0.01 0.02 0.05 0.10 0.20 Spread TinyMLP Seed-regenerated Gaussian 1,536 1,536 768 768 597 2.6×
+> SHM 1,536 1,536 1,195 768 768 2.0×
+> SmallCNN Seed-regenerated Gaussian 6,144 6,144 6,144 6,144 4,779 1.3×
+> SHM 5,632 4,779 3,072 3,072 3,072 1.8×
+
+41 10 1 10 2 10 3
+
+latent dimension d
+
+0.0 0.2 0.4 0.6 0.8 1.0 
+
+> empirical training-success probability
+
+(a) TinyMLP / MNIST 14x14 AdamW, Gaussian 
+
+> = 0.01
+> = 0.02
+> = 0.05
+> = 0.1
+> = 0.2
+
+10 2 10 3 10 4
+
+latent dimension d
+
+0.0 0.2 0.4 0.6 0.8 1.0 
+
+(b) SmallCNN / CIFAR-10 AdamW, Gaussian 10 2 10 1
+
+success tolerance 
+
+10 3
+
+6 × 10 2
+
+> d50
+
+(c) measured d50 versus 
+
+> AdamW, Gaussian AdamW, SHM SGD (momentum 0.9), Gaussian SGD (momentum 0.9), SHM
+
+10 2 10 1
+
+success tolerance 
+
+10 4
+
+3 × 10 3
+
+4 × 10 3
+
+6 × 10 3
+
+(d) measured d50 versus 
+
+> AdamW, Gaussian AdamW, SHM SGD (momentum 0.9), Gaussian SGD (momentum 0.9), SHM
+
+Sensitivity of the measured transition to the success tolerance Figure 13: Sensitivity to the success tolerance. (a–b) Representative AdamW/Gaussian training-success curves for five values of ε on TinyMLP and SmallCNN. (c–d) Empirical midpoint 
+
+d50 versus ε for both optimizers and both layer-wise map families. Relaxing the tolerance shifts the transition toward smaller d, while the representative success curves remain sharply localized across the tested range. 42 4.9 ViT-Scale Quadratic-Surrogate Diagnostic 
+
+Experiment 12: quadratic probes for ViT-Tiny. Experiments 7–9 directly measure end-to-end training transitions at million-parameter scale but do not attach curvature-based predictors to those transitions. We therefore apply the quadratic-probe pipeline of Experiment 3 to the ViT-Tiny configurations used in Experiment 7. The probe uses the GGN operator, k = 512 leading Ritz eigenpairs, a stochastic trace estimate for the unresolved spectral tail, and the exact least-squares hit criterion applied to the resulting surrogate. The parameter counts match the corresponding end-to-end models exactly. Within the GGN–Ritz surrogate, the practical master-formula predictor tracks the measured midpoint to within 0.04–0.79% across the four cells. The isotropic-orientation predictor evaluates to zero, whereas the practical orientation-uniform estimate exceeds the measured midpoint by factors of 4 .9–47 .3. This ordering is consistent with Experiment 3 and indicates that the equal-energy orientation model is inappropriate for these fitted surrogates. The result nevertheless requires a strict qualification. Only 0.2–6.0% of the squared displacement is resolved on the computed Ritz directions; the remaining 94–99.8% is represented by the tail model. Moreover, an independent exact-Hessian-vector spot check used only three trials at each of 
+
+{0.5, 1, 2}× d50 and produced zero successes at the surrogate midpoint in the tested cells. The current data therefore support the predictor ordering and approximate scale of the surrogate transition, but they do not establish sub-percent predictor accuracy for the true ViT curvature. More exact probes concentrated near the surrogate midpoint are needed for that claim. 43 Table 14: Practical quadratic predictors and measured transition midpoint for the ViT-scale GGN– Ritz surrogate. Here, edMF is the practical orientation-resolved predictor, breq eff is the practical equal-tail orientation-uniform estimate, and “resolved fraction” is the fraction of squared displacement represented on the k = 512 computed Ritz directions. 
+
+Reference Task P R Surrogate d50 edMF d⋆
+
+iso breq eff Resolved fraction Initialization CIFAR-10 1,806,538 46.61 122.9 122.8 0.0 5,807.7 0.4% Pilot CIFAR-10 1,806,538 27.93 157.5 158.1 0.0 813.5 6.0% Initialization CIFAR-100 1,823,908 61.42 90.7 91.4 0.0 509.1 0.2% Pilot CIFAR-100 1,823,908 38.94 99.1 99.4 0.0 482.5 2.1% 10 0 10 1 10 2
+
+latent dimension d  
+
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> success probability  ̂  p(d)
+> ViTTiny/cifar10 GGN, Ritz + trace, ref=init 10 010 110 2
+
+latent dimension d  
+
+> 0.0 0.2 0.4 0.6 0.8 1.0 ViTTiny/cifar10 GGN, Ritz + trace, ref=pilot 10 010 110 2
+
+latent dimension d  
+
+> 0.0 0.2 0.4 0.6 0.8 1.0 ViTTiny/cifar100 GGN, Ritz + trace, ref=init 10 210 310 4
+
+measured midpoint d50 
+
+> 10 2
+> 10 3
+> 10 4
+> predicted
+> perfect
+
+(d) Predicted vs measured across tasks, models, reference points  
+
+> MF predictor
+> d⋆
+> iso
+> orientation-uniform / equal-tail
+> ViTTiny/cifar10/init ViTTiny/cifar10/pilot ViTTiny/cifar100/init ViTTiny/cifar100/pilot
+> 10 −2
+> 10 −1
+> 10 0
+> 10 1
+> predicted / measured
+> predicted 0
+
+(e) Conservatism  
+
+> MF predictor
+> d⋆
+> iso
+> orientation-uniform / equal-tail
+
+Quadratic probes of neural-network curvature           
+
+> d50 d⋆
+> iso ̂dMF (exact) /  ̃ dMF (practical) dunif (exact) /  ̂ req eff (practical)
+
+Figure 14: Quadratic-surrogate probes at ViT scale. The top row shows three representative success curves for random slices of the GGN–Ritz surrogate. The bottom-left panel compares practical predictions with the measured surrogate midpoint, and the bottom-right panel reports the prediction-to-measurement ratio. The close agreement of edMF with the diagonal is an internal consistency result for the surrogate; it is not an independent validation of the true network curvature or of the end-to-end transition in Experiment 7. 44 4.10 Implementation and Reproducibility Considerations 
+
+Several controls materially affect the measured end-to-end transition. For AdamW, holding the latent learning rate fixed across d makes the induced parameter-space step grow approximately as √d and can produce a nonmonotone apparent success curve; the AdamW sweeps therefore use the reported dimension-normalized learning-rate initialization followed by per-d tuning. Experiment 10 shows that this scaling should not be transferred unchanged to SGD, for which a broader per-d
+
+search is used. A coarse uniform d-grid can also mislocate a sharp transition, so the reported midpoints use a two-stage grid or local interpolation around the crossing. Experiments 10–11 further show that an end-to-end midpoint is conditional on the optimizer and the loss-excess tolerance. These quantities should be reported whenever d50 is quoted. They do not affect the optimizer-free least-squares transitions in the quadratic experiments, but a change in ε must be accompanied by the corresponding change εq = 2 ε when a quadratic predictor is recomputed. Finally, adaptive map growth uses a fixed master seed and nested prefixes so that 
+
+Rdnew ([ zd; 0]) = Rd(zd),
+
+rather than resampling the previously trained random subspace. The original ViT-Tiny and ResNet-18 transition sweeps use the baseline reference protocol specified for those experiments, so their full-parameter accuracy comparisons should be interpreted conditionally on that protocol. Experiment 9 additionally includes a conventionally trained, protocol-matched ResNet-18 control to separate the training-transition measurement from post-transition generalization. In the language-model experiment, the embedding module is explicitly excluded from reparameterization, so the reported latent fraction is relative to Prep rather than the full model size. 
+
+# 5 Discussion and Conclusion 
+
+Low-loss geometry, rather than ambient dimension, governs accessibility. Consistent with the geometric perspective of prior random-subspace analyses, the ambient parameter count P alone does not determine accessibility. Our quadratic analysis further shows that, beyond the curvature spectrum, the orientation of the reference-to-solution displacement can materially alter the predicted transition. For a compact convex low-loss region, the random-affine-slice analysis instead relates the transition to its effective codimension, formalized through the statistical dimension of the corresponding polar cone. In the local quadratic model, this geometric quantity depends not only on the curvature spectrum but also on the orientation of the reference-to-solution displacement relative to that spectrum. The orientation-resolved master formula makes this dependence explicit. Experiments 1–3 support this quadratic prediction across synthetic spectra and neural-network curvature operators: the orientation-resolved predictor closely tracks the measured quadratic transition, whereas spectrum-only or orientation-uniform specializations can be substantially less accurate or more conservative. These experiments validate the quadratic residual predictions rather than the full localized conic theorem; a direct empirical test of the latter would additionally require enforcing or independently calibrating its localization constraint. 
+
+Geometric accessibility and end-to-end optimization are distinct. The end-to-end experi-ments show that the sharp transition predicted by the geometric picture has an empirical counterpart under gradient-based training. Pronounced training-success transitions appear across MLPs, CNNs, vision transformers, ResNet-18, and pretrained language-model fine-tuning, suggesting that the 45 phenomenon is not restricted to a particular model class or initialization regime. At the same time, the numerical transition midpoint should not be interpreted as an intrinsic constant of the loss landscape. Unlike the quadratic least-squares transition, an end-to-end d50 combines whether the random search space contains an acceptable solution with whether the chosen optimizer can find one. Experiments 10–11 show explicitly that its location depends on the optimizer, tuning protocol, and loss-excess tolerance, and the ResNet-18 controls further show sensitivity to the reference-training protocol. Thus, empirical d50 values are most meaningful when accompanied by the map family, optimizer, success tolerance, and reference protocol under which they were measured. 
+
+Training accessibility does not imply full-model generalization. A second distinction emerging from the experiments is between the dimension needed to reach a prescribed training-loss target and the dimension needed to approach the predictive performance of full-parameter training. It is useful to denote these conceptually different scales by dtrain and dgen , respectively. The phase transition studied in this work concerns primarily dtrain . The ResNet-18 experiments show that substantially larger latent dimensions may be required before test accuracy approaches the full-parameter reference. At the same time, this generalization gap is not intrinsic to random reparameterization: under a conventional protocol with widened learning-rate tuning applied to both conditions, RaMaN at d = 1 ,048 ,576 (9 .4% of P ) slightly exceeds the corresponding full-parameter test accuracy while exhibiting a smaller generalization gap. Thus, the dimension needed for training accessibility can be much smaller than the dimension needed for full-model predictive performance, but the latter need not approach P .
+
+Practical implications for RaMaN. The theory also provides a principled starting point for designing scalable random reparameterizations. Dense Gaussian maps preserve the ideal random subspace model but require an O(dP ) frozen mapping object. RaMaN replaces this storage bottleneck with seed-regenerated Gaussian or structured Hadamard maps while maintaining only d trainable latent variables and O(d) optimizer state. The experiments show, however, that no map family is uniformly preferable: Gaussian and SHM constructions can differ in transition location, predictive behavior, and runtime, and their ordering can reverse across models or datasets. Similarly, the sweep-free dimension-selection experiments show that the conservative spectral-tail correction can substantially overestimate the required dimension, while the equal-tail approximation provides a less conservative practical default and adaptive expansion provides a curvature-free alternative. Because these selection experiments and the independent transition reference use different map families, their numerical ratios should be interpreted as relative scales rather than same-map optimality guarantees. 
+
+Limitations and future directions. Several limitations delimit the scope of the present results. First, the exact random-affine-slice theory applies to uniformly random Gaussian subspaces, whereas the layer-wise and SHM constructions used for scalable training introduce additional structure. Extending the theory directly to such product and structured random maps would reduce the current gap between the clean geometric model and the practical implementation. Second, the Hessian-based predictors rely on a local quadratic description of the low-loss geometry. Exact curvature information is already expensive for moderate networks, and the ViT-scale analysis necessarily relies on a GGN–Ritz approximation and a modeled spectral tail. Its close predictor agreement should therefore be viewed as an internal consistency result for that surrogate rather than as sub-percent validation of the true large-network curvature. Developing more reliable matrix-free curvature and displacement estimators is important for practical one-shot dimension selection at 46 larger scale. A further open problem is to characterize dgen , rather than only the accessibility threshold 
+
+dtrain . The present theory explains when a random low-dimensional search space can intersect a low-loss region, but it does not determine which point within that region gradient optimization will select or how that choice affects generalization. Understanding this second scale will likely require combining the geometry developed here with optimization dynamics, implicit regularization, sample size, and properties of the data distribution. The same distinction is relevant to nonlinear random maps. In particular, a coordinate-wise bijective transformation ϕ in a parameterization 
+
+Aϕ (z) leaves the reachable set equal to col( A) and therefore cannot enlarge the representable parameter space. Genuinely state-dependent mappings can bend the reachable manifold beyond a fixed linear subspace, but whether such additional geometry improves generalization enough to offset its effects on conditioning and optimization remains an open question. These directions, together with evaluation on larger pretrained models and more diverse tasks, provide natural extensions of the present framework. 
+
+Conclusion. This work develops a geometric and algorithmic framework for understanding when neural networks can be trained through frozen random low-dimensional reparameterizations. Building on the effective-codimension view of random-subspace accessibility, our quadratic analysis identifies displacement orientation as an additional determinant of the latent dimension required for a random search space to access a low-loss region, and the resulting quadratic predictors are supported across controlled and neural-curvature experiments. RaMaN translates this perspective into scalable matrix-free random mappings that avoid the O(dP ) storage of dense random generators, while end-to-end experiments show that sharp training transitions persist across substantially different architectures and training regimes. At the same time, the experiments establish an important boundary on the interpretation of this phenomenon: the measured transition is conditional on the optimization and success protocol, and crossing it does not by itself guarantee full-model generalization. Taken together, these results provide a principled account of when random low-dimensional training becomes feasible, while separating that question from the distinct problems of optimization efficiency and predictive generalization. 
+
+# References 
+
+[1] Armen Aghajanyan, Sonal Gupta, and Luke Zettlemoyer. “Intrinsic Dimensionality Explains the Effectiveness of Language Model Fine-Tuning”. In: Proceedings of the 59th Annual Meeting of the Association for Computational Linguistics and the 11th International Joint Conference on Natural Language Processing (Volume 1: Long Papers) . Online: Association for Computational Linguistics, Aug. 2021, pp. 7319–7328. doi : 10 . 18653 / v1 / 2021 . acl - long . 568 . url :
+
+https://aclanthology.org/2021.acl-long.568/ .[2] Nir Ailon and Bernard Chazelle. “The fast Johnson–Lindenstrauss transform and approximate nearest neighbors”. In: SIAM Journal on computing 39.1 (2009), pp. 302–322. [3] Dennis Amelunxen, Martin Lotz, Michael B. McCoy, and Joel A. Tropp. “Living on the Edge: Phase Transitions in Convex Programs with Random Data”. In: Information and Inference: A Journal of the IMA 3.3 (2014), pp. 224–294. doi : 10.1093/imaiai/iau005 .[4] Michal Derezi´ nski, Feynman Liang, and Michael W. Mahoney. “Exact expressions for double descent and implicit regularization via surrogate random design”. In: Advances in Neural Information Processing Systems . Vol. 33. 2020. 47 [5] Behrooz Ghorbani, Shankar Krishnan, and Ying Xiao. “An investigation into neural net optimization via hessian eigenvalue density”. In: International Conference on Machine Learning .PMLR. 2019, pp. 2232–2241. [6] Yehoram Gordon. “On Milman’s Inequality and Random Subspaces which Escape through a Mesh in Rn”. In: Geometric Aspects of Functional Analysis . Vol. 1317. Lecture Notes in Mathematics. Springer, 1988, pp. 84–106. [7] Frithjof Gressmann, Zach Eaton-Rosen, and Carlo Luschi. “Improving Neural Network Training in Low Dimensional Random Bases”. In: Advances in Neural Information Processing Systems .Vol. 33. 2020. [8] Edward J. Hu, Yelong Shen, Phillip Wallis, Zeyuan Allen-Zhu, Yuanzhi Li, Shean Wang, Lu Wang, and Weizhu Chen. “LoRA: Low-Rank Adaptation of Large Language Models”. In: 
+
+International Conference on Learning Representations . 2022. [9] Soroush Abbasi Koohpayegani, K. L. Navaneet, Parsa Nooralinejad, Soheil Kolouri, and Hamed Pirsiavash. “NOLA: Compressing LoRA using Linear Combination of Random Basis”. In: arXiv preprint arXiv:2310.02556 (2023). url : https://arxiv.org/abs/2310.02556 .[10] Dawid Jan Kopiczko, Tijmen Blankevoort, and Yuki M. Asano. “VeRA: Vector-based Random Matrix Adaptation”. In: International Conference on Learning Representations . 2024. [11] Brett W. Larsen, Stanislav Fort, Nic Becker, and Surya Ganguli. “How Many Degrees of Freedom Do We Need to Train Deep Networks: A Loss Landscape Perspective”. In: 
+
+International Conference on Learning Representations . 2022. [12] Quoc Le, Tamas Sarlos, and Alexander Smola. “Fastfood - Computing Hilbert Space Ex-pansions in Loglinear Time”. In: Proceedings of the 30th International Conference on Ma-chine Learning . Ed. by Sanjoy Dasgupta and David McAllester. Vol. 28. Proceedings of Machine Learning Research 3. Atlanta, Georgia, USA: PMLR, 2013, pp. 244–252. url :
+
+https://proceedings.mlr.press/v28/le13.html .[13] Olivier Ledoit and Sandrine P´ ech´ e. “Eigenvectors of some large sample covariance matrix ensembles”. In: Probability Theory and Related Fields 151 (2011), pp. 233–264. doi : 10.1007/ s00440-010-0298-3 .[14] Chunyuan Li, Heerad Farkhoor, Rosanne Liu, and Jason Yosinski. “Measuring the intrinsic dimension of objective landscapes”. In: International Conference on Learning Representations .2018. [15] Jean Jacques Moreau. “D´ ecomposition orthogonale d’un espace hilbertien selon deux cˆ ones mutuellement polaires”. In: Comptes rendus hebdomadaires des s´ eances de l’Acad´ emie des sciences 255 (1962), pp. 238–240. [16] Parsa Nooralinejad, Ali Abbasi, Soroush Abbasi Koohpayegani, Kossar Pourahmadi Meibodi, Rana Muhammad Shahroz Khan, Soheil Kolouri, and Hamed Pirsiavash. “PRANC: Pseudo RAndom Networks for Compacting Deep Models”. In: arXiv preprint arXiv:2206.08464 (2022). 
+
+url : https://arxiv.org/abs/2206.08464 .[17] Vardan Papyan. “Traces of class/cross-class structure pervade deep learning spectra”. In: 
+
+Journal of Machine Learning Research 21.252 (2020), pp. 1–64. [18] Francisco Rubio and Xavier Mestre. “Spectral convergence for a general class of random matrices”. In: Statistics & Probability Letters 81.5 (2011), pp. 592–602. 48 [19] Levent Sagun, Utku Evci, V Ugur Guney, Yann Dauphin, and Leon Bottou. “Empirical analysis of the hessian of over-parametrized neural networks”. In: arXiv preprint arXiv:1706.04454 
+
+(2017). [20] Lord Sen and Shyamapada Mukherjee. “Mapping Networks”. In: Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition . 2026. [21] Joel A Tropp. “Improved analysis of the subsampled randomized Hadamard transform”. In: 
+
+Advances in Adaptive Data Analysis 3.01n02 (2011), pp. 115–126. [22] Roman Vershynin. High-Dimensional Probability: An Introduction with Applications in Data Science . Cambridge Series in Statistical and Probabilistic Mathematics. Cambridge University Press, 2018. doi : 10.1017/9781108231596 .
+
+# A General Conic Intersection Theorem 
+
+Throughout this appendix, S ⊂ RP denotes a target set that the random slice must reach, and 
+
+θ0 ∈ RP denotes the reference point. In the setting of the main text, 
+
+S = Sε ∩ B(θ0, R loc ),
+
+where Rloc > 0 is the localization radius. The ball localization serves two purposes. First, it makes 
+
+S compact whenever Sε is closed, which is exactly what is needed for the cone reduction below to be an exact equivalence (Remark 6 explains what can go wrong without localization). Second, it restricts the geometric accessibility statement to a bounded neighborhood of the reference point. The localization radius Rloc should be distinguished from the displacement-radius quantity 
+
+R = ∥θ† − θ0∥2
+
+used in the quadratic predictors reff (ε, R ) and d⋆
+
+> iso
+
+. The former specifies the bounded target region for the rigorous conic theorem, whereas the latter measures the reference-to-solution displacement entering the quadratic surrogate. 
+
+Lemma 1 (Exact reduction of affine-slice intersection to a conic intersection) . Let S ⊂ RP be nonempty, compact, and convex, and let θ0 /∈ S. Define 
+
+C :=  t(θ − θ0) : t ≥ 0, θ ∈ S .
+
+Then: (i) C is a closed convex cone (no closure operation is needed), and C contains no line; in particular, 
+
+C̸ = {0} and C is not a linear subspace. (ii) For every linear subspace E ⊆ RP ,(θ0 + E) ∩ S̸ = ∅ ⇐⇒ E ∩ C̸ = {0}.
+
+Proof. (i) Convexity. Let v1 = t1(θ1 − θ0) and v2 = t2(θ2 − θ0) with t1, t 2 ≥ 0 and θ1, θ 2 ∈ S, and let μ ∈ [0 , 1]. Put s := μt 1 + (1 − μ)t2. If s = 0 then μv 1 + (1 − μ)v2 = 0 ∈ C. If s > 0 then 
+
+μv 1 + (1 − μ)v2 = s (¯θ − θ0), ¯θ := μt 1θ1 + (1 − μ)t2θ2
+
+s ∈ S
+
+by convexity of S, so the combination lies in C.49 Closedness. Since S is compact and θ0 /∈ S, we have ρ0 := dist( θ0, S ) > 0, so the direction map φ(θ) := ( θ − θ0)/∥θ − θ0∥2 is continuous on S and its image D := φ(S) ⊂ SP −1 is compact. Note C = {tu : t ≥ 0, u ∈ D}. Let vk = tkuk → v with tk ≥ 0, uk ∈ D. If v = 0 then v ∈ C. If 
+
+v̸ = 0 then tk = ∥vk∥2 → ∥ v∥2 > 0, and by compactness of D a subsequence ukj → u ∈ D, whence 
+
+v = ∥v∥2 u ∈ C.
+
+No line. Suppose u̸ = 0 with u ∈ C and −u ∈ C. Then 
+
+u = s(θ1 − θ0), −u = t(θ2 − θ0)for some θ1, θ 2 ∈ S and necessarily s, t > 0. Adding these two identities gives 
+
+s(θ1 − θ0) + t(θ2 − θ0) = 0 ,
+
+and hence 
+
+θ0 = sθ 1 + tθ 2
+
+s + t .
+
+Thus θ0 ∈ S by convexity of S, contradicting θ0 /∈ S. Since S̸ = ∅ and θ0 /∈ S, there exists θ ∈ S
+
+with θ − θ0̸ = 0, and hence θ − θ0 ∈ C. Thus C̸ = {0}. Therefore, a cone containing no line cannot be a nonzero linear subspace, and C is not a linear subspace. 
+
+(ii). (⇒) If θ ∈ (θ0 + E) ∩ S, then u := θ − θ0 ∈ E, u = 1 · (θ − θ0) ∈ C, and u̸ = 0 because 
+
+θ0 /∈ S. ( ⇐) If 0 ̸ = v ∈ E ∩ C, write v = t(θ − θ0) with θ ∈ S; since v̸ = 0 we have t > 0, hence 
+
+θ = θ0 + v/t ∈ θ0 + E because E is a subspace. Thus θ ∈ (θ0 + E) ∩ S.
+
+Remark 6 (Why compactness matters: a closure pitfall for unbounded sublevel sets) . If S is closed convex but unbounded, the set {t(θ − θ0) : t ≥ 0, θ ∈ S} need not be closed, and taking its closure can destroy the equivalence in Lemma 1(ii). Example: in R2, let S = {(x, y ) : x > 0, y ≥ 1/x }
+
+(closed and convex) and θ0 = (0 , 0) /∈ S. The ray generated by e1 = (1 , 0) lies in the closure of the cone but not in the cone itself, and the line θ0 + span {e1} never meets S. This situation is not exotic in our application: when the Hessian H ⪰ 0 has zero eigenvalues (flat directions), the quadratic sublevel set Sε is an unbounded cylinder. Let S = Sε ∩ B(θ0, R loc ). The ball localization with radius Rloc removes this issue. We recall the statistical dimension and the two properties used below. 
+
+Definition 3 (Statistical dimension) . For a closed convex cone C ⊆ RP ,
+
+δ(C) := Eg∼N (0 ,I P )
+
+ ∥ΠC (g)∥22
+
+,
+
+where Π C denotes Euclidean projection onto C. The polar cone is C◦ := {v : ⟨v, u ⟩ ≤ 0 ∀u ∈ C}.
+
+Lemma 2 (Two standard facts) . (a) If L is a linear subspace, δ(L) = dim L.(b) (Moreau complementarity) For every closed convex cone C,
+
+δ(C) + δ(C◦) = P. 
+
+Proof. (a) Π L is the orthogonal projector onto L, so E∥ΠLg∥22 = tr(Π L) = dim L. (b) By the Moreau decomposition [15], every g splits as g = Π C (g) + Π C◦ (g) with ⟨ΠC (g), ΠC◦ (g)⟩ = 0, hence 
+
+∥g∥22 = ∥ΠC (g)∥22 + ∥ΠC◦ (g)∥22. Taking expectations over g ∼ N (0 , I P ) gives P = δ(C) + δ(C◦). 
+
+Theorem 2 (Random affine-slice intersection: conic phase transition) . Let S ⊂ RP be nonempty, compact, and convex, let θ0 /∈ S, and let C be the closed convex cone of Lemma 1. Let E ⊂ RP be 50 a uniformly random d-dimensional linear subspace; equivalently, E is the column space of a matrix 
+
+A ∈ RP ×d with i.i.d. N (0 , 1) entries, which has rank d almost surely. Fix η ∈ (0 , 1) and set 
+
+aη := p8 log(4 /η ).
+
+Then 
+
+d + δ(C) ≥ P + aη
+
+√P =⇒ P(θ0 + E) ∩ S̸ = ∅ ≥ 1 − η, (A.1) 
+
+d + δ(C) ≤ P − aη
+
+√P =⇒ P(θ0 + E) ∩ S̸ = ∅ ≤ η. (A.2) Consequently, the random-slice accessibility transition is centered at 
+
+dconic := P − δ(C) = δ(C◦),
+
+within an O(√P ) transition window, where the last equality follows from Lemma 2(b). Thus, dconic 
+
+denotes the geometric transition center rather than an exact finite-dimensional critical dimension. 
+
+Proof. By Lemma 1(ii), the event ( θ0 + E) ∩ S̸ = ∅ coincides with the event E ∩ C̸ = {0}.Write E = QE 0, where E0 is a fixed d-dimensional subspace and Q is a Haar-distributed random orthogonal matrix; this is the definition of a uniformly random subspace, and it agrees with the column-space description because the column space of an i.i.d. Gaussian matrix is rotation invariant. A linear subspace is a closed convex cone with δ(E0) = d by Lemma 2(a). By Lemma 1(i), C is a closed convex cone that is not a linear subspace. The approximate kinematic formula of Amelunxen, Lotz, McCoy, and Tropp [3, Theorem I] applies to the pair ( C, E 0), one of which is not a subspace, and states that for a Haar-random rotation Q:
+
+δ(C) + δ(E0) ≤ P − aη
+
+√P =⇒ PC ∩ QE 0̸ = {0} ≤ η, δ(C) + δ(E0) ≥ P + aη
+
+√P =⇒ PC ∩ QE 0̸ = {0} ≥ 1 − η. 
+
+Substituting δ(E0) = d yields (A.1)–(A.2), and Lemma 2(b) gives P − δ(C) = δ(C◦). 
+
+Remark 7 (Sharper window in the fat-cone regime) . Theorem 2 uses the dimension-free constant 
+
+aη
+
+√P from [3, Theorem I]. Because our random object is a subspace, the refined subspace form [3, Theorem 7.1] applies and gives a window governed by ω(C) := pδ(C) ∧ δ(C◦) instead of √P : for 
+
+λ ≥ 0, d ≥ δ(C◦) + λ implies intersection with probability at least 1 − pC (λ), and d ≤ δ(C◦) − λ
+
+implies a miss with probability at least 1 − pC (λ), where pC (λ) = 4 exp  − λ2/8
+
+> ω2(C)+ λ
+
+. In the regime of interest, δ(C◦) = dconic ≪ P , so ω2(C) = dconic and the transition width is 
+
+O
+
+p dconic log(1 /η ) + log(1 /η )
+
+
+
+,
+
+which can be far narrower than O(√P ) and is consistent with the sharp empirical transitions reported by Li et al. [14]. Concretely, pC (λ) ≤ η holds for λ = max {4plog(4 /η ) ω(C), 16 log(4 /η )}.
+
+Remark 8 (Nonconvex sublevel sets) . For nonconvex Sε, the exact transition above does not apply, but two one-sided statements survive. A miss bound follows from Gordon’s escape-through-a-mesh theorem [6] applied to the spherical shadow Σ = {(θ − θ0)/∥θ − θ0∥2 : θ ∈ Sε}: if P − d exceeds a constant multiple of w(Σ) 2, the slice misses with high probability. A hit bound follows by restricting to any compact convex subset of a single basin (e.g., its localized quadratic ellipsoid) and applying Theorem 2; a union of basins can only increase the intersection probability. 51 Corollary 3 (Layer-wise slices under product structure) . Suppose the localized target set contains a product S(1) × · · · × S(L), where each S(l) ⊂ RPl is nonempty, compact, and convex with θ(l)0 /∈ S(l),and let Cl be the cone of Lemma 1 for ( S(l), θ (l)0 ). Let E1, . . . , E L be independent uniformly random subspaces of dimensions d1, . . . , d L. If 
+
+dl ≥ Pl − δ(Cl) + aη/L 
+
+pPl, l = 1 , . . . , L, 
+
+then with probability at least 1 − η every layer slice θ(l)0 + El intersects S(l) simultaneously, so the product slice intersects the product target. 
+
+Proof. Apply Theorem 2 to each layer with failure probability η/L and take a union bound. 
+
+# B Heuristic Derivation of the Master Formula and Its Specializa-tions 
+
+This section derives the orientation-resolved master formula and its isotropic-orientation and orientation-uniform specializations, and clarifies their precise status. The derivation is exact up to a single, clearly labeled random-matrix approximation (Approximation 1); we verify this approximation against an exactly solvable model in Section B.5. The resulting hierarchy contains three predictors: 
+
+• the orientation-resolved master-formula predictor , which uses the complete displacement profile {∆i}Pi=1 relative to the curvature eigenvectors and is the primary quadratic-model predictor used by Mode 1 of Algorithm 1; 
+
+• the isotropic-orientation predictor d⋆
+
+> iso
+
+, obtained by imposing the equal-energy model ∆2 
+
+> i
+
+= R2/P . It is generally sharper than the orientation-uniform predictor and is used primarily as a diagnostic prediction when the isotropic-orientation model is appropriate; and 
+
+• the orientation-uniform predictor 
+
+dunif (ε, R ) = reff (ε, R ),
+
+obtained by removing the displacement-orientation dependence through a uniform upper bound. It requires only the displacement radius R and is used by Mode 2 of Algorithm 1. The master-formula predictor is the most informative when a reliable displacement profile is available. The isotropic predictor provides a sharper falsifiable diagnostic under its equal-energy assumption, whereas dunif = reff is the conservative radius-only choice when directional information is unavailable. All three remain mean-level quadratic-model predictors rather than high-probability consequences of the conic theorem. 
+
+B.1 Exact reduction to a least-squares residual 
+
+Work in the quadratic model of Theorem 1: H ⪰ 0 with eigendecomposition H = PPi=1 λiviv⊤ 
+
+> i
+
+,minimizer θ†, reference point θ0, displacement ∆0 := θ† − θ0, ∆i := ⟨∆0, v i⟩, ∥∆0∥2 ≤ R. 
+
+Consider the random slice θ(z) = θ0 + Az with A ∈ RP ×d having i.i.d. N (0 , 1/P ) entries (the scaling is immaterial: it affects neither the column space nor the intersection event). Since 2  eL(θ(z)) − L (θ†) = ( Az − ∆0)⊤H(Az − ∆0) = M z − b 22, M := H1/2A, b := H1/2∆0,
+
+52 minimizing over z gives the exact identity min  
+
+> z∈Rd
+
+2  eL(θ(z)) − L (θ†) = (I − PW ) b 22 =: ρ(A), W := col( M ) = H1/2 col( A), (B.1) where PW is the orthogonal projector onto W . Let 
+
+eSε := 
+
+
+
+θ : 12 (θ − θ†)⊤H(θ − θ†) ≤ ε
+
+
+
+denote the unlocalized quadratic sublevel set. Then 
+
+n
+
+(θ0 + range( A)) ∩ eSε̸ = ∅
+
+o
+
+= ρ(A) ≤ 2ε . (B.2) Everything so far is exact for the unlocalized quadratic sublevel set. To connect this residual criterion to the localized target 
+
+S = eSε ∩ B(θ0, R loc )used in Theorem 1, one additionally requires a least-squares solution z⋆ attaining (B.1) to satisfy 
+
+∥Az ⋆∥2 ≤ Rloc .
+
+Thus, the effective-rank derivation should be viewed as a predictor for the localized conic threshold when the least-squares solution lies inside the chosen localization ball. In experiments, this condition can be checked by monitoring the trained displacement norm ∥∆θ∥2.Note that b carries the full orientation dependence: bi = √λi ∆i, so displacement along flat directions ( λi = 0) contributes nothing, while displacement along stiff directions must be canceled by the random subspace W .
+
+B.2 Deterministic-equivalent approximation 
+
+The columns of M are i.i.d. N (0 , H/P ) vectors, so W is the span of d i.i.d. Gaussian vectors with covariance proportional to H. This subspace is not Haar distributed: it is biased toward large-λ
+
+directions, which is precisely why few latent dimensions suffice. 
+
+Approximation 1 (Ridge-leverage surrogate for the Gaussian-span projector) . Let A ∈ RP ×d have i.i.d. N (0 , 1/P ) entries, and let 
+
+W = col( H1/2A).
+
+For d < rank( H), we use the surrogate 
+
+E[PW ] ≈ H(H + κI )−1,
+
+where κ = κ(d) > 0 is chosen to preserve the exact projector trace: 
+
+d = tr H(H + κI )−1 =
+
+> P
+
+X
+
+> i=1
+
+λi
+
+λi + κ . (B.3) The approximation is supported by random-projection results under high-dimensional concentration conditions, but is used here as a finite-dimensional surrogate outside those regimes. 53 Leave-one-out derivation. We next explain why the ridge-leverage form in Approximation 1 arises. The projector identities below are exact; the approximation enters only when the leave-one-out quadratic forms are replaced by a common deterministic equivalent. Define 
+
+M := H1/2A ∈ RP ×d, W = col( M ).
+
+Let r = rank( H) and write H = UrΛrU ⊤ 
+
+> r
+
+, where Λ r ≻ 0. Then 
+
+M = UrΛ1/2 
+
+> r
+
+(U ⊤ 
+
+> r
+
+A).
+
+Since A is Gaussian and Ur has orthonormal columns, U ⊤ 
+
+> r
+
+A ∈ Rr×d is also Gaussian and has full column rank d almost surely whenever d ≤ r. Hence, for d < rank( H), the columns of M are linearly independent almost surely, and the orthogonal projector onto W is 
+
+PW = M (M ⊤M )−1M ⊤.
+
+Since 
+
+M ⊤M = A⊤HA, 
+
+we define 
+
+Q := A⊤HA ∈ Rd×d,
+
+and obtain 
+
+PW = H1/2AQ −1A⊤H1/2.
+
+Because H is symmetric positive semidefinite, it admits an eigendecomposition 
+
+H = U ΛU ⊤, Λ = diag( λ1, . . . , λ P ),
+
+where U is orthogonal. We now express all quantities in this orthonormal eigenbasis. Under the coordinate transformation eA = U ⊤A, the matrix eA has the same i.i.d. Gaussian distribution as A
+
+by rotational invariance. Hence, without loss of generality, we may work in coordinates in which 
+
+H = diag( λ1, . . . , λ P ),
+
+and, for notational simplicity, continue to denote the transformed Gaussian matrix by A.Let a⊤ 
+
+> i
+
+∈ R1×d denote the ith row of A. In these coordinates, 
+
+Q = A⊤HA =
+
+> P
+
+X
+
+> j=1
+
+λj aj a⊤ 
+
+> j
+
+.
+
+Moreover, the ith row of H1/2A is √λi a⊤ 
+
+> i
+
+. Therefore, (PW )ii = e⊤ 
+
+> i
+
+H1/2AQ −1A⊤H1/2ei
+
+= λia⊤ 
+
+> i
+
+Q−1ai.
+
+Thus, understanding E[PW ] reduces to approximating the quantities 
+
+E
+
+h
+
+λia⊤ 
+
+> i
+
+Q−1ai
+
+i
+
+, i = 1 , . . . , P. 
+
+To separate the dependence of Q−1 on the row ai, write 
+
+Q =
+
+> P
+
+X
+
+> j=1
+
+λj aj a⊤ 
+
+> j
+
+= Q−i + λiaia⊤ 
+
+> i
+
+, Q−i := X 
+
+> j̸=i
+
+λj aj a⊤ 
+
+> j
+
+.
+
+54 For d < r := rank( H), the matrix Q−i is invertible almost surely: after removing the ith term, at least r − 1 ≥ d independent Gaussian rows with positive weights remain when λi > 0, while all 
+
+r > d positively weighted rows remain when λi = 0. We may therefore define 
+
+ti := a⊤ 
+
+> i
+
+Q−1 
+
+> −i
+
+ai.
+
+For λi > 0, applying the Sherman–Morrison identity to Q = Q−i + λiaia⊤ 
+
+> i
+
+gives 
+
+Q−1 = Q−1 
+
+> −i
+
+− λiQ−1 
+
+> −i
+
+aia⊤ 
+
+> i
+
+Q−1
+
+> −i
+
+1 + λia⊤ 
+
+> i
+
+Q−1 
+
+> −i
+
+ai
+
+.
+
+Sandwiching this identity between a⊤ 
+
+> i
+
+and ai yields 
+
+a⊤ 
+
+> i
+
+Q−1ai = ti − λit2
+
+> i
+
+1 + λiti
+
+= ti
+
+1 + λiti
+
+.
+
+Therefore, (PW )ii = λia⊤ 
+
+> i
+
+Q−1ai = λiti
+
+1 + λiti
+
+.
+
+The same identity holds trivially when λi = 0, since both sides then vanish. The advantage of this representation is that Q−i depends only on the rows {aj : j̸ = i} and is therefore independent of ai.Conditional on Q−i, the vector ai ∼ N (0 , I d/P ) is independent of Q−i. Therefore, the standard Gaussian quadratic-form identities give 
+
+E[ti | Q−i] = 1
+
+P tr( Q−1 
+
+> −i
+
+), Var( ti | Q−i) = 2
+
+P 2 tr( Q−2 
+
+> −i
+
+).
+
+Consequently, ti concentrates around its conditional mean whenever Q−1 
+
+> −i
+
+is not spectrally dominated by a small number of directions. Under standard high-dimensional regularity conditions—for example, sufficiently large stable rank 
+
+rH := tr( H)
+
+∥H∥
+
+with rH /d > 1 bounded away from one—leave-one-out resolvent arguments further approximate the normalized traces P −1 tr( Q−1 
+
+> −i
+
+) by a common deterministic scalar τ ; see [4, Theorem 2 and its proof discussion]. We therefore make the approximation 
+
+ti ≈ τ, i = 1 , . . . , P. 
+
+Substituting ti ≈ τ into the exact leave-one-out identity gives 
+
+E[( PW )ii ] ≈ λiτ
+
+1 + λiτ = λi
+
+λi + κ , κ := τ −1.
+
+Gaussian sign symmetry makes the off-diagonal entries of E[PW ] vanish in the eigenbasis of H,producing 
+
+E[PW ] ≈ H(H + κI )−1.
+
+Finally, because tr( PW ) = d exactly, matching the trace gives (B.3). This leave-one-out argument is the finite-dimensional heuristic underlying Approximation 1; rigorous approximation bounds under 55 stable-rank conditions are developed in [4]. The map κ 7 → P 
+
+> i
+
+λi/(λi + κ) is strictly decreasing from rank( H) (as κ → 0) to 0 (as κ → ∞ ), so (B.3) defines a bijection between d ∈ (0 , rank H) and 
+
+κ ∈ (0 , ∞). Related deterministic-equivalent results for sample-covariance resolvents are developed in [18, 13]. Approximation 1 is exact when H ∝ I (a Haar subspace, where E[PW ] = ( d/P )I) and exact in the block-constant model of Section B.5. We use Approximation 1 as a finite-dimensional heuristic. The conic theorem provides a high-probability transition window centered at δ(C◦); it does not, by itself, control the approximation error of Approximation 1 or the fluctuations of ρ(A). Combining (B.1) with Approximation 1 yields the master formula 
+
+Eρ(A) ≈ b⊤ I − H(H + κI )−1b =
+
+> P
+
+X
+
+> i=1
+
+κλi + κ b2 
+
+> i
+
+=
+
+> P
+
+X
+
+> i=1
+
+κλ i
+
+λi + κ ∆2 
+
+> i
+
+, (B.4) where Hv i = λivi,∆i := ⟨θ† − θ0, v i⟩
+
+is the component of the reference-to-solution displacement along the ith Hessian eigenvector, and 
+
+bi = √λi ∆i. The scalar κ = κ(d) > 0 is determined by (B.3). The final expression in (B.4) defines the orientation-resolved mean-level residual predictor 
+
+bρMF (d; ∆ 0) := 
+
+> P
+
+X
+
+> i=1
+
+κ(d)λi
+
+λi + κ(d) ∆2 
+
+> i
+
+.
+
+The corresponding predicted critical dimension is 
+
+bdMF := min {d ∈ { 1, . . . , r − 1} : bρMF (d; ∆ 0) ≤ εq} , (B.5) with the same endpoint conventions as in Definition 1: we set bdMF = 0 when ∆ ⊤ 
+
+> 0
+
+H∆0 ≤ εq, and 
+
+bdMF = r when the set in (B.5) is empty. Since εq = 2 ε, this is equivalent to using E[ρ(A)] ≤ 2ε as a mean-level predictor of the transition. Converting this mean-level condition into a high-probability success guarantee would require separate concentration control for ρ(A). 
+
+B.3 Isotropic-orientation specialization 
+
+Under the typical-orientation model in which ∆ 0 is spread evenly across the eigenbasis, ∆ 2 
+
+> i
+
+= R2/P 
+
+for all i, the master formula (B.4) becomes 
+
+Eρ(A) ≈ R2
+
+P
+
+> P
+
+X
+
+> i=1
+
+κ λ i
+
+λi + κ = R2
+
+P κ d (κ),
+
+using P 
+
+> i
+
+κλ i/(λi + κ) = κ d (κ) from (B.3). Setting this equal to 2 ε gives the self-consistent isotropic predictor d⋆
+
+> iso
+
+, defined by the pair of equations 
+
+d⋆ 
+
+> iso
+
+=
+
+> P
+
+X
+
+> i=1
+
+λi
+
+λi + κ⋆ , κ⋆ d⋆ 
+
+> iso
+
+= 2εP R2 . (B.6) The system is monotone (larger d means smaller κ, hence smaller residual) and is solved numerically by bisection on κ: given κ, compute d(κ) from (B.3) and check the sign of κ d (κ) − 2εP/R 2.56 Because κ⋆ = 2 εP/ (R2d⋆
+
+> iso
+
+) exceeds 2 ε/R 2 by the factor P/d ⋆ 
+
+> iso
+
+≫ 1 in the low-dimensional regime d⋆ 
+
+> iso
+
+≪ P , the isotropic cutoff is much larger than the orientation-uniform cutoff, and therefore 
+
+d⋆ 
+
+> iso
+
+≤ dunif (ε, R ),
+
+often by a substantial margin. The interpretation is a smoothed tail-mass rule: under isotropy each direction carries excess loss λiR2/(2 P ), and the random subspace must (approximately) cancel the stiffest directions until the total remaining excess drops below ε — a tail-sum criterion — rather than canceling every direction whose individual worst-case excess λiR2 exceeds ε, which is what 
+
+dunif does. 
+
+Interpretation. d⋆ 
+
+> iso
+
+is the sharper falsifiable prediction for phase-transition experiments under random initialization, where the isotropic model is plausible (and directly testable by recording the eigenbasis profile of H1/2(θ0 − θfinal )). 
+
+B.4 Orientation-uniform specialization 
+
+Since κλ i
+
+λi + κ ≤ κ for every i, the master formula (B.4) gives, uniformly over all orientations of the displacement with ∥∆0∥2 ≤ R,
+
+Eρ(A) ≤ κ X
+
+> i
+
+∆2 
+
+> i
+
+≤ κR 2.
+
+Under the deterministic-equivalent approximation, imposing 
+
+κR 2 ≤ εq
+
+ensures that the orientation-uniform residual surrogate does not exceed εq for any displacement satisfying ∥∆0∥2 ≤ R. Setting κ = εq/R 2 gives 
+
+dunif (ε, R ) = 
+
+> P
+
+X
+
+> i=1
+
+λi
+
+λi + εq/R 2 =
+
+> P
+
+X
+
+> i=1
+
+λiR2
+
+λiR2 + εq
+
+. (B.7) This orientation-uniform bound can be nearly tight when the displacement is concentrated along a sufficiently stiff direction. In particular, if ∆ 0 = Rv j and λj ≫ εq/R 2, then 
+
+κλ j
+
+λj + κ R2 ≈ κR 2,
+
+so the required dimension approaches dunif . Intuitively, a random isotropic subspace cannot selectively target one prescribed stiff direction; accurately capturing that direction requires a sufficiently large ridge leverage, while also allocating leverage to directions of comparable or greater curvature. 
+
+Interpretation. reff (ε, R ) is the orientation-uniform mean-level predictor. It is a conservative radius-only choice and can be approached when the displacement concentrates along sufficiently stiff curvature directions. 
+
+B.5 Verification in an exactly solvable block model 
+
+Let H = λ Ik ⊕ 0P −k
+
+: k stiff directions of equal curvature λ and P − k exactly flat directions, with isotropic displacement ∆ 2 
+
+> i
+
+= R2/P .57 Exact computation. Here b is supported on the stiff block with ∥b∥22 = λkR 2/P , and the columns of M are i.i.d. Gaussian vectors supported on the stiff block, so W is a uniformly random 
+
+d-dimensional subspace of the k-dimensional stiff space (for d ≤ k). For a fixed vector and a Haar 
+
+d-subspace of Rk, E∥(I − PW )b∥22 = (1 − d/k ) ∥b∥22. Hence 
+
+E[ρ] = 
+
+
+
+1 − dk
+
+ λkR 2
+
+P = λ(k − d)R2
+
+P ≤ 2ε ⇐⇒ d ≥ k − 2εP λR 2 .
+
+Deterministic-equivalent route. Equation (B.3) gives d = kλ/ (λ + κ), i.e., κ = λ(k − d)/d , and the master formula (B.4) evaluates to 
+
+E[ρ] ≈ κλ λ + κ · kR 2
+
+P = λ k − dk · kR 2
+
+P = λ(k − d)R2
+
+P ,
+
+in exact agreement. Solving (B.6) likewise returns 
+
+d⋆ 
+
+> iso
+
+=
+
+
+
+k − 2εP λR 2
+
+
+
+> +
+
+,
+
+with the resulting value rounded upward when an integer latent dimension is required. In this isotropic block model, the orientation-resolved master-formula prediction coincides with d⋆
+
+> iso
+
+. For comparison, the orientation-uniform dimension is 
+
+dunif = kλR 2
+
+λR 2 + 2 ε ≈ k
+
+when λR 2 ≫ ε. The two specialized predictors d⋆ 
+
+> iso
+
+and dunif coincide in the strict-tolerance limit ε ≪ ε0 := λkR 2/(2 P ) and separate as ε approaches ε0, where d⋆ 
+
+> iso
+
+→ 0 while dunif remains approximately k.
+
+B.6 Remarks 
+
+Remark 9 (Ball localization is typically inactive) . The least-squares minimizer z⋆ of (B.1) is expected to produce a parameter displacement Az ⋆ with norm comparable to the reference-to-solution displacement scale R in the regimes above; e.g., in the block model of Section B.5, one computes ∥Az ⋆∥2 = O(Rpd/k ) for the flat-direction component and O(R) overall. Thus, when the localization radius is chosen as Rloc = cR for a moderate constant c, the ball constraint is expected to be inactive. Empirically, ∥∆θ∥2 should be monitored during training as a check. 
+
+Remark 10 (Rank saturation) . Since b = H1/2∆0 ∈ range( H) always, taking d ≥ rank( H) drives 
+
+ρ → 0 in the model; hence the zero-residual threshold is at most rank( H), and (B.3) is used on the domain d < rank( H). 
+
+Remark 11 (Relation to the conic theorem) . The event analyzed in this section is the quadratic-model analogue of the affine-slice intersection event in Theorem 2. More precisely, (B.2) gives the exact residual characterization for the unlocalized quadratic sublevel set eSε. When the corresponding least-squares solution also lies inside the localization ball, this event coincides with the localized intersection event used in the conic theorem. The conic theorem gives a rigorous transition window centered at the statistical-dimension quantity δ(C◦) associated with the localized cone 
+
+C = cone 
+
+ eSε ∩ B(θ0, R loc )
+
+
+
+− θ0
+
+
+
+.
+
+58 The three quantities derived in this section, 
+
+bdMF , d⋆
+
+> iso
+
+, dunif = reff ,
+
+should therefore be viewed as mean-level Hessian-based surrogates for this conic phase-transition center under different levels of displacement information. The orientation-resolved predictor bdMF 
+
+retains the complete displacement profile {∆i} and is the primary prediction when that profile is available. The isotropic predictor d⋆ 
+
+> iso
+
+replaces the profile with the equal-energy model ∆ 2 
+
+> i
+
+= R2/P ,whereas dunif = reff removes the orientation dependence through a uniform upper bound and requires only the displacement radius R. None of these mean-level predictors, by itself, inherits the high-probability guarantee of the conic theorem; their accuracy is tested empirically. 
+
+Remark 12 (Experimental guidance) . Phase-transition experiments should report all predictors supported by the available displacement information. When the complete displacement profile {∆i}
+
+is available or can be estimated reliably, bdMF is the primary prediction and should be compared directly with the measured critical dimension. The same experiments should also report d⋆ 
+
+> iso
+
+as a sharper diagnostic under the isotropic-orientation model and 
+
+dunif = reff 
+
+as the conservative orientation-uniform, radius-only prediction. Under controlled isotropic displacements, the measured transition is expected to be close to d⋆
+
+> iso
+
+.As the displacement energy is increasingly concentrated along stiff curvature directions, bdMF should track the resulting change in the critical dimension, while dunif provides the orientation-uniform mean-level upper prediction. When only a reliable radius estimate R is available, dunif is the operational prediction used by Mode 2 of Algorithm 1. 59

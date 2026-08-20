@@ -1,0 +1,2083 @@
+Title: A Compositional Theory of Curvature in Probabilistic Circuits
+
+URL Source: https://arxiv.org/pdf/2608.12869v1
+
+Published Time: Fri, 14 Aug 2026 00:43:31 GMT
+
+Number of Pages: 24
+
+Markdown Content:
+# A Compositional Theory of Curvature in Probabilistic Circuits 
+
+## Hrithik Suresh *1 , Sahil Sidheekh *2,3† , Shelar Parth Vijay 1, Yasir Z 1,Sriraam Natarajan 3, Narayanan Chatapuram Krishnan 1 
+
+> 1
+
+Mehta Family School of Data Science and Artificial Intelligence, Department of Data Science, Indian Institute of Technology Palakkad, Kerala, India  
+
+> 2
+
+AT&T CDO  
+
+> 3
+
+Erik Jonsson School of Engineering & Computer Science, The University of Texas at Dallas, Richardson, TX, USA 
+
+Abstract 
+
+Probabilistic Circuits (PCs) are generative models that support exact inference and, unlike deep neural networks, admit an exact and tractable measure of loss-surface curvature: the trace of the Hessian of the log-likelihood. Recent work regularizes this trace globally to bias learning toward flatter, better gen-eralizing optima. We show that treating sharpness as a global regularizer can be misspecified for PCs, whose curvature is inherently compositional. We prove that each sum node’s con-tribution to the Hessian trace factorizes exactly into its circuit flow, which measures how heavily the node is used, and a lo-cal sharpness term determined by its output distribution. This decomposition provides insights into why global sharpness regularization is depth biased and can lead to underfitting. Building on it, we introduce an adaptive sharpness aware reg-ularizer that penalizes nodes based on intrinsic local curvature and preserves closed form EM updates. We also show that empirically, this targeted regularization recovers the general-ization that global regularization sacrifices while retaining the robustness and benefits of sharpness aware learning. 
+
+## Introduction 
+
+Probabilistic circuits (PCs) are generative models whose structural constraints make a broad class of probabilistic queries exactly tractable and computable in time linear in the circuit size (Choi, Vergari, and den Broeck 2020). This distin-guishes PCs from mainstream deep generative models such as GANs (Goodfellow et al. 2014), VAEs (Kingma and Welling 2014), and normalizing flows (Papamakarios et al. 2021), and makes them particularly useful in settings where exact and reliable inference is required, including constrained gen-eration (Zhang et al. 2023), image inpainting (Liu, Niepert, and den Broeck 2024), robust representation learning (Braun et al. 2025), multimodal fusion (Sidheekh et al. 2025), neuro-symbolic AI (Ahmed et al. 2022; Karanam et al. 2025) and algorithmic recourse (Nˇ emeˇ cek, Pevn` y, and Marecek 2025; Sabu, S, and Krishnan 2026), among others. As PCs become deeper and more expressive, however, they are increasingly prone to overfitting in low-data regimes and may converge to sharp optima that generalize poorly (Suresh et al. 2026). Sharpness-aware learning addresses this problem by bi-asing optimization toward flatter regions of the loss land-
+
+> *
+
+These authors contributed equally. 
+
+> †
+
+Work done in part while Sahil was an intern at AT&T. 
+
+scape (Foret et al. 2021). In deep neural networks, the rel-evant Hessian-based curvature is generally intractable and must be estimated through stochastic approximations (Kaur, Cohen, and Lipton 2023; Sankar et al. 2021). Recent work (Suresh et al. 2026) has shown that PCs are a rare exception in this context: their structure makes the Hessian trace of the negative log-likelihood exactly computable in a single forward–backward pass, enabling a tractable global trace reg-ularizer that improves generalization when data are scarce. While this result established that sharpness can be computed and penalized efficiently in PCs, it treats the trace as a single global measure of flatness .In this work, we ask what this global curvature actually rep-resents inside a PC, and whether it is always an appropriate learning signal. Our motivation comes from three empirical observations. First, in the high-data regime, global trace reg-ularization reaches flatter optima but lowers both training and test log-likelihood (as illustrated in Figure 1), indicating under-fitting rather than improved generalization. Second, the node-wise contributions to the trace are highly concen-trated, with a small fraction of sum nodes accounting for most of the total curvature. Third, restricting regularization to the largest-contributing nodes degrades performance fur-ther. These observations suggest that the issue is not only the overall strength of regularization, but how it is allocated 
+
+across the circuit. Our central thesis is that these quantities separate exactly, and that separating them helps resolve the puzzle. Specifically, we show that a sum node’s contribution to the Hessian trace factorizes exactly into two semantically distinct terms: 
+
+Tn(x) = Fn(x)2
+
+| {z }
+
+> contextual usage
+
+· tn(x)
+
+| {z } 
+
+> local curvature
+
+,
+
+where Fn is the circuit flow through node n, measuring how strongly the node is used in explaining the input, while tn(x)
+
+is a local curvature measure that depends only on the node n.Thus, sharpness in a PC is local in origin and contextual in its global effect . A node may contribute strongly to the Hessian trace because it is locally sharp, because it lies on a high-flow path, or because both effects coincide. Conse-quently, ranking nodes by their global contribution need not identify the nodes with the largest intrinsic local curvature. We first characterize and study both factors theoretically. For the local term, we show that the Hessian of a sum node arXiv:2608.12869v1 [cs.LG] 13 Aug 2026 (a) Train NLL (b) Test NLL (c) Sharpness    
+
+> 0.5 11.5 21.25 1.5 1.75 250 100 150 200
+> Unregularized Global Trace (uniform) Adaptive (ours) Shared init
+
+Figure 1: Global Flatness Can Underfit: Local Curvature Determines Where to Regularize. Training trajectories of a PC on a 2D data distribution, from a shared initialization (star), shown over the (a) train NLL, (b) test NLL, and (c) sharpness surface. The unregularized model reaches a sharp optimum that generalizes poorly. The global trace regular-izer’s uniform penalty helps achieve flattest region, but at the expense of under-fitting (poor train and test NLL), whereas our adaptive penalty targets nodes of high local curvature 
+
+tn and generalizes best, while also reducing sharpness. Both approaches use the same regularization strength μ.is rank one and that its unique nonzero eigenvalue is ex-actly tn. Consequently, tn fully captures the node’s ambient second-order geometry. For the contextual term, we build on the standard circuit-flow recursion to analyze how struc-tural usage shapes global curvature, and show that it causes a depth bias in the global trace toward shallow, high-flow nodes. We formalize this and derive an exact condition under which rankings by global contribution Tn and local curvature 
+
+tn disagree, explaining why selecting nodes by their global trace contribution can preferentially target highly used circuit components rather than intrinsically sharp mixtures. Finally, we show how this decomposition can be algorithmically use-ful. Since Tn conflates local curvature with structural usage, it is not a reliable quantity for deciding where regulariza-tion should act. We propose an adaptive sharpness regular-izer use the empirical local curvature btn to gate the existing trace penalty, assigning stronger regularization to intrinsi-cally sharper mixture nodes while preserving the tractable updates and linear-time complexity of the global method. The resulting learner retains the low-data gains of sharpness-aware training while reducing the under-fitting induced by uniform regularization at higher data scales. 
+
+## Background and Preliminaries 
+
+Probabilistic Circuits 
+
+A probabilistic circuit (PC) over random variables X =
+
+{X1, . . . , X d} is a rooted directed acyclic graph in which each node n computes a distribution pn, defined recursively: 
+
+pn(x) = 
+
+
+
+fn(x), n an input node, 
+
+Q 
+
+> c∈ch( n)
+
+pc(x), n a product node, 
+
+P 
+
+> c∈ch( n)
+
+θnc pc(x), n a sum node, (1) where fn is a univariate input distribution, ch( n) are the chil-dren of n, and the sum-node weights satisfy θnc ≥ 0 and P 
+
+> c∈ch( n)
+
+θnc = 1 , so that the likelihood of a sample is sim-ply the value computed at the root, p(x) = pr (x). Product nodes represent factorizations over disjoint scopes (decom-posability), while sum nodes represent convex mixtures over children with identical scope (smoothness). Together, these two structural conditions are what make a broad class of probabilistic queries tractable, computable exactly and in time linear in circuit size (Choi, Vergari, and den Broeck 2020). This formalism is general enough to subsume arith-metic circuits (Darwiche 2003), sum-product networks (Poon and Domingos 2011), PSDDs (Kisa et al. 2014), and cutset networks (Rahman, Kothalkar, and Gogate 2014) as special cases. Throughout, we write S for the set of sum nodes and collect their weights into θ = {θnc }. Unless stated otherwise, we treat these sum-edge weights as untied free parameters, and measure curvature w.r.t this representation. 
+
+Circuit Flows and EM Learning . While the upward eval-uation of a PC computes the likelihood at the root, analyzing learning and curvature requires attributing this computation to individual nodes and edges. Circuit flows (Liu and den Broeck 2021) provide this downward attribution by measur-ing how much probability mass the root node routes through a given node when explaining a particular sample, and it is this quantity that will allow us later to localize curvature to specific parts of the circuit. Flow propagates from the root downward, and at each node its value is determined by the type of the node’s parents. Setting Fr (x) = 1 at the root, the flow at node n is 
+
+Fn(x) = X 
+
+> m∈pa( n)
+> mis product
+
+Fm(x) + X 
+
+> m∈pa( n)
+> mis sum
+
+Fm(x) θmn 
+
+pn(x)
+
+pm(x) ,
+
+meaning a product parent passes its flow to each child un-divided, whereas a sum parent attenuates the flow it passes to child n by the routing responsibility θmn pn(x)/p m(x).Equivalently, Fn(x) = ∂ log pr (x)/∂ log pn(x): the flow is the sensitivity of the root log-likelihood to the node’s log-output. Flow at an edge (n, c ) leaving a sum node n is 
+
+Fnc (x) = θnc 
+
+pc(x)
+
+pn(x) Fn(x), (2) and from this the gradient of the log-likelihood with re-spect to the corresponding sum weight follows directly, 
+
+∂ log pr (x)/∂θ nc = Fnc (x)/θ nc . We also write rnc (x) = 
+
+θnc pc(x)/p n(x) for the posterior routing responsibility of child c, which satisfies P 
+
+> c∈ch( n)
+
+rnc (x) = 1 and so behaves as a proper distribution over n’s children. Node and edge flows are obtained together from a single forward–backward pass over the circuit, and this same pass suffices to compute gradients and closed-form expectation-maximization (EM) updates in linear time (Liu and den Broeck 2021). In the EM view, the edge flow Fnc (x) is the expected number of times sample x traverses edge (n, c ), and the M-step simply aggregates these expectations across a dataset. 
+
+Sharpness and Regularization in PCs 
+
+Recent works have pushed PCs toward deeper, more ex-pressive, and more scalable architectures while preserving tractable inference (Peharz et al. 2019, 2020; Sidheekh, Ker-sting, and Natarajan 2023; Sidheekh and Natarajan 2024; Liu, Ahmed, and den Broeck 2024; Sidheekh and Natarajan 2026). This increased capacity, however, also makes them more sus-ceptible to overfitting, especially in limited-data regimes. Existing approaches have attempted to exploit the circuit’s tractable structure to address this issue via dropout (Ventola et al. 2023), parameter smoothing, data softening, and entropy regularization (Liu and den Broeck 2021). A complementary view studies overfitting through the geometry of the loss landscape. Flat minima have long been associated with better generalization (Hochreiter and Schmidhuber 1997; Keskar et al. 2017), motivating methods such as sharpness-aware minimization (Foret et al. 2021). This relationship is however not universal: sharpness can depend on the chosen parame-terization, and its connection to generalization varies across models and tasks (Dinh et al. 2017; Andriushchenko et al. 2023). More recently, (Suresh et al. 2026) brought this per-spective to PCs, showing that overfitting can coincide with convergence to sharp optima and that the Hessian trace of the negative log-likelihood can be computed exactly for general PCs. They showed that as pr is multilinear in each sum-edge weight, the diagonal of the Hessian of the log-likelihood co-incides with the squared first derivative along that weight, so the trace of the Hessian reduces to a sum of squared edge gradients. Writing the per-example negative log-likelihood (NLL) as ℓ(θ; x) = − log pr (x), the trace 
+
+Tr  ∇2 
+
+> θ
+
+ℓ(θ; x) = X
+
+> n∈S
+
+X
+
+> c∈ch( n)
+
+ Fnc (x)
+
+θnc 
+
+2
+
+≥ 0. (3) quantifies the sharpness of the loss landscape at θ, i.e. cur-vature information, and is computable exactly and in time linear in circuit size. Overfitting in PCs is typically correlated with convergence to sharp optima, and incorporating this trace as a constraint in the EM M-step yields a closed-form, trace-regularized update for each sum weight, 
+
+θnc = Nnc + pN 2 
+
+> nc
+
++ 4 λμ N nc 
+
+2λ , (4) where Nnc = P 
+
+> i
+
+Fnc (xi) is the batch-aggregated expected count and λ, μ ≥ 0 are the Lagrange multipliers enforc-ing, respectively, the simplex constraint and the regulariza-tion strength. This enables convergence to flatter optima that can generalize better. However, in this framework a single strength μ is applied uniformly to every sum node, we refer to this method as the global trace regularizer , and we take it as our baseline and point of departure. To reason about 
+
+where in the circuit this trace originates, rather than only its aggregate value, we attribute it to individual sum nodes. The sample-wise global trace contribution of a sum node n
+
+collects the terms of Eq. (3) belonging to its outgoing edges, 
+
+Tn(x) = X
+
+> c∈ch( n)
+
+ Fnc (x)
+
+θnc 
+
+2
+
+, bTn = 1
+
+N
+
+> N
+
+X
+
+> i=1
+
+Tn(xi) (5) so that P 
+
+> n∈S
+
+Tn(x) recovers the trace in Eq. (3) exactly, and 
+
+bTn is its empirical average at node n. The collection { bTn}
+
+thus gives a node-level view of where the model’s sharpness actually resides, we analyze this in the next section. Table 1: Mean percentage change in test NLL ( ∆NLL), re-duction in degree of overfitting ( ∆DoF), and decrease in the loss-surface sharpness ( ∆Sharp) across 20 DEBD binary datasets, achieved by global-trace regularized HCLT, com-pared to non-regularized baseline, averaged over 5 runs.                   
+
+> Data % ∆Test-NLL ∆DoF ∆Sharp
+> 1% 7.12 8.81 23 .04 5% 2.19 5.79 15 .32 10% 0.27 2.73 10 .42 50% −0.48 0.21 5.55 100% −0.31 0.06 4.04
+
+## When Global Sharpness Fails 
+
+The global trace regularizer was motivated by the observation that reducing sharpness improves generalization by enabling convergence to flatter optima (Suresh et al. 2026). However, as we show in this section, treating sharpness as a single global measure obscures how curvature is distributed across the circuit and which components give rise to it. We identify three empirical observations that motivate a more structured view of sharpness and its regularization. 25 50     
+
+> Epoch
+> 30
+> 29
+> 28
+> 27
+> 26
+> Log-Likelihood  (higher is better)
+> Accidents
+> 25 50
+> Epoch
+> 42
+> 41
+> 40
+> Baudio
+> 25 50
+> Epoch
+> 35
+> 30
+> 25
+> 20
+> 15
+> Ad
+> Train LL (solid) and Test LL (dashed) per Epoch (=0.4)
+> Global-Trace train Global-Trace test Vanilla train Vanilla test
+
+Figure 2: Training and test log-likelihood trajectories for the vanilla and global trace-regularized models on accidents ,
+
+baudio , and ad using the full training data. Global trace regularization reduces the train-test gap but lowers both train-ing and test likelihood, indicating underfitting rather than improved generalization. 
+
+Observation 1: A flatter optimum need not be a better one. Table 1 shows that the global trace regularizer helps reach flatter optima but can nevertheless attain lower test log-likelihood than the unregularized model when sufficient data are available. This degradation is not explained by a widening train-test gap, as the corresponding train log-likelihood also decreases, as shown in Figure 2. It therefore drives learning toward solutions that are flatter yet fit both the training and test distributions less well, indicating underfitting. Reducing overall curvature is thus not sufficient, understanding how that curvature is important to preserve model capacity. Figure 3: Only a small fraction of sum nodes accounts for most of the global Hessian trace. Cumulative share of the total trace as sum nodes are ranked by their empirical contribution ( bTn). Across datasets, the distribution is highly concentrated: a small set of nodes dominates the global sharp-ness signal, while most nodes contribute negligibly. 
+
+Observation 2: Global sharpness is concentrated in a small set of nodes. Examining how the global Hessian trace is distributed across the circuit reveals that the node-wise contributions ( bTn) defined in Eq (5) are highly nonuni-form. As shown in Figure 3, a small minority (< 10%) of sum nodes accounts for nearly the entire trace (99 .99%) ,while the contributions of other nodes are negligible. Global sharpness is therefore not spread evenly across the model, but concentrated in a small set of circuit components. This also reveals a limitation of using a single global regularization strength . The regularizer penalizes all sum nodes equally despite their markedly different contributions to the total cur-vature, and cannot distinguish the few nodes that dominate the sharpness signal from the many nodes that are already effectively flat. 
+
+Observation 3: Targeting the largest contributors makes underfitting worse. The concentration observed above sug-gests a natural solution: restrict regularization to the nodes with the largest contributions to the global trace. If under-fitting were caused primarily by applying the penalty to many negligible contributors that are already sufficiently flat, this strategy could preserve capacity while retaining curvature control. However, as shown in Figure 4, the test log-likelihood degrades further as the penalty is restricted to progressively fewer top-( bTn) nodes. Thus, although ( bTn)
+
+measures a node’s contribution to global sharpness, it does not identify where regularization should act. Taken together, these observations suggest that neither greater flattening nor restricting regularization to fewer high-contribution nodes is sufficient to resolve the observed degradation. They instead raise a more fundamental question: what does a node’s global trace contribution actually measure, and why can it be a poor signal for allocating regularization? All 1% 0.5% 0.1% 0.05% 0.01%   
+
+> Fraction of nodes regularized
+> 10.0
+> 7.5
+> 5.0
+> 2.5
+> 0.0
+> % Change in Test LL
+> Unregularized Baseline
+> accidents baudio ad
+
+Figure 4: Targeting the largest global trace contributors worsens underfitting. Change in test log-likelihood relative to the unregularized model when trace regularization is ap-plied to all sum nodes or restricted to progressively smaller fractions ranked by bTn. Selecting fewer top-ranked nodes generally worsens performance, showing that global contri-bution is a poor criterion for allocating regularization. 
+
+## A Compositional Theory of Sharpness 
+
+To address the above puzzle, we first show theoretically that a node’s global trace contribution factorizes exactly into a structural factor and a local curvature factor. We characterize them geometrically, and derive the conditions under which the two induce different node rankings. Together, these results formalize the thesis that curvature in a PC is generated locally and expressed globally through circuit flow. 
+
+Exact Global-Local Decomposition 
+
+Theorem 1. Consider any sum node n with strictly positive outgoing weights in a smooth, decomposable PC. For any input x, its global trace contribution Tn(x) factorizes as 
+
+Tn(x) = Fn(x)2 tn(x), t n(x) = P
+
+> c∈ch( n)
+
+(pc(x)/p n(x)) 2
+
+Consequently, Tr  ∇2 
+
+> θ
+
+ℓ(θ; x) = P 
+
+> n∈S
+
+Fn(x)2 tn(x).
+
+The decomposition is exact and follows directly from the edge-flow factorization. Moreover, both factors are available from the same upward-downward computation used to eval-uate circuit flows, so computing the decomposition adds no asymptotic cost. The two factors, however, have distinct inter-pretations. The term Fn(x)2 measures the node’s contextual usage : how strongly the circuit output depends on node n for input x. The term tn(x), as we will show, is the node’s local trace , determined entirely by the outputs of its local mixture. Hence, a large global contribution Tn may arise from large local curvature, large contextual usage, or both. A node that is frequently used can dominate the global trace even when its local mixture is not among the sharpest, while a locally sharp node can contribute little globally if little flow reaches it. Under uniform penalization, this can suppress high-usage components regardless of their local geometry, leading regu-larization to act where curvature is globally amplified rather than where it is intrinsically largest. Figure 5 makes the distinction concrete. The nodes that dominate the global trace in panel (c) align more closely with high contextual usage in panel (a) than with the largest local traces in panel (b). This mismatch motivates a closer ABC
+
+> −2.25 −2.00 −1.75 −1.50 −1.25 −1.00 −0.75 −0.50 −0.25
+> log 10 ̂ F2
+> n
+
+(a) Contextual Usage (Fn)ABC 
+
+> 1.0 1.5 2.0 2.5 3.0
+> log 10 ̂ tn
+
+(b) Intrinsic local curvature (tn)ABC 
+
+> −1.25 −1.00 −0.75 −0.50 −0.25 0.00 0.25 0.50
+> log 10 ̂ Tn
+
+(c) Global trace contribution (Tn)−2.0 −1.5 −1.0 −0.5 0.0    
+
+> log 10 ̂F2
+> n(contextual usage)
+> −1 0123
+> log 10 ̂ tn (local trace)
+> ABC
+> −1.25 −1.00 −0.75 −0.50 −0.25 0.00 0.25 0.50
+> log 10 ̂ Tn
+
+(d) Flow-curvature interaction 
+
+Figure 5: Compositional structure of sharpness in a trained probabilistic circuit. For each input, a sum node’s global trace contribution factorizes as Tn = F 2 
+
+> n
+
+tn, separating local curvature from its amplification through circuit flow. Panels (a)–(c) show the same circuit nodes colored by empirical contextual usage, local curvature, and global contribution, while panel (d) visualizes their interaction, showing that nodes with the large global curvature contribution need not have the large local curvature. examination of the two factors: we first characterize the lo-cal geometry summarized by tn, and then study how Fn
+
+transports that geometry through the circuit. 
+
+Rank-One Local Geometry 
+
+The local factor tn is more than a convenient scalar sum-mary, and as we show below, it captures the entire local second-order geometry of a sum node. Consider a sum node 
+
+n in isolation, with local negative log-output ℓn(θn; x) = 
+
+− log   P  
+
+> c
+
+θnc pc(x), and write ρnc (x) = pc(x)/p n(x) for the output ratios, collected into the vector ρn.
+
+Proposition 1 (Rank-one local Hessian) . The gradient and Hessian of ℓn in the edge weights θn are ∇θn ℓn = −ρn
+
+and Hn(x) = ∇2 
+
+> θn
+
+ℓn = ρnρ⊤ 
+
+> n
+
+. Hence, Hn is positive semidefinite and, whenever ρn̸ = 0 , has rank one, with unique nonzero eigenvalue λmax (Hn) = ∥ρn∥22 = tn. Con-sequently tn = Tr( Hn) = ∥Hn∥2 = ∥Hn∥F .Thus, the local second-order geometry of a sum node col-lapses to a single scalar, the quantity tn, which is simultane-ously the local hessian trace, the maximum ambient curvature, and the total Hessian magnitude. 
+
+Context Propagation and the Depth Bias 
+
+The contextual factor F 2 
+
+> n
+
+is what makes Tn and tn differ, and it induces a systematic depth bias in the global trace: because flow is partitioned among children at every sum node on the way down from the root, shallow nodes accumulate more of it than deep ones, so the global contribution Tn =
+
+F 2 
+
+> n
+
+tn favors structurally shallow nodes regardless of their intrinsic curvature. To understand this bias better, recall a standard consequence of the circuit-flow recursion: product nodes transmit flow unchanged, whereas sum nodes scale it by posterior routing responsibilities. Unrolling the flow recursion thus shows that flow is in fact attenuated by the specific edges it traverses, rather than depth as such. 
+
+Lemma 1. For a tree-structured PC, the node flow is the prod-uct of routing responsibilities along the unique root-to-n path 
+
+π(r, n ), taken over its sum edges ( Esum ) only: Fn(x) = Q 
+
+> e∈π(r,n )∩Esum
+
+re(x), with r(m,n ′) = θmn ′ pn′ /p m. For a DAG, Fn(x) = P
+
+> π∈Π( r,n )
+
+Q 
+
+> e∈π∩Esum
+
+re(x), summing over all root-to-n paths Π( r, n ).Two consequences follow. First, product depth does not attenuate flow: only sum edges do, so the notion of “depth” relevant to sharpness is the number of upstream sum edges rather than the raw topological depth. Second, in a DAG a shared node can receive flow through several contexts, and converging paths may compensate for path-wise attenuation; flow therefore need not decay monotonically with depth. The following conditional bound however holds along tree paths. 
+
+Corollary 1. Consider a tree-structured PC. If every sum-edge responsibility on the root-to-n path satisfies re(x) ≤
+
+ρ < 1, then Fn(x) ≤ ρdΣ(n), and Tn(x) ≤ ρ2dΣ(n)tn(x),
+
+where dΣ(n) is the number of upstream sum edges. The corollary formalizes a mechanism in which the contex-tual factor can suppress a locally sharp node n reached only through many attenuating routing decisions: its curvature is present, but its global trace contribution is discounted geomet-rically in the number of upstream sum edges dΣ(n). Thus, the global trace can concentrate on shallow, heavily-used nodes, which we also confirm as illustrated in Figure 6. 
+
+Global-Local Ranking Reversals 
+
+The decomposition also implies that ranking nodes by their global sharpness contribution is not the same as ranking them by their intrinsic local curvature. A simple analysis gives us the following exact condition for disagreement. 
+
+Proposition 2. For any two sum nodes i, j , Ti > T j ⇐⇒ 
+
+ti/t j > (Fj /F i)2. In particular, a locally less curved node 
+
+i with ti < t j outranks a locally sharper node j whenever 
+
+Fi/F j > ptj /t i.The two orderings answer different questions: ranking by Tn identifies which parameter block strongly affects the root likelihood , whereas ranking by tn identifies which local mixture computation is most sharply curved . Because Tn
+
+is amplified by the structural factor F 2 
+
+> n
+
+, which is largest at shallow, heavily-used nodes, the top-Tn nodes need not be the locally sharp ones, accounting for the failure of top-Tn
+
+selection we saw earlier. The ranking reversals are not a theoretical edge case: in the trained circuit of Figure 5, the root node combines maximal usage with the lowest local trace among the labeled nodes yet attains the largest global contribution, while a deep node with local trace larger by nearly three orders of magnitude contributes almost nothing globally. Shallow Middle Deep             
+
+> Circuit depth zone
+> 020 40 60 80 100 120
+> Normalised contribution (%)
+> accidents —Global | Tn|accidents —Local | tn|baudio —Global | Tn|baudio —Local | tn|ad —Global | Tn|ad —Local | tn|
+> Trace contribution by depth zone: accidents / baudio / ad
+
+Figure 6: Global trace contributions are biased toward early circuit partitions. Normalized global trace contribu-tion across depth partitions on three representative bench-marks. The observed concentration near earlier partitions is consistent with attenuation through upstream sum-node rout-ing, although raw depth alone does not determine flow. 
+
+## Adaptive Sharpness-Aware Learning 
+
+The decomposition suggests that global contribution and local curvature should play different roles during learning. The global term bTn = bE[F 2 
+
+> n
+
+tn] measures a node’s contribution to root-level curvature, but also reflects its contextual usage. We therefore propose to use the local trace to determine where 
+
+regularization should act, while retaining the global trace penalty as the quantity being controlled. This gives a simple modification of global sharpness-aware learning: each sum node receives a gate derived from its local curvature, and the existing trace penalty is scaled by that gate. 
+
+Local-Curvature Gating Let btn = 1
+
+> N
+
+PNi=1 tn(xi) de-note the empirical local trace of node n. We assign each sum node a gate ωn ∈ [0 , 1] and define 
+
+Rω (θ) = X
+
+> n∈S
+
+ωn bTn = 1
+
+N
+
+> N
+
+X
+
+> i=1
+
+X
+
+> n∈S
+
+ωn
+
+X
+
+> c∈ch( n)
+
+ Fnc (xi)
+
+θnc 
+
+2
+
+The global trace regularizer is recovered when ωn = 1 for every node. We choose ωn = g(btn) with g monotone in-creasing, so that nodes with larger local curvature receive stronger regularization independently of their flow. To reduce sensitivity to the scale of btn, we use the bounded gate 
+
+ωn = btn
+
+max m∈S btm
+
+, (6) 0% 20% 40% 60% 80% 100% 10 7              
+
+> 10 5
+> 10 3
+> 10 1
+> |tn| (log scale)
+> accidents
+> 0% 20% 40% 60% 80% 100%
+> Cumulative % of nodes
+> 10 5
+> 10 4
+> 10 3
+> 10 2
+> 10 1
+> baudio
+> 0% 20% 40% 60% 80% 100% 10 8
+> 10 6
+> 10 4
+> 10 2
+> 10 0
+> ad
+> 0% 20% 40% 60% 80% 100%
+> Cumulative | tn| (%)
+> |tn|sorted by rank (100% data)
+> Cumulative | tn| % 99% of trace 99.9% of trace 99.99% of trace
+
+Figure 7: Local trace is lesser concentrated. Cumulative share of P 
+
+> n
+
+btn as nodes are ranked by btn. On the evaluated circuits, the local trace is distributed more broadly than the global contribution, indicating that part of the concentration in bTn is introduced by contextual usage. The node with the largest empirical local trace receives the full penalty, while the remaining nodes are scaled by their curvature relative to that maximum. Gates are recomputed from the current model and held fixed during each parameter update. This separates two roles that are coupled by the global regularizer: btn allocates regularization across nodes, while 
+
+bTn remains the curvature contribution being penalized. 
+
+Gated EM Update Let Nnc = P 
+
+> i
+
+Fnc (xi) and Snc =P 
+
+> i
+
+Fnc (xi)2 denote the expected edge count and edge-flow second moment. With fixed gates, directly optimizing the empirical trace penalty gives the following objective: 
+
+max 
+
+> θn
+
+X
+
+> c
+
+Nnc log θnc − μω n
+
+X
+
+> c
+
+Snc 
+
+θ2
+
+> nc
+
+s.t. X
+
+> c
+
+θnc = 1 .
+
+Its stationarity condition, Nnc /θ nc − λ + 2 μω nSnc /θ 3 
+
+> nc
+
+= 0 ,is cubic in θnc . To preserve the tractable EM updates of global trace-regularized learning, we apply the same surrogate as used by (Suresh et al. 2026) with the node-specific strength 
+
+μn = μω n, which yields the following update equation. 
+
+Proposition 3. For fixed gates {ωn}n∈S , under the surrogate used by global trace-regularized EM, the update for each outgoing weight of sum node n satisfies λnθ2 
+
+> nc
+
+− Nnc θnc −
+
+μω nNnc = 0 , and its positive solution is given by 
+
+θnc = Nnc + pN 2 
+
+> nc
+
++ 4 λnμω nNnc 
+
+2λn
+
+, (7) The update thus preserves the form and asymptotic com-plexity of the global method, changing only the effective node-wise strength, μ 7 → μω n. It recovers global trace reg-ularization when ωn = 1 and approaches the unregularized EM update as ωn → 0. Though we adopt this simple gate as proof of concept, Prop. 3 holds for any monotone gate, and richer gate functions are natural directions for future work. 
+
+## Experiments 
+
+We organize the experiments around three questions that con-nect the theory to the proposed method: All 1% 0.5% 0.1% 0.05%     
+
+> Fraction of nodes regularized
+> 1.5
+> 1.0
+> 0.5
+> 0.0
+> % Change in Test LL
+> Vanilla
+> baudio
+> All 1% 0.5% 0.1% 0.05%
+> Vanilla
+> ad
+> Global contribution Local curvature
+
+Figure 8: Local-curvature selection preserves fit more ef-fectively than global-contribution selection. Change in test log-likelihood relative to the unregularized model as regu-larization is applied to all sum nodes or restricted to pro-gressively smaller fractions ranked by global contribution or local curvature. Selecting by global contribution degrades performance whereas selecting by local curvature preserves the baseline on baudio and improves it on ad .
+
+(Q1) How strongly does contextual flow shape the distribu-tion of global trace contributions? 
+
+(Q2) Does selecting nodes by local curvature preserve model fit more effectively than selecting by global contribution? 
+
+(Q3) Does global trace regularization underfit, and can adap-tive local-curvature gating recover the lost capacity? 
+
+Experimental setup. We evaluate on the 20 binary density-estimation benchmarks (DEBD) using Hidden Chow-Liu Trees (HCLTs) (Liu and den Broeck 2021). All models are implemented in PyJuice (Liu, Ahmed, and den Broeck 2024) with a latent size 100 and trained using EM. We compare the unregularized model, global trace regularization, and the proposed local-curvature-gated regularizer. Results are averaged over 5 random seeds, and the regularization strength 
+
+μ is selected independently for each method using validation log-likelihood. Further experimental details are provided in the appendix. 
+
+Q1: Anatomy of the global trace. We first examine how the factors in Tn = F 2 
+
+> n
+
+tn shape global sharpness. Figure 6 shows that global trace contributions concentrate in earlier circuit partitions, consistent with attenuation theory through upstream sum-node routing. Figure 7 further shows that local curvature is substantially less concentrated than global contri-bution: the top 10% of nodes account for more than 99 .99% 
+
+of bTn, but it takes over 60% of nodes to contribute the same for btn. Thus, concentration in the global trace is primarily caused by the contextual usage than local curvature. 
+
+Q2: Controlled node selection. We next isolate the effect of the ranking criterion. Holding the regularization strength and selected fraction fixed, we apply the trace penalty to nodes chosen by global contribution bTn or local curvature 
+
+btn. Figure 8 compares the two criteria on baudio and ad .Restricting the penalty to progressively smaller sets of high-
+
+bTn nodes reduces test log-likelihood on both datasets. In Table 2: Test log-likelihood on DEBD benchmark datasets (higher is better, mean ± std over 5 seeds). Best μ/method selected via validation LL. 
+
+Dataset Vanilla Global Trace Gated Regularization 
+
+accidents -26.64 ±0.02 -29.79 ±0.13 -26.55 ±0.01 
+
+ad -18.40 ±0.09 -20.36 ±0.05 -18.10 ±0.04 
+
+baudio -39.62 ±0.02 -42.45 ±0.02 -39.62 ±0.01 
+
+bbc -269.58 ±0.41 -256.40 ±0.10 -260.07 ±0.26 
+
+bnetflix -56.22 ±0.02 -59.67 ±0.02 -56.21 ±0.02 
+
+book -34.34 ±0.04 -36.35 ±0.03 -34.16 ±0.01 
+
+c20ng -151.99 ±0.13 -157.64 ±0.05 -152.22 ±0.13 
+
+cr52 -99.09 ±1.15 -102.23 ±1.45 -97.99 ±0.70 
+
+cwebkb -154.71 ±0.33 -157.30 ±0.02 -152.90 ±0.15 
+
+dna -87.78 ±0.24 -81.33 ±0.00 -81.28 ±0.08 
+
+jester -52.82 ±0.03 -55.74 ±0.05 -52.82 ±0.03 
+
+kdd -2.22 ±0.01 -2.36 ±0.00 -2.22 ±0.00 
+
+kosarek -10.59 ±0.01 -11.08 ±0.04 -10.59 ±0.02 
+
+msnbc -6.12 ±0.01 -6.47 ±0.01 -6.08 ±0.00 
+
+msweb -9.73 ±0.01 -10.40 ±0.02 -9.73 ±0.01 
+
+nltcs -6.00 ±0.00 -6.48 ±0.00 -6.00 ±0.00 
+
+plants -12.68 ±0.03 -15.99 ±0.02 -12.67 ±0.01 
+
+pumsb star -22.78 ±0.06 -28.29 ±0.06 -22.75 ±0.04 
+
+tmovie -42.16 ±0.03 -48.84 ±0.04 -42.21 ±0.06 
+
+tretail -10.84 ±0.01 -10.98 ±0.01 -10.85 ±0.01 
+
+contrast, selecting by btn preserves the unregularized fit on 
+
+baudio and improves it slightly on ad . These results show that global contribution and local curvature provide materially different signals for allocating regularization. 
+
+Q3: Underfitting and recovery. Table 2 compares the three methods across all 20 DEBD datasets. Global trace regularization improves over the unregularized model on only 2 datasets and degrades performance on the remaining 18, indicating underfitting. In contrast, the proposed gated method outperforms global trace regularization and matches or improves upon the unregularized model on majority of the datasets. These results show that allocating the trace penalty according to local curvature substantially mitigates the loss of fit induced by uniform global regularization. 
+
+## Conclusion 
+
+Overall, in this paper we studied sharpness aware learning in probabilistic circuits through a compositional lens. Our analysis showed that a node’s global curvature contribution separates exactly into contextual usage and intrinsic local curvature, providing insights into why global trace regular-ization can flatten the wrong parts of the model and induce underfitting. Guided by this decomposition, we introduced a gated regularizer that preserves tractable learning, while allocating regularization effectively to prevent underfitting. Future work involves developing richer gating functions that jointly account for local geometry and contextual influence. More broadly, the decomposition also opens up directions for curvature-aware model compression, targeted robustness interventions, and adaptive circuit design, where contextual usage and local sensitivity can jointly guide which compo-nents to preserve, regularize, prune, or expand. 
+
+## Acknowledgments 
+
+SN and SS gratefully acknowledge the generous support by the AFOSR award FA9550-23-1-0239, the ARO award W911NF2010224 and the DARPA Assured Neuro Symbolic Learning and Reasoning (ANSR) award HR001122S0039. CK and HS gratefully acknowledge Dr. Anji Liu for the discussions related to the work and CK, HS, SPV and YZ thank IIT Palakkad for the access to Madhava Cluster. 
+
+## References 
+
+Ahmed, K.; Teso, S.; Chang, K.; den Broeck, G. V.; and Vergari, A. 2022. Semantic Probabilistic Layers for Neuro-Symbolic Learning. In Advances in Neural Information Pro-cessing Systems 35: Annual Conference on Neural Informa-tion Processing Systems 2022 .Andriushchenko, M.; Croce, F.; M¨ uller, M.; Hein, M.; and Flammarion, N. 2023. A Modern Look at the Relationship between Sharpness and Generalization. In Proceedings of the 40th International Conference on Machine Learning , volume 202, 840–902. PMLR. Bekker, J.; Davis, J.; Choi, A.; Darwiche, A.; and Van den Broeck, G. 2015. Tractable learning for complex probability queries. Advances in Neural Information Processing Systems ,28. Braun, S.; Sidheekh, S.; Vergari, A.; Mundt, M.; Natarajan, S.; and Kersting, K. 2025. Tractable Representation Learn-ing with Probabilistic Circuits. Transactions on Machine Learning Research .Choi, Y.; Vergari, A.; and den Broeck, G. V. 2020. Proba-bilistic Circuits: A Unifying Framework for Tractable Proba-bilistic Models. Darwiche, A. 2003. A Differential Approach to Inference in Bayesian Networks. Journal of the ACM , (3): 280–305. Dinh, L.; Pascanu, R.; Bengio, S.; and Bengio, Y. 2017. Sharp minima can generalize for deep nets. In International Con-ference on Machine Learning , 1019–1028. PMLR. Foret, P.; Kleiner, A.; Mobahi, H.; and Neyshabur, B. 2021. Sharpness-aware Minimization for Efficiently Improving Generalization. In 9th International Conference on Learning Representations, 2021 .Goodfellow, I. J.; Pouget-Abadie, J.; Mirza, M.; Xu, B.; Warde-Farley, D.; Ozair, S.; Courville, A. C.; and Bengio, Y. 2014. Generative Adversarial Nets. In Advances in Neural Information Processing Systems 27: Annual Conference .Hochreiter, S.; and Schmidhuber, J. 1997. Flat minima. Neu-ral computation , (1): 1–42. Karanam, A.; Mathur, S.; Sidheekh, S.; and Natarajan, S. 2025. A Unified Framework for Human-Allied Learning of Probabilistic Circuits. In AAAI Conference on Artificial Intelligence, 2025 , volume 39, 17779–17787. Kaur, S.; Cohen, J.; and Lipton, Z. C. 2023. On the Maximum Hessian Eigenvalue and Generalization. In Proceedings of Machine Learning Research .Keskar, N. S.; Mudigere, D.; Nocedal, J.; Smelyanskiy, M.; and Tang, P. T. P. 2017. On Large-Batch Training for Deep Learning: Generalization Gap and Sharp Minima. In 5th International Conference on Learning Representations, 2017 .Kingma, D. P.; and Welling, M. 2014. Auto-Encoding Varia-tional Bayes. In 2nd International Conference on Learning Representations, 2014 .Kisa, D.; Broeck, G. V. D.; Choi, A.; and Darwiche, A. 2014. Probabilistic sentential decision diagrams. In International Conference on Knowledge Representation and Reasoning .Li, H.; Xu, Z.; Taylor, G.; Studer, C.; and Goldstein, T. 2018. Visualizing the Loss Landscape of Neural Nets. In Advances in Neural Information Processing Systems 31: Annual Con-ference on Neural Information Processing Systems 2018 ,6391–6401. Liu, A.; Ahmed, K.; and den Broeck, G. V. 2024. Scaling Tractable Probabilistic Circuits: A Systems Perspective. In 
+
+Forty-first International Conference on Machine Learning, 2024 .Liu, A.; and den Broeck, G. V. 2021. Tractable Regulariza-tion of Probabilistic Circuits. In Advances in Neural Informa-tion Processing Systems 34: Annual Conference on Neural Information Processing Systems, 2021 , 3558–3570. Liu, A.; Niepert, M.; and den Broeck, G. V. 2024. Image Inpainting via Tractable Steering of Diffusion Models. In 
+
+The Twelfth International Conference on Learning Represen-tations, 2024 .Nˇ emeˇ cek, J.; Pevn` y, T.; and Marecek, J. 2025. Generating likely counterfactuals using sum-product networks. In Inter-national Conference on Learning Representations , volume 2025, 69804–69835. Papamakarios, G.; Nalisnick, E. T.; Rezende, D. J.; Mohamed, S.; and Lakshminarayanan, B. 2021. Normalizing Flows for Probabilistic Modeling and Inference. Journal of Machine Learning Research , 57:1–57:64. Peharz, R.; Lang, S.; Vergari, A.; Stelzner, K.; Molina, A.; Trapp, M.; den Broeck, G. V.; Kersting, K.; and Ghahramani, Z. 2020. Einsum Networks: Fast and Scalable Learning of Tractable Probabilistic Circuits. In 37th International Con-ference on Machine Learning, 2020 , Proceedings of Machine Learning Research, 7563–7574. Peharz, R.; Vergari, A.; Stelzner, K.; Molina, A.; Trapp, M.; Shao, X.; Kersting, K.; and Ghahramani, Z. 2019. Random Sum-Product Networks: A Simple and Effective Approach to Probabilistic Deep Learning. In Thirty-Fifth Conference on Uncertainty in Artificial Intelligence, 2019 , Proceedings of Machine Learning Research, 334–344. Poon, H.; and Domingos, P. M. 2011. Sum-Product Networks: A New Deep Architecture. In Twenty-Seventh Conference on Uncertainty in Artificial Intelligence, 2011 , 337–346. Rahman, T.; Kothalkar, P.; and Gogate, V. 2014. Cutset net-works: A simple, tractable, and scalable approach for improv-ing the accuracy of chow-liu trees. In Machine Learning and Knowledge Discovery in Databases: European Conference, 2014 , 630–645. Springer. Sabu, A.; S, V.; and Krishnan, N. C. 2026. PAR: Plausibility-aware Amortized Recourse Generation. arXiv:2601.17309. Sankar, A. R.; Khasbage, Y.; Vigneswaran, R.; and Bala-subramanian, V. N. 2021. A Deeper Look at the Hessian Eigenspectrum of Deep Neural Networks and its Applica-tions to Regularization. In Thirty-Fifth AAAI Conference on Artificial Intelligence, 2021, Thirty-Third Conference on In-novative Applications of Artificial Intelligence, The Eleventh Symposium on Educational Advances in Artificial Intelli-gence , 9481–9488. Sidheekh, S.; Kersting, K.; and Natarajan, S. 2023. Prob-abilistic Flow Circuits: Towards Unified Deep Models for Tractable Probabilistic Inference. In Uncertainty in Artifi-cial Intelligence, 2023 , Proceedings of Machine Learning Research, 1964–1973. Sidheekh, S.; and Natarajan, S. 2024. Building Expressive and Tractable Probabilistic Generative Models: A Review. In Thirty-Third International Joint Conference on Artificial Intelligence, 2024 , 8234–8243. Sidheekh, S.; and Natarajan, S. 2026. Geometry-Aware Prob-abilistic Circuits via Voronoi Tessellations. In Forty-third International Conference on Machine Learning .Sidheekh, S.; Tenali, P.; Mathur, S.; Blasch, E.; Kersting, K.; and Natarajan, S. 2025. Credibility-Aware Multimodal Fusion Using Probabilistic Circuits. In The 28th International Conference on Artificial Intelligence and Statistics .Suresh, H.; Sidheekh, S.; P, V. S. M.; Natarajan, S.; and Krishnan, N. C. 2026. Tractable Sharpness-Aware Learning of Probabilistic Circuits. Proceedings of the AAAI Conference on Artificial Intelligence , 40(30): 25736–25744. Van Haaren, J.; and Davis, J. 2012. Markov network structure learning: A randomized feature generation approach. In AAAI Conference on Artificial Intelligence , volume 26, 1148–1154. Ventola, F.; Braun, S.; Yu, Z.; Mundt, M.; and Kersting, K. 2023. Probabilistic circuits that know what they don’t know. In Uncertainty in Artificial Intelligence, 2023 , Proceedings of Machine Learning Research, 2157–2167. Zhang, H.; Dang, M.; Peng, N.; and den Broeck, G. V. 2023. Tractable Control for Autoregressive Language Generation. In International Conference on Machine Learning,2023 , Pro-ceedings of Machine Learning Research, 40932–40945. Supplementary Material: A Compositional Theory of Curvature in Probabilistic Circuits Preliminaries and Notation 
+
+We first revisit the definitions and notation used throughout the proofs, so that each subsequent argument can be read in isolation. 
+
+Probabilistic circuits. We consider smooth and decomposable probabilistic circuits with alternating layers of sum and product nodes over a set of tractable input distributions. The root node r computes the model density pr (x). Each sum node n ∈ S 
+
+computes a convex combination of its children, pn(x) = P 
+
+> c∈ch( n)
+
+θnc pc(x), with nonnegative weights normalized on the simplex, P 
+
+> c∈ch( n)
+
+θnc = 1 . We write ℓ(θ; x) = − log pr (x) for the per-sample negative log-likelihood (NLL) and study the trace of its Hessian with respect to the sum weights θ.
+
+Output ratios and routing responsibilities. For a sum node n and child c we define the output ratio ρnc (x) = pc(x)/p n(x)
+
+and the routing responsibility rnc (x) = θnc ρnc (x). The responsibilities form a distribution over children, P 
+
+> c∈ch( n)
+
+rnc (x) = 1 ,and we collect the output ratios into the vector ρn(x) = ( ρnc (x)) c∈ch( n).
+
+Circuit flow. The circuit flow measures the top-down usage of each node, and is defined by the node-type recursion below. 
+
+Definition 1 (Circuit flow) . The flow Fn(x) of a node n is 
+
+Fn(x) = 
+
+
+
+1, n = r (root) ,
+
+X
+
+> m∈pa( n)
+
+Fm(x), n a sum node ,
+
+X
+
+> m∈pa( n)
+
+θmn 
+
+pn(x)
+
+pm(x) Fm(x), n a product or input node ,
+
+(8) where pa( n) denotes the parents of n. By the alternating-layer property, the responsibility factor θmn pn/p m = rmn attaches on exactly the sum edges of the circuit (edges out of a sum node), while product and input nodes inherit their parents’ flow undivided. 
+
+Edge flow. The flow carried by the edge from sum node n to child c is Fnc (x) = θnc ρnc (x) Fn(x) = rnc (x) Fn(x). It satisfies Fnc /θ nc = ρnc Fn.
+
+Local and global trace. The local trace of sum node n is tn(x) = P 
+
+> c∈ch( n)
+
+ρnc (x)2, and its global trace contribution is 
+
+Tn(x) = P
+
+> c∈ch( n)
+
+(Fnc (x)/θ nc )2. Theorem 1 shows these are related by the exact identity Tn = F 2 
+
+> n
+
+tn. Summing over sum nodes recovers the full NLL Hessian trace, Tr( ∇2 
+
+> θ
+
+ℓ) = P 
+
+> n∈S
+
+Tn ≥ 0. Empirical batch estimators are denoted btn and bTn.
+
+## Proofs for Theoretical Results 
+
+In this section, we provide complete, self-contained proofs for all of the key lemmas, propositions, and theorems stated in the main paper 
+
+Theorem 2. Consider any sum node n with strictly positive outgoing weights in a smooth, decomposable PC. For any input 
+
+x, its global trace contribution Tn(x) factorizes as Tn(x) = Fn(x)2 tn(x), t n(x) = P
+
+> c∈ch( n)
+
+(pc(x)/p n(x)) 2 Consequently, 
+
+Tr  ∇2 
+
+> θ
+
+ℓ(θ; x) = P 
+
+> n∈S
+
+Fn(x)2 tn(x).
+
+Proof. The global trace contribution of node n is the sum over its outgoing edges of the squared diagonal Hessian entries, which equal (Fnc (x)/θ nc )2. Substituting the edge-flow identity Fnc /θ nc = ρnc Fn from Section , 
+
+Tn(x) = X
+
+> c∈ch( n)
+
+ Fnc (x)
+
+θnc 
+
+2
+
+= X
+
+> c∈ch( n)
+
+ pc(x)
+
+pn(x) Fn(x)
+
+2
+
+. (9) The flow Fn(x) does not depend on the child index c, so it factors out of the sum, 
+
+Tn(x) = Fn(x)2 X
+
+> c∈ch( n)
+
+ pc(x)
+
+pn(x)
+
+2
+
+. (10) Recognizing the remaining sum as the local trace tn(x) = P 
+
+> c∈ch( n)
+
+ρnc (x)2 yields the factorization, 
+
+Tn(x) = Fn(x)2 tn(x). (11) Summing over all sum nodes gives the full Hessian trace Tr( ∇2 
+
+> θ
+
+ℓ) = P 
+
+> n∈S
+
+F 2 
+
+> n
+
+tn ≥ 0, since each term is a product of squares. 
+
+Proposition 4 (Rank-one local Hessian) . The gradient and Hessian of ℓn in the edge weights θn are ∇θn ℓn = −ρn and 
+
+Hn(x) = ∇2 
+
+> θn
+
+ℓn = ρnρ⊤ 
+
+> n
+
+. Hence, Hn is positive semidefinite and, whenever ρn̸ = 0 , has rank one, with unique nonzero eigenvalue λmax (Hn) = ∥ρn∥22 = tn. Consequently tn = Tr( Hn) = ∥Hn∥2 = ∥Hn∥F .
+
+Proof. ℓn(θn; x) = − log   P  
+
+> c
+
+θnc pc(x), ρnc (x) = pc(x)/p n(x), pn(x) = P 
+
+> c
+
+θnc pc(x)
+
+First order derivative 
+
+∂ℓ n(θn; x)
+
+∂θ nc 
+
+= −∂ log   P  
+
+> c
+
+θnc pc(x)
+
+∂θ nc 
+
+= −1
+
+pn(x)
+
+∂ P 
+
+> c
+
+θnc pc(x)
+
+∂θ nc 
+
+(12) 
+
+∂ℓ n(θn; x)
+
+∂θ nc 
+
+= −
+
+ pc(x)
+
+pn(x)
+
+
+
+(13) 
+
+=⇒ ∇ θn ℓn = −ρn (14) Second order derivative 
+
+∂2ℓn(θn; x)
+
+∂θ nc ′ θnc 
+
+= − ∂ (pc(x)/p n(x)) 
+
+∂θ nc ′
+
+= −
+
+ pn(x) pc(x)′ − pn(x)′ pc(x)
+
+pn(x)2
+
+
+
+(15) As pc(x) is independent of θnc ′ we get 
+
+∂ (pc(x)/p n(x)) 
+
+∂θ nc ′
+
+= −
+
+ −pc′ (x) pc(x)
+
+pn(x)2
+
+
+
+= pc′ (x)
+
+pn(x)
+
+pc(x)
+
+pn(x) = ρnc ′ ρnc (16) Thus Hn = ρnρ⊤ 
+
+> n
+
+. A nonzero outer product has rank one and unique nonzero eigenvalue ∥ρn∥22. For a rank-one positive semidefinite matrix, the trace, spectral norm, and Frobenius norm all equal this eigenvalue. Trace of local Hessian 
+
+Tr( Hn(x)) = Tr( ρnρ⊤ 
+
+> n
+
+) = X
+
+> c
+
+ pc(x)
+
+pn(x)
+
+2
+
+= tn(x) (17) 
+
+Proposition 5. For any two sum nodes i, j , Ti > T j ⇐⇒ ti/t j > (Fj /F i)2. In particular, a locally less curved node i with 
+
+ti < t j outranks a locally sharper node j whenever Fi/F j > ptj /t i.
+
+Proof. 
+
+Ti = F 2 
+
+> i
+
+ti, T j = F 2 
+
+> j
+
+tj
+
+Ti > T j ⇐⇒ F 2 
+
+> i
+
+ti > F 2 
+
+> j
+
+tj
+
+Ti > T j ⇐⇒ ti
+
+tj
+
+>
+
+ Fj
+
+Fi
+
+2
+
+Lemma 2. For a tree-structured PC, the node flow is the product of routing responsibilities along the unique root-to-n path 
+
+π(r, n ), taken over its sum edges ( Esum ) only: Fn(x) = Q 
+
+> e∈π(r,n )∩Esum
+
+re(x), with r(m,n ′) = θmn ′ pn′ /p m. For a DAG, 
+
+Fn(x) = P
+
+> π∈Π( r,n )
+
+Q 
+
+> e∈π∩Esum
+
+re(x), summing over all root-to-n paths Π( r, n ).
+
+Proof. We proceed by induction on the depth d of node n in the tree-structured PC. 
+
+Base case ( d = 0 ). Node n is the root r. By definition, Fr (x) = 1 . The product over an empty index set (no edges on the root-to-root path) is also 1, so the claim holds trivially. 
+
+Inductive step. Assume the claim holds for every node at depth strictly less than d. Let n be a node at depth d, and let 
+
+m = pa( n) denote its unique parent ( PC is tree-structured). We consider two cases according to the type of the edge (m, n ).Case 1: (m, n ) is a product edge (i.e. m is a product node). By the flow recursion, product nodes propagate their flow without weighting: 
+
+Fn(x) = Fm(x).
+
+Since m is at depth d − 1, the inductive hypothesis gives 
+
+Fm(x) = Y    
+
+> e∈π(r,m )∩Esum
+
+re(x).
+
+Because (m, n ) /∈ Esum , the sum-edge sets along the two paths coincide: π(r, n ) ∩ Esum = π(r, m ) ∩ Esum . Therefore 
+
+Fn(x) = Y    
+
+> e∈π(r,n )∩Esum
+
+re(x). (18) 
+
+Case 2: (m, n ) is a sum edge (i.e. m is a sum node). By the flow recursion and the definition of routing responsibility r(m,n )(x) = θmn pn(x)/p m(x):
+
+Fn(x) = θmn 
+
+pn(x)
+
+pm(x) Fm(x) = r(m,n )(x) Fm(x).
+
+Since m is at depth d − 1, the inductive hypothesis gives 
+
+Fm(x) = Y    
+
+> e∈π(r,m )∩Esum
+
+re(x).
+
+Because (m, n ) ∈ Esum and π(r, n ) = π(r, m ) ∪ { (m, n )}, the new sum-edge factor yields 
+
+Fn(x) = r(m,n )(x) · Y    
+
+> e∈π(r,m )∩Esum
+
+re(x)= Y    
+
+> e∈π(r,n )∩Esum
+
+re(x).
+
+Both cases establish the inductive step, so by strong induction the formula 
+
+Fn(x) = Y    
+
+> e∈π(r,n )∩Esum
+
+re(x)
+
+holds for every node n in the tree-structured PC. For general DAG structure 
+
+Base case ( d = 0 ). Node n is the root r. By definition Fr (x) = 1 . The only root-to-root path is the empty path π∅; its edge product equals 1 (empty product), and the sum over this single path equals 1. Hence the claim holds. 
+
+Inductive step. Assume the claim holds for every node at depth strictly less than d ≥ 1. Let n be a node at depth d with parent set pa( n) = {m1, . . . , m k}, each parent at depth d − 1. By the inductive hypothesis, for every mi ∈ pa( n):
+
+Fmi (x) = X  
+
+> π∈Π( r, m i)
+
+Y  
+
+> e∈π∩Esum
+
+re(x). (19) We consider two cases according to the type of n.
+
+Case 1: n is a sum node. 
+
+By the alternating-layer property every parent mi is a product node, so every edge (mi, n ) /∈ Esum . The flow recursion for a sum node gives 
+
+Fn(x) = X  
+
+> mi∈pa( n)
+
+Fmi (x).
+
+Substituting (19): 
+
+Fn(x) = X  
+
+> mi∈pa( n)
+
+X  
+
+> π∈Π( r, m i)
+
+Y  
+
+> e∈π∩Esum
+
+re(x).
+
+Every root-to-n path π ∈ Π( r, n ) passes through exactly one parent mi ∈ pa( n) and then traverses the product edge (mi, n ).Because (mi, n ) /∈ Esum , adding this edge does not change the set of sum edges on the path: 
+
+π ∩ Esum = π′ ∩ Esum , where π′ = π(r, m i) is the prefix of π up to mi.Hence the double sum exactly enumerates all root-to-n paths: 
+
+Fn(x) = X  
+
+> π∈Π( r,n )
+
+Y  
+
+> e∈π∩Esum
+
+re(x).
+
+Case 2: n is a product or input node. 
+
+By the alternating-layer property every parent mi is a sum node, so every edge (mi, n ) ∈ Esum carries routing responsibility 
+
+r(mi,n )(x) = θmin pn(x)/p mi (x). The flow recursion reads 
+
+Fn(x) = X  
+
+> mi∈pa( n)
+
+r(mi,n )(x) Fmi (x).
+
+Substituting (19): 
+
+Fn(x) = X  
+
+> mi∈pa( n)
+
+r(mi,n )(x) X  
+
+> π′∈Π( r, m i)
+
+Y  
+
+> e∈π′∩Esum
+
+re(x).
+
+Every root-to-n path π ∈ Π( r, n ) decomposes uniquely as a prefix π′ ∈ Π( r, m i) for exactly one mi ∈ pa( n) followed by the sum edge (mi, n ). Since (mi, n ) ∈ Esum , appending this edge extends the edge product by exactly one factor: 
+
+Y  
+
+> e∈π∩Esum
+
+re(x) = r(mi,n )(x) · Y  
+
+> e∈π′∩Esum
+
+re(x).
+
+Re-indexing the double sum over all root-to-n paths therefore gives 
+
+Fn(x) = X  
+
+> mi∈pa( n)
+
+X  
+
+> π′∈Π( r, m i)
+
+r(mi,n )(x) Y  
+
+> e∈π′∩Esum
+
+re(x)= X  
+
+> π∈Π( r,n )
+
+Y  
+
+> e∈π∩Esum
+
+re(x).
+
+Conclusion. Both cases establish the inductive step. By strong induction, 
+
+Fn(x) = X  
+
+> π∈Π( r,n )
+
+Y  
+
+> e∈π∩Esum
+
+re(x)
+
+Corollary 2. Consider a tree-structured PC. If every sum-edge responsibility on the root-to-n path satisfies re(x) ≤ ρ < 1, then 
+
+Fn(x) ≤ ρdΣ(n), and Tn(x) ≤ ρ2dΣ(n)tn(x), where dΣ(n) is the number of upstream sum edges. 
+
+Proof. Part 1: Bound on Fn(x).
+
+By the Lemma 1, the node flow at n in a tree-structured PC is the product of routing responsibilities over all sum edges on the unique root-to-n path: 
+
+Fn(x) = Y    
+
+> e∈π(r,n )∩Esum
+
+re(x).
+
+This product contains exactly dΣ(n) factors. By hypothesis, each factor satisfies re(x) ≤ ρ < 1, so: 
+
+Fn(x) = Y    
+
+> e∈π(r,n )∩Esum
+
+re(x) ≤ ρ dΣ(n).
+
+Part 2: Bound on Tn(x).
+
+By the decomposition in Theorem 1: 
+
+Tn(x) = Fn(x)2 · tn(x).
+
+Since tn(x) ≥ 0 (it is a sum of squares), we may apply the flow bound directly: 
+
+Tn(x) = Fn(x)2 · tn(x) ≤
+
+
+
+ρ dΣ(n)2
+
+· tn(x) = ρ 2dΣ(n) tn(x).Adaptive Gated Regularization 
+
+Proposition 6. For fixed gates {ωn}n∈S , under the surrogate used by global trace-regularized EM, the update for each outgoing weight of sum node n satisfies λnθ2 
+
+> nc
+
+− Nnc θnc − μω nNnc = 0 , and its positive solution is given by 
+
+θnc = Nnc + pN 2 
+
+> nc
+
++ 4 λnμω nNnc 
+
+2λn
+
+, (20) 
+
+Proof. Adding the adaptive regularizer to the EM objective of the PC we obtain 
+
+θ∗ 
+
+> n·
+
+= arg max 
+
+> θnc
+
+X
+
+> c∈ch( n)
+
+Nnc (x) log θnc 
+
+subject to X
+
+> c∈ch( n)
+
+θnc = 1 ,ωn(x) X
+
+> c∈ch (n)
+
+ Nnc (x)
+
+θnc 
+
+
+
+≤ m
+
+The Lagrangian formulation of the constrained maximization objective is 
+
+L(θn·, λ, μ ) = X
+
+> c∈ch( n)
+
+Nnc (x) log θnc − λ
+
+ X
+
+> c∈ch( n)
+
+θnc − 1
+
+
+
+− μ
+
+ωn(x) X
+
+> c∈ch( n)
+
+ Nnc (x)
+
+θnc 
+
+2
+
+− m
+
+
+
+Differentiating wrt θnc we get, 
+
+∂L(θn·, λ, μ )
+
+∂θ nc 
+
+= Nnc 
+
+θnc 
+
+− λ + μ
+
+
+
+ωn
+
+Nnc 
+
+θ2
+
+> nc
+
+
+
+equating this to 0 yields the quadratic equation 
+
+λ θ 2 
+
+> nc
+
+− Nnc θnc − μ ω nNnc = 0 
+
+whose solution obtained by the quadratic formula is 
+
+θnc = Nnc + pNnc (x)2 + 4 λμ ω nNnc 
+
+2λ
+
+## Experimental Setup and Implementation Details 
+
+In this section, we provide the details regarding the datasets, model architecture, hyperparameter used for the experimental results reported in the main paper. 
+
+Real World Data. We consider the standard suite of 20 binary density estimation benchmark (Van Haaren and Davis 2012; Bekker et al. 2015). These include small to large domains such as nltcs (16 variables), up to ad (1556 variables). Table 3 summarizes the number of variables and data points in the train, validation, and test splits for each of the 20 datasets. 
+
+Model Architectures 
+
+• PyJuice (Liu, Ahmed, and den Broeck 2024), for our experiments on the binary density estimation datasets. We use the Hidden Chow-Liu Tree structure (Liu and den Broeck 2021; Liu, Ahmed, and den Broeck 2024) which is a generative probabilistic model that extends the classical Chow-Liu tree by introducing latent (hidden) variables to model complex dependencies among observed variables more effectively. The tree topology is learned from data using maximum-likelihood (Chow-Liu algorithm). The observed variables are then pushed to the leaves, introducing latent variables to occupy the internal nodes, forming a latent tree structure. As a result, the learned structure can vary across datasets, adapting to the underlying statistical relationships. The latent size ( num latent ) refers to the number of states each hidden variable can take, and it serves as a key hyperparameter that controls the model’s capacity. We set num latent = 100 for all our binary density estimation datasets. Table 3: Overview of the 20 binary density estimation datasets, showing the number of variables and the number of instances in the training, validation, and test splits. 
+
+Dataset Name #vars #train #valid #test 
+
+nltcs 16 16181 2157 3236 
+
+msnbc 17 291326 38843 58265 
+
+kdd 65 180092 19907 34955 
+
+plants 69 17412 2321 3482 
+
+baudio 100 15000 2000 3000 
+
+jester 100 9000 1000 4116 
+
+bnetflix 100 15000 2000 3000 
+
+accidents 111 12758 1700 2551 
+
+tretail 135 22041 2938 4408 
+
+pumsb star 163 12262 1635 2452 
+
+dna 180 1600 400 1186 
+
+kosarek 190 33375 4450 6675 
+
+msweb 294 29441 3270 5000 
+
+tmovie 500 4524 1002 591 
+
+book 500 8700 1159 1739 
+
+cwebkb 839 2803 558 838 
+
+cr52 889 6532 1028 1540 
+
+c20ng 910 11293 3764 3764 
+
+bbc 1058 1670 225 330 
+
+ad 1556 2461 327 491 
+
+## Additional Results 
+
+This section provides additional evidence for the empirical observations and method comparisons reported in the main paper. We first visualize the two components of the curvature decomposition and present a controlled synthetic example. We then report full-dataset results for underfitting, trace concentration, node-selection criteria, and performance across data regimes. 
+
+Visualizing the Curvature Decomposition 
+
+Figure 9 visualizes the empirical contextual usage, local curvature, and global trace contribution of the sum nodes in a trained circuit. In this example, several nodes with large local curvature receive little flow and therefore contribute weakly to the global trace. Conversely, nodes near the root receive substantial flow and can dominate the global contribution despite moderate local curvature. The labeled nodes illustrate the ranking reversal characterized in Proposition 2. Node A has the smallest local curvature among the three but the largest global contribution because it receives the most flow. Node B is locally sharper but contributes less globally because its contextual usage is small. The example illustrates why global contribution and local curvature provide different signals for allocating regularization. 
+
+A 2D Synthetic Data Distribution 
+
+We construct a two-dimensional example to illustrate how uniform and locally gated trace regularization can favor different regions of parameter space. The training set contains 50 samples from a mixture of three isotropic Gaussians with standard deviation σ = 0 .25 , centered at the vertices of an equilateral triangle. We additionally include eight noise samples distributed around a ring of radius 2.3, with radial jitter 0.12 . The test set contains 800 samples drawn only from the Gaussian mixture. We train a PC with Gaussian input distributions and 16 sum and input units under three regimes: unregularized maximum likelihood, global trace regularization, and adaptive local-curvature gating. All methods use the same initialization, and both regularized methods use μ = 0 .20 . Following Li et al. (2018), we project the optimization trajectories onto the plane spanned by the leading two principal components of the parameter iterates. We then evaluate the train NLL, test NLL, and exact Hessian trace over this plane. Figure 10 shows that the three methods converge to different regions. The unregularized model attains the lowest train NLL but higher test NLL and curvature. Global regularization reaches a flatter region but sacrifices both train and test fit. Adaptive gating retains lower curvature while reaching a region with better test fit than uniform global regularization. 
+
+Underfitting at full data regime 
+
+Figure 11 reports the training and test log-likelihood trajectories of the unregularized and global trace-regularized models across the DEBD benchmarks using the full training sets. On most datasets, global regularization lowers both training and test likelihood. The resulting degradation is therefore consistent with reduced model fit rather than a larger train–test gap. Sparsity of Global and Local Trace 
+
+Figures 12 and 13 compare how global trace contribution and local curvature are distributed across sum nodes. The global contribution is highly concentrated across the evaluated datasets, with a small fraction of nodes accounting for most of the total trace. Local curvature is generally distributed across a broader set of nodes, indicating that contextual flow contributes to the concentration observed in the global trace. 
+
+Thresholding based node selection results 
+
+We next compare two criteria for selecting where trace regularization acts. In Figure 14, nodes are ranked by global contribution. Restricting the penalty to progressively smaller sets of high-contribution nodes generally fails to recover the unregularized likelihood and often degrades it further. Figure 15 instead ranks nodes by local curvature. Relative to global-contribution selection, local-curvature selection more consistently preserves the unregularized fit across the evaluated datasets. 
+
+Low Data Regime Experiments 
+
+Table 4: Test log-likelihood comparison across data fractions for DEBD. For gated methods, the variant is selected per dataset/fraction by highest mean validation LL.                                                                                                                                                                                       
+
+> Dataset 25% Data 50% Data 100% Data Vanilla Global Trace Best Gated Vanilla Global Trace Best Gated Vanilla Global Trace Best Gated accidents -28.59 -29.83 -28.64 -27.13 -29.84 -27.12 -26.63 -29.69 -26.64 ad -28.55 -29.64 -28.86 -20.51 -22.07 -20.47 -18.30 -20.37 -18.22 baudio -41.13 -42.46 -41.16 -39.99 -42.40 -40.01 -39.63 -42.45 -39.63 bbc -379.30 -281.33 -377.54 -312.26 -262.64 -309.58 -269.69 -256.43 -269.39 bnetflix -59.06 -59.87 -59.24 -56.85 -59.83 -56.95 -56.22 -59.67 -56.21 book -37.91 -37.48 -37.45 -35.44 -36.75 -35.29 -34.37 -36.31 -34.23 c20ng -162.01 -160.21 -161.97 -154.92 -158.67 -154.94 -151.97 -157.60 -152.04 cr52 -107.98 -103.75 -106.04 -102.79 -102.07 -101.00 -99.35 -102.15 -100.26 cwebkb -204.80 -164.74 -202.88 -171.74 -159.32 -170.11 -154.78 -157.34 -154.89 dna -93.73 -82.61 -93.44 -90.35 -81.76 -90.07 -87.70 -81.35 -87.11 jester -57.38 -55.65 -57.43 -54.05 -55.90 -54.26 -52.82 -55.81 -52.88 kdd -2.22 -2.37 -2.21 -2.22 -2.36 -2.21 -2.23 -2.37 -2.22 kosarek -10.83 -11.11 -10.79 -10.64 -11.06 -10.67 -10.59 -11.09 -10.59 msnbc -6.10 -6.46 -6.08 -6.11 -6.47 -6.08 -6.12 -6.46 -6.08 msweb -10.00 -10.45 -9.97 -9.82 -10.39 -9.81 -9.72 -10.40 -9.74 nltcs -6.09 -6.50 -6.10 -6.02 -6.47 -6.02 -6.00 -6.48 -6.00 plants -12.97 -15.90 -12.96 -12.77 -15.97 -12.77 -12.67 -15.98 -12.66 pumsb star -23.82 -28.75 -23.65 -22.79 -28.35 -22.77 -22.79 -28.35 -22.78 tmovie -51.23 -50.51 -50.89 -44.55 -49.57 -44.58 -42.17 -48.84 -42.11 tretail -11.31 -11.03 -11.27 -10.96 -11.00 -10.98 -10.84 -10.98 -10.85
+
+Table 4 compares the unregularized model, global trace regularization, and the best gated variant across the evaluated data fractions. For each dataset and fraction, the gated variant is selected using validation log-likelihood. The results show that global regularization can improve performance for some datasets, particularly when data are limited, but frequently degrades likelihood as the available data increase. The gated variants more consistently preserve the fit while retaining gains on datasets where sharpness regularization remains beneficial. Algorithm 2: Gated Marginals EM for Probabilistic Circuits Require: Probabilistic circuit PC with sum-node parameters P = {θnc }(n,c )∈E ; dataset D = {x(i)}Ni=1 ; regularization weight 
+
+μ ≥ 0; simplex constraint weight λ > 0; smoothing factor α ∈ (0 , 1] ; monotone gate function g : R≥0 → [0 , 1] ; number of epochs E
+
+Ensure: Updated sum-node parameters P minimising the gated marginals regularised log-likelihood 
+
+1: Initialise: for each sum-node n, set θn· uniformly on its simplex 
+
+2: Set ωn ← g(0) for all sum-nodes n // gate weights; recomputed after first epoch 3: for epoch = 1 , . . . , E do // repeat until convergence or max epochs 
+
+E-step: Compute expected edge flows and node marginals 
+
+4: Run forward–backward passes on PC over D
+
+5: Obtain edge flows Fnc (x) (n,c )∈E, x ∈D // O(|P | | D|) time 6: Obtain node marginals pn(x), p c(x) n∈V, x ∈D // available from the forward pass at no extra cost 
+
+Local Trace Computation (marginal ratio): 
+
+7: for all sum-nodes n do 
+
+8: Aggregate flows: ¯Fnc ← X
+
+> x∈D
+
+Fnc (x)
+
+9: Compute dataset-averaged marginal ratio for each child c:
+
+¯rnc ← 1
+
+|D|
+
+X
+
+> x∈D
+
+pc(x)
+
+pn(x)
+
+10: Compute local trace via marginals: 
+
+ˆtn ← X  
+
+> c∈ch( n)
+
+¯r 2 
+
+> nc
+
+= X  
+
+> c∈ch( n)
+
+1
+
+|D|
+
+X
+
+> x∈D
+
+pc(x)
+
+pn(x)
+
+!2
+
+// depth-agnostic: no Fn factor; no θnc dependence 11: end for 
+
+Gate Weight Update: 
+
+12: for all sum-nodes n do 
+
+13: ωn ← g ˆtn
+
+ // e.g. g(ˆ tn) = ˆ tn/ max n′ ˆtn′ (Proposed); 14: end for 
+
+M-step: Gated sharpness-aware parameter update 
+
+15: for all sum-nodes n do // updates are independent per node 16: for all child edges (n → c) do 
+
+17: ˜θnc ← ¯Fnc + p ¯F 2 
+
+> nc
+
++ 4 λ (μ ω n) ¯Fnc 
+
+2 λ // same closed form as global trace; effective strength μn = μ ω n
+
+18: end for 
+
+19: Normalise: ˜θnc ← ˜θnc 
+
+ X
+
+> c′∈ch( n)
+
+˜θnc ′ ∀ c ∈ ch( n) // project onto probability simplex 20: end for 
+
+21: θ ← (1 − α) θ + α ˜θ // running-average smoothing for noisy mini-batch flows 22: end for 
+
+23: return P ≡ θABC
+
+> −2.25 −2.00 −1.75 −1.50 −1.25 −1.00 −0.75 −0.50 −0.25
+> log 10 ̂ F2
+> n
+
+(a) Contextual usage bF 2
+
+> n
+
+ABC 
+
+> 1.0 1.5 2.0 2.5 3.0
+> log 10 ̂ tn
+
+(b) Local curvature btnABC
+
+> −1.25 −1.00 −0.75 −0.50 −0.25 0.00 0.25 0.50
+> log 10 ̂ Tn
+
+(c) Global contribution bTn−2.0 −1.5 −1.0 −0.5 0.0 
+
+log 10 ̂ F2 
+
+> n
+
+(contextual usage) 
+
+> −1 0123
+> log 10 ̂ tn (local trace)
+
+ABC 
+
+> −1.25 −1.00 −0.75 −0.50 −0.25 0.00 0.25 0.50
+> log 10 ̂ Tn
+
+(d) bTn = bF 2 
+
+> n
+
+btn
+
+Figure 9: The curvature of a trained probabilistic circuit factorizes into usage and local sharpness. Each sum node contributes Tn = F 2 
+
+> n
+
+tn to the NLL Hessian trace. Panels (a)-(c) show the same circuit, with identical node coordinates, colored by (a) squared flow bF 2 
+
+> n
+
+, (b) local trace btn, and (c) global contribution bTn; panel (d) plots log bF 2 
+
+> n
+
+against log btn colored by log bTn,with dashed iso-contribution lines of constant bTn. The two factors are anticorrelated across the circuit: the locally sharpest nodes (dark in b) sit at low flow (light in a) and contribute little globally, while the high-usage root region drives the global trace despite modest local curvature. Nodes A, B, and C mark the three regimes: high-usage/low-local (A), low-usage/high-local (B), and high on both (C). (a) Train NLL (b) Test NLL (c) Sharpness 
+
+> 0.5 11.5 21.25 1.5 1.75 250 100 150 200
+
+Unregularized Global Trace (uniform) Adaptive (ours) Shared init Figure 10: Vanilla, global, and adaptive regularization settle in distinct regions of parameter space. Vanilla reaches the lowest train NLL but a sharp, high-curvature region that generalizes poorly. Global regularization flattens curvature indiscriminately and underfits, while adaptive gating flattens only the non-generalizing sharpness, reaching a region with competitive test NLL at markedly lower sharpness. 30 
+
+29 
+
+28 
+
+27 
+
+26 
+
+> Log-Likelihood  (higher is better)
+
+Accidents 
+
+35 
+
+30 
+
+25 
+
+20 
+
+15 
+
+Ad 
+
+42.5 
+
+42.0 
+
+41.5 
+
+41.0 
+
+40.5 
+
+40.0 
+
+Baudio 
+
+260 
+
+250 
+
+240 
+
+230 
+
+Bbc 
+
+59 
+
+58 
+
+57 
+
+56 
+
+> Log-Likelihood  (higher is better)
+
+Bnetflix 
+
+36.0 
+
+35.5 
+
+35.0 
+
+34.5 
+
+34.0 
+
+33.5 
+
+33.0 
+
+Book 
+
+155 
+
+150 
+
+145 
+
+140 
+
+135 
+
+130 C20Ng 
+
+100.0 
+
+97.5 
+
+95.0 
+
+92.5 
+
+90.0 
+
+87.5 
+
+85.0 
+
+Cr52 
+
+160 
+
+155 
+
+150 
+
+145 
+
+140 
+
+135 
+
+> Log-Likelihood  (higher is better)
+
+Cwebkb 
+
+92.5 
+
+90.0 
+
+87.5 
+
+85.0 
+
+82.5 
+
+80.0 
+
+Dna 
+
+56 
+
+55 
+
+54 
+
+53 
+
+52 
+
+Jester 
+
+2.6 
+
+2.5 
+
+2.4 
+
+2.3 
+
+2.2 
+
+Kdd 
+
+11.2 
+
+11.0 
+
+10.8 
+
+10.6 
+
+> Log-Likelihood  (higher is better)
+
+Kosarek 
+
+6.4 
+
+6.3 
+
+6.2 
+
+6.1 
+
+Msnbc 
+
+10.2 
+
+10.0 
+
+9.8 
+
+9.6 
+
+Msweb 
+
+6.4 
+
+6.3 
+
+6.2 
+
+6.1 
+
+6.0 
+
+Nltcs 
+
+20 40 
+
+Epoch 
+
+16 
+
+15 
+
+14 
+
+13 
+
+> Log-Likelihood  (higher is better)
+
+Plants 
+
+20 40 
+
+Epoch 
+
+28 
+
+27 
+
+26 
+
+25 
+
+24 
+
+23 
+
+Pumsb Star 
+
+20 40 
+
+Epoch 
+
+62 
+
+60 
+
+58 
+
+56 
+
+54 
+
+52 
+
+Tmovie 
+
+20 40 
+
+Epoch 
+
+10.9 
+
+10.8 
+
+10.7 
+
+10.6 
+
+Tretail 
+
+Train LL (solid) and Test LL (dashed) per Epoch 
+
+Global-Trace train Global-Trace test Vanilla train Vanilla test Figure 11: (Underfitting at full data regime)Training and test log-likelihood trajectories for the vanilla and global trace-regularized models DEBD using the full training data. Global trace regularization reduces the train-test gap but lowers both training and test likelihood, indicating underfitting rather than improved generalization. Figure 12: (Sparsity of Global trace) Cumulative share of the total trace as sum nodes are ranked by theirempirical contribution 
+
+( bTn). Across datasets, the distribution is highly concentrated: a small set of nodes dominates the global sharpness signal, while most nodes contribute negligibly. 10 7
+
+10 5
+
+10 3
+
+10 1   
+
+> |tn| (log scale)  accidents ad baudio bbc
+
+10 6
+
+10 5
+
+10 4
+
+10 3
+
+10 2
+
+10 1   
+
+> |tn| (log scale)  bnetflix book c20ng cr52
+
+10 5
+
+10 3
+
+10 1
+
+10 1   
+
+> |tn| (log scale)  cwebkb jester kdd kosarek
+
+10 6
+
+10 5
+
+10 4
+
+10 3   
+
+> |tn| (log scale)  msnbc msweb nltcs plants
+
+10 7
+
+10 5
+
+10 3
+
+10 1  
+
+> |tn| (log scale)  pumsb_star tmovie tretail
+
+0% 20% 40% 60% 80% 100% 
+
+> Cumulative | tn| (%)
+
+0% 20% 40% 60% 80% 100% 
+
+> Cumulative | tn| (%)
+
+0% 20% 40% 60% 80% 100% 
+
+> Cumulative | tn| (%)
+
+0% 20% 40% 60% 80% 100% 
+
+> Cumulative | tn| (%)
+
+0% 20% 40% 60% 80% 100%   
+
+> Cumulative | tn| (%)
+> |tn|Pareto chart all datasets (100% data)
+
+Cumulative % of nodes 
+
+Cumulative | tn| % 99% of trace 99.9% of trace 99.99% of trace Figure 13: (Sparsity of local trace) Cumulative share of P
+
+n btn as nodes are ranked by btn. On the evaluated circuits, the local trace concentration is less severe than the global contribution, indicating that part of the concentration in bTn is introduced by contextual usage. −29 −28 −27 −26 Test Log-Likelihood 
+
+accidents 
+
+−18 −17 −16 −15 
+
+ad 
+
+−43 −42 −41 −40 −39 
+
+baudio 
+
+−260 −255 −250 
+
+bbc 
+
+−60 −59 −58 −57 −56 Test Log-Likelihood 
+
+bnetflix 
+
+−36 −35 −34 −33 
+
+book 
+
+−157.5 −155.0 −152.5 −150.0 
+
+c20ng 
+
+−100 −95 −90 −85 −80 
+
+cr52 
+
+−170 −160 −150 Test Log-Likelihood 
+
+cwebkb 
+
+−81 −80 −79 
+
+dna 
+
+−55 −54 −53 −52 
+
+jester 
+
+−11.25 −11.00 −10.75 −10.50 −10.25 
+
+kosarek 
+
+−10.5 −10.0 −9.5 Test Log-Likelihood 
+
+msweb 
+
+−6.50 −6.25 −6.00 −5.75 
+
+nltcs 
+
+−16 −14 −12 
+
+plants 
+
+−28 −26 −24 −22 
+
+pumsb_star 
+
+−57.5 −55.0 −52.5 −50.0 −47.5 Test Log-Likelihood 
+
+tmovie 
+
+−11.2 −11.0 −10.8 −10.6 
+
+tretail 
+
+Test Log-Likelihood — All DEBD Datasets Vanilla | Regularized | GTrace-Threshold variants 
+
+Vanilla Regularized 1.00% 0.50% 0.10% 0.05% 0.01% Entropy Baseline Figure 14: (Thresholding based node selection results) Change in test log-likelihood relative to the unregularized model when trace regularization is applied to all sum nodes or restricted to progressively smaller fractions ranked by bTn. Selecting fewer top-ranked nodes generally worsens performance, showing that global contribution is a poor criterion for allocating regularization. −28.0 −27.5 −27.0 Test Log-Likelihood 
+
+accidents 
+
+−16.00 −15.75 −15.50 −15.25 
+
+ad 
+
+−41.0 −40.5 −40.0 −39.5 baudio 
+
+−254 −252 −250 bbc 
+
+−57.5 −57.0 −56.5 Test Log-Likelihood 
+
+bnetflix 
+
+−34.00 −33.75 −33.50 −33.25 −33.00 
+
+book 
+
+−152.5 −152.0 −151.5 −151.0 −150.5 
+
+c20ng 
+
+−86.5 −86.0 −85.5 −85.0 −84.5 
+
+cr52 
+
+−152.0 −151.5 −151.0 −150.5 Test Log-Likelihood 
+
+cwebkb 
+
+−80.25 −80.00 −79.75 −79.50 
+
+dna 
+
+−53.00 −52.75 −52.50 −52.25 
+
+jester 
+
+−10.8 −10.6 −10.4 −10.2 
+
+kosarek 
+
+−10.25 −10.00 −9.75 −9.50 Test Log-Likelihood 
+
+msweb 
+
+−6.4 −6.2 −6.0 −5.8 
+
+nltcs 
+
+−14.5 −14.0 −13.5 −13.0 −12.5 plants 
+
+−25.0 −24.5 −24.0 −23.5 
+
+pumsb_star 
+
+−51.5 −51.0 −50.5 −50.0 Test Log-Likelihood 
+
+tmovie 
+
+−11.2 −11.0 −10.8 −10.6 
+
+tretail 
+
+Test Log-Likelihood — All DEBD Datasets Vanilla | Regularized | LTrace-Threshold variants 
+
+Vanilla Regularized 1.00% 0.50% 0.10% 0.05% Entropy Baseline Figure 15: (Thresholding based node selection results) Change in test log-likelihood relative to the unregularized model when trace regularization is applied to all sum nodes or restricted to progressively smaller fractions ranked by btn. Selecting fewer top-ranked nodes to regularize generally improves the performance, showing that btn is a better criterion for allocating regularization.
