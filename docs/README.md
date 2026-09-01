@@ -41,17 +41,17 @@
 <section class="dpr-home-dashboard-card dpr-home-report-card">
   <div class="dpr-home-dashboard-header">
     <div>
-      <span class="dpr-home-dashboard-kicker">2026-08-30</span>
+      <span class="dpr-home-dashboard-kicker">2026-08-31</span>
       <h3 class="dpr-home-dashboard-title">今日汇总</h3>
     </div>
-    <strong class="dpr-home-dashboard-count">共 21 篇</strong>
+    <strong class="dpr-home-dashboard-count">共 20 篇</strong>
   </div>
   <dl class="dpr-home-dashboard-stats">
     <div class="dpr-home-dashboard-stat"><dt>累计更新</dt><dd>1 次</dd></div>
     <div class="dpr-home-dashboard-stat"><dt>精读</dt><dd>8</dd></div>
-    <div class="dpr-home-dashboard-stat"><dt>速读</dt><dd>13</dd></div>
+    <div class="dpr-home-dashboard-stat"><dt>速读</dt><dd>12</dd></div>
   </dl>
-  <p class="dpr-home-dashboard-body">最近更新：2026-08-30 23:21:05 UTC<br>状态：成功</p>
+  <p class="dpr-home-dashboard-body">最近更新：2026-09-01 00:57:01 UTC<br>状态：成功</p>
 </section>
 <section class="dpr-home-dashboard-card dpr-home-brief-card">
   <div class="dpr-home-dashboard-header">
@@ -62,7 +62,7 @@
     <strong class="dpr-home-dashboard-count">AI</strong>
   </div>
   <div class="dpr-home-dashboard-body">
-<p>今日共读21篇论文，精读8篇、速读13篇，重点聚焦强化学习与表征分析两大方向。最值得精读的是两篇9分高作：反事实商模型厘清“动作改变什么”而非世界状态，以及无限维线性函数逼近下的Q学习稳定性证明。建议普通读者优先抓住“反事实学习”直觉，再结合速读中的LLM推理记忆自适应分析拓展视角。</p>
+<p>今日精读8篇、速读12篇，重点聚焦世界模型与具身操作方向。最值得看的是《DreamMimic》与《Making Latent Evolution Explicit》两篇高分论文，前者用世界模型实现全身运动操作，后者提出算子化状态转移以改进世界动作模型。建议普通读者优先了解“世界模型如何提升机器人操作效率”，并关注速读中的注意力机制与偏好奖励学习等交叉进展。</p>
   </div>
 </section>
 <section class="dpr-home-dashboard-card dpr-home-deep-card">
@@ -74,9 +74,9 @@
     <strong class="dpr-home-dashboard-count">8 篇</strong>
   </div>
   <div class="dpr-home-dashboard-body">
-<ul class="dpr-home-dashboard-paper-list"><li><span class="dpr-home-dashboard-paper-title" title="Counterfactual Quotient Models: Learning What Actions Change, Not What the World Does">Counterfactual Quotient Models: Learning What Actions Change, Not What the World Does</span></li><li><span class="dpr-home-dashboard-paper-title" title="Q-Learning with Stable Infinite-Dimensional Linear Function Approximation">Q-Learning with Stable Infinite-Dimensional Linear Function Approximation</span></li><li><span class="dpr-home-dashboard-paper-title" title="Reward-Free Continual Adaptation for Resilient Space Robots">Reward-Free Continual Adaptation for Resilient Space Robots</span></li></ul>
+<ul class="dpr-home-dashboard-paper-list"><li><span class="dpr-home-dashboard-paper-title" title="DreamMimic: Learning Visuomotor Whole-Body Loco-Manipulation via World Model">DreamMimic: Learning Visuomotor Whole-Body Loco-Manipulation via World Model</span></li><li><span class="dpr-home-dashboard-paper-title" title="Making Latent Evolution Explicit: Operator-Structured Transitions for World Action Models">Making Latent Evolution Explicit: Operator-Structured Transitions for World Action Models</span></li><li><span class="dpr-home-dashboard-paper-title" title="Sequential operator learning under dependent data">Sequential operator learning under dependent data</span></li></ul>
   </div>
-  <div class="dpr-home-dashboard-tags"><span class="dpr-home-dashboard-tag">rl-semantic <strong>4</strong></span><span class="dpr-home-dashboard-tag">ml-theory <strong>3</strong></span><span class="dpr-home-dashboard-tag">npl-bdl-saig <strong>1</strong></span></div>
+  <div class="dpr-home-dashboard-tags"><span class="dpr-home-dashboard-tag">ml-theory <strong>3</strong></span><span class="dpr-home-dashboard-tag">rl-semantic <strong>3</strong></span><span class="dpr-home-dashboard-tag">npl-bdl-saig <strong>2</strong></span></div>
 </section>
 <section class="dpr-home-dashboard-card dpr-home-skim-card">
   <div class="dpr-home-dashboard-header">
@@ -84,12 +84,12 @@
       <span class="dpr-home-dashboard-kicker">今日累计</span>
       <h3 class="dpr-home-dashboard-title">速读推荐</h3>
     </div>
-    <strong class="dpr-home-dashboard-count">13 篇</strong>
+    <strong class="dpr-home-dashboard-count">12 篇</strong>
   </div>
   <div class="dpr-home-dashboard-body">
-<ul class="dpr-home-dashboard-paper-list"><li><span class="dpr-home-dashboard-paper-title" title="Beyond Fixed Directions: Adaptive Representation Analysis of Reasoning and Memorization in LLMs">Beyond Fixed Directions: Adaptive Representation Analysis of Reasoning and Memorization in LLMs</span></li><li><span class="dpr-home-dashboard-paper-title" title="Quantitative Furstenberg Theory for Large Random Matrices">Quantitative Furstenberg Theory for Large Random Matrices</span></li><li><span class="dpr-home-dashboard-paper-title" title="Wishart Matrices and Quantum Geometry: Foundations and Applications in Quantum Information">Wishart Matrices and Quantum Geometry: Foundations and Applications in Quantum Information</span></li></ul>
+<ul class="dpr-home-dashboard-paper-list"><li><span class="dpr-home-dashboard-paper-title" title="HCC+: Hyperbolic Guarding for Certified Attention Retrieval">HCC+: Hyperbolic Guarding for Certified Attention Retrieval</span></li><li><span class="dpr-home-dashboard-paper-title" title="Beyond Pairwise Feedback: Listwise Vision-Language Supervision for Preference-Based Reward Learning">Beyond Pairwise Feedback: Listwise Vision-Language Supervision for Preference-Based Reward Learning</span></li><li><span class="dpr-home-dashboard-paper-title" title="Geometry-Constrained Kolmogorov-Arnold Networks: Learning Edge Geometry via Banach Duality">Geometry-Constrained Kolmogorov-Arnold Networks: Learning Edge Geometry via Banach Duality</span></li></ul>
   </div>
-  <div class="dpr-home-dashboard-tags"><span class="dpr-home-dashboard-tag">ml-theory <strong>6</strong></span><span class="dpr-home-dashboard-tag">rl-semantic <strong>4</strong></span><span class="dpr-home-dashboard-tag">npl-bdl-saig <strong>3</strong></span></div>
+  <div class="dpr-home-dashboard-tags"><span class="dpr-home-dashboard-tag">rl-semantic <strong>6</strong></span><span class="dpr-home-dashboard-tag">ml-theory <strong>4</strong></span><span class="dpr-home-dashboard-tag">npl-bdl-saig <strong>2</strong></span></div>
 </section>
 </div>
 
