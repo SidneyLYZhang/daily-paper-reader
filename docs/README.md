@@ -41,17 +41,17 @@
 <section class="dpr-home-dashboard-card dpr-home-report-card">
   <div class="dpr-home-dashboard-header">
     <div>
-      <span class="dpr-home-dashboard-kicker">2026-08-31</span>
+      <span class="dpr-home-dashboard-kicker">2026-09-06</span>
       <h3 class="dpr-home-dashboard-title">今日汇总</h3>
     </div>
-    <strong class="dpr-home-dashboard-count">共 20 篇</strong>
+    <strong class="dpr-home-dashboard-count">共 21 篇</strong>
   </div>
   <dl class="dpr-home-dashboard-stats">
     <div class="dpr-home-dashboard-stat"><dt>累计更新</dt><dd>1 次</dd></div>
     <div class="dpr-home-dashboard-stat"><dt>精读</dt><dd>8</dd></div>
-    <div class="dpr-home-dashboard-stat"><dt>速读</dt><dd>12</dd></div>
+    <div class="dpr-home-dashboard-stat"><dt>速读</dt><dd>13</dd></div>
   </dl>
-  <p class="dpr-home-dashboard-body">最近更新：2026-09-01 00:57:01 UTC<br>状态：成功</p>
+  <p class="dpr-home-dashboard-body">最近更新：2026-09-06 22:39:07 UTC<br>状态：成功</p>
 </section>
 <section class="dpr-home-dashboard-card dpr-home-brief-card">
   <div class="dpr-home-dashboard-header">
@@ -62,7 +62,7 @@
     <strong class="dpr-home-dashboard-count">AI</strong>
   </div>
   <div class="dpr-home-dashboard-body">
-<p>今日精读8篇、速读12篇，重点聚焦世界模型与具身操作方向。最值得看的是《DreamMimic》与《Making Latent Evolution Explicit》两篇高分论文，前者用世界模型实现全身运动操作，后者提出算子化状态转移以改进世界动作模型。建议普通读者优先了解“世界模型如何提升机器人操作效率”，并关注速读中的注意力机制与偏好奖励学习等交叉进展。</p>
+<p>今日精读与速读共21篇，聚焦蛋白超图建模与对比强化学习等前沿方向；其中《Hyper-Fold》与《Three Steps at a Time》获9.0高分，最值得精读，分别探索蛋白质序列几何表达极限与动作序列表示学习。建议优先深入这两篇论文的模型设计思路，再结合流匹配世界模型等速读内容拓宽视野。</p>
   </div>
 </section>
 <section class="dpr-home-dashboard-card dpr-home-deep-card">
@@ -74,9 +74,9 @@
     <strong class="dpr-home-dashboard-count">8 篇</strong>
   </div>
   <div class="dpr-home-dashboard-body">
-<ul class="dpr-home-dashboard-paper-list"><li><span class="dpr-home-dashboard-paper-title" title="DreamMimic: Learning Visuomotor Whole-Body Loco-Manipulation via World Model">DreamMimic: Learning Visuomotor Whole-Body Loco-Manipulation via World Model</span></li><li><span class="dpr-home-dashboard-paper-title" title="Making Latent Evolution Explicit: Operator-Structured Transitions for World Action Models">Making Latent Evolution Explicit: Operator-Structured Transitions for World Action Models</span></li><li><span class="dpr-home-dashboard-paper-title" title="Sequential operator learning under dependent data">Sequential operator learning under dependent data</span></li></ul>
+<ul class="dpr-home-dashboard-paper-list"><li><span class="dpr-home-dashboard-paper-title" title="Hyper-Fold: Exploring the Expressive Limit of Sequence-Geometry Learning for Proteins via Hypergraph Modeling">Hyper-Fold: Exploring the Expressive Limit of Sequence-Geometry Learning for Proteins via Hypergraph Modeling</span></li><li><span class="dpr-home-dashboard-paper-title" title="Three Steps at a Time: Learning Representations from Action Sequences in Contrastive RL">Three Steps at a Time: Learning Representations from Action Sequences in Contrastive RL</span></li><li><span class="dpr-home-dashboard-paper-title" title="Learning from What You Retrieve: Online RL Fine-Tuning for Semantic Retrieval">Learning from What You Retrieve: Online RL Fine-Tuning for Semantic Retrieval</span></li></ul>
   </div>
-  <div class="dpr-home-dashboard-tags"><span class="dpr-home-dashboard-tag">ml-theory <strong>3</strong></span><span class="dpr-home-dashboard-tag">rl-semantic <strong>3</strong></span><span class="dpr-home-dashboard-tag">npl-bdl-saig <strong>2</strong></span></div>
+  <div class="dpr-home-dashboard-tags"><span class="dpr-home-dashboard-tag">ml-theory <strong>4</strong></span><span class="dpr-home-dashboard-tag">npl-bdl-saig <strong>2</strong></span><span class="dpr-home-dashboard-tag">rl-semantic <strong>2</strong></span></div>
 </section>
 <section class="dpr-home-dashboard-card dpr-home-skim-card">
   <div class="dpr-home-dashboard-header">
@@ -84,12 +84,12 @@
       <span class="dpr-home-dashboard-kicker">今日累计</span>
       <h3 class="dpr-home-dashboard-title">速读推荐</h3>
     </div>
-    <strong class="dpr-home-dashboard-count">12 篇</strong>
+    <strong class="dpr-home-dashboard-count">13 篇</strong>
   </div>
   <div class="dpr-home-dashboard-body">
-<ul class="dpr-home-dashboard-paper-list"><li><span class="dpr-home-dashboard-paper-title" title="HCC+: Hyperbolic Guarding for Certified Attention Retrieval">HCC+: Hyperbolic Guarding for Certified Attention Retrieval</span></li><li><span class="dpr-home-dashboard-paper-title" title="Beyond Pairwise Feedback: Listwise Vision-Language Supervision for Preference-Based Reward Learning">Beyond Pairwise Feedback: Listwise Vision-Language Supervision for Preference-Based Reward Learning</span></li><li><span class="dpr-home-dashboard-paper-title" title="Geometry-Constrained Kolmogorov-Arnold Networks: Learning Edge Geometry via Banach Duality">Geometry-Constrained Kolmogorov-Arnold Networks: Learning Edge Geometry via Banach Duality</span></li></ul>
+<ul class="dpr-home-dashboard-paper-list"><li><span class="dpr-home-dashboard-paper-title" title="Flow-JEPA: Flow Matching for Robust Latent Dynamics in JEPA World Models">Flow-JEPA: Flow Matching for Robust Latent Dynamics in JEPA World Models</span></li><li><span class="dpr-home-dashboard-paper-title" title="Analysis and Approximation of Stochastic Multiscale Subdiffusion Driven by Fractional Gaussian Noise">Analysis and Approximation of Stochastic Multiscale Subdiffusion Driven by Fractional Gaussian Noise</span></li><li><span class="dpr-home-dashboard-paper-title" title="Subspace Levenberg Marquardt Algorithms in Training Neural Networks">Subspace Levenberg Marquardt Algorithms in Training Neural Networks</span></li></ul>
   </div>
-  <div class="dpr-home-dashboard-tags"><span class="dpr-home-dashboard-tag">rl-semantic <strong>6</strong></span><span class="dpr-home-dashboard-tag">ml-theory <strong>4</strong></span><span class="dpr-home-dashboard-tag">npl-bdl-saig <strong>2</strong></span></div>
+  <div class="dpr-home-dashboard-tags"><span class="dpr-home-dashboard-tag">rl-semantic <strong>6</strong></span><span class="dpr-home-dashboard-tag">ml-theory <strong>5</strong></span><span class="dpr-home-dashboard-tag">npl-bdl-saig <strong>2</strong></span></div>
 </section>
 </div>
 
