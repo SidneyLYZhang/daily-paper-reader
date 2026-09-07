@@ -41,17 +41,17 @@
 <section class="dpr-home-dashboard-card dpr-home-report-card">
   <div class="dpr-home-dashboard-header">
     <div>
-      <span class="dpr-home-dashboard-kicker">2026-09-06</span>
+      <span class="dpr-home-dashboard-kicker">2026-09-07</span>
       <h3 class="dpr-home-dashboard-title">今日汇总</h3>
     </div>
-    <strong class="dpr-home-dashboard-count">共 21 篇</strong>
+    <strong class="dpr-home-dashboard-count">共 14 篇</strong>
   </div>
   <dl class="dpr-home-dashboard-stats">
     <div class="dpr-home-dashboard-stat"><dt>累计更新</dt><dd>1 次</dd></div>
-    <div class="dpr-home-dashboard-stat"><dt>精读</dt><dd>8</dd></div>
-    <div class="dpr-home-dashboard-stat"><dt>速读</dt><dd>13</dd></div>
+    <div class="dpr-home-dashboard-stat"><dt>精读</dt><dd>5</dd></div>
+    <div class="dpr-home-dashboard-stat"><dt>速读</dt><dd>9</dd></div>
   </dl>
-  <p class="dpr-home-dashboard-body">最近更新：2026-09-06 22:39:07 UTC<br>状态：成功</p>
+  <p class="dpr-home-dashboard-body">最近更新：2026-09-07 23:30:35 UTC<br>状态：成功</p>
 </section>
 <section class="dpr-home-dashboard-card dpr-home-brief-card">
   <div class="dpr-home-dashboard-header">
@@ -62,7 +62,7 @@
     <strong class="dpr-home-dashboard-count">AI</strong>
   </div>
   <div class="dpr-home-dashboard-body">
-<p>今日精读与速读共21篇，聚焦蛋白超图建模与对比强化学习等前沿方向；其中《Hyper-Fold》与《Three Steps at a Time》获9.0高分，最值得精读，分别探索蛋白质序列几何表达极限与动作序列表示学习。建议优先深入这两篇论文的模型设计思路，再结合流匹配世界模型等速读内容拓宽视野。</p>
+<p>今日精读5篇、速读9篇，其中论文亮点聚焦于SPD流形学习与空间推理强化。最值得关注的是《Nested Inductive Bias Framework for SPD Manifold Learning》（9.0/10）和《Unfold The World: Factorize 4D Properties in Reinforcing Spatial Reasoning》（8.0/10）。若想快速入门，可先从拓扑几何通道的可分离性与树张量网络优化入手。</p>
   </div>
 </section>
 <section class="dpr-home-dashboard-card dpr-home-deep-card">
@@ -71,12 +71,12 @@
       <span class="dpr-home-dashboard-kicker">今日累计</span>
       <h3 class="dpr-home-dashboard-title">精读推荐</h3>
     </div>
-    <strong class="dpr-home-dashboard-count">8 篇</strong>
+    <strong class="dpr-home-dashboard-count">5 篇</strong>
   </div>
   <div class="dpr-home-dashboard-body">
-<ul class="dpr-home-dashboard-paper-list"><li><span class="dpr-home-dashboard-paper-title" title="Hyper-Fold: Exploring the Expressive Limit of Sequence-Geometry Learning for Proteins via Hypergraph Modeling">Hyper-Fold: Exploring the Expressive Limit of Sequence-Geometry Learning for Proteins via Hypergraph Modeling</span></li><li><span class="dpr-home-dashboard-paper-title" title="Three Steps at a Time: Learning Representations from Action Sequences in Contrastive RL">Three Steps at a Time: Learning Representations from Action Sequences in Contrastive RL</span></li><li><span class="dpr-home-dashboard-paper-title" title="Learning from What You Retrieve: Online RL Fine-Tuning for Semantic Retrieval">Learning from What You Retrieve: Online RL Fine-Tuning for Semantic Retrieval</span></li></ul>
+<ul class="dpr-home-dashboard-paper-list"><li><span class="dpr-home-dashboard-paper-title" title="Nested Inductive Bias Framework for SPD Manifold Learning">Nested Inductive Bias Framework for SPD Manifold Learning</span></li><li><span class="dpr-home-dashboard-paper-title" title="Unfold The World: Factorize 4D Properties in Reinforcing Spatial Reasoning">Unfold The World: Factorize 4D Properties in Reinforcing Spatial Reasoning</span></li><li><span class="dpr-home-dashboard-paper-title" title="Multi-step Proximal Policy Improvement in Offline Reinforcement Learning">Multi-step Proximal Policy Improvement in Offline Reinforcement Learning</span></li></ul>
   </div>
-  <div class="dpr-home-dashboard-tags"><span class="dpr-home-dashboard-tag">ml-theory <strong>4</strong></span><span class="dpr-home-dashboard-tag">npl-bdl-saig <strong>2</strong></span><span class="dpr-home-dashboard-tag">rl-semantic <strong>2</strong></span></div>
+  <div class="dpr-home-dashboard-tags"><span class="dpr-home-dashboard-tag">ml-theory <strong>2</strong></span><span class="dpr-home-dashboard-tag">npl-bdl-saig <strong>2</strong></span><span class="dpr-home-dashboard-tag">rl-semantic <strong>1</strong></span></div>
 </section>
 <section class="dpr-home-dashboard-card dpr-home-skim-card">
   <div class="dpr-home-dashboard-header">
@@ -84,12 +84,12 @@
       <span class="dpr-home-dashboard-kicker">今日累计</span>
       <h3 class="dpr-home-dashboard-title">速读推荐</h3>
     </div>
-    <strong class="dpr-home-dashboard-count">13 篇</strong>
+    <strong class="dpr-home-dashboard-count">9 篇</strong>
   </div>
   <div class="dpr-home-dashboard-body">
-<ul class="dpr-home-dashboard-paper-list"><li><span class="dpr-home-dashboard-paper-title" title="Flow-JEPA: Flow Matching for Robust Latent Dynamics in JEPA World Models">Flow-JEPA: Flow Matching for Robust Latent Dynamics in JEPA World Models</span></li><li><span class="dpr-home-dashboard-paper-title" title="Analysis and Approximation of Stochastic Multiscale Subdiffusion Driven by Fractional Gaussian Noise">Analysis and Approximation of Stochastic Multiscale Subdiffusion Driven by Fractional Gaussian Noise</span></li><li><span class="dpr-home-dashboard-paper-title" title="Subspace Levenberg Marquardt Algorithms in Training Neural Networks">Subspace Levenberg Marquardt Algorithms in Training Neural Networks</span></li></ul>
+<ul class="dpr-home-dashboard-paper-list"><li><span class="dpr-home-dashboard-paper-title" title="Measuring Memory and Generalization as Separable Geometric Channels: The Topo^2 Framework">Measuring Memory and Generalization as Separable Geometric Channels: The Topo^2 Framework</span></li><li><span class="dpr-home-dashboard-paper-title" title="Stochastic Optimization of Tree Tensor Networks">Stochastic Optimization of Tree Tensor Networks</span></li><li><span class="dpr-home-dashboard-paper-title" title="Gradient-Free Optimization for Matrix functions">Gradient-Free Optimization for Matrix functions</span></li></ul>
   </div>
-  <div class="dpr-home-dashboard-tags"><span class="dpr-home-dashboard-tag">rl-semantic <strong>6</strong></span><span class="dpr-home-dashboard-tag">ml-theory <strong>5</strong></span><span class="dpr-home-dashboard-tag">npl-bdl-saig <strong>2</strong></span></div>
+  <div class="dpr-home-dashboard-tags"><span class="dpr-home-dashboard-tag">ml-theory <strong>5</strong></span><span class="dpr-home-dashboard-tag">rl-semantic <strong>3</strong></span><span class="dpr-home-dashboard-tag">npl-bdl-saig <strong>1</strong></span></div>
 </section>
 </div>
 

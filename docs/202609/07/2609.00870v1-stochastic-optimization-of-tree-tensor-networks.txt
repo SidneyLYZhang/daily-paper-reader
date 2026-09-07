@@ -1,0 +1,1965 @@
+Title: Stochastic Optimization of Tree Tensor Networks
+
+URL Source: https://arxiv.org/pdf/2609.00870v1
+
+Published Time: Wed, 02 Sep 2026 01:13:30 GMT
+
+Number of Pages: 26
+
+Markdown Content:
+# Stochastic Optimization of Tree Tensor Networks 
+
+Marius Willner 12 ‹, Maximilian Scharf 23 :, André Uschmajew 14 ,Timo Felser 2 and Marco Trenti 2
+
+1 Institute of Mathematics, University of Augsburg, 86159 Augsburg, Germany 
+
+2 Tensor AI Solutions GmbH, 89284 Pfaffenhofen an der Roth, Germany 
+
+3 Institute for Complex Quantum Systems, Ulm University, 89081 Ulm, Germany 
+
+4 Centre for Advanced Analytics and Predictive Sciences, University of Augsburg, 86159 Augsburg, Germany 
+
+‹: These authors contributed equally to this work. 
+
+‹ marius.willner@uni-a.de , : maximilian.scharf@tensor-solutions.com 
+
+# Abstract 
+
+Tensor networks, originally developed for quantum many-body physics, are promising models for machine learning. We derive stochastic Riemannian optimizers for tree ten-sor networks (TTNs) on both their parameter and quotient manifolds, including adaptive and learning-rate-free schemes suitable for minibatch training. Using a hybrid CNN–TTN architecture, we evaluate the methods on Fashion-MNIST, CIFAR10, and Imagenette. The proposed optimizers achieve predictive performance comparable to unconstrained opti-mization while enabling numerically stable downstream compression. 
+
+# Contents 
+
+1 Introduction 22 Preliminaries 3
+
+2.1 Optimization on TTNs 32.2 Adaptive Riemannian optimization 82.3 Riemannian distance over gradients 9
+
+3 Tools 10 
+
+3.1 Adaptive optimization of TTNs 10 3.2 Distance over gradients on TTN-manifolds 11 
+
+4 Algorithms 11 
+
+4.1 RADAM 11 4.2 RDOG 12 4.3 RMUON 13 
+
+5 Numerical Experiments 13 
+
+5.1 Fashion MNIST 14 5.2 CIFAR10 & Imagenette 15 
+
+6 Conclusion 18 A Geodesics of the TTN quotient 19 B Convergence of RADAGRAD 20 C Additional numerical results 23 
+
+1arXiv:2609.00870v1 [math.OC] 1 Sep 2026 1 Introduction 
+
+Modern machine learning relies overwhelmingly on first-order optimization, and in practice this means stochastic gradient descent (SGD) rather than full-batch gradient descent. Given a loss that decomposes as an expectation over data, f pθ q “ 1
+
+> m
+
+řmk“1 ℓpθ ; x k, y kq, the exact gradient ∇ f costs Opmq per step, which is prohibitive for large m. SGD replaces it with an unbiased estimate computed on a minibatch B,
+
+∇ f pθ q « 1
+
+|B|
+
+ÿ
+
+> kPB
+
+∇θ ℓpθ ; x k, ykq,trading gradient accuracy for a large gain in per-step cost [1, 2 ]. Beyond efficiency, the injected gradient noise has genuine optimization value: it helps escape saddle points and sharp min-ima, and is widely associated with improved generalization in overparameterized models [3, 4]. Adaptive variants such as ADAM [5] or MUON [6] and distance-over-gradient schemes [7]
+
+refine the basic method, and its convergence behavior for convex and nonconvex objectives is by now well characterized [8]. Together these properties have made stochastic first-order op-timization the default training paradigm across essentially all of large-scale machine learning. Tensor networks—matrix product states (MPS), tree tensor networks (TTN), and related structures developed for quantum many-body physics [9, 10 ]—have enabled simulations of challenging higher-dimensional many-body and lattice-gauge systems [11, 12, 13 ], and have subsequently been repurposed as trainable models for supervised classification and generative modeling [14, 15 ]. Applications of TN-based learning already include high-energy physics data analysis [16, 17 ] and, more recently, robust and compressible classification of synthetic-aperture-radar data [18 ].The canonical optimizer inherited from physics is the density-matrix renormalization group (DMRG), a deterministic algorithm that sweeps across the network, locally optimizing one or two tensors at a time to near-optimality [9]. DMRG is extraordinarily effective for computing ground states, but its central assumption—a fixed objective whose local environment can be formed and factorized exactly at each step—sits uneasily with the machine-learning setting, where the objective is an empirical average over a large, shuffled dataset. Evaluating or dif-ferentiating that average exactly reintroduces the same Opmq cost that motivates stochastic methods in the first place [1, 2 ], while the nonconvex, multilinear loss landscapes that ten-sor networks induce are precisely the regime in which gradient noise aids optimization and generalization [8, 4, 3 ].Stochastic gradient methods address both issues directly, and a growing body of work trains tensor-network models this way. The dominant approach obtains gradients by auto-matic differentiation : the gradient of the loss with respect to each core tensor is assembled by backpropagation through the network contraction and passed to a generic stochastic op-timizer, as in [19 ] and in recent training libraries built on deep-learning frameworks. This route is convenient and integrates tensor-network layers end-to-end with conventional neural components [14, 19, 20 ], but it treats the network as a generic parameterized function and ignores the geometric structure of the underlying decomposition. A second, smaller line of work instead respects that structure, performing Riemannian optimization on the fixed-rank manifold of tensor-train models [21 ] and TTNs [22, 23, 24 ]; such methods, however, have largely been developed in the full-batch context. Recent advances in the closely related field of orthogonal optimization [25, 26, 27 ], such as the POGO algorithm [26 ], serve as a basis to extend on those methods. In this paper, we work out the forms of the stochastic algorithms on the manifolds of TTNs. Rather than indiscriminately using stochastic optimizers originally meant for Euclidean optimization, we derive the Riemannian gradient of the loss in terms of the network’s tensors and its canonical gauge structure, yielding explicit, minibatch-computable update rules that respect the TTN (quotient) geometry. Crucially, we use that the TTN parameter space factors as 2a Cartesian product of manifolds, enabling adaptive Riemannian optimization. Even though the TTN quotient does not exhibit a product structure, we show that it shares its geodesic spray with a Cartesian product of Grassmann manifolds. We use this to theoretically back up our considerations and to conclude about the exponential map and Riemannian distances, which are central components of our stochastic optimizers. Furthermore, we devise a novel hybrid CNN-TTN architecture, that allows the numerical evaluation of the resulting algorithms on large-scale datasets, such as CIFAR10 and Imagenette: they perform competitively with unconstrained adaptive optimizers, but produce final iterates that conform significantly better to the hierarchical structure of the TTN. When used for downstream compression tasks, deep networks optimized unconstrainedly break down completely, whereas deep TTNs trained with our methods react as expected. The work is organized as follows: in Sec. 2, we formally introduce the TTN, and the geo-metric properties of its parameter and quotient space, as well as adaptive and distance-over-gradients schemes for general manifolds; in Sec. 3 we discuss the application of those to TTNs as our main contribution; in Sec. 4 we provide pseudocode and protocols for the implemen-tation of the different SGD flavours; in Sec. 5 we test the developed algorithms on computer vision benchmarks by using a CNN feature extractor and the TTN classifier; finally, in Sec. 6 we discuss the overall SGD picture for TTNs and their possible applications, open problems, and extensions for ML and beyond. 
+
+# 2 Preliminaries 
+
+2.1 Optimization on TTNs 
+
+In this section, we will introduce general tree tensor networks, orthogonal TTN, and some important geometrical properties of TTN that are needed to develop Riemannian optimization algorithms. For a more detailed derivation and proofs see [28, 24 ].
+
+2.1.1 Tree tensor networks 
+
+We will start with a definition of TTNs and of the notation that will be used throughout this work. Let N “ t 1, ..., nu be a set of labels for the physical indices i1, ..., in with dimensions 
+
+d1, ..., dn, that can be interpreted as the input of the tensor networks considered here. We will assume that n is even for simplicity, but the definition can also be extended to an odd number of inputs. The tensor networks we consider here have an additional index j with dimension 
+
+dout , which corresponds to the output. A tree tensor network (TTN) is a tuple θ “ p BptqqtPT of order three core tensors B ptq, that are assembled through a rooted binary tree graph and labeled with elements t P T . The set of labels T is a subset of the power set T Ă PpN q. Each tensor label is the set of all labels of those physical indices that are children of the respective tensor. Due to the binary tree graph structure, each node t P T has two direct child nodes t L , tR P T Y N with t “ t L Y tR.Each core tensor connects three indices vt L , vtR and vt of dimension χt L , χtR and χT , and it is canonnically identified with its matricization, meaning Bptq P Rχt L χtR ˆχt . At the lowest layer of the TTN, each core tensor joins two consecutive physical indices and a single virtual index vt .It holds that vt L “ itl , vtR “ itR , χt L “ dtl , χtR “ dtR . All other nodes, except for the root, join three virtual indices vt L , vtR and vt . The root node t “ N joins the two final links, producing the outgoing index vt “ j, with dimension χt “ dout . It will be explained in Section 2.1.5 how TTNs may be employed as a machine learning model. Here we first focus on manifold properties of the TTN itself. 3Figure 1: Graphical representation of a tree tensor network with n “ 8 physical indices 
+
+i1, ..., i8 and one "outgoing" index j. The lowest layer of the TTN contains the nodes 
+
+t1, 2 u, t3, 4 u, t5, 6 u, t7, 8 u, that act on two consecutive physical indices each. The next layer are intermediate nodes t1, 2, 3, 4 u, t5, 6, 7, 8 u, followed by the root node with label N “ t 1, ..., 8 u.
+
+2.1.2 Manifold structure 
+
+The core tensors θ “ p BptqqtPT of the TTN parameterize the Euclidean space [28 ]
+
+E :“ ą
+
+> tPT
+
+Rχt L χtR ˆχt .Furthermore, a TTN is always associated with a single tensor, which is obtained through the parameter map τ : E Ñ Rd1ˆ¨¨¨ˆ dnˆdout given by the contraction of all virtual indices vt ,
+
+t P T ˚ “ T zN . The dimensions pχt qtPT ˚ of these virtual indices are referred to as the bond dimensions of the TTN. They are subject to χt ď χt L χtR [28 ], but may be chosen freely other-wise. Importantly, they govern the expressivity and computational complexity of the TTN as a model, and we assume them fixed throughout our considerations. A good initial guess for the bond dimensions can be found through the unsupervised construction algorithm [29 ], they can be reduced using TTN compression algorithms [18 ] after training, or they may be chosen adaptively during optimization (see e.g. [30 ]) in more advanced algorithms not covered in this work. In practice, it is usually preferable to work with orthogonal (also called isometrized) TTN, which define an important submanifold T of general TTN. An orthogonal TTN θ P T is defined in the same way as general TTN, with the additional restriction that all nodes t P T ˚ except for the root node are isometries , i.e., elements of the Stiefel manifold B ptq P St pχt L χtR , χt q satisfying 
+
+pBptqqT Bptq “ 1.The parameter space of orthogonal TTN [24 ] is given by 
+
+T “
+
+˜ ą 
+
+> tPT˚
+
+St pχt L χtR , χt q
+
+¸
+
+ˆ RχNL ˆχNR ˆdout , (1) and its tangent space reads 
+
+Tθ T “
+
+˜ ą 
+
+> tPT˚
+
+TB St pχt L χtR , χt q
+
+¸
+
+ˆ RχNL χNR ˆdout .It is the Cartesian product of the individual tangent spaces of the core tensors, where the tangent space of the Stiefel manifold St pn, kq is given by 
+
+TX St pn, kq “ t V P Rnˆk : X T V ` V T X “ 0u
+
+4and the tangent space of the root tensor is again a Euclidean space. The space T is an embedded submanifold of the Euclidean space E. From the perspective of optimization, working with T is preferable over E as it is on the one hand numerically more stable and on the other hand, we can exploit results of differential geometry to derive more sophisticated optimization algorithms. In the following, we will thus work exclusively with orthogonal TTN. Note that because of the gauge freedom 1, the parameter map τ is not injective. Each TTN θ can be mapped to an orthogonal TTN θ 1 P T through a process called 
+
+isometrization , such that τpθ q “ τpθ 1q. Therefore, considering only orthogonal TTN is not a restriction. 
+
+2.1.3 Quotient structure 
+
+Note that even if we restrict the domain of τ to T , it is still not injective. This is due to the fact that at each virtual link vt of the TTN, one can insert an orthogonal matrix Aptq P Opχt q
+
+and its inverse pAptqqT , which can be contracted with the two core tensors connected by this link, respectively. After this contraction, the parameters of the two tensors changed, without breaking the isometry condition or changing the result of τ (see Fig. 2a for a graphical rep-resentation). Formally, this remaining gauge freedom is characterized by an action of the Lie group [28 ]
+
+G “ t A “ p AptqqtPT ˚ : At P Opχt qu . (2) We can take the quotient of T with respect to this Lie group to obtain the quotient manifold 
+
+T {G with associated quotient map π : T Ñ T {G that maps all parameters θ P T that are equivalent under G to the same representative rθ s P T {G. Strictly speaking, in order for T {G
+
+to be a formal quotient manifold one has to restrict T to only include tensors of full multilinear rank towards virtual links [28, 24 ]. As this does not affect our discussion, to lighten notation, we omit this technical detail. Moreover, in the following, whenever we write θ P T , we silently assume that θ fulfills those rank constraints. If we push the parameter map to the quotient space ˆ τ : T {G Ñ Rd1ˆ¨¨¨ˆ dnˆdout , satisfying τ “ ˆτ ˝ π, it finally becomes injective (see Fig. 2b) 
+
+[24 ]. This is desirable for optimization, however, it is important to note that the quotient space is an abstract space that is only useful in theory and the elements rθ s cannot directly be represented numerically. Nevertheless, it is still useful to study optimization on T {G, which ultimately produces practical iteration rules in T .Most importantly, we want to identify those directions in Tθ T that also lie in the tan-gent space of Trθ sT {G, as those directions are invariant under the action of G and therefore influence Θ “ τpθ q. The subspace containing the irrelevant directions is called the vertical space V θ T Ă Tθ T , whereas any complementary subspace in Tθ T is called the horizontal space Hθ T Ă Tθ T . There are multiple valid choices for horizontal spaces of T , but we will only consider the simplest variant throughout, the Cartesian horizontal space Hθ T “
+
+˜ ą 
+
+> tPT˚
+
+HBptq St pχt L χtR , χt q
+
+¸
+
+ˆ RχNL χNR ˆdout , (3) that is again given by the Cartesian product of the individual horizontal spaces, where the canonical horizontal space of St pn, kq is given by 
+
+HX St pn, kq “ t V P Rnˆk : X T V “ 0u .We can relate tangent vectors of the quotient space to vectors in the horizontal space through the horizontal lift lift θ : Trθ sT {G Ñ Hθ T . Furthermore, we equip T with the metric 
+
+ρθ : Tθ T ˆ Tθ T Ñ R, ρθ pξ, ηq “ ÿ
+
+> tPT
+
+xδBptq|δCptqy “ ÿ
+
+> tPT
+
+δBptq   
+
+> vt LvtRvt
+
+δCptq   
+
+> vt LvtRvt
+
+, (4)    
+
+> 1This refers to the fact that at each virtual link one can insert an invertible matrix Aand its inverse A´1, which can be used to alter the individual core tensors of the tensor network without affecting the result of the parameter map.
+
+5a) b) Figure 2: Illustration of the gauge freedom of orthogonal TTN and the corresponding quo-tient space. a) A given orthogonal TTN θ can be altered via the action of A P G by inserting pairs of orthogonal matrices Aptq, pAptqqT (red and orange, respectively) at each virtual link vt ,that change the original core tensors (blue) when contracted, without breaking the isometry constraint or changing the encoded full tensor Θ “ τpθ q (dark blue). b) All possible represen-tatives θ P T that are mapped to the same full tensor by τ are represented by a single abstract element rθ s P T {G in the quotient space. where ξ “ p δBptqqtPT and η “ p δCptqqtPT , respectively. Importantly, this also induces a Rie-mannian metric ˆ ρ on Trθ sT {G through horizontal lifts: ˆρrθ s : Trθ sT {G ˆ Trθ sT {G Ñ R, ˆρrθ sp ˆξ, ˆ ηq “ ρθ plift θ p ˆξq, lift θ p ˆηqq . (5) Thus both pT , ρq and pT {G, ˆ ρq are Riemannian manifolds. 
+
+2.1.4 Projectors and retractions 
+
+General vectors in Euclidean space E can be projected onto the tangent space and the hori-zontal space of T with the orthogonal projectors Proj θ : E Ñ Tθ T and Proj H 
+
+> θ
+
+: E Ñ Hθ T ,respectively. Both projectors leave the root tensor invariant and project the other core tensors to the respective spaces of the Stiefel manifold, with PX : Rnˆk Ñ TX St pn, kq given by 
+
+PX pV q “ V ´ 12 X `X T V ` V T X ˘
+
+and PHX : Rnˆk Ñ HX St pn, kq, given by 
+
+PHX pV q “ p 1 ´ X X T qV.Furthermore, we need a formalism to move from a point θ P T to a new point θ 1 P T along the direction of a tangent vector δθ P Tθ T . This operation is called a retraction Rθ : Tθ T Ñ T ,
+
+pθ , δθ q Þ Ñ Rθ pδθ q “ θ 1, and will be an important part of every iterative optimization algo-rithm. One possible retraction for T we have already mentioned, namely the isometrization of TTN. After adding δθ to θ componentwise, the result is simply re-isometrized to project it back to T . Apart from this, retracting each tensor except for the root individually is also a retraction on T since it is a Cartesian product of manifolds. Thus, we can use all retractions for the Stiefel manifold such as the Polar retraction R polar  
+
+> X
+
+: TX St pn, kq Ñ St pn, kq, pX , δX q Þ Ñ U V T with singu-lar value decomposition of X ` δX “ UΣV T or the QR-retraction R QR  
+
+> X
+
+: TX St pn, kq Ñ St pn, kq,
+
+pX , δX q Þ Ñ Q with QR-decomposition of X ` δX “ QR .A computationally viable tool to move tangent vectors from point θ P T to a new point 
+
+θ 1 P T is vector transport . A vector transport for tangents ξ P Tθ T is given by VT   
+
+> θÑθ1
+
+: Tθ T Ñ Tθ 1 T , Vθ Ñθ 1 pξq “ Proj θ 1 pξq, (6) 6and a suitable vector transport for ξ P Hθ T reads VT {G   
+
+> θÑθ1
+
+: Hθ T Ñ Hθ 1 T , VH   
+
+> θÑθ1
+
+pξq “ Proj H  
+
+> θ1
+
+pξq. (7) This second vector transport is also compatible with the quotient, i.e. D πpθ 1q ˝ VT {G   
+
+> θÑθ1
+
+˝ lift θ is a vector transport on T {G.
+
+2.1.5 Optimization function and Riemannian gradient 
+
+The last ingredient we need is the Euclidean gradient and a mapping to the Riemannian gra-dient. In this work, we consider optimization functions f : T Ñ R of the form f “ L ˝ τ,with a loss function L : Rd1ˆ¨¨¨ˆ dnˆdout Ñ R. More specifically, we will do supervised learning following [14, 31 ], where a sample x P Rn is encoded in a higher dimensional space through a feature map 
+
+φpxq “ φp1qpx1q b ¨ ¨ ¨ b φpnqpxnq,that is composed of local feature maps φpiq : R Ñ Rdi . The model response is defined as 
+
+φpN q 
+
+> j
+
+“ τpθ qi1,..., in, j φpxqi1,..., in .For a labeled data set px k, y kqmk“1 and the squared error loss function, the optimization function takes the form f pθ q “ Lpτpθ qq “ 1
+
+> m
+
+řmk }Φpx k, θ q ´ y k}2, where Φpx, θ q “ φpN q P Rdout .To compute the Euclidean gradient, we can use the backpropagation algorithm that stores intermediate results in the forward propagation , i.e., the computation of the loss, that are then reused in the gradient calculation which uses the chain rule to propagate the gradient back. In the forward propagation, we want to compute the response φpN q for a given TTN θ without actually constructing τpθ q. To this end, we compute 
+
+φptq 
+
+> vt
+
+“ Bptq   
+
+> vt LvtRvt
+
+φpt L q 
+
+> vt L
+
+φptRq 
+
+> vtR
+
+(8) recursively @t P T , starting from the leaf nodes (see Fig. 3a). All intermediate results φptq,
+
+t P T ˚ are stored as they are needed later for the backpropagation. The final result at the root node is equal to the response φpN q. With this we can also compute the derivative of the loss with respect to the response ¯φpN q 
+
+> j
+
+:“ BL
+
+BφpN q
+
+> j
+
+.For the backpropagation, we can apply the chain rule to Eq. 8, which yields ¯Bptq   
+
+> vt LvtRvt
+
+:“ BL
+
+BBptq  
+
+> vt LvtRvt
+
+“ ¯φptq 
+
+> vt
+
+φptRq 
+
+> vtR
+
+φpt L q 
+
+> vt L
+
+(9) for the TTN tensors and ¯φpt L q 
+
+> vt L
+
+:“ BL
+
+Bφpt L q
+
+> vt L
+
+“ Bptq  
+
+> vt LvtRvt
+
+¯φptq 
+
+> vt
+
+φptRq 
+
+> vtR
+
+(10) ¯φptRq 
+
+> vtR
+
+:“ BL
+
+BφptRq
+
+> vtR
+
+“ Bptq  
+
+> vt LvtRvt
+
+¯φptq 
+
+> vt
+
+φpt L q 
+
+> vt L
+
+. (11) for the intermediate results, which now need to be computed in reverse order starting from the root node (see Fig. 3b). The derivatives of the input ¯φpiq, i “ 1, . . . , n are not needed and can be skipped. The full Euclidean gradient is then given by assembling the individual derivatives 
+
+∇ f pθ q “ p ¯BptqqtPT P E.7a) b) Figure 3: a) Forward propagation. At each node t, the corresponding features φpt L q and φptRq
+
+(here in red) are contracted with the tensor Bptq (in blue), which results in a new feature vector 
+
+φptq (Eq. 8). This feature vector serves as one of the inputs for the parent node in the next layer, indicated by the gray arrow. The final result of the root node φpN q (the response) is used to compute the loss L. b) Backpropagation. The derivative of the loss w.r.t. the response ¯φpN q
+
+(depicted in dark blue) is inserted into Eq. 9-11 to compute ¯φpt L q (left), ¯ Bptq (center, resulting in the orange tensor) and ¯φptRq (right), where the intermediate results (red) are reused from the forward propagation. ¯φpt L q and ¯φptRq are propagated to the nodes in the lower layer where they are needed for the computation of ¯ Bptq. The three orange tensors constitute the Euclidean gradient ∇ f .Note, that as an alternative to Equations (9–11), one can also use automatic differentiation to compute the Euclidean gradient. Finally, the Riemannian gradient on T is given by the projection of the Euclidean gradient 
+
+∇ f to the tangent space, since T is a Riemannian submanifold of E: grad f pθ q “ Proj θ p∇ f pθ qq .The Riemannian gradient grad f pθ q is already the right update direction for Riemannian gra-dient descent formulated on T , however it does not adequately represent the Riemannian gradient of the quotient space T {G with respect to metric ˆ ρ. This quotient gradient lifted to 
+
+T is actually equal to the projection of grad f to the horizontal space lift θ pgrad ˆf pr θ sqq “ Proj H 
+
+> θ
+
+pgrad f pθ qq “ Proj H 
+
+> θ
+
+p∇ f pθ qq , (12) with ˆf : T {G Ñ R, ˆf “ L ˝ ˆτ. The second identity holds since Hθ T Ă Tθ T . Optimizing according to update directions (12) on T implicitly represents an optimization in T {G [24 ].
+
+2.2 Adaptive Riemannian optimization 
+
+Adaptive schemes in optimization on Euclidean spaces work by accumulating information of past iterates to coordinate-wisely rescale the gradient of the current iterate. Given an optimiza-tion function f : Rn Ñ R and an initial iterate w0 “ p wp1q 
+
+> 0
+
+, . . . , wpnq 
+
+> 0
+
+q P Rn, adaptive schemes iterate according to 
+
+wpiq 
+
+> k`1
+
+“ wpiq 
+
+> k
+
+´ αhpgpiq 
+
+> 0
+
+, . . . , gpiq 
+
+> k
+
+q ¨ gpiq
+
+> k
+
+where gk “ ∇ f pwkq and α is some step-size. While ´αgpiq 
+
+> k
+
+represents the plain standard gradi-ent descent update direction, the real-valued function h introduces a coordinate-wise rescaling over past gradients. More advanced adaptive algorithms such as ADAM [5] also make use of stabilized update directions, replacing ´αgpiq 
+
+> k
+
+with ´αmpiq 
+
+> k
+
+, where mk “ β mk´1 ` p 1 ´ βqgk is the momentum for some decay parameter β P p 0, 1 q. Those two strategies can yield enormous 8improvements over standard gradient descent, in particular in stochastic optimization settings where gk are gradient estimates that are sparse but possibly instable. Extending this mechanism to Riemannian optimization is no trivial feat, since manifolds do not come with an intrinsic coordinate representation. Here we focus on the techniques presented in [32 ], which apply to the case of a Riemannian manifold pM, ρq, that factors into a Cartesian product of Riemannian manifolds pMpiq, ρpiqq:
+
+M “
+
+> n
+
+ą
+
+> i“1
+
+Mpiq, ρ “
+
+> n
+
+ÿ
+
+> i“1
+
+ρpiq. (13) Points w P M may be written as w “ p wp1q, . . . , wpnqq, where wpiq P Mpiq and tangent vectors 
+
+δw P TwM separate as δw “ p δwp1q, . . . , δwpnqq, where δwpiq P Twpiq Mpiq. The individual components serve as block coordinates in adaptive Riemannian schemes, so one iterates 
+
+wk`1 “ Rwk
+
+´
+
+p´ αhpgpiq 
+
+> 0
+
+, . . . , gpiq 
+
+> k
+
+q ¨ gpiq 
+
+> k
+
+qi“1,..., n
+
+¯
+
+,where gk “ p gp1q 
+
+> k
+
+, . . . , gpnq 
+
+> k
+
+q “ grad f pwkq. To ensure compatibility with the manifold structure, the update direction goes through a retraction R on M, and of course h has to be adapted to act on block-coordinates instead. This framework additionally allows the incorporation of momentum-based updates by employing a vector transport V on M via 
+
+mk “ β Vwk´1Ñwk pmk´1q ` p 1 ´ βqgk,which is commonly used in Riemannian versions of ADAM [32 ].Notably, the above block-coordinate formulas also captures the MUON optimizer [6], which is an adaptive optimizer for the hidden layers of neural networks. It comprehends each weight matrix W piq and corresponding gradient Gpiq as a separate block-coordinate, effectively impos-ing a Cartesian product of matrix spaces Mpiq “ Rχin   
+
+> iˆχout
+> i
+
+, where pχin  
+
+> i
+
+, χout  
+
+> i
+
+q is the dimension of the layer i. MUON introduces adaptiveness by orthogonalizing each update matrix Gpiq
+
+individually using the polar decomposition. In its most basic form it iterates according to 
+
+W piq 
+
+> k`1
+
+“ W piq 
+
+> k
+
+´ α qf pGpiq 
+
+> k
+
+q,where qf p¨q refers to the orthogonal factor of the polar decomposition. This update formula manages without a retraction because the considered matrix spaces are Euclidean. 
+
+2.3 Riemannian distance over gradients 
+
+Tuning the learning rate α for stochastic optimizers to a given machine learning task can rep-resent a considerable overhead, both when developing and deploying models. Distance over gradients (DOG) [7] provides a tuning-free dynamic step-size formula for stochastic gradient descent and it was extended to optimization on manifolds in [33 ]. Concretely, on a Rieman-nian manifold pM, ρq with sectional curvature κ, a step-size schedule is given by 
+
+αk “ rk
+
+b
+
+ζκprkq řkk1“0 || gk1 || 2
+
+> ρ
+
+, rk “ max  
+
+> k1ăk
+
+dpw0, wk1 q (14) where gk “ grad f pwkq. The expression dpx0, xkq is the geodesic distance between the initial and k-th iterate. The geometric curvature function ζκ is included to accommodate for manifolds of negative sectional curvature and it reads 
+
+ζκprq “ 
+
+$&%
+
+> r
+
+?|κ|
+
+> tanh pr
+
+?|κ|q if κ ă 0, 1 otherwise. 9Formula (14) is applicable to stochastic Riemannian gradient descent xk`1 “ Rxk p´ αk gkq of a geodesically convex function f . In practical application, the numerator of (14) is taken at least ϵ P p 0, 1 q, which represents an initial estimate of the step-size and is used to avoid step-sizes of magnitude zero. While this may seem like an additional hyperparameter, numerical experiments show that DOG-like algorithms react very insensitively to the choice of ϵ [33 ].Importantly, DOG requires the evaluation of the geodesic distance defined as 
+
+dpx, yq “ min  
+
+> γ
+
+Lpγq “ min 
+
+> γ
+
+ż ba
+
+ργpsqpγ1psq, γ1psqq 12 ds,which is the minimum length of all curves γ : ra, bs Ñ M connecting γpaq “ x and γpbq “ y,and the minimizer will be a geodesic on M. We quickly recapitulate results that exists for the Stiefel and Grassmann manifolds. A closed form solution for geodesic distances on St pn, kq
+
+does not exist, but [25 ] provides a lower bound. For matrices X , Y P St pn, kq it holds that 
+
+dSt pX , Y q ě qkp} X ´ Y }F q :“ 2?k arcsin 
+
+ˆ }X ´ Y }F
+
+2?k
+
+˙
+
+. (15) The sectional curvature of the Stiefel manifold is bounded from below by ´ 12 [34, Thm. 10 ].The Grassmann manifold forms as the quotient Gr pn, kq “ St pn, kq{ Opkq of the Stiefel man-ifold with the orthogonal group. It hence contains equivalence classes rX s “ t X Q : Q P Opkqu 
+
+of matrices X P St pn, kq whose columns form an orthonormal basis for the same k-dimensional subspace of Rn. An expression for the geodesic distance [35, Section 5.1 ] in terms of Stiefel representatives X , Y P St pn, kq of rX s, rY s P Gr pn, kq reads 
+
+dGr pr X s, rY sq “ 
+
+dÿ
+
+> i
+
+arccos pσi pX T Y qq 2.Here, σi refers to the i-th singular value. The sectional curvature of the Grassmann manifold is non-negative [35, Prop. 12 ].
+
+# 3 Tools 
+
+3.1 Adaptive optimization of TTNs 
+
+The developments of Section 2.2 directly apply to optimization on the TTN-manifold T . Equa-tions (1) and (4) together attest that pT , ρq fits into the framework (13), where the individual core tensors Bptq of the TTN θ “ p BptqqtPT are comprehended as block coordinates for adaptive Riemannian schemes. Tangent vectors ξ “ p δBptqqtPT , η “ p δCptqqtPT in Tθ T also represent block-coordinate variations and the metric ρ acts separably on those variations. Optimization on the quotient T {G however does not immediately comply with the pro-posed mechanism of adaptivity, as T {G intrinsically couples all nodes of the network and does not factor into a Cartesian product of manifolds [24 ]. Still any element rθ s P Tθ T {G can be identified with a representative θ “ p BptqqtPT , that reads as a tuple of block coordinates. Whats more, both the quotient tangents and the quotient metric can be lifted uniquely to the total space, where they decompose as tensor-wise expressions: lift θ p ˆξq “ p δBptqqtPT P Hθ T , ˆρrθ sp ˆξ, ˆ ηq “ ρθ plift θ p ˆξq, lift θ p ˆηqq “ ÿ
+
+> tPT
+
+xδBptq|δCptqy.Thus, the practical application of adaptive schemes on T {G is just as straightforward as it is on T , since optimization on T {G happens only implicitly anyway through representatives 
+
+θ P T and horizontal lifts of the quotient gradient (12). In the next section we will present several algorithms, like Riemannian ADAM or Rie-mannian MUON, that employ adaptive schemes in the quotient optimization setting, to which 10 theoretical convergence guarantees like [32, Theorem 1 & 2 ] can be extended. In order to high-light how this may be done, we show convergence of Riemannian ADAGRAD in Appendix B. Being one of the simplest adaptive algorithms, this allows us to put particular focus on the peculiarities involving the TTN quotient. 
+
+3.2 Distance over gradients on TTN-manifolds 
+
+Both for optimization on T and optimization T {G, the main obstacle to achieve DOG-like algorithmic is the computation of the geodesic distance. We begin our considerations for T , where we again use that it factorizes as a Cartesian product of manifolds equipped with a product metric. For two points θ “ p BptqqtPT and 
+
+θ 1 “ p CptqqtPT it holds that 
+
+dT pθ , θ 1q2 “ ÿ 
+
+> tPT˚
+
+dSt pBptq, Cptqq2 ` || BpN q ´ CpN q|| 2 
+
+> F
+
+, (16) so using (15), the geodesic distance on T can be bounded by 
+
+dT pθ , θ 1q ě 
+
+d ÿ 
+
+> tPT˚
+
+qkt p|| Bptq ´ Cptq|| F q2 ` || BpN q ´ CpN q|| 2 
+
+> F
+
+,which we will use as a proxy for DOG-like algorithms. Compared to standard DOG, this will yield smaller, more conservative step-sizes, because we are underestimating rk in (14). Concerning geodesic distances on T {G, for two points rθ s, rθ 1s P T {G we consider a connecting geodesic ˆ γ : r0, 1 s Ñ T {G, as well as its horizontal lift γ to T , that satisfies 
+
+γ1psq P HγpsqT for all s P r 0, 1 s. By writing γp0q “ θ “ p BptqqtPT , γp1q “ θ 1 “ p CptqqtPT it holds that 
+
+dT {G pr θ s, rθ 1sq 2 “ ÿ 
+
+> tPT˚
+
+dGr pr Bptqs, rCptqsq 2 ` || BpN q ´ CpN q|| 2 
+
+> F
+
+. (17) For a detailed derivation, see Appendix A, where we use the fact that T {G shares its geodesic spray with a Cartesian product of Grassmann manifolds 
+
+Z “
+
+˜ ą 
+
+> tPT˚
+
+Gr pχt L χtR , χt q
+
+¸
+
+ˆ RχNL χNR ˆdout . (18) There is still a caveat for the practical application of (17). It only holds for a specific represen-tation θ 1 P T of rθ 1s P T {G, concretely for θ 1 “ γp1q, the endpoint of the horizontal lift of the geodesic connecting rθ s and rθ 1s, to which we do not have access in general. Indeed, picking a different representative ˜θ 1 with πp ˜θ 1q “ r θ 1s will in general produce a different result when evaluating (17). Note however that the application of DOG algorithms (14) only requires the geodesic distances between iterates, which transform into each other through repeated application of retractions. Using the exponential map (A.1) on T {G as a retraction ensures that iterates remain in compatible representations. On the other hand, any other retraction produces first-order approximations of geodesics on the quotient, so it is safe to assume that the representations we obtain do not deviate far from their "correct" geodesic representation. Thus, equation (17) still applies as an approximation for arbitrary retractions. 
+
+# 4 Algorithms 
+
+4.1 RADAM 
+
+The Riemannian ADAM algorithm (RADAM) for TTNs is presented as Algorithm 1 and obtained as an application of [32, Alg. 1] to TTNs. Importantly, it covers both optimization on the 11 Figure 4: Even though T {G does not factor, iterates rθ s and update directions ˆξ can be lifted to a point θ “ p BptqqtPT P T and a direction ξ “ p BptqqtPT P Hθ T that factors. Furthermore, geodesics ˆ γ P T {G ascend to horizontal paths in pγt qtPT P T which, at non-root nodes, descend to geodesics ˜ γt P Gr pχt L χtR , χt q. No quotient is taken at the root node, which resides in a Euclidean space, and where geodesics simplify to straight lines anyway. total space T , as well as optimization on the quotient T {G. Optimization on the quotient happens only implicitly by using representatives and update directions from the total space and is achieved by picking the tuple of projector and vector transport as pP, V q “ p Proj H , V T {G q
+
+according to (7). By instead picking pP, V q “ p Proj, V T q as in (6), the quotient structure is ignored and the iteration happens entirely in the total space. Here, fk are function oracles of function f given by evaluating the loss only on a random batch of training data. 
+
+Algorithm 1 RADAM for TTNs 
+
+Require: θ1 “ p Bptq 
+
+> 1
+
+qtPT P T , learning rate α,decay parameters β1, β2 P p 0, 1 q, projector P , retraction R, vector transport V Set m0 “ p 0qtPT , v0 “ p 0qtPT
+
+for k “ 1, 2, . . . do 
+
+pGptq 
+
+> k
+
+qtPT “ Pp∇ fkpθkqq 
+
+for t P T do 
+
+mptq 
+
+> k
+
+“ β1mptq 
+
+> k´1
+
+` p 1 ´ β1qGptq
+
+> k
+
+vptq 
+
+> k
+
+“ β2 vptq 
+
+> k´1
+
+` p 1 ´ β1qx Gptq 
+
+> k
+
+| Gptq 
+
+> k
+
+y
+
+δBptq 
+
+> k
+
+“ ´ α mptq 
+
+> k
+
+{
+
+b
+
+vptq
+
+> k
+
+end for 
+
+θk`1 “ Rθk pp δBptq 
+
+> k
+
+qtPT q
+
+mk`1 “ Vθk Ñθk`1 pmkq
+
+end for Algorithm 2 RDOG for TTNs 
+
+Require: θ1 “ p Bptq 
+
+> 1
+
+qtPT P T , step-size esti-mate ϵ, projector P , retraction R, geodesic distances pdptqqtPT
+
+Set r0 “ p ϵqtPT , n0 “ p 0qtPT ,
+
+for k “ 1, 2, . . . do 
+
+pGptq 
+
+> k
+
+qtPT “ Pp∇ fkpθkqq 
+
+for t P T do 
+
+nptq 
+
+> k`1
+
+“ nptq 
+
+> k
+
+` x Gptq 
+
+> k
+
+| Gptq 
+
+> k
+
+y
+
+δBptq 
+
+> k
+
+“ ´ rptq 
+
+> k
+
+Gptq 
+
+> k
+
+{
+
+b
+
+ζκprptq 
+
+> k
+
+qnptq
+
+> k
+
+end for 
+
+θk`1 “ Rθk pp δBptq 
+
+> k
+
+qtPT q
+
+for t P T do 
+
+rptq 
+
+> k`1
+
+“ max trptq 
+
+> k
+
+, dptqpBptq 
+
+> 0
+
+, Bptq 
+
+> k
+
+qu 
+
+end for end for 
+
+4.2 RDOG 
+
+Algorithm 2 presents an adaptive version of Riemannian distance over gradients (RDOG) for TTNs. It is similar to layer-wise DOG [7, Section 4 ], in that it keeps a separate tracker of distance rptq 
+
+> k
+
+for each core tensor t P T , as opposed to a single distance for the whole tensor network. Since both for (16) and (17), the total geodesic distances form as the norm of node-wise distances, adaptive RDOG employs exactly those node-wise distances denoted by 12 pdptqqtPT . For our experiments, we pick dpN qpBptq, Cptqq “ } Bptq ´ Cptq}F at the root tensor, but differ in 
+
+dptqpBptq, Cptqq “ 
+
+#
+
+dGr pπGr pBptqq, πGr pCptqqq on T {G,
+
+qkt p} Bptq ´ Cptq}F q on T , for all t P T ˚. (19) Like for RADAM, the projector P is chosen accordingly, depending on whether we optimize on 
+
+T or T {G.
+
+4.3 RMUON 
+
+We present two Riemannian versions of the MUON optimizer for TTNs. Algorithm 3 combines MUON updates with momentum, whereas Algorithm 4 feeds MUON updates into a DOG-like scheme. Recall that MUON takes steps according to orthogonal parts of gradient components. Since 
+
+T forms as a Cartesian product of matrix manifolds, that is, all tensors in a tree tensor net-work can canonically be reshaped into a matrices, node-wise gradients may be orthogonalized according to the polar decomposition to mimic MUON behavior. These orthogonalized direc-tions are even compatible with the quotient T {G: As seen in [27 ] for any δX P HX St pn, kq, it holds that qf pδX q P HX St pn, kq as well. Thus, when picking pP, V q “ p Proj H , V T {G q according to (7), all update steps of Algorithms 3 & 4 will reside in Hθk T and descend to well-formed updates in Trθk sT {G. Again, by employing pP, V q “ p Proj, V T q as in (6) instead, the iteration happens entirely in T , ignoring the quotient. 
+
+Algorithm 3 RMUON for TTNs 
+
+Require: θ1 “ p Bptq 
+
+> 1
+
+qtPT P T , learning rate α,decay parameter β1 P p 0, 1 q, projector P , re-traction R, vector transport V Set m0 “ p 0qtPT
+
+for k “ 1, 2, . . . do 
+
+pGptq 
+
+> k
+
+qtPT “ Pp∇ fkpθkqq 
+
+for t P T do 
+
+mptq 
+
+> k
+
+“ β1mptq 
+
+> k´1
+
+` p 1 ´ β1qGptq
+
+> k
+
+δBptq 
+
+> k
+
+“ ´ α qf pmptq 
+
+> k
+
+q
+
+end for 
+
+θk`1 “ Rθk pp δBptq 
+
+> k
+
+qtPT q
+
+mk “ Vθk Ñθk`1 pmkq
+
+end for Algorithm 4 RMUONDOG for TTNs 
+
+Require: θ1 “ p Bptq 
+
+> 1
+
+qtPT P T , step-size esti-mate ϵ, projector P , retraction R, geodesic distances pdptqqtPT
+
+Set r0 “ p ϵqtPT , n0 “ p 0qtPT
+
+for k “ 1, 2, . . . do 
+
+pGptq 
+
+> k
+
+qtPT “ Pp∇ fkpθkqq 
+
+for t P T do 
+
+nptq 
+
+> k`1
+
+“ nptq 
+
+> k
+
+` x qf pGptq 
+
+> k
+
+q | qf pGptq 
+
+> k
+
+qy 
+
+δBptq 
+
+> k
+
+“ ´ rptq 
+
+> k
+
+qf pGptq 
+
+> k
+
+q{ 
+
+b
+
+ζκprptq 
+
+> k
+
+qnptq
+
+> k
+
+end for 
+
+θk`1 “ Rθk pp δBptq 
+
+> k
+
+qtPT q
+
+for t P T do 
+
+rptq 
+
+> k`1
+
+“ max trptq 
+
+> k
+
+, dptqpBptq 
+
+> 0
+
+, Bptq 
+
+> k
+
+qu 
+
+end for end for 
+
+# 5 Numerical Experiments 
+
+To numerically evaluate the proposed methods, they are implemented using the pytorch 
+
+framework, which allows for automatic differentiation to calculate Euclidean gradients ∇ fkpθ q
+
+of the objective function on random mini-batches. The objective f “ L ˝ τ is given by the squared error loss and the batch size is fixed to 256 throughout our considerations. Initial parameters θ1 P T were found using the unsupervised construction algorithm introduced in 
+
+[29 ]. On a given architecture, the same initial iterate was used for all optimizers. Learning 13 0 5 10 15 20 25 30     
+
+> Epoch
+> 10 −1
+> 10 0
+> Loss / Test Accuracy 0500 1000 1500 2000
+> Training Time (s)
+> 10 −1
+> 10 0
+> ADAM RADAM RMUON RDOG RMUONDOG
+
+Figure 5: Comparison of the different Riemannian optimizers and the conventional ADAM optimizer through loss (solid) and accuracy (dashed) over epochs (left) and time (right) for the Fashion MNIST dataset. rates / step-size estimates were found by conducting a simple grid-search as summarized in the following table, whereas momentum-related hyperparameters remain fixed at β1 “ 0.9, 
+
+β2 “ 0.999. dataset αADAM αRADAM αRMUON ϵRDOG ϵRMUONDOG 
+
+Fashion MNIST 0.001 0.03 0.007 0.1 0.1 CIFAR10 0.001 0.02 0.005 0.1 0.05 Imagenette 0.001 0.02 0.005 0.02 0.05 For Riemannian optimizers, we componentwisely use the recently proposed POGO algorithm 
+
+[26 ] as retraction. It can be understood as an approximation to the polar retraction, that does not enforce strict orthogonality every step, but instead remains close to the orthogonal manifold at all times, in favor of cheaper and more GPU-friendly iteration rules. Furthermore, we omit a detailed discussion of Riemannian algorithms that ignore the quotient structure: As seen in Fig. 11 in the appendix, they tend to perform very similarly but slightly worse than their quotient counterparts. All experiments were conducted on a NVIDIA A30 GPU in single-precision. 
+
+5.1 Fashion MNIST 
+
+As a first test, we use the Fashion MNIST dataset [36 ] that contains 60000 training- and 10000 test images with 28 ˆ 28 pixels and one channel each. As in [20, 37 ], we compress all images to 16 ˆ 16 pixels to reduce the number of features of the TTN model, as we will use each pixel directly as an input feature. The feature map we use to encode the pixels is given by [37 ]
+
+φpiqpxi q “ 1
+
+b
+
+1 ` x2
+
+> i
+
+ˆ 1
+
+xi
+
+˙
+
+,meaning that n “ 256 and d “ d1, ..., dn “ 2. For the Fashion MNIST dataset, we choose a maximum bond dimension of χmax “ 16. Fig. 5 shows the results of the different Riemannian optimizers and the conventional ADAM optimizer over 30 training epochs. Note that ADAM does not take the quotient structure into account and simply works with the unconstrained tensors of E. After 30 epochs, all optimizers achieve approximately the same test accuracy of „ 89%. The lowest training loss was achieved by RMUONDOG, followed closely by RADAM, ADAM & RMUON. RDOG shows the slowest 14 10 −1
+
+> 10 0
+> Retention Ratio
+> 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9
+> Test Accuracy
+> ADAM RADAM RMUON RDOG RMUONDOG
+
+(a) After three epochs. 10 −1 
+
+> 10 0
+> Retention Ratio
+> 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9
+> Test Accuracy
+
+(b) After four epochs. 
+
+Figure 6: Test accuracy for the Fashion MNIST dataset using compressed TTN models that were trained with different optimizers. The retention ratio of the compression is defined as the ratio of kept parameters to the original number of parameters. While the models that were trained with Riemannian optimizers in T can be heavily compressed without a significant drop of the test accuracy, this is not the case for the model trained with ADAM. Furthermore, one can see that the problem gets worse with each epoch, as the total norm of the TTN continues to grow and the TTN moves further away from the orthogonal initial parametrization. convergence behavior, but the final test accuracy is still comparable. In terms of runtime, ADAM is clearly in the lead, although the Riemannian optimizers perform competitively. At first glance, it seems as if optimizing on T and taking the quotient structure into ac-count does not bring a significant advantage, as ADAM outperforms most of the Riemannian optimizers without the additional overhead of projections and retractions. However, for many downstream tasks such as model compression or the computation of explainability measures the TTN must be orthogonal [18 ]. Thus, the TTN optimized by ADAM must first be orthogonal-ized, which accumulates the norm of all non-isometric parts of the tensors in the root tensor. Indeed Riemannian optimizers keep the total norm 2 || τpθ q|| F of the TTN model θ stable dur-ing training, while the norm explodes when optimizing with ADAM, exceeding the numerical range of float32 after just six epochs (see Fig. 12 in appendix). For inference this is not a problem since one can simply work with the numerically stable version θ P E that was learned. However, orthogonalizing this TTN can lead to numerical instabilities, which incur problems in downstream tasks. Fig. 6 demonstrates this using the example of model compression [18 ],which results in significantly worse compression accuracies for ADAM when compared to the models that were optimized in T . An explanation for this behavior is the fact that the compres-sion algorithm is based on singular value decompositions of the orthogonality center, which for ADAM is numerically unstable and possibly ill-conditioned due to the exploding norm. An-other example for a downstream task would be the computation of feature entropies (see e.g. 
+
+[18, 16 ]). It is algorithmically closely related to model compression and applying it to final iterates obtained by ADAM can be expected to yield unreliable values. 
+
+5.2 CIFAR10 & Imagenette 
+
+For the CIFAR10 [38 ] and Imagenette [39 ] datasets, we use a hybrid neural network - tensor network architecture, where the neural network acts as a feature extractor and the tensor network as the classification head. The main reason for this is that a full tensor network is not               
+
+> 2For orthogonal TTN θPT, the total norm || τpθq|| Fis equivalent to the norm of the root tensor || BpNq|| Fas the isometries simply cancel out. For general TTN θPEone can compute this quantity by orthogonalizing the TTN first.
+
+15 Feature extraction Tensor network head 
+
+> 3x3 conv, 32 3x3 conv, 64 3x3 conv, 64 Avg pool 3x8x8 64
+> CNN
+> 3x3 conv, 64
+
+Figure 7: CNN-TTN hybrid architecture as employed for CIFAR10 and Imagenette datasets. The CNN is applied to each patch separately and acts as a feature map for the TTN head. able to generalize well as it lacks the translational invariance that is necessary for this dataset. To preserve the explainability of the tensor network classifier, we need to make sure that the extracted features are meaningful and interpretable, which is not the case for standard neural network backbones. Thus, we divide the input image into p ˆ p patches , that are processed separately by the same convolutional neural network (CNN). This produces an embedding vector of dimension d “ 64 for each patch of the image, that will serve as the input for the tensor network classifier (see Fig. 7). The important distinction to conventional CNN feature extractors is that no information is exchanged between the individual patches, such that we can clearly trace back each feature vector to a well-defined region of the image. The exchange of information between the patches happens entirely in the tensor network, where one can analyze the learned patterns in a rigorous and precise manner (see e.g. [18, 16 ]). The exact architecture used for both datasets is summarized in the following table. dataset input res. patches p conv. layers sites n d χmax tree-depth Fashion MNIST 16 ˆ 16 N/A None 256 2 16 8CIFAR10 32 ˆ 32 4 ˆ 4 4 16 64 12 4Imagenette 160 ˆ 160 8 ˆ 8 8 64 64 32 6In all experiments, the CNN feature extractor is optimized simultaneously with the TTN. For the CNN itself, we employ the ADAM optimizer with standard parameters ( α “ 0.001, β1 “ 0.9 and β2 “ 0.999). In order to enrich the empirical data distribution, we augmented training images through random cropping, random erasing, and random horizontal flips. Inspecting Figs. 8 & 9 yields similar conclusions as for the Fashion MNIST dataset: Rie-mannian optimizers perform on par with ADAM in terms of test accuracy, with every optimizer reaching just above „ 80% for CIFAR10 and just below „ 80% for Imagenette, but ADAM is faster as it does not require projections or retractions. The adverse effect of ADAM on down-stream compression is considerably less severe in the case of CIFAR10, as seen in Fig. 10. We attribute this to the fact, that we used a smaller tensor network architecture for CIFAR10 than for Imagenette and Fashion-MNIST. In fact, the tree for the latter is twice as deep as for the former, which possibly amplifies numerical problems for algorithms that heavily rely on hi-erarchical structure of the network. This argument is supported by compression accuracies recovered from the model trained for Imagenette. Its larger depth renders the final iterate from ADAM incompressible. 16 0 5 10 15 20 25 30 
+
+Epoch    
+
+> 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0
+> Loss / Test Accuracy 050 100 150
+
+Training Time (s) 
+
+> 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0
+> ADAM RADAM RMUON RDOG RMUONDOG
+
+Figure 8: Comparison of optimizers through loss (solid) and accuracy (dashed) over epochs (left) and time (right) on the CIFAR10 dataset. 0 5 10 15 20 25 30 
+
+Epoch      
+
+> 0.4 0.5 0.6 0.7 0.8 0.9 1.0
+> Loss / Test Accuracy 0200 400 600 800 1000
+
+Training Time (s) 
+
+> 0.4 0.5 0.6 0.7 0.8 0.9 1.0
+> ADAM RADAM RMUON RDOG RMUONDOG
+
+Figure 9: Comparison of optimizers through loss (solid) and accuracy (dashed) over epochs (left) and time (right) on the Imagenette dataset. 10 −1
+
+> 10 0
+
+Retention Ratio 
+
+> 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8
+> Test Accuracy
+> ADAM RADAM RMUON RDOG RMUONDOG 10 −1
+> 10 0
+
+Retention Ratio 
+
+> 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8
+> Test Accuracy
+> ADAM RADAM RMUON RDOG RMUONDOG
+
+Figure 10: Test accuracy for the CIFAR10 (left) and Imagenette (right) using compressed mod-els that were trained for 30 epochs using different optimizers. Compressing the iterate ob-tained from ADAM is not possible: The model is rendered useless through orthogonalization alone. 17 6 Conclusion 
+
+In this work, we developed the theoretical framework for stochastic optimization on the man-ifold of orthogonal TTN for machine learning applications. Furthermore, we introduced a novel hybrid CNN-TTN framework that preserves the key advantages of tensor networks such as explainability and compressibility, while enabling the efficient processing of large-scale images. We compared different stochastic Riemannian optimizers against the conventional unconstrained Adam optimizer on three different image classification tasks. While the Rie-mannian optimizers are comparable to Adam in terms of convergence and generalization, the Riemannian optimizers learn a more numerically stable version for downstream tasks. The main problem with unconstrained optimization, especially for deep TTN, is that the fi-nal iterates can no longer be orthogonalized correctly. Most tensor network algorithms, includ-ing the computation of explainability measures and model compression, however, are based on orthogonalization. Since these methods are the key advantages of tensor networks over neural networks, the computational and algorithmic overhead of Riemannian optimization is usually justified. Furthermore, by exploiting a fast approximate POGO retraction for the Stiefel manifold that profits from GPU acceleration, we were able to significantly reduce the computational overhead. In general, there is still room for improvement in the computational efficiency of the Riemannian optimizers, and it remains to be seen whether the gap to uncon-strained optimization can be further narrowed so that the additional cost becomes negligible. Further analysis is also necessary in order to understand the origins of the numerical problems that arise from unconstrained optimization, and whether they can be remedied. If, for exam-ple, the instabilities of the orthogonalization can be traced back exclusively to the exploding norm of the root tensor, weight decay or other regularization methods could greatly improve stability. Another possibility would be to develop alternative algorithms for downstream tasks that do not rely on orthogonalization. Another interesting research direction would be to develop stochastic optimization schemes for TN with adaptive bond dimensions, similar to two-site DMRG methods that are widely used in quantum simulation. Not only would this essentially combine optimization and compres-sion into one process, but it also further reduces the number of hyperparameters that need to be tuned for the TTN and is shown to help escape local minima in ground state search [40 ].It is likely that this would aid generalization in the machine learning setting, as the model is incentivized to only use the truly relevant information. The main theoretical obstacle is that adapting the bond dimensions during optimization changes the manifold structure, so conventional Riemannian optimization methods do not apply anymore. Finally, combining the expressive power of neural networks with the interpretability and flexibility of tensor networks has great potential, well beyond image classification. Tensor-network methods have already been explored in settings ranging from high-energy data anal-ysis [16, 17 ] and SAR classification [18 ] to optimization problems in radiotherapy [41 ]. Ex-panding this approach to other applications and architectures could be a big step towards powerful yet transparent AI technologies. 
+
+# Acknowledgements 
+
+The authors would like to thank Tensor AI Solutions GmbH for supporting this work and pro-viding the code framework that allowed the numerical evaluation of our findings. 
+
+Author contributions M.S. and M.W. contributed in equal parts to this work. M.W. is re-sponsible for the theoretical developments; M.S. devised the hybrid CNN-TTN architecture and conducted the numerical experiments. A.U. supervised the mathematical formulation and the theoretical foundations. T.F. and M.T. coordinated the overall work and provided the 18 technical background and software on TN-machine learning. All authors contributed to the conceptualization and revision of the work. 
+
+Reproducibility statement To support reproducibility and verification, the full code used to evaluate our numerical findings will be released upon journal acceptance. 
+
+Funding information The work of M.S., M.T., M.W. and T.F. was supported by Tensor AI Solutions GmbH. The work of A.U. was supported by the Deutsche Forschungsgemeinschaft (DFG, German Research Foundation) – Projektnummer 506561557. 
+
+# A Geodesics of the TTN quotient 
+
+The TTN quotient is closely related to the Cartesian product Z of Grassmannians defined in (18). Indeed, Z is a group quotient to T , with the same Lie group (2) as employed for 
+
+T {G, but to a different Lie group action: one that acts tensorwise instead of coupling all tensors. We define the quotient map 
+
+πZ : T Ñ Z, pBptqqtPT Þ Ñ
+
+#
+
+πGr pBptqq for t P T ˚,
+
+Bptq else, where πGr : St pn, kq Ñ Gr pn, kq is the Grassmann quotient map. Importantly, this means that the vertical spaces corresponding to Z and T {G differ, but their horizontal distributions can be defined to coincide by taking the Cartesian horizontal space (3) in both cases. Based on this, we can derive an important relation between T {G and Z, as seen in the following theorem. 
+
+Theorem 1. Any geodesic ˆ γ : r0, 1 s Ñ T {G can be mapped to a geodesic ˜ γ : r0, 1 s Ñ Z of the same length, in such a way that both geodesics share the same representation in T , meaning there exists a horizontal curve γ : r0, 1 s Ñ T that satisfies πpγpsqq “ ˆγpsq and πZ pγpsqq “ ˜γpsq
+
+for all s P r 0, 1 s.
+
+Proof. Let ˆ γp0q “ r θ s and ˆ γp1q “ r θ 1s. Since geodesics are characterized as curves that lo-cally minimize length, we assume that Lpˆγq “ dT {G pr θ s, rθ 1sq . If this assumption is not met, subdivide ˆ γ into sufficiently short segments that each fulfill it, and apply the upcoming ar-gument to all segments. According to [42, Prop. II.3.1 ] for any representative θ P T of 
+
+rθ s, there exists a unique horizontal lift γ of ˆ γ which satisfies ˆ γpsq “ πpγpsqq , γp0q “ θ and 
+
+γ1psq “ lift γpsqpˆγ1psqq P HγpsqT . Since horizontal lifts of curves preserve lengths [43, Lem. 26.11.1 ], the curve γ will be the solution of min γ horizontal Lpγq. By the form of the horizontal space (3), for γ “ p γptqqtPT , each individual component except for the root is horizontal, mean-ing γ1ptqpsq P HγptqpsqSt pχt L χtR , χt q. As T forms as a Cartesian product (meaning that in partic-ular the Riemannian metric decouples) and since there are no coupling constraints between components of γ, each non-root component will be the solution of min γptq horizontal Lpγptqq with the corresponding endpoints and the root component of γ will solve min γpN q LpγpN qq. Thus, the γptq of each non-root node is a horizontal geodesic in St pχt L χtR , χt q. Since HγptqpsqSt is orthogonal to the vertical space associated with the Grassmannian, πGr pγptqq is a geodesic in Gr pχt L χtR , χt q [43, Lemma 26.11.4 ]. Applying this logic to all non-root components, shows that ˜ γpsq is a geodesic in Z, and its length evaluates as Lp˜γq “ Lpγq.At this point, we remind of the nuance concerning the full multilinear rank constraints of 
+
+T {G (see Section 2.1.3): Not all geodesics in Z lift to geodesics in T that satisfy it, meaning they have no correspondence in T {G. Thus the above argument cannot be reversed. Still, the equivalence of geodesics can also be constructed with the following high-level argument. If ∇
+
+is the Levi-Civita connection on T , then the Levi-Civita connection ∇Z on Z is given by lift Z p∇Z 
+
+> U
+
+V q “ Proj H p∇lift Z pUqlift Z pV qq 
+
+19 for U, V vector fields on Z. This follows since Hθ T is orthogonal to the vertical spaces cor-responding to Z [44, Thm. 9.34 ]. The same formula also yields a connection ∇T {G on T {G
+
+given by lift p∇T {G 
+
+> U
+
+V q “ Proj H p∇lift pUqlift pV qq 
+
+for U, V vector fields on T {G [24, Thm. 3 ]. Even though this connection has torsion, because geodesics only depend on the symmetric part of a connection, the geodesic spray of this con-nection will coincide with the Levi-Civita one of T {G. Thus it is clear that T {G and Z share the same geodesics, given through the same horizontal parametrization in T .This argument also implies that geodesic distances and exponential maps of T {G and Z
+
+share representations in T . Indeed, an important corollary of the above theorem is equa-tion (17). It can be found by employing that 
+
+Lpˆγq2 “ Lpγq2 “ ÿ 
+
+> tPT˚
+
+Lpγptqq2 ` LpγpN qq2,and plugging in the respective expressions for geodesic distances. Furthermore, we can con-clude that the exponential map on T {G is related to the Grassmann exponential map, which in term of Stiefel representatives reads Exp Gr  
+
+> X
+
+pδX q “ X V cos pΣqV T ` U sin pΣqV T ,where δX “ UΣV T is the compact SVD of δX P TX St pn, kq.
+
+Corollary 2. Let θ “ p BptqqtPT be a representative of rθ s P T {G and let the horizontal lift of ˆξ P Trθ sT {G be given by lift θ p ˆξq “ p δBptqqtPT . The exponential map on T {G reads Exp rθ s “ π ˝ RExp  
+
+> θ
+
+˝ lift θ , (A.1) where RExp  
+
+> θ
+
+plift θ p ˆξqq “ 
+
+#
+
+Exp Gr  
+
+> Bptq
+
+pδBptqq if t P T ˚,
+
+Bptq ` δBptq else. 
+
+Proof. Theorem 1 shows that when fixing a base point θ , any geodesic ˆ γ : r0, 1 s Ñ T {G can be mapped to a geodesic ˜ γ : r0, 1 s Ñ Z, such that both geodesics share the same representative 
+
+γ : r0, 1 s Ñ T at all points, meaning πpγpsqq “ ˆγpsq and πGr pγptqpsqq “ ˜γptqpsq for all s P r 0, 1 s.Furthermore if ˆ γ1p0q “ ˆξ, then γ1p0q “ lift θ p ˆξq “ p δBptqqtPT and ˜ γ1ptqp0q “ DπGr pBptqqr δBptqs
+
+for all t P T ˚. Because ˜ γ is a geodesic, it holds that ˜ γptqp1q “ Exp Bptq pDπGr pBptqqr δBptqsq .By lifting all components, we see that γp1q “ RExp  
+
+> θ
+
+pp δBptqqtPT q “ RExp  
+
+> θ
+
+plift θ p ˆξqq . Finally, going back to the TTN quotient, it holds that ˆ γp1q “ πpRExp  
+
+> θ
+
+plift θ p ˆξqqq . Thus by definition 
+
+π ˝ RExp  
+
+> θ
+
+˝ lift θ is the exponential map on T {G.
+
+# B Convergence of RADAGRAD 
+
+Let ˆf : T {G Ñ R, ˆf “ L ˝ ˆτ that is accessible through function oracles ˆfk by evaluating the loss only on a random batch of training data. In this section we present a proof of convergence for RADAGRAD on the TTN quotient manifold, by bounding the regret 
+
+RK “
+
+> K
+
+ÿ
+
+> k“1
+
+ˆfkpr θksq ´ ˆfkpr θ˚sq ,where rθ˚s “ argmin rθ sP T {G
+
+řKk“1 ˆfkpr θ sq is an oracle minimizer . The proof can be extended to cover more advanced algorithms like RADAMNC or RAMSGRAD by going along the lines of [32 ]. Here we focus on the less involved RADAGRAD to more clearly state the peculiarities concerning quotient optimization. We make the following assumptions: 20 Algorithm 5 RADAGRAD for TTNs 
+
+Require: θ1 “ p Bptq 
+
+> 1
+
+qtPT P T , learning rate α, projector P , retraction R Set v0 “ p 0qtPT
+
+for k “ 1, 2, . . . do 
+
+pGptq 
+
+> k
+
+qtPT “ Pp∇ fkpθkqq 
+
+for t P T do 
+
+vptq 
+
+> k
+
+“ vptq 
+
+> k´1
+
+` x Gptq 
+
+> k
+
+| Gptq 
+
+> k
+
+y
+
+δBptq 
+
+> k
+
+“ ´ α Gptq 
+
+> k
+
+{
+
+b
+
+vptq
+
+> k
+
+end for 
+
+θk`1 “ Rθk pp δBptq 
+
+> k
+
+qtPT q
+
+end for 
+
+(A1) The step-size α of Algorithm 5 satisfies α}Gptq 
+
+> 1
+
+}{ 
+
+b
+
+vptq 
+
+> 1
+
+ď π 
+
+> 2
+
+for all t P T ˚ and Gptq 
+
+> k
+
+remains bounded for t P T .(A2) Algorithm 5 runs employing the projector P “ Proj H and the retraction R “ RExp that descends to the exponential map on T {G.(A3) rθ˚s and all iterates rθks of Algorithm 5 reside in a compact and geodesically convex subset of T {G with diameter bounded by D8, and ˆf is geodesically convex on that subset. A few comments about the validity of the assumptions are in order. Assumption (A1) essen-tially requires that all gradients remain bounded, which is a standard assumption for regret-based convergence proofs. In this case, a step size α ą 0 can be found that satisfies the first condition. Assumption (A2) considers the exponential map as a retraction. Since other re-tractions on T {G actually match with the exponential map up to second order, Assumption (A2) is still satisfied in approximation for those. Finally, the existence of geodesically convex subsets on T {G on which ˆf is geodesically convex as required in (A3) can be guaranteed at least locally around points in which the Riemannian Hessian Hess ˆf is positive definite (see 
+
+[44 ] for a definition of the Riemannian Hessian). In the case of strongly convex loss functions 
+
+L like the L2 loss, an interesting case arises if the oracle minimizer rθ˚s provides a critical point of L. The following result is in analogy to [45, Theorem 2.11 ].
+
+Proposition 3. Let ˆf “ L ˝ ˆτ : T {G Ñ R and let L : Rd1ˆ¨¨¨ˆ dnˆdout Ñ R be a twice differen-tiable strongly convex function. Then Hess ˆf pr θ˚sq is positive definite at any point rθ˚s P T {G
+
+satisfying ∇Lpˆτpr θ˚sqq “ 0. 
+
+Proof. Define the space H – ˆτpT {Gq Ă Rd1ˆ¨¨¨ˆ dnˆdout as the manifold of tensors with fixed hierarchical rank pχt qtPT ˚ [28 ]. Let ˆ γ : r0, 1 s Ñ T {G be a geodesic on the quotient with ˆγp0q “ r θ˚s, and define Γ “ ˆτ ˝ ˆγ the respective curve in low-rank tensor manifold H, so we have the equality ˆf ˝ ˆγ “ L ˝ Γ . Then according to Taylor’s theorem on Riemannian mani-folds [44, Eq. 5.26 ], it holds that 
+
+p ˆf ˝ ˆγq2p0q “ ˆρˆγp0qpHess ˆf pˆγp0qqr ˆγ1p0qs , ˆ γ1p0qq ` ˆρˆγp0qpgrad ˆf pˆγp0qq , ˆ γ2p0qq ,where ˆ ρ denotes the quotient metric (5). Because ˆ γ is a geodesic, its velocity is constant, and the second term vanishes. We apply Taylor’s theorem again to find 
+
+pL ˝ Γ q2p0q “ x Γ 1p0q| Hess LpΓ p0qq| Γ 1p0qy ` x grad LpΓ p0qq| Γ 2p0qy .Here, in slight abuse of notation Hess L (resp. grad L) denotes the Riemannian Hessian (resp. gradient) of L restricted to H. Recall that ∇Lpˆτpr θ˚sqq “ 0. Since H is an embedded subman-ifold of Rd1ˆ¨¨¨ˆ dnˆdout equipped with the Euclidean metric [28 ], we can conclude from [44, 21 Prop. 3.61 ] that grad LpΓ p0qq “ 0 as well and from [44, Eq. 5.34 ] that Hess L coincides with the Euclidean Hessian H L on the respective tangent space of H at Γ p0q. By assumption, H L is positive definite, therefore Hess ˆf pˆγp0qq is positive definite as well. 
+
+Theorem 4. Let the iterates θ1, θ2, . . . , θK P T generated by Algorithm 5 be representatives of 
+
+rθ1s, rθ2s, . . . , rθK s P T {G. Under assumptions (A1-A3), the regret on the quotient is bounded by 
+
+RK “
+
+> K
+
+ÿ
+
+> k“1
+
+ˆfkpr θksq ´ ˆfkpr θ˚sq ď 
+
+˜ D2
+
+> 8
+
+2α ` α
+
+¸ ÿ
+
+> tPT
+
+gffe Kÿ
+
+> k“1
+
+}Gptq 
+
+> k
+
+}2 .For K Ñ 8 , this implies convergence of objective values in expectation. 
+
+Proof. Consider the iterates rθks, rθk`1s and the oracle minimizer rθ˚s. Their representa-tives are denoted by θk “ p Bptq 
+
+> k
+
+qtPT , θk`1 “ p Bptq
+
+> k`1
+
+qtPT and θ˚ “ p Bptq˚ qtPT . It holds that 
+
+θk`1 “ Rθk pp´ α Gptq 
+
+> k
+
+{p vptq 
+
+> k
+
+q1{2qtPT q, where pGptq 
+
+> k
+
+qtPT “ lift θk pgrad ˆf pr θksqq . Let ˆ γ : r0, 1 s Ñ T {G
+
+be a geodesic connecting rθks and rθ˚s. We denote γ the horizontal lift of ˆ γ, and we set 
+
+p∆ptq 
+
+> k
+
+qtPT “ γ1p0q “ lift θk pˆγ1p0qq P Hθk T . By employing the geodesic convexity of ˆf and lifting the metric we find that 
+
+> K
+
+ÿ
+
+> k“1
+
+ˆfkpr θksq ´ ˆfkpr θ˚sq ď 
+
+> K
+
+ÿ
+
+> k“1
+
+ˆρrθk sp´ grad ˆf pr θksq , ˆ γ1p0qq “ 
+
+> K
+
+ÿ
+
+> k“1
+
+ÿ
+
+> tPT
+
+x´ Gptq 
+
+> k
+
+|∆ptq 
+
+> k
+
+y. (B.1) We now let rBptq 
+
+> k
+
+s “ πGr pBptq 
+
+> k
+
+q, rBptq
+
+> k`1
+
+s “ πGr pBptq
+
+> k`1
+
+q and rBptq˚ s “ πGr pBptq˚ q. As seen in Theo-rem 1, any non-root component of γ descends to a geodesic πGr pγptqq on the Grassmannian Gr pχt L χtR , χt q, therefore 
+
+rBptq˚ s “ Exp rBptq 
+
+> ks
+
+pDπGr pBptq 
+
+> k
+
+qr ∆ptq 
+
+> k
+
+sq ,
+
+rBptq
+
+> k`1
+
+s “ Exp rBptq 
+
+> ks
+
+p´ α{p vptq 
+
+> k
+
+q1{2 DπGr pBptq 
+
+> k
+
+qr Gptq 
+
+> k
+
+sq .The second equality follows from the special choice of our retraction (A2). The geometric interpretation of the metric then yields 
+
+x´ α{p vptq 
+
+> k
+
+q1{2Gptq 
+
+> k
+
+|∆ptq 
+
+> k
+
+y “ ρGr  
+
+> rBptq
+> ks
+
+p´ α{p vptq 
+
+> k
+
+q1{2 DπGr pBptq 
+
+> k
+
+qr Gptq 
+
+> k
+
+s, D πGr pBptq 
+
+> k
+
+qr ∆ptq 
+
+> k
+
+sq “ dGr pr Bptq 
+
+> k
+
+s, rBptq
+
+> k`1
+
+sq dGr pr Bptq 
+
+> k
+
+s, rBptq˚ sq cos 
+
+´
+
+=Gptq 
+
+> k
+
+∆ptq
+
+> k
+
+¯
+
+.The Grassmann manifold is of non-negative sectional curvature [35, Prop. 4.1 ]. Thus, the cosine law known from Euclidean spaces directly extends, and we can write 2x´ α{p vptq 
+
+> k
+
+q1{2Gptq 
+
+> k
+
+|∆ptq 
+
+> k
+
+y ď dGr pr Bptq 
+
+> k
+
+s, rBptq˚ sq 2 ´ dGr pr Bptq
+
+> k`1
+
+s, rBptq˚ sq 2 ` dGr pr Bptq 
+
+> k
+
+s, rBptq
+
+> k`1
+
+sq 2
+
+“ dGr pr Bptq 
+
+> k
+
+s, rBptq˚ sq 2 ´ dGr pr Bptq
+
+> k`1
+
+s, rBptq˚ sq 2 ` α2{vptq 
+
+> k
+
+xGptq 
+
+> k
+
+|Gptq 
+
+> k
+
+y.In the last equality, we used Assumption (A1), and that the injectivity radius of the Grassmann manifold is π 
+
+> 2
+
+. (A1) applies to all iterates instead of only the first one, as }Gptq 
+
+> k
+
+}{ 
+
+b
+
+vptq 
+
+> k
+
+is a decreasing sequence. At the root node, which resides in a linear space, a similar consideration holds. Using the notation from (19), we can subsume 
+
+> K
+
+ÿ
+
+> k“1
+
+ÿ
+
+> tPT
+
+x´ Gptq 
+
+> k
+
+|∆ptq 
+
+> k
+
+y ď 
+
+> K
+
+ÿ
+
+> k“1
+
+ÿ
+
+> tPT
+
+pvptq 
+
+> k
+
+q1{2
+
+2α pdptqpBptq 
+
+> k
+
+, Bptq˚ q2 ´ dptqpBptq
+
+> k`1
+
+, Bptq˚ q2q` α
+
+2pvptq 
+
+> k
+
+q1{2
+
+}Gptq 
+
+> k
+
+}2.(B.2) 22 Recall that dptqpBptq 
+
+> k
+
+, Bptq˚ q2 ď ř 
+
+> tPT
+
+dptqpBptq 
+
+> k
+
+, Bptq˚ q2 “ dT {G pr θks, rθ˚sq 2 ď D2 
+
+> 8
+
+by (A3), which we can use to further bound the first term on the right side of (B.2). Since vptq 
+
+> 0
+
+“ 0 and vptq 
+
+> k
+
+is monotonically increasing, we can conclude that 
+
+ÿ
+
+> tPTK
+
+ÿ
+
+> k“1
+
+pvptq 
+
+> k
+
+q1{2
+
+2α pdptqpBptq 
+
+> k
+
+, Bptq˚ q2 ´ dptqpBptq
+
+> k`1
+
+, Bptq˚ q2q“ 12α
+
+ÿ
+
+> tPTK
+
+ÿ
+
+> k“1
+
+pp vptq 
+
+> k
+
+q1{2 ´ p vptq
+
+> k´1
+
+q1{2qdptqpBptq 
+
+> k
+
+, Bptq˚ q2
+
+ď 12α
+
+ÿ
+
+> tPTK
+
+ÿ
+
+> k“1
+
+pp vptq 
+
+> k
+
+q1{2 ´ p vptq
+
+> k´1
+
+q1{2qD2
+
+> 8
+
+“ D2
+
+> 8
+
+2α
+
+ÿ
+
+> tPT
+
+pvptq 
+
+> K
+
+q1{2 “ D2
+
+> 8
+
+2α
+
+ÿ
+
+> tPT
+
+gffe Kÿ
+
+> k“1
+
+}Gptq 
+
+> k
+
+}2 .(B.3) For the second term in (B.2), Auer’s lemma [46 ] yields that 
+
+ÿ
+
+> tPTK
+
+ÿ
+
+> k“1
+
+α
+
+2pvptq 
+
+> k
+
+q1{2
+
+}Gptq 
+
+> k
+
+}2 “ α
+
+2
+
+ÿ
+
+> tPTK
+
+ÿ
+
+> k“1
+
+}Gptq 
+
+> k
+
+}2
+
+břkj“0 }Gptq 
+
+> j
+
+}2
+
+ď α
+
+ÿ
+
+> tPT
+
+gffe Kÿ
+
+> k“1
+
+}Gptq 
+
+> k
+
+}2 . (B.4) Plugging (B.2), (B.3) & (B.4) into (B.1) yields the required result. 
+
+# C Additional numerical results 0 5 10 15 20 25 30     
+
+> Epoch
+> 0.3 0.4 0.5 0.6
+> Loss 050 100 150
+> Training Time (s)
+> 0.3 0.4 0.5 0.6 RADAM RMUON RDOG RMUONDOG
+
+Figure 11: Comparison of optimizers iterating on T (dashed) versus optimizers respecting the quotient T {G (solid), exemplified on the CIFAR10 dataset. Algorithms on T perform slightly worse in terms of final loss and test accuracy (not displayed). RADAM and RMUON are slightly faster on T {G because Proj H is cheaper than Proj, DOG-like algorithm are faster on T because the evaluation of qk is cheaper than dGr .23 0 5 10 15 20 25 30 
+
+> Epoch
+> 10 −3
+> 10 0
+> 10 3
+> 10 6
+> 10 9
+> 10 12
+> 10 15
+> 10 18
+> Norm
+> Fashion MNIST CIFAR10 Imagenette
+
+Figure 12: Development of the tensor norm }τpθkq} f for ADAM (solid) and RADAM (dashed). Exploding norms hint at numerical problems for algorithms that act on τpθ q, like compression. Riemannian optimizers (expemplified by RADAM) keep this norm stable. 
+
+# References 
+
+[1] Herbert Robbins and Sutton Monro. “A Stochastic Approximation Method”. In: The Annals of Mathematical Statistics 22.3 (1951), pp. 400–407. DOI : 10 . 1214 / aoms / 1177729586 .
+
+[2] Léon Bottou, Frank E. Curtis, and Jorge Nocedal. “Optimization Methods for Large-Scale Machine Learning”. In: SIAM Review 60.2 (2018), pp. 223–311. DOI : 10.1137/ 16M1080173 .
+
+[3] Nitish Shirish Keskar et al. “On Large-Batch Training for Deep Learning: Generaliza-tion Gap and Sharp Minima”. In: International Conference on Learning Representations (ICLR) . 2017. arXiv: 1609.04836 .
+
+[4] Chi Jin et al. “How to Escape Saddle Points Efficiently”. In: International Conference on Machine Learning (ICML) . 2017. DOI : 10.5555/3305381.3305559 .
+
+[5] Diederik P . Kingma and Jimmy Ba. “Adam: A Method for Stochastic Optimization”. In: 
+
+International Conference on Learning Representations (ICLR) . 2015. DOI : 10.48550/ arXiv.1412.6980 .
+
+[6] Jordan Keller. Muon: An optimizer for hidden layers in neural networks . https : / / kellerjordan.github.io/posts/muon . 2024. 
+
+[7] Maor Ivgi, Oliver Hinder, and Yair Carmon. DoG is SGD’s Best Friend: A Parameter-Free Dynamic Step Size Schedule . 2023. arXiv: 2302.12022 [cs.LG] .
+
+[8] Saeed Ghadimi and Guanghui Lan. “Stochastic First- and Zeroth-Order Methods for Nonconvex Stochastic Programming”. In: SIAM Journal on Optimization 23.4 (2013), pp. 2341–2368. DOI : 10.1137/120880811 .
+
+[9] Steven R. White. “Density Matrix Formulation for Quantum Renormalization Groups”. In: Physical Review Letters 69.19 (1992), pp. 2863–2866. DOI : 10.1103/PhysRevLett. 69.2863 .
+
+[10 ] Timo Felser and Simone Montangero. Introduction to Tensor Network Methods: From Many-Body Quantum Systems to Machine Learning . Cham: Springer, 2026. DOI : 10 . 1007/978-3-032-17635-6 .24 [11 ] Timo Felser et al. “Two-Dimensional Quantum-Link Lattice Quantum Electrodynam-ics at Finite Density”. In: Physical Review X 10.4 (2020), p. 041040. DOI : 10.1103/ PhysRevX.10.041040 .
+
+[12 ] Timo Felser, Simone Notarnicola, and Simone Montangero. “Efficient Tensor Network Ansatz for High-Dimensional Quantum Many-Body Problems”. In: Physical Review Let-ters 126.17 (2021), p. 170603. DOI : 10.1103/PhysRevLett.126.170603 .
+
+[13 ] Giuseppe Magnifico et al. “Lattice quantum electrodynamics in (3 +1)-dimensions at finite density with tensor networks”. In: Nature Communications 12 (2021), p. 3600. 
+
+> DOI
+
+: 10.1038/s41467-021-23646-3 .
+
+[14 ] E. M. Stoudenmire and David J. Schwab. “Supervised Learning with Tensor Networks”. In: Advances in Neural Information Processing Systems (NeurIPS) . 2016, pp. 4799–4807. 
+
+> DOI
+
+: 10.5555/3157382.3157634 .
+
+[15 ] Zhao-Yu Han et al. “Unsupervised Generative Modeling Using Matrix Product States”. In: Physical Review X 8.3 (2018), p. 031012. DOI : 10.1103/PhysRevX.8.031012 .
+
+[16 ] Timo Felser et al. “Quantum-inspired machine learning on high-energy physics data”. In: 
+
+npj Quantum Information 7.1 (2021), pp. 1–8. DOI : 10.1038/s41534-021-00443-w .
+
+[17 ] Lorenzo Borella et al. “Ultra-low latency quantum-inspired machine learning predictors implemented on FPGA”. In: Machine Learning: Science and Technology 6.4 (Dec. 2025), p. 045062. DOI : 10.1088/2632-2153/ae25b5 .
+
+[18 ] Maximilian Scharf et al. Quantum-Inspired Robust and Scalable SAR Object Classification .2026. arXiv: 2604.25755 [quant-ph] .
+
+[19 ] Stavros Efthymiou, Jack Hidary, and Stefan Leichenauer. TensorNetwork for Machine Learning . 2019. arXiv: 1906.06329 .
+
+[20 ] Hao Chen and Thomas Barthel. “Machine Learning With Tree Tensor Networks, CP Rank Constraints, and Tensor Dropout”. In: IEEE Transactions on Pattern Analysis and Machine Intelligence 46.12 (2024), pp. 7825–7832. DOI : 10.1109/TPAMI.2024.3396386 .
+
+[21 ] Alexander Novikov et al. “Tensorizing Neural Networks”. In: Advances in Neural Infor-mation Processing Systems (NeurIPS) . 2015, pp. 442–450. arXiv: 1509.06569 .
+
+[22 ] Curt Da Silva and Felix J. Herrmann. “Optimization on the Hierarchical Tucker manifold – applications to tensor completion”. In: Linear Algebra and its Applications 481 (2015), pp. 131–173. DOI : 10.1016/j.laa.2015.04.015 .
+
+[23 ] Markus Hauru, Maarten Van Damme, and Jutho Haegeman. “Riemannian optimization of isometric tensor networks”. In: SciPost Physics 10 (2021), p. 040. DOI : 10.21468/ SciPostPhys.10.2.040 .
+
+[24 ] Marius Willner, Marco Trenti, and Dirk Lebiedz. Riemannian Optimization on Tree Tensor Networks with Application in Machine Learning . 2025. arXiv: 2507.21726 [math.OC] .
+
+[25 ] Simon Mataigne, P .-A. Absil, and Nina Miolane. “Bounds on the geodesic distances on the Stiefel manifold for a family of Riemannian metrics”. In: Linear Algebra and its Applications 730 (2026), pp. 1–34. DOI : 10.1016/j.laa.2025.10.003 .
+
+[26 ] Adrián Javaloy and Antonio Vergari. An Embarrassingly Simple Way to Optimize Orthog-onal Matrices at Scale . 2026. arXiv: 2602.14656 [cs.LG] .
+
+[27 ] Yibang Li et al. Intrinsic Muon: Spectral Optimization on Riemannian Matrix Manifolds .2026. arXiv: 2605.09238 [cs.LG] .
+
+[28 ] André Uschmajew and Bart Vandereycken. “The geometry of algorithms using hierar-chical tensors”. In: Linear Algebra and its Applications 439.1 (2013), pp. 133–166. DOI :
+
+10.1016/j.laa.2013.03.016 .25 [29 ] E Miles Stoudenmire. “Learning relevant features of data with multi-scale tensor net-works”. In: Quantum Science and Technology 3.3 (Apr. 2018), p. 034003. DOI : 10.1088/ 2058-9565/aaba1a .
+
+[30 ] Gianluca Ceruti, Christian Lubich, and Dominik Sulz. “Rank-Adaptive Time Integration of Tree Tensor Networks”. In: SIAM Journal on Numerical Analysis 61.1 (2023), pp. 194– 222. DOI : 10.1137/22M1473790 .
+
+[31 ] Alexander Novikov, Mikhail Trofimov, and Ivan Oseledets. “Exponential Machines”. In: 
+
+Bulletin of the Polish Academy of Sciences Technical Sciences (2017), pp. 789–797. DOI :
+
+10.24425/bpas.2018.125926 .
+
+[32 ] Gary Bécigneul and Octavian-Eugen Ganea. Riemannian Adaptive Optimization Meth-ods . 2018. arXiv: 1810.00760 .
+
+[33 ] Daniel Dodd, Louis Sharrock, and Christopher Nemeth. “Learning-rate-free stochas-tic optimization over Riemannian manifolds”. In: International Conference on Machine Learning (ICML) . Vienna, Austria, 2024. DOI : 10.5555/3692070.3692513 .
+
+[34 ] Ralf Zimmermann and Jakob Stoye. “High Curvature Means Low Rank: On the Sectional Curvature of Grassmann and Stiefel Manifolds and the Underlying Matrix Trace Inequal-ities”. In: SIAM Journal on Matrix Analysis and Applications 46.1 (2025), pp. 748–779. 
+
+> DOI
+
+: 10.1137/24M1655755 .
+
+[35 ] Thomas Bendokat, Ralf Zimmermann, and P .-A. Absil. “A Grassmann manifold hand-book: basic geometry and computational aspects”. In: Advances in Computational Math-ematics 50.1 (Jan. 2024). DOI : 10.1007/s10444-023-10090-8 .
+
+[36 ] Han Xiao, Kashif Rasul, and Roland Vollgraf. Fashion-MNIST: a Novel Image Dataset for Benchmarking Machine Learning Algorithms . 2017. arXiv: 1708.07747 .
+
+[37 ] Nikolas Klug et al. Natural Riemannian gradient for learning functional tensor networks .2026. arXiv: 2604.09263 [math.OC] .
+
+[38 ] Alex Krizhevsky. “Learning Multiple Layers of Features from Tiny Images”. In: University of Toronto (May 2012). DOI : 10.24432/C5889J .
+
+[39 ] Jeremy Howard. Imagenette . https://github.com/fastai/imagenette . 2019. 
+
+[40 ] G. Catarina and Bruno Murta. “Density-matrix renormalization group: a pedagogical introduction”. In: The European Physical Journal B 96.8 (Aug. 2023). DOI : 10.1140/ epjb/s10051-023-00575-2 .
+
+[41 ] Samuele Cavinato et al. “Optimizing radiotherapy plans for cancer treatment with Ten-sor Networks”. In: Physics in Medicine & Biology 66.12 (2021), p. 125015. DOI : 10. 1088/1361-6560/ac01f2 .
+
+[42 ] Shoshichi Kobayashi and Katsumi Nomizu. Foundations of Differential Geometry . Vol. I. New York-London: Interscience Publishers, a division of John Wiley and Sons, 1963, p. 329. DOI : 10.1126/science.143.3603.235.b .
+
+[43 ] Peter Michor. Topics in Differential Geometry . American Mathematical Society, July 2008. 
+
+> DOI
+
+: 10.1090/gsm/093 .
+
+[44 ] Nicolas Boumal. An introduction to optimization on smooth manifolds . Cambridge Uni-versity Press, 2023. DOI : 10.1017/9781009166164 .
+
+[45 ] Thorsten Rohwedder and André Uschmajew. “On Local Convergence of Alternating Schemes for Optimization of Convex Problems in the Tensor Train Format”. In: SIAM Journal on Numerical Analysis 51.2 (2013), pp. 1134–1162. DOI : 10.1137/110857520 .
+
+[46 ] Peter Auer, Nicolò Cesa-Bianchi, and Claudio Gentile. “Adaptive and Self-Confident On-Line Learning Algorithms”. In: Journal of Computer and System Sciences 64.1 (2002), pp. 48–75. DOI : 10.1006/jcss.2001.1795 .26
