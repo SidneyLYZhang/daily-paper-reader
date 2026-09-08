@@ -41,17 +41,17 @@
 <section class="dpr-home-dashboard-card dpr-home-report-card">
   <div class="dpr-home-dashboard-header">
     <div>
-      <span class="dpr-home-dashboard-kicker">2026-09-07</span>
+      <span class="dpr-home-dashboard-kicker">2026-09-08</span>
       <h3 class="dpr-home-dashboard-title">今日汇总</h3>
     </div>
-    <strong class="dpr-home-dashboard-count">共 14 篇</strong>
+    <strong class="dpr-home-dashboard-count">共 1 篇</strong>
   </div>
   <dl class="dpr-home-dashboard-stats">
     <div class="dpr-home-dashboard-stat"><dt>累计更新</dt><dd>1 次</dd></div>
-    <div class="dpr-home-dashboard-stat"><dt>精读</dt><dd>5</dd></div>
-    <div class="dpr-home-dashboard-stat"><dt>速读</dt><dd>9</dd></div>
+    <div class="dpr-home-dashboard-stat"><dt>精读</dt><dd>0</dd></div>
+    <div class="dpr-home-dashboard-stat"><dt>速读</dt><dd>1</dd></div>
   </dl>
-  <p class="dpr-home-dashboard-body">最近更新：2026-09-07 23:30:35 UTC<br>状态：成功</p>
+  <p class="dpr-home-dashboard-body">最近更新：2026-09-08 22:57:18 UTC<br>状态：成功</p>
 </section>
 <section class="dpr-home-dashboard-card dpr-home-brief-card">
   <div class="dpr-home-dashboard-header">
@@ -62,7 +62,9 @@
     <strong class="dpr-home-dashboard-count">AI</strong>
   </div>
   <div class="dpr-home-dashboard-body">
-<p>今日精读5篇、速读9篇，其中论文亮点聚焦于SPD流形学习与空间推理强化。最值得关注的是《Nested Inductive Bias Framework for SPD Manifold Learning》（9.0/10）和《Unfold The World: Factorize 4D Properties in Reinforcing Spatial Reasoning》（8.0/10）。若想快速入门，可先从拓扑几何通道的可分离性与树张量网络优化入手。</p>
+<p>今日仅速读1篇论文，无精读；主题聚焦生成式检索器与强化学习的协同进化（7.0/10）。</p>
+<p>最值得关注的方向：用强化学习“共进化”检索器与生成器，以提升匹配质量。</p>
+<p>建议普通读者优先速读该文，理解其协同训练框架即可，不必深究算法细节。</p>
   </div>
 </section>
 <section class="dpr-home-dashboard-card dpr-home-deep-card">
@@ -71,12 +73,12 @@
       <span class="dpr-home-dashboard-kicker">今日累计</span>
       <h3 class="dpr-home-dashboard-title">精读推荐</h3>
     </div>
-    <strong class="dpr-home-dashboard-count">5 篇</strong>
+    <strong class="dpr-home-dashboard-count">0 篇</strong>
   </div>
   <div class="dpr-home-dashboard-body">
-<ul class="dpr-home-dashboard-paper-list"><li><span class="dpr-home-dashboard-paper-title" title="Nested Inductive Bias Framework for SPD Manifold Learning">Nested Inductive Bias Framework for SPD Manifold Learning</span></li><li><span class="dpr-home-dashboard-paper-title" title="Unfold The World: Factorize 4D Properties in Reinforcing Spatial Reasoning">Unfold The World: Factorize 4D Properties in Reinforcing Spatial Reasoning</span></li><li><span class="dpr-home-dashboard-paper-title" title="Multi-step Proximal Policy Improvement in Offline Reinforcement Learning">Multi-step Proximal Policy Improvement in Offline Reinforcement Learning</span></li></ul>
+<p class="dpr-home-dashboard-empty">今日暂无推荐。</p>
   </div>
-  <div class="dpr-home-dashboard-tags"><span class="dpr-home-dashboard-tag">ml-theory <strong>2</strong></span><span class="dpr-home-dashboard-tag">npl-bdl-saig <strong>2</strong></span><span class="dpr-home-dashboard-tag">rl-semantic <strong>1</strong></span></div>
+
 </section>
 <section class="dpr-home-dashboard-card dpr-home-skim-card">
   <div class="dpr-home-dashboard-header">
@@ -84,12 +86,12 @@
       <span class="dpr-home-dashboard-kicker">今日累计</span>
       <h3 class="dpr-home-dashboard-title">速读推荐</h3>
     </div>
-    <strong class="dpr-home-dashboard-count">9 篇</strong>
+    <strong class="dpr-home-dashboard-count">1 篇</strong>
   </div>
   <div class="dpr-home-dashboard-body">
-<ul class="dpr-home-dashboard-paper-list"><li><span class="dpr-home-dashboard-paper-title" title="Measuring Memory and Generalization as Separable Geometric Channels: The Topo^2 Framework">Measuring Memory and Generalization as Separable Geometric Channels: The Topo^2 Framework</span></li><li><span class="dpr-home-dashboard-paper-title" title="Stochastic Optimization of Tree Tensor Networks">Stochastic Optimization of Tree Tensor Networks</span></li><li><span class="dpr-home-dashboard-paper-title" title="Gradient-Free Optimization for Matrix functions">Gradient-Free Optimization for Matrix functions</span></li></ul>
+<ul class="dpr-home-dashboard-paper-list"><li><span class="dpr-home-dashboard-paper-title" title="It Takes Two to Match: Co-Evolving Generative Retriever with Reinforcement Learning">It Takes Two to Match: Co-Evolving Generative Retriever with Reinforcement Learning</span></li></ul>
   </div>
-  <div class="dpr-home-dashboard-tags"><span class="dpr-home-dashboard-tag">ml-theory <strong>5</strong></span><span class="dpr-home-dashboard-tag">rl-semantic <strong>3</strong></span><span class="dpr-home-dashboard-tag">npl-bdl-saig <strong>1</strong></span></div>
+  <div class="dpr-home-dashboard-tags"><span class="dpr-home-dashboard-tag">rl-semantic <strong>1</strong></span></div>
 </section>
 </div>
 

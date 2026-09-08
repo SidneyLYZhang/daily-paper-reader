@@ -1,6 +1,9 @@
 * <a class="dpr-sidebar-root-link" href="#/">首页</a>
 * <a class="dpr-sidebar-root-link dpr-sidebar-noactive-link" href="javascript:void(0)" data-dpr-hash="#/tutorial/README">使用教程</a>
 * Daily Papers
+  * 2026-09-08 <!--dpr-date:20260908-->
+    * 速读区
+      * <a class="dpr-sidebar-item-link dpr-sidebar-item-structured" href="#/202609/08/2609.00638v1-it-takes-two-to-match-co-evolving-generative-retriever-with-reinforcement-learning" data-sidebar-item="{&quot;title&quot;: &quot;It Takes Two to Match: Co-Evolving Generative Retriever with Reinforcement Learning&quot;, &quot;link&quot;: &quot;https://arxiv.org/abs/2609.00638v1-it-takes-two-to-match-co-evolving-generative-retriever-with-reinforcement-learning&quot;, &quot;score&quot;: &quot;7.0&quot;, &quot;tags&quot;: [{&quot;kind&quot;: &quot;query&quot;, &quot;label&quot;: &quot;rl-semantic&quot;}], &quot;evidence&quot;: &quot;用强化学习协同训练查询端与文档端生成器直接构造可匹配的检索表示&quot;}">It Takes Two to Match: Co-Evolving Generative Retriever with Reinforcement Learning</a>
   * 2026-09-07 <!--dpr-date:20260907-->
     * 精读区
       * <a class="dpr-sidebar-item-link dpr-sidebar-item-structured" href="#/202609/07/2609.04466v1-nested-inductive-bias-framework-for-spd-manifold-learning" data-sidebar-item="{&quot;title&quot;: &quot;Nested Inductive Bias Framework for SPD Manifold Learning&quot;, &quot;link&quot;: &quot;https://arxiv.org/abs/2609.04466v1-nested-inductive-bias-framework-for-spd-manifold-learning&quot;, &quot;score&quot;: &quot;9.0&quot;, &quot;tags&quot;: [{&quot;kind&quot;: &quot;query&quot;, &quot;label&quot;: &quot;ml-theory&quot;}], &quot;evidence&quot;: &quot;SPD流形表示学习；几何深度学习理论&quot;}">Nested Inductive Bias Framework for SPD Manifold Learning</a>
