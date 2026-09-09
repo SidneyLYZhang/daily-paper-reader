@@ -1,0 +1,511 @@
+Title: Spectral-Target Physical Latent Structuring for JEPA-Style World Models
+
+URL Source: https://arxiv.org/pdf/2609.04264v2
+
+Published Time: Wed, 09 Sep 2026 02:16:29 GMT
+
+Number of Pages: 17
+
+Markdown Content:
+# SPECTRAL -T ARGET PHYSICAL LATENT STRUCTUR -
+
+# ING FOR JEPA-S TYLE WORLD MODELS 
+
+Penghao Zhu, Salvatore Penachio, Kaustav Mukherjee, & Aneesh Jonelagadda ∗
+
+Kaliber Labs San Francisco, CA 94103, USA 
+
+{p.zhu,s.penachio,k.mukherjee,a.jonelagadda }@kaliber.ai 
+
+# ABSTRACT 
+
+Latent world models have become increasingly popular as a method to predict and plan in latent space rather than pixel space. Recent architectures, such as LeWorldModel (LeWM), jointly train the encoder and predictor using regulariza-tion techniques like SIGReg to prevent representation collapse. Even with such regularization preventing representation collapse, we identify a new world model failure mode of physical representation laziness , particularly noted in highly dy-namic environments. For these lazy cases, the learned latent states do not col-lapse but nonetheless fail to represent key physical properties, causing ubiqui-tous downstream planning failure. To resolve this issue, we propose training-time auxiliary supervision with a lightweight ”Fourier auxiliary head”, which enforces physically-informed structuring of the latent space with no additional inference-time cost and can be generalized to any environment. Experimentally, we show that the auxiliary head substantially improves planning success rates in dynamic environments where the baseline LeWM exhibits physical representation laziness. It also leads to modest improvements in other environments, even when the base-line does not exhibit physical representation laziness. We further observe superior planning performance being accompanied by higher latent space correlations with key physical properties, indicating both the ability of our method to physically structure latent states and the potential planning-side benefit to the learned repre-sentation being physically structured. Finally, we ablate across various training data amounts, showing that in low-data regimes, auxiliary supervision is particu-larly impactful in increasing success rate. These findings support the use of our Fourier auxiliary head method to improve both overall success rate and data effi-ciency, while avoiding representation laziness in latent world models. 
+
+# 1 INTRODUCTION 
+
+A world model for planning should preserve the parts of a scene that matter for future actions. It does not need to reproduce every pixel, but it must represent important objects and predict how their states will change. Joint-Embedding Predictive Architectures (JEPAs) follow this idea by predicting future observations in a learned latent space rather than reconstructing them in pixel space (Assran et al., 2023b). This makes the prediction more efficient and allows the model to ignore visual details that are not relevant for the underlying task. Recent work has extended JEPAs to action-conditioned world modeling and planning. For exam-ple, LeWorldModel (LeWM) (Maes et al., 2026) jointly trains an encoder and a predictor from raw pixels using only a latent prediction loss and Sketched Isotropic Gaussian Regularization (SIGReg) (Balestriero & LeCun, 2025). The prediction loss trains the predictor to estimate the latent represen-tation of a future observation, while SIGReg prevents the representation from collapse to a single vector by requiring the latent distribution to match an isotropic Gaussian. However, preventing collapse does not guarantee that the encoder preserves the physical information necessary for planning. There is an important difference between a collapsed encoder and a lazy 
+
+> ∗
+
+Corresponding author. All authors contributed equally. 
+
+1arXiv:2609.04264v2 [cs.LG] 7 Sep 2026 Figure 1: LeWM configurations for two-ball environment task across latent state projection (left), latent state vs position correlation (middle), and planning outcome (right). LeWM without regular-ization (top) leads to a collapsed representation which impedes any physical correlation or planning success. LeWM using SIGReg (second row) and VISReg (third row) both prevent representation collapse, but learn a lazy representation that only attunes to the environment ball instead of the control ball, hindering planning success. LeWM using SIGReg combined with an auxiliary head (bottom) maintains an uncollapsed representation and correlation to the control and environment ball, enabling downstream planning success. encoder. A collapsed encoder produces nearly the same representation for every observation. Alazy encoder produces different representations, and therefore satisfies SIGReg, but captures only the minimum physical information needed to reduce the latent prediction loss. It may ignore objects or geometric relations that are important for the downstream planning task. We demonstrate such a failure directly through a case study on bouncing-ball problems in Section 3. To address this problem, we introduce a simple auxiliary head that physically grounds the learned latent representation. During training, we assume access to the positions or bounding boxes of the objects that matter for the planning task. These annotations may come directly from a simulator or dataset, or from a lightweight object detector or tracker. The auxiliary head is a small multilayer perceptron that is trained to recover spectral features of these quantities from the encoded latent state. The same supervision can also be applied to predicted latent states, encouraging the predictor to preserve the relevant physical information over time. This Fourier auxiliary head provides a direct learning signal that is missing from the standard JEPA objective. SIGReg asks whether the latent distribution is sufficiently diverse; the auxiliary objective asks whether this diversity contains the physical information required by the task. The two objectives therefore address different failure modes. SIGReg prevents all observations from becoming identi-cal in latent space, while the auxiliary head prevents physically important observations from being treated as effectively identical. We provide a further theoretical discussion on the Fourier auxiliary head performance with both SIGReg and VISReg (Wu et al., 2026), a popular newer alternative to SIGReg, in the Appendix (A.2). 2The proposed head is lightweight and is needed primarily during training. After training, it can be removed without changing the encoder–predictor architecture. When the planning task contains explicit rules, however, the learned head can also be retained and applied to imagined latent states. For example, predicted object positions can be used to penalize collisions, boundary violations, or other geometric constraints during planning. Thus, the auxiliary head can improve planning in two ways: indirectly, by improving the encoder and predictor, and directly, by translating clear physical rules into planning costs. In this paper, we analyze the indirect mechanism, but briefly examine direct planning improvement in the Appendix (A.3). Our experiments show that physical grounding through a simple auxiliary head improves the repre-sentation learned by the encoder, reduces latent prediction error, and increases downstream planning success. These improvements are particularly useful in data-limited regimes, where the standard pre-diction objective may not provide enough evidence for the model to discover task-relevant physical structure on its own. The auxiliary head therefore has practical value: it uses inexpensive geometric supervision to reduce the amount of interaction data needed to learn a useful world model. Over-all, our results support a sharp conclusion: avoiding representation collapse is necessary, but not sufficient. A JEPA must also be guided to preserve the parts of the physical state that matter for downstream decisions. Our main contributions are: • We identify physical representation laziness , a failure mode in which SIGReg prevents global collapse, but the encoder still omits physical information required for prediction and planning. • We introduce a lightweight Fourier auxiliary head that grounds encoded and predicted la-tent states using the positions or bounding boxes of task-relevant objects. Our permutation-aware formulation also handles visually indistinguishable objects without relying on arbi-trary object identities or orderings. • We show that auxiliary physical supervision improves the encoder, the latent predictor, and downstream planning success, with particularly useful benefits when training data are limited. When explicit physical constraints are available, the learned head can additionally support rule-aware planning. 
+
+# 2 RELATED WORK 
+
+World models. World models learn predictive dynamics for control and planning. Early ap-proaches learn compact latent dynamics while using pixel reconstruction or prediction to train the representation (Ha & Schmidhuber, 2018; Hafner et al., 2019; 2020; Micheli et al., 2023). Dream-erV3 follows this reconstruction-based approach and scales it across diverse domains (Hafner et al., 2023). In contrast, TD-MPC2 learns a decoder-free latent world model using task-specific consis-tency, reward, and value objectives (Hansen et al., 2024). DINO-WM also avoids pixel reconstruc-tion, but models dynamics over features produced by a fixed pretrained DINOv2 encoder (Zhou et al., 2025). 
+
+Joint-embedding predictive models. Joint-embedding predictive architectures learn by predict-ing target representations rather than reconstructing pixels. I-JEPA and V-JEPA demonstrate the effectiveness of this principle for images and videos (Assran et al., 2023a; Bardes et al., 2024). In world models, PLDM trains latent dynamics using a multi-term variance–invariance–covariance ob-jective (Sobal et al., 2025). LeWM instead jointly trains the encoder and predictor from pixels using a latent prediction objective and SIGReg to prevent representation collapse (Maes et al., 2026). Very recently, there is a proposal to prevent the collapse called the Variance-Invariance-Sketching Regu-larization (VISReg) instead of SIGReg Wu et al. (2026). Our work builds on this end-to-end setting but studies a different failure mode: the representation can remain non-collapsed while omitting physical variables required for planning. 
+
+Extensions of LeWM. Recent work improves LeWM along several complementary directions. Fast-LeWM predicts action prefixes to accelerate long-horizon planning, Hi-LeWM introduces hi-erarchical latent subgoals, and AdaJEPA adapts the model online during planning (Gao & Xu, 2026; 3Caselli et al., 2026; Wang et al., 2026). Other studies refine latent regularization through temporally centered SIGReg or quantile-based distribution matching (Liu et al., 2026; Yu et al., 2026). Related to Yu et al. (2025) which explains a theoretical motivation to auxiliary head training on LeWM, RC-aux and Temporal-Distance JEPA further introduce auxiliary objectives that make latent distances more useful for planning (Li et al., 2026; Bai & Xiong, 2026). Most closely related to our work, depth regularization supplies geometric supervision during train-ing, while PSG-JEPA grounds representations using robot proprioception and joint-state changes (Khan, 2026; Yan et al., 2026). We study task-relevant object grounding: a lightweight auxiliary head supervises the positions or bounding boxes of important objects in both encoded and predicted states. We further consider limited-data training, scenes containing visually indistinguishable ob-jects, and planning tasks with explicit physical rules. This provides a simple way to reduce physical representation laziness while improving prediction and downstream planning. 
+
+# 3 BEYOND REPRESENTATION COLLAPSE : A C ASE STUDY OF ENCODER 
+
+# LAZINESS IN JEPA W ORLD MODELS 
+
+Figure 2: Encoder laziness despite SIGReg. Top: example frames from the two-ball task. The orange arrows indicate actions applied to the controlled ball. Bottom: latent distance versus the position difference of each ball. The latent space captures the environmental-ball position ( ρenv =0.4006 ) but not the controlled-ball position ( ρctrl = −0.0008 ). We consider a simple two-ball environment shown in Figure 2. The white environmental ball has an initial velocity, moves autonomously, and bounces off the walls. The red controlled ball moves only in response to external actions. The task is to move the controlled ball from its initial position to the green target without colliding with the environmental ball. One expects the world model to plan the actions needed to complete the task given the initial frame and final frame. Successful planning therefore requires the model to capture positions of both balls. We train LeWM using its latent prediction loss and SIGReg. To measure which physical information is preserved, we sample pairs of observations (oi, o j ), encode them as zi and zj , and compute their latent distance 
+
+dz (i, j ) = ∥zi − zj ∥2.
+
+For each ball b ∈ { ctrl , env }, we compute its position difference 
+
+db(i, j ) = ∥pbi − pbj ∥2
+
+and report the Spearman correlation between dz and db. The nonzero and broadly distributed latent distances confirm that representation collapse does not occur. However, the near-zero correlation 4for the controlled ball shows that its position is not preserved in the latent geometry. The encoder is therefore non-collapsed but physically lazy: it captures the position of only one ball, although planning requires both. This example shows that SIGReg prevents global collapse but does not determine which physical variables the encoder should preserve. Consequently, the learned latent space does not provide a reliable planning objective. Representative planning failures are included in the supplementary material. This limitation motivates the physical grounding through lightweight auxiliary head, which will be discussed in details in the following. 
+
+# 4 METHODS                     
+
+> otEncoder
+> Eθ
+> ztPredictor
+> Pϕˆzt+1 zt+1 Encoder
+> Eθ
+> ot+1
+> at
+> Aux. Head
+> Aψ
+> train-time only
+> ˆyspec
+> tyspec
+> t
+> Aux. Head
+> Aψ
+> train-time only
+> ˆyspec
+> t+1 yspec
+> t+1
+> LAux ,t
+> Lpred
+> LAux ,t +1
+> Fourier Feature Map
+> ΦW(b)
+> Bounding Boxes
+> Bt={bt,i }Nt
+> i=1
+> Symmetrize
+> NtX
+> i=1
+> yspec
+> t
+> ΦW(b) = cos( W⊤b),sin( W⊤b)∈R2d
+> W= [ ω1, . . . , ω d]∈R8×dfixed
+> Permutation-Invariant Auxiliary Target Construction JEPA-Style Latent World Model
+
+Figure 3: Overview of the proposed Fourier-symmetrized auxiliary supervision framework. 
+
+Bounding-box states for exchangeable objects are mapped through a fixed Fourier feature map and symmetrized by summation to form the spectral target yspec  
+
+> t
+
+. During training, auxiliary heads en-courage both encoded and predicted latent states to preserve this geometric information. The auxil-iary heads are discarded at inference time. 4.1 JEPA-S TYLE WORLD MODELS 
+
+JEPA-style world models, such as LeWM, are built by jointly training the entire architecture with a focus on latent representation over pixel reconstruction. They consist of an encoder ( Eθ ) that maps a given frame observation σt to latent zt, and a predictor ( Pϕ) that predicts the following latent ˆzt+1 
+
+from zt conditioned by action at, i.e., 
+
+zt = Eθ (ot), ˆzt+1 = Pϕ(zt, a t).
+
+Naturally, the model should be trained by a prediction loss which is the mean-squared error (MSE) of the predicted and encoded latent: 
+
+Lpred := || ˆzt+1 − zt+1 || 22. (1) This loss alone, however, leads to a lazy optimization of the latent known as representation collapse, where the encoder learns to map all observations into the same latent to minimize the prediction loss. To prevent this representation collapse, LeWM introduces the Sketched-Isotropic-Gaussian Regularizer (SIGReg) Balestriero & LeCun (2025); Maes et al. (2026). It projects embeddings into 
+
+M random unit-norm directions and optimizes the univariate Epps-Pulley test statistics (Epps & 5Pulley, 1983), effectively enforcing a Gaussian-distributed latent embedding. The complete training loss, with hyperparameter λS is thus as follows: 
+
+LLeWM := Lpred + λS SIGReg (Z) (2) More recently, VISReg (Wu et al., 2026) extends sketching-based methods to be flexible to distribu-tion shape, and can been used a drop-in replacement for SIGReg. Although both SIGReg and VIS-Reg help prevent representation collapse, they do not guarantee that the learned latent representation preserves all the key information required for planning. To address this limitation, we introduce an auxiliary prediction head that infers key geometric properties of predefined, task-relevant objects directly from the latent state. We choose to use SIGReg for our method as opposed to VISReg, for reasons empirically and theoretically examined in Appendix A.2. 4.2 FOURIER -S YMMETRIZED BOUNDING BOX AUXILIARY HEAD 
+
+We use both the oriented bounding boxes and semantic segmentation masks of objects to represent structural information. This serves as a sparse and visually obtainable representation of object ge-ometry, entirely in pixel space, which also analogously preserves depth information in 3D environ-ments. Oriented bounding boxes and segmentation masks can also be calculated using foundation object-detection models in order to construct a ground-truth target from real visual data; as a result our method imposes little-to-no additional manual annotation or supervision footprint. We thus define the geometric representation of the environment at time t as the set of augmented bounding-box states Bt = {bt,i }N id 
+
+> t
+> i=1
+
+, constructed from the oriented bounding boxes and masks of 
+
+N id  
+
+> t
+
+individual objects. For the i-th object at time t, each state vector bt,i is defined as: 
+
+bt,i = [ xt,i , y t,i , w t,i , h t,i , sin( θt,i ), cos( θt,i ), COM x,t,i , COM y,t,i ] ∈ R8
+
+where θt,i is bounding box orientation, (COM x, COM y ) is the mask-derived object’s center of mass, (xt,i , y t,i ) denotes the box center, and (wt,i , h t,i ) its width and height respectively, in pixel coordinates. When all objects are visually distinct, this state vector can in theory simply be aggre-gated across objects via concatenation and used as the auxiliary target. However, when there are visually similar or identical objects, the objective becomes poorly defined since arbitrarily-assigned object identity affects the aggregate state vector. To address this, we instead symmetrically aggregate objects via a Fourier sum to construct a permutation-invariant spectral representation of the bound-ing boxes. We first define the distribution of bounding box spatial states using point measures, for the bounding boxes of a set of visually identical objects at time t, i.e., Bid  
+
+> t
+
+= {bt, 1, ..., bt,N id  
+
+> t
+
+}:
+
+μt(b) =  
+
+> Nid
+> t
+
+X
+
+> i=1
+
+δ(b − bt,i )
+
+where δ is the Dirac delta function 1. μt(b) is the fundamental permutation-invariant function of 
+
+bt,i ’s and encodes the spatial configuration of the visually identical objects. Its Fourier-component associated with a spatial-frequency ω is, 
+
+ˆμt(ω) = 
+
+Z
+
+> R8
+
+eiω·bμt(b)db = 
+
+> Nid
+> t
+
+X
+
+> i=1
+
+eiω·bt,i = 
+
+> Nid
+> t
+
+X
+
+> i=1
+
+cos( ω · bt,i ) + i sin( ω · bt,i ),
+
+and captures detailed aspects of the spatial configuration while inheriting the permutation invariance of μt(b). To obtain a discrete target, we sample this continuous function over a set of d Fourier frequencies by generating a frequency matrix W = [ ω1, ..., ω d] ∈ R8×d where each column ωk
+
+represents a sampled frequency. We define the symmetrized bounding box target as: 
+
+yspec  
+
+> t
+
+:= [Re(ˆ μt(W )) , Im(ˆ μt(W ))] =  
+
+> Nid
+> t
+
+X
+
+> i=1
+
+ΦW (bt,i ), ΦW (b) = cos( W ⊤b), sin( W ⊤b) (3)              
+
+> 1Dirac delta function satisfies the sifting property R
+> Rdbf(b)δ(b−bt,i )db=f(bt,i )for all continuous compactly supported functions f.
+
+6The uniqueness theorem for Fourier transforms states that a measure is uniquely determined by its Fourier transform, i.e., μ1 = μ2 ⇐⇒ ˆμ1(ω) = ˆ μ2(ω) ∀ω ∈ Rd. Consequently, two different bounding box configurations for any set of objects, regardless of distinguishability, will differ by at least one Fourier component. Our method samples a finite set of frequencies so the resulting representation yspec  
+
+> t
+
+is not necessarily injective, but increasing d yields a richer approximation of the full Fourier transform representation, reducing degeneracy among distinct configurations. As opposed to a simple pixel-space object location sum, which is also a permutation-invariant target, the Fourier target exhibits high, almost guaranteed, uniqueness. 4.3 ARCHITECTURE OF THE AUXILIARY HEAD 
+
+The auxiliary head Aψ is designed as a simple 2-layer MLP that predicts the spectral targets from the latents: 
+
+ˆyspec  
+
+> t
+
+= Aψ (zt),
+
+which leads to an auxiliary loss for each latent state zt:
+
+LAux ,t := || yspec  
+
+> t
+
+− ˆyspec  
+
+> t
+
+|| 22. (4) Propagation of the auxiliary losses results in separate loss terms for the auxiliary head, encoder, and predictor. The auxiliary head is trained only on the loss term LAux,t , as predicting the spectral target from the predicted latent could result in instability. Hyperparameters λA1 and λA2 are used to integrate the auxiliary losses. 
+
+LPϕ = Lpred + λA2LAux ,t +1 , LEθ = LPϕ + λA1LAux ,t + λS SIGReg (Z) (5) The auxiliary heads are thus used to further optimize the encoder and predictor during training time, and are removed during inference. We leave the auxiliary head as shallow as possible to offload learning to the main world model, as we notice laziness onset with slightly deeper architectures. 4.4 TRAJECTORY PLANNING 
+
+To evaluate the performance of the models, the Cross-Entropy Method (CEM) (Rubinstein & Kroese, 2004) is used to optimize trajectories in the world model latent space, identically to the method utilized in LeWM. An initial observation o1 and a randomly sampled candidate action se-quence a1: H are used to roll out a series of latent states using the predictor, up to the planning horizon 
+
+H. CEM iteratively samples action sequences by selecting the best plans and using their statistics to update the sampling distribution. This is used to optimize the action sequence to minimize the objective of a terminal latent goal, as shown in the equations below. 
+
+C(ˆ zH ) = || ˆzH − zg || 22, a∗ 
+
+> 1: H
+
+= arg min 
+
+> a1: H
+
+C(ˆ zH )
+
+For certain environments where clear rules are provided for the planning, the auxiliary head can also be used during inference to predict geometric properties that can augment this planning objective, which we examine in the Appendix A.3. 
+
+# 5 RESULTS 
+
+5.1 EVALUATION SETUP 
+
+We tested a variety of environments with the auxiliary head architecture to ensure its robustness across tasks and settings. The environments included 1,3, and 6 environment ball(s) versions of the ball environment (100k training) described in Section 3 as well as Push-T (500k training), Two Room (730k training), and OGBench Cube (500k training). 75.1.1 EVALUATION METRICS 
+
+• Planning Success Rate. As described in section 4.4, a standardized planning protocol is used to optimize the trajectories using each trained model in the exact same evaluation data set. The success rates of the trajectories across environments demonstrate the utility of the auxiliary heads in training for latent-space planning. We perform planning on 5 separate seeds and average the results in the tables below. • Latent Distance Correlations. To evaluate the ability of the latent space to effectively represent object locations and velocities, we sample 2000 observations and create pairs 
+
+o1, o 2, obtain their states s1, s 2, and encode them into their latent representations z1, z 2.For these pairs, we compare the difference in states between observations and the distances between the latents, and calculate the Spearman rank correlation coefficient ρ to quantify the correlation. A higher ρ indicates a greater ability of the latent space to represent the object states. 5.2 PLANNING SUCCESS 
+
+To evaluate the direct benefit of the auxiliary head architecture in task completion, we report plan-ning success using the methodology described in section 4.4. Table 1: Planning success rates for the n-ball environments at various prediction horizons. Best results are in bold. 
+
+H = 4 H = 6 H = 8 
+
+Task Ours LeWM Ours LeWM Ours LeWM 
+
+Bouncing Balls ( n = 1 ) 90.0% 1.2% 76.6% 0.4% 57.3% 0.0% Bouncing Balls ( n = 3 ) 72.8% 3.2% 45.4% 0.8% 21.9% 0.0% Bouncing Balls ( n = 6 ) 65.4% 2.7% 37.2% 0.3% 16.3% 0.4% Table 2: Spearman ρ correlations between latent and pixel space in n-ball environments. Control Ball Env. Ball All Balls 
+
+Task Ours LeWM Ours LeWM Ours LeWM 
+
+Bouncing Balls ( n = 1 ) 0.407 -0.010 0.333 0.423 0.490 0.247 Bouncing Balls ( n = 3 ) 0.402 -0.004 0.367 0.417 0.495 0.351 Bouncing Balls ( n = 6 ) 0.381 0.017 0.308 0.004 0.403 0.007 The results indicate improvements in planning success rates across all environments from the LeWM base formulation. This is particularly evident in our n-ball environment in Table 1, where LeWM has the physical representation laziness across any number of balls. Table 2 demonstrates poor control ball positional understanding in the latent space regardless of the number of balls, which the addition of the auxiliary target fixes by better organizing the latent space. This comes at the cost of slightly worse environment ball positional understanding for n = 1 and n = 3 , where the default LeWM is able to capture their positions, but overall the correlations are greatly improved across all balls. Table 3: Planning success rates and Spearman ρ correlations on other environments. Best results are in bold. Success Rate Spearman ρ
+
+Task Ours LeWM Ours LeWM 
+
+Push-T 89.2% 86.4% 0.204 0.184 Two Room 90.4% 87.6% 0.440 0.432 OG-Bench Cube 78.0% 75.2% 0.180 0.129 8In other environments, shown in Table 3, more modest but consistent increases in planning per-formance are reported, along with improvements in the latent space correlations of the objects, demonstrating the utility of this method in both 2D and 3D environments. 5.3 DATA EFFICIENCY 
+
+One of the dimensions in which we ablate the auxiliary head architecture is in the training data. For the purposes of direct comparison with LeWM, we trained both architectures with nested datasets of various sizes to identify how our technique improves results at lower data regimes. The Push-T results in Figure 6 demonstrate that for smaller amounts of data, the auxiliary target provides a larger relative increase in the success rate, peaking at 250k samples with a 1.53 × improvement. In real-world scenarios where data is limited, this method can therefore provide greater benefit with no inference time cost. However, it should be noted that if the data is low enough, the auxiliary target is unable to improve the baseline results due to overall underdetermination, as is seen in the 10k samples result. 
+
+Figure 4: Push-T success rate across various training data amounts. The Fourier auxiliary head yields substantial improvements in success rates compared to LeWorldModel particularly for lower data regimes. 
+
+# 6 CONCLUSION 
+
+We introduced Fourier auxiliary heads for JEPA-style world models, a training time supervision method that organizes the latent space for better object-centric understanding of the environment without any additional inference cost. Despite SIGReg, we first show that JEPA-based encoders often fail to properly capture physical properties of key objects in the environments, then introduced a Fourier-symmetrized target derived from oriented bounding boxes and semantic masks, making it generalizable to both 2D and 3D environments. We first compared our method with the n-balls environment, where the laziness of the encoder in the LeWM baseline leads to poor planning suc-cess, while our Fourier auxiliary head yielded an increase of planning success rate by 88.8%, 69.6% and 62.7% (H=4) for 1, 3 and 6 environmental balls, respectively. Further analyzing correlations of latents with pixel-space physical properties, LeWM led to representation laziness with near-0 cor-relations of the control ball, while our method successfully enabled the latent space to adequately correspond to the ball position. We additionally tested our method on more commonly available 2D and 3D control environments, where it consistently demonstrated improved task performance and latent space encoding of physical properties, and greater success rate increases particularly in low-data regimes. While we provide a generalized formulation for the spectral target, we do not test our method on real-life environments where the low-data improvements will be most valuable. Additionally, we have only tested on LeWM as a baseline, whereas this method can be implemented with any JEPA-style world model. We leave examining the Fourier auxiliary head’s combinations with additional supervision, regularization, and architectures, to future works. 9REFERENCES 
+
+Mahmoud Assran, Quentin Duval, Ishan Misra, Piotr Bojanowski, Pascal Vincent, Michael Rabbat, Yann LeCun, and Nicolas Ballas. Self-supervised learning from images with a joint-embedding predictive architecture. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition , pp. 15619–15629, 2023a. URL https://arxiv.org/abs/2301. 08243 .Mahmoud Assran, Quentin Duval, Ishan Misra, Piotr Bojanowski, Pascal Vincent, Michael Rabbat, Yann LeCun, and Nicolas Ballas. Self-supervised learning from images with a joint-embedding predictive architecture. In 2023 IEEE/CVF Conference on Computer Vision and Pattern Recog-nition (CVPR) , pp. 15619–15629. IEEE, 2023b. Jiaxin Bai and Jiaxuan Xiong. Temporal-distance JEPA: Learning planning-aligned latent geometry from offline interaction. arXiv preprint arXiv:2607.25337 , 2026. URL https://arxiv. org/abs/2607.25337 .Randall Balestriero and Yann LeCun. Lejepa: Provable and scalable self-supervised learning with-out the heuristics. arXiv preprint arXiv:2511.08544 , 2025. Adrien Bardes, Quentin Garrido, Jean Ponce, Xinlei Chen, Michael Rabbat, Yann LeCun, Mahmoud Assran, and Nicolas Ballas. Revisiting feature prediction for learning visual representations from video. arXiv preprint arXiv:2404.08471 , 2024. URL https://arxiv.org/abs/2404. 08471 .Niccol` o Caselli, Francesco Massafra, Samuele Punzo, Salvatore Lo Sardo, Ippokratis Pantelidis, and Sathya Kamesh Bhethanabhotla. Mind the gap: Promises and pitfalls of hierarchical planning in LeWorldModel. arXiv preprint arXiv:2607.12547 , 2026. URL https://arxiv.org/abs/ 2607.12547 .Thomas W Epps and Lawrence B Pulley. A test for normality based on the empirical characteristic function. Biometrika , 70(3):723–726, 1983. Yuntian Gao and Xiangyu Xu. Fast LeWorldModel: Action-prefix prediction for efficient latent world models. arXiv preprint arXiv:2606.26217 , 2026. URL https://arxiv.org/abs/ 2606.26217 .David Ha and J¨ urgen Schmidhuber. World models. arXiv preprint arXiv:1803.10122 , 2018. URL 
+
+https://arxiv.org/abs/1803.10122 .Danijar Hafner, Timothy Lillicrap, Ian Fischer, Ruben Villegas, David Ha, Honglak Lee, and James Davidson. Learning latent dynamics for planning from pixels. In Proceedings of the 36th Inter-national Conference on Machine Learning , volume 97 of Proceedings of Machine Learning Re-search , pp. 2555–2565. PMLR, 2019. URL https://proceedings.mlr.press/v97/ hafner19a.html .Danijar Hafner, Timothy Lillicrap, Jimmy Ba, and Mohammad Norouzi. Dream to control: Learning behaviors by latent imagination. In International Conference on Learning Representations , 2020. URL https://openreview.net/forum?id=S1lOTC4tDS .Danijar Hafner, Jurgis Pasukonis, Jimmy Ba, and Timothy Lillicrap. Mastering diverse domains through world models. arXiv preprint arXiv:2301.04104 , 2023. URL https://arxiv.org/ abs/2301.04104 .Nicklas Hansen, Hao Su, and Xiaolong Wang. TD-MPC2: Scalable, robust world models for continuous control. In International Conference on Learning Representations , 2024. URL 
+
+https://openreview.net/forum?id=Oxh5CstDJU .Usman M. Khan. Depth-regularized JEPA world models learn more transferable representations from real outdoor robot data. arXiv preprint arXiv:2607.16314 , 2026. URL https://arxiv. org/abs/2607.16314 .Soheil Kolouri, Kimia Nadjahi, Umut Simsekli, Roland Badeau, and Gustavo Rohde. Generalized sliced wasserstein distances. Advances in neural information processing systems , 32, 2019. 10 Wenyuan Li, Guang Li, Keisuke Maeda, Takahiro Ogawa, and Miki Haseyama. Predictive but not plannable: RC-aux for latent world models. arXiv preprint arXiv:2605.07278 , 2026. URL 
+
+https://arxiv.org/abs/2605.07278 .Chang Liu, Fei Suo, Yanzhou Jin, Yusuke Iwasawa, Yutaka Matsuo, and Yaonan Zhu. Tempo-rally centered SIGReg for multi-task joint-embedding predictive world models. arXiv preprint arXiv:2607.26924 , 2026. URL https://arxiv.org/abs/2607.26924 .Lucas Maes, Quentin Le Lidec, Damien Scieur, Yann LeCun, and Randall Balestriero. Leworld-model: Stable end-to-end joint-embedding predictive architecture from pixels. arXiv preprint arXiv:2603.19312 , 2026. Vincent Micheli, Eloi Alonso, and Franc ¸ois Fleuret. Transformers are sample-efficient world models. In International Conference on Learning Representations , 2023. URL https: //openreview.net/forum?id=vhFu1Acb0xb .Reuven Y Rubinstein and Dirk P Kroese. The cross-entropy method: a unified approach to combina-torial optimization, Monte-Carlo simulation and machine learning . Springer Science & Business Media, 2004. Vlad Sobal, Wancong Zhang, Kyunghyun Cho, Randall Balestriero, Tim G. J. Rudner, and Yann LeCun. Learning from reward-free offline data: A case for planning with latent dynamics models. 
+
+arXiv preprint arXiv:2502.14819 , 2025. URL https://arxiv.org/abs/2502.14819 .Ying Wang, Oumayma Bounou, Yann LeCun, and Mengye Ren. AdaJEPA: Test-time adaptation for joint-embedding predictive world models. arXiv preprint arXiv:2606.32026 , 2026. URL 
+
+https://arxiv.org/abs/2606.32026 .Haiyu Wu, Randall Balestriero, and Morgan Levine. Visreg: Variance-invariance-sketching regular-ization for jepa training. arXiv preprint arXiv:2606.02572 , 2026. Jingjing Xu, Xu Sun, Zhiyuan Zhang, Guangxiang Zhao, and Junyang Lin. Understanding and improving layer normalization, 2019. URL https://arxiv.org/abs/1911.07013 .Haodong Yan, Jiaguan Zhu, Mingyuan Jia, Ruiqing Yin, Junjie He, Zhide Zhong, Junfeng Li, Jinx-uan Lu, Hengtao Li, Tianran Zhang, Jiayi Chen, Wenxuan Song, Wen Chen, Yuxiang Gao, and Haoang Li. Is forward prediction enough? physical state grounding for JEPA world models. arXiv preprint arXiv:2608.06799 , 2026. URL https://arxiv.org/abs/2608.06799 .Jiacan Yu, Siyi Chen, Mingrui Liu, Nono Horiuchi, Vladimir Braverman, Zicheng Xu, Dan Hara-mati, and Randall Balestriero. Why and how auxiliary tasks improve jepa representations. arXiv preprint arXiv:2509.12249 , 2025. Zhoushun Yu, Xiaoyu Hu, and Xiangyu Xu. QQWorld: Quantile-based distribution matching for joint-embedding predictive world models. arXiv preprint arXiv:2607.28415 , 2026. URL https: //arxiv.org/abs/2607.28415 .Gaoyue Zhou, Hengkai Pan, Yann LeCun, and Lerrel Pinto. DINO-WM: World models on pre-trained visual features enable zero-shot planning. In Proceedings of the International Conference on Machine Learning , 2025. URL https://arxiv.org/abs/2411.04983 .
+
+# A APPENDIX 
+
+A.1 TRAINING AND EVALUATION PIPELINE CONFIGURATION 
+
+There are two variations of the architecture: one used for the n-balls environment, and another used for the remaining environments, which is kept as close to the original LeWM implementation as possible. 11 A.1.1 N-B ALLS ARCHITECTURE 
+
+Rendered RGB frames are input at 64 × 64 resolution, and normalized between [−1, 1] . A batch size of 64 is used, and all models are trained for 200 epochs. 4 sub-trajectories are used for training, with 4 observations and 4 actions each. No frameskip is used. 
+
+Encoder Architecture . A small custom vision transformer is used, with a patch size of 8, token width of 64, and 4 transformer blocks with 4 attention heads. The feedforward networks (FFNs) used are 256-D, with one learnable CLS token that is projected to a 128-D output latent. 
+
+Predictor Architecture . The predictor is implemented as a small, action-conditioned causal trans-former. It takes in 3 history frames as input, using a 128-D latent that is projected to a dimension of 64. Like the encoder, it uses 4 transformer blocks with 4 attention heads and 256-D FFNs, but includes Adaptive Layer Norm (AdaLN) Xu et al. (2019) for action conditioning. It also uses causal masking to prevent future frames from attending to the previous frame. The output is projected back to 128 dimensions. 
+
+Auxiliary Head Architecture . The auxiliary heads are implemented as simple, 2-layer MLPs, where the first layer projects the 128-D latent into a 64-D feature, and the second layer outputs the 18-D spectral target. We set λAux = 0 .1, and set λSIGReg = 0 .09 , matching the value used in both official SIGReg and VISReg repositories. 
+
+Planning Protocol . We use the Cross-Entropy Method for planning. We sample 100 candidate action sequences, retain 10 elites per iteration, and run it for 20 iterations. The standard deviation of the action selection is set to 2.0. 200 episodes are evaluated per seed. Additionally, the norm of the actions are clipped to 3.0, limiting the speed of the control ball. The planning horizons are set to 4, 6, and 8 for the experiments, with no replanning. The initial states are set to exactly 4, 6, or 8 steps behind a target respectively, and thus success is defined as when the control ball is within a 1-pixel radius of the true target position. A.1.2 LEWM A RCHITECTURE 
+
+For the other environments, the architecture closely resembles LeWM. Rendered RGB frames are input at 224 × 224 resolution, and normalized between [0 , 1] . A batch size of 128 is used, and all models are trained for 10 epochs. A frameskip of 5 is used, meaning 5 actions are predicted for every frame. 4 sub-trajectories are used for training, with 4 observations and 4 blocks of 5 actions each. 
+
+Encoder Architecture . A Vision Transformer Tiny (ViT-Tiny) model from Hugging Face is used with a patch size of 14 for the encoder. The 192-D CLS token is used as the latent. 
+
+Predictor Architecture . A Vision Transformer Small (ViT-Small) model from Hugging Face is used as backbone for the predictor. Causal masking and learned position embeddings are used to accommodate a history length of 3. 
+
+Auxiliary Head Architecture . The auxiliary heads are implemented as 2-layer MLPs, where the first layer projects the 192-D latent into a 64-D feature, and the second layer outputs the 18-D spectral target. We set λAux = 0 .1, and set λSIGReg = 0 .09 , matching the value used in both official SIGReg and VISReg repositories. 
+
+Planning Protocol . Identically to LeWM, we use the Cross-Entropy Method for planning. We sample 300 candidate action sequences, retain 30 elites per iteration, and run it for 30 iterations. A variance scale of 1.0 is used for action sampling. 50 scenes are evaluated per seed, and the standard LeWM action scaler is used to bind actions. Model Predictive Control (MPC) is conducted using CEM, with replanning every 5 blocks of 5 actions, consisting of 25 actions altogether. A total action budget of 50 steps is given for each environment, though they can be solved in only 25 steps. A.1.3 TARGET CREATION 
+
+The oriented bounding box and center of mass targets are well-defined for each environment. For the n-ball environments, all the balls are used as targets. For the remaining environments, only dynamic objects are selected. These bounding boxes and semantic masks are not detected with zero-shot 12 methods, but rather obtained as ground-truth from the environment simulators, demonstrating an ideal use-case of auxiliary supervision. Samples for each environment can be seen in Figure 5. 
+
+Figure 5: Sample oriented bounding box and center of mass targets for each tested environment. 
+
+Center of Mass Calculation . To calculate the center of mass for object i, we take its semantic segmentation mask Mt,i , and calculate its x and y components as follows: 
+
+COM x = 1
+
+|Mt,i |
+
+X
+
+> (u,v )∈Mt,i
+
+(u + 0 .5) , COM y = 1
+
+|Mt,i |
+
+X
+
+> (u,v )∈Mt,i
+
+(v + 0 .5) 
+
+13 A.2 THEORETICAL EXAMINATION OF VISR EG + A UX HEAD 
+
+Figure 6: LeWM configurations for two-ball environment task across latent state projection (left), la-tent state vs position correlation (middle), and planning outcome (right). Our auxiliary head method performs worse with VISReg than with SIGReg. Interestingly, our Fourier auxiliary head training empirically yields improved planning performance with SIGReg (Balestriero & LeCun, 2025) instead of VISReg (Wu et al., 2026), even though VISReg exhibits higher performance than SIGReg on the standard LeWorldModel. This implies that our Fourier method’s benefits are not necessarily entirely additive with those of VISReg’s. To examine why, we explore the theoretical relationship between VISReg and our Fourier method. VISReg utilizes the Sliced Wasserstein Distance (SWD) (Kolouri et al., 2019) which is reliant on Radon transform injectivity via the Cram´ er–Wold Theorem: 
+
+Lemma 1 (Cram´ er–Wold Theorem) . Let μ and ν be probability measures on Rd, and let 
+
+Rμ(θ, t ) = 
+
+Z
+
+> Rd
+
+δ(t − ⟨ x, θ ⟩) dμ (x)
+
+denote the Radon transform for θ ∈ Sd−1. Then R is injective, and 
+
+μ = ν ⇐⇒ Rμ(θ, ·) = Rν(θ, ·) ∀θ ∈ Sd−1.
+
+This is utilized in VISReg via sampling 1D directions θk, and attempting: 
+
+∀wk : Rμz (wk, ·) → N (0 , 1) 
+
+This means that across randomly sampled directions wk, VISReg takes the Radon projection 
+
+Rμz (wk, ·) along these directions and attempts to enforce Gaussian shape and unit variance in the zero-loss limit. Since the Radon transform is the full collection Rμz (θ, t ) across all directions, VISReg stochastically regularizes the latent distribution’s Radon transform. To connect to how this regularization principle relates to our Fourier method, the Radon transform is in fact related to the Fourier transform via the Fourier slice theorem: 
+
+Lemma 2 (Fourier Slice Theorem) . Let f ∈ L1(Rd), and let 
+
+Rf (θ, t ) = 
+
+Z
+
+> Rd
+
+f (x) δ(t − ⟨ x, θ ⟩) dx 
+
+denote its Radon transform for θ ∈ Sd−1. Then the one-dimensional Fourier transform of the Radon projection Rf (θ, ·) satisfies 
+
+Ft [Rf (θ, t )] ( ω) = ˆf (ωθ ), ω ∈ R,
+
+where 
+
+ˆf (ξ) = 
+
+Z
+
+> Rd
+
+f (x)e−i⟨ξ,x ⟩ dx 
+
+is the d-dimensional Fourier transform of f . Equivalently, 
+
+Rf (θ, t ) = F−1
+
+> ω
+
+h ˆf (ωθ )
+
+i
+
+(t).
+
+14 To get a 1D Radon projection, we take a radial slice through the Fourier transform and take a 1D inverse Fourier transform to bring it back to real space. VISReg samples individual Radon projections, equivalent to these radial slices inverse-transformed, and enforces each to have unit variance and be Gaussian. This relates to our method since VISReg is essentially trying to make the Fourier Transform of the latent distribution isotropic via radial symmetry. Our method, in contrast, targets spectral anisotropy , reflective of the spatial distribution, and supervises the latent to reflect this anisotropy. VISReg in Radon space Fourier Slice Theorem 
+
+←−−−−−−−−−−→ isotropy in spectral space Aux. supervision in spatial state-space Fourier-feature Transform 
+
+←−−−−−−−−−−−−→ anisotropy in spectral space We therefore hypothesize that our method works better with SIGReg since the SIGReg regularization gradient tends to be weak for low variance regimes, whereas VISReg is explicitly designed to impose a strong corrective gradient along sampled low-variance directions. As a result, SIGReg’s weak gradient corrections thus may permit task-induced latent anisotropy to persist. This is ordinarily a weakness that VISReg targets, but our Fourier method may actually benefit from this. A.3 AUXILIARY HEAD IN CEM PLANNING 
+
+As discussed earlier, the auxiliary head can be used both indirectly in planning by forcing the en-coder to be spatially aware, and directly by physically informing the CEM during planning. We examine the direct method in this section, where the predicted physical state of the auxiliary head can be used to impose physicallly-grounded task-specific constraints on imagined latent trajectories. We choose to examine this setting in the n-ball environments, where a ball must be controlled to reach a target while under the constraint of avoiding collision with moving environment balls. The baseline LeWorldModel planning algorithm uses CEM to minimize the latent distance between an action sequence and a goal. 
+
+Clatent = ∥ˆzH − zg ∥22
+
+While the main method explored in our paper improves the physical information present in latent 
+
+ˆzH , thus indirectly physically grounding the CEM, this only places a soft constraint on collision avoidance. As an example, consider two configurations which are visually and spatially similar, but one configuration is near-collision and the other is colliding. Since these configurations are spatially similar, they may be close in latent space, but the impact on CEM success is stepwise. The planner receives a smooth objective from this latent loss, and does not necessarily place a hard constraint on rule-violating trajectories. To address this, we incorporate the auxiliary head prediction during the planning phase. First we reconstruct object locations from the auxiliary objective using a generalized inverse reconstruction map ΨW : yspec  
+
+> t
+
+7 → { ˆbt,i }Ni=1 :
+
+
+
+ˆpctrl  
+
+> t
+
+, ˆpenv 
+
+> t,j
+> Nenv
+> j=1
+
+
+
+= Ψ W Aψ (ˆ zt)
+
+For simplicity in this experiment, we directly train the auxiliary head to predict the positions of the balls rather than the Fourier signature, so ΨW = Id . For the Fourier auxiliary head, ΨW can either be a simple learned decoder trained using synthetic mapping data, or an algorithmic minimization of plausible Fourier sums. Once the centers of the objects are recovered from the auxiliary head, for balls of radius r, we penalize any predicted control ball–environment ball pair whose center separation falls below the collision distance 2r,
+
+Ccoll =
+
+> H
+
+X
+
+> t=1
+> Nenv
+
+X
+
+> j=1
+
+ReLU 
+
+
+
+2r − ˆpctrl  
+
+> t
+
+− ˆpenv  
+
+> t,j 2
+
+2
+
+The auxiliary-informed CEM objective thus becomes 
+
+CPI -CEM = ∥ˆzH − zg ∥22 + λcoll Ccoll .
+
+15 This collision term is solely derived from the model’s imagined latent trajectory and auxiliary predic-tions; no ground-truth ball positions are provided to CEM during planning. Therefore, the auxiliary head provides a predictive and robust way of imposing the known collision constraint on latent-space planning sequences. Table 4: Effect of auxiliary-head-informed CEM in the n-ball environments. Lower final distance is better; higher collision-free and success rates are better. 
+
+Final Dist. ↓ Collision-Free ↑ Success ( r + 1 ) ↑
+
+Env. Balls Episodes CEM Aux-CEM CEM Aux-CEM CEM Aux-CEM 
+
+n = 1 20K 4.288 4.317 95.9% 98.8% 90.9% 93.0% 
+
+n = 1 50K 3.998 4.009 96.0% 99.0% 95.1% 97.9% 
+
+n = 3 20K 5.164 5.481 85.8% 93.4% 61.8% 64.1% 
+
+n = 3 50K 5.074 5.347 86.0% 92.9% 63.6% 66.2% 
+
+n = 5 20K 5.550 6.278 78.4% 88.3% 48.8% 49.1% 
+
+n = 5 50K 4.866 5.497 79.8% 90.6% 63.7% 65.3% 
+
+We see that the auxiliary-informed CEM improves collision avoidance for all experiments, espe-cially when the number of balls increases. For these higher n environments, the soft collision avoid-ance in CEM may not be enough to push the selection of imagined trajectories away from a collision sequence. This improvement comes at a slight tradeoff; while terminal distance is virtually similar for n = 1 , for the higher n environments the auxiliary-informed CEM ends up farther from the target location than the baseline CEM on average. Despite this, the collision avoidance provides enough benefit such that overall success rates are higher across all experiments with the auxiliary CEM. We thus show in this experiment that the auxiliary objective can be used both in training and in planning to penalize constraint- or physically-invalid imagined latent trajectories. A.4 LINEAR AND MLP P ROBING 
+
+Following the LeWM evaluation protocol, we train additional linear and MLP probes to explicitly quantify how well physical quantities can be extracted from latent embeddings. Better performance on linear probes indicate a better linear representation of the physical quantity within the latent space, while higher performance on an MLP probe indicates a more entangled representation. 
+
+Implementation Details . Probes are trained using 50000 latents from each environment, and tested on 5000 latents. The linear probe is trained using ridge regression with λ = 10 −6. The MLP probe uses a simple 2-layer MLP, projecting the latent to a 256-D feature before predicting the output state. It is trained for 100 epochs with a batch size of 1024. They are initialized with seeds 3072, 3073, and 3074, and their outputs are averaged for the final results. Probes are trained for each individual state, which are determined by the environments themselves. We report the mean squared error (MSE), and the Pearson correlation coefficient between the ground-truth and predicted states. 
+
+Results . Table 5 shows improvements in all environments for for most quantities, demonstrating the effectiveness of the auxiliary target in better organizing the latent space with respect to key physical properties. Push-T and the 6-ball environment benefit the most, while 1-ball and 3-ball environments demonstrate a decrease in the prediction performance of the environment balls’ positions, which is in line with the reduced spearman correlation in the main results. Two-Room shows poorer linear probe performance, but improved MLP probe performance, indicating the auxiliary target results in an entangled, but improved encoding of positional information in the latent space. 16 Table 5: Linear and MLP probe results. The shaded rows are the primary metrics. Bold indicates lower MSE or higher Pearson correlation r.
+
+Environment Target Linear MSE ↓ Linear r ↑ MLP MSE ↓ MLP r ↑
+
+Ours LeWM Ours LeWM Ours LeWM Ours LeWM Push-T Full state (primary) 0.12792 0.14573 0.92821 0.91775 0.02017 0.02158 0.98947 0.98878 Pusher XY 0.01616 0.03430 0.99185 0.98264 0.00340 0.00566 0.99831 0.99715 T-block XY 0.05038 0.05467 0.97402 0.97179 0.00703 0.00710 0.99644 0.99639 T-block yaw 0.31723 0.34822 0.81877 0.79881 0.05009 0.05199 0.97367 0.97281 
+
+Two Room Full state (primary) 0.00474 0.00394 0.99765 0.99805 0.00010 0.00013 0.99995 0.99993 
+
+OG-Bench Cube Full state (primary) 0.37024 0.37989 0.66885 0.66320 0.38939 0.38205 0.67314 0.66876 Effector location 0.00812 0.00754 0.99595 0.99624 0.00198 0.00260 0.99901 0.99871 Effector yaw 0.99875 1.00341 0.11316 0.09224 1.11219 1.07614 0.08147 0.07395 Gripper opening 0.12413 0.16442 0.93583 0.91398 0.06038 0.08111 0.96942 0.95868 Gripper contact 0.20391 0.23347 0.89273 0.87605 0.14032 0.15910 0.92782 0.91749 Cube location 0.02625 0.04115 0.98693 0.97944 0.00381 0.00873 0.99812 0.99568 Cube yaw 1.00712 1.00397 0.01135 0.02845 1.11512 1.07904 0.01305 0.00896 
+
+n = 1 balls Full positions (primary) 0.00718 0.49398 0.99642 0.71278 0.00041 0.50527 0.99980 0.70494 Control ball 0.00763 0.98284 0.99621 0.15859 0.00035 1.00990 0.99983 0.05758 Environment balls 0.00674 0.00512 0.99663 0.99744 0.00029 0.00020 0.99986 0.99990 
+
+n = 3 balls Full positions (primary) 0.15698 0.36222 0.91818 0.79862 0.06354 0.33956 0.96773 0.81328 Control ball 0.00720 0.96038 0.99646 0.23830 0.00058 1.10246 0.99972 0.11921 Environment balls 0.20691 0.16283 0.88985 0.91443 0.08282 0.09313 0.95746 0.95201 
+
+n = 6 balls Full positions (primary) 0.41053 0.78721 0.76994 0.46837 0.36672 0.83204 0.79815 0.42018 Control ball 0.00498 0.01139 0.99754 0.99436 0.00050 0.00815 0.99975 0.99597 Environment balls 0.47812 0.91652 0.72485 0.30130 0.42840 0.97013 0.75887 0.20829 17

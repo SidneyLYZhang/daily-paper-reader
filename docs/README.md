@@ -41,17 +41,17 @@
 <section class="dpr-home-dashboard-card dpr-home-report-card">
   <div class="dpr-home-dashboard-header">
     <div>
-      <span class="dpr-home-dashboard-kicker">2026-09-08</span>
+      <span class="dpr-home-dashboard-kicker">2026-09-09</span>
       <h3 class="dpr-home-dashboard-title">今日汇总</h3>
     </div>
-    <strong class="dpr-home-dashboard-count">共 1 篇</strong>
+    <strong class="dpr-home-dashboard-count">共 21 篇</strong>
   </div>
   <dl class="dpr-home-dashboard-stats">
     <div class="dpr-home-dashboard-stat"><dt>累计更新</dt><dd>1 次</dd></div>
-    <div class="dpr-home-dashboard-stat"><dt>精读</dt><dd>0</dd></div>
-    <div class="dpr-home-dashboard-stat"><dt>速读</dt><dd>1</dd></div>
+    <div class="dpr-home-dashboard-stat"><dt>精读</dt><dd>8</dd></div>
+    <div class="dpr-home-dashboard-stat"><dt>速读</dt><dd>13</dd></div>
   </dl>
-  <p class="dpr-home-dashboard-body">最近更新：2026-09-08 22:57:18 UTC<br>状态：成功</p>
+  <p class="dpr-home-dashboard-body">最近更新：2026-09-09 22:31:13 UTC<br>状态：成功</p>
 </section>
 <section class="dpr-home-dashboard-card dpr-home-brief-card">
   <div class="dpr-home-dashboard-header">
@@ -62,9 +62,7 @@
     <strong class="dpr-home-dashboard-count">AI</strong>
   </div>
   <div class="dpr-home-dashboard-body">
-<p>今日仅速读1篇论文，无精读；主题聚焦生成式检索器与强化学习的协同进化（7.0/10）。</p>
-<p>最值得关注的方向：用强化学习“共进化”检索器与生成器，以提升匹配质量。</p>
-<p>建议普通读者优先速读该文，理解其协同训练框架即可，不必深究算法细节。</p>
+<p>今日精读与速读共21篇论文，聚焦随机过程、深度学习与网络应用的交叉方向。最值得关注的是两篇9.0分精读：加权黎曼流形上带灭绝排除过程的水动力极限，以及贝叶斯深度学习估算太阳日冕不确定度。建议优先精读这两篇，并顺带关注图神经网络策略在无线网络中的扩展性问题。</p>
   </div>
 </section>
 <section class="dpr-home-dashboard-card dpr-home-deep-card">
@@ -73,12 +71,12 @@
       <span class="dpr-home-dashboard-kicker">今日累计</span>
       <h3 class="dpr-home-dashboard-title">精读推荐</h3>
     </div>
-    <strong class="dpr-home-dashboard-count">0 篇</strong>
+    <strong class="dpr-home-dashboard-count">8 篇</strong>
   </div>
   <div class="dpr-home-dashboard-body">
-<p class="dpr-home-dashboard-empty">今日暂无推荐。</p>
+<ul class="dpr-home-dashboard-paper-list"><li><span class="dpr-home-dashboard-paper-title" title="Hydrodynamic limit of exclusion processes with killing on weighted Riemannian manifolds via a graph discretization">Hydrodynamic limit of exclusion processes with killing on weighted Riemannian manifolds via a graph discretization</span></li><li><span class="dpr-home-dashboard-paper-title" title="An Approximate Bayesian Deep Learning Approach for Uncertainty-aware Differential Emission Measure Estimates in the Solar Corona from the SDO">An Approximate Bayesian Deep Learning Approach for Uncertainty-aware Differential Emission Measure Estimates in the Solar Corona from the SDO</span></li><li><span class="dpr-home-dashboard-paper-title" title="Physics of Information Geometry - Part I: Principle of Least Action on the Probability Simplex">Physics of Information Geometry - Part I: Principle of Least Action on the Probability Simplex</span></li></ul>
   </div>
-
+  <div class="dpr-home-dashboard-tags"><span class="dpr-home-dashboard-tag">npl-bdl-saig <strong>5</strong></span><span class="dpr-home-dashboard-tag">ml-theory <strong>2</strong></span><span class="dpr-home-dashboard-tag">rl-semantic <strong>1</strong></span></div>
 </section>
 <section class="dpr-home-dashboard-card dpr-home-skim-card">
   <div class="dpr-home-dashboard-header">
@@ -86,12 +84,12 @@
       <span class="dpr-home-dashboard-kicker">今日累计</span>
       <h3 class="dpr-home-dashboard-title">速读推荐</h3>
     </div>
-    <strong class="dpr-home-dashboard-count">1 篇</strong>
+    <strong class="dpr-home-dashboard-count">13 篇</strong>
   </div>
   <div class="dpr-home-dashboard-body">
-<ul class="dpr-home-dashboard-paper-list"><li><span class="dpr-home-dashboard-paper-title" title="It Takes Two to Match: Co-Evolving Generative Retriever with Reinforcement Learning">It Takes Two to Match: Co-Evolving Generative Retriever with Reinforcement Learning</span></li></ul>
+<ul class="dpr-home-dashboard-paper-list"><li><span class="dpr-home-dashboard-paper-title" title="Scalability of Graph Neural Network Policies in Wireless Communication Networks">Scalability of Graph Neural Network Policies in Wireless Communication Networks</span></li><li><span class="dpr-home-dashboard-paper-title" title="A Theoretical Analysis of Generalization Dynamics in Neural Networks under Gradient Descent with Weight Decay">A Theoretical Analysis of Generalization Dynamics in Neural Networks under Gradient Descent with Weight Decay</span></li><li><span class="dpr-home-dashboard-paper-title" title="Stochastic Processes as Non-Metric Geodesics in Information Geometry">Stochastic Processes as Non-Metric Geodesics in Information Geometry</span></li></ul>
   </div>
-  <div class="dpr-home-dashboard-tags"><span class="dpr-home-dashboard-tag">rl-semantic <strong>1</strong></span></div>
+  <div class="dpr-home-dashboard-tags"><span class="dpr-home-dashboard-tag">npl-bdl-saig <strong>6</strong></span><span class="dpr-home-dashboard-tag">ml-theory <strong>5</strong></span><span class="dpr-home-dashboard-tag">rl-semantic <strong>2</strong></span></div>
 </section>
 </div>
 
