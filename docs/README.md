@@ -41,17 +41,17 @@
 <section class="dpr-home-dashboard-card dpr-home-report-card">
   <div class="dpr-home-dashboard-header">
     <div>
-      <span class="dpr-home-dashboard-kicker">2026-09-09</span>
+      <span class="dpr-home-dashboard-kicker">2026-09-10</span>
       <h3 class="dpr-home-dashboard-title">今日汇总</h3>
     </div>
-    <strong class="dpr-home-dashboard-count">共 21 篇</strong>
+    <strong class="dpr-home-dashboard-count">共 13 篇</strong>
   </div>
   <dl class="dpr-home-dashboard-stats">
     <div class="dpr-home-dashboard-stat"><dt>累计更新</dt><dd>1 次</dd></div>
-    <div class="dpr-home-dashboard-stat"><dt>精读</dt><dd>8</dd></div>
-    <div class="dpr-home-dashboard-stat"><dt>速读</dt><dd>13</dd></div>
+    <div class="dpr-home-dashboard-stat"><dt>精读</dt><dd>2</dd></div>
+    <div class="dpr-home-dashboard-stat"><dt>速读</dt><dd>11</dd></div>
   </dl>
-  <p class="dpr-home-dashboard-body">最近更新：2026-09-09 22:31:13 UTC<br>状态：成功</p>
+  <p class="dpr-home-dashboard-body">最近更新：2026-09-10 21:29:08 UTC<br>状态：成功</p>
 </section>
 <section class="dpr-home-dashboard-card dpr-home-brief-card">
   <div class="dpr-home-dashboard-header">
@@ -62,7 +62,10 @@
     <strong class="dpr-home-dashboard-count">AI</strong>
   </div>
   <div class="dpr-home-dashboard-body">
-<p>今日精读与速读共21篇论文，聚焦随机过程、深度学习与网络应用的交叉方向。最值得关注的是两篇9.0分精读：加权黎曼流形上带灭绝排除过程的水动力极限，以及贝叶斯深度学习估算太阳日冕不确定度。建议优先精读这两篇，并顺带关注图神经网络策略在无线网络中的扩展性问题。</p>
+<p>今日共生成 13 篇推荐（精读 2 篇，速读 11 篇）</p>
+<p>精读：《Conditional Fisher-Information Central Limit Theorems under Log-Concavity with Information-Theoretic Consequences》（8.0/10）, 《Speed Limit for Information Acquisition in Stochastic Learning Dynamics》（8.0/10）</p>
+<p>速读：《Càdlàg Solutions to Backward Stochastic Dynamics featuring Oblique Subgradients and driven by Martingale Noise》（7.0/10）, 《Bayesian deep learning integration of geophysical and drilling data for 3D prediction of copper mineralization and drill targeting: a case study from the Kogodai prospect, Rudny Altai》（7.0/10）, 《Spectral Analysis of Gram Matrices with Missing at Random Observations: Convergence, Central Limit Theorems, and Applications in Statistical Inference》（6.0/10）</p>
+<p>这些结果覆盖了当下较热的方向，建议先看精读区论文的关键问题与方法。</p>
   </div>
 </section>
 <section class="dpr-home-dashboard-card dpr-home-deep-card">
@@ -71,12 +74,12 @@
       <span class="dpr-home-dashboard-kicker">今日累计</span>
       <h3 class="dpr-home-dashboard-title">精读推荐</h3>
     </div>
-    <strong class="dpr-home-dashboard-count">8 篇</strong>
+    <strong class="dpr-home-dashboard-count">2 篇</strong>
   </div>
   <div class="dpr-home-dashboard-body">
-<ul class="dpr-home-dashboard-paper-list"><li><span class="dpr-home-dashboard-paper-title" title="Hydrodynamic limit of exclusion processes with killing on weighted Riemannian manifolds via a graph discretization">Hydrodynamic limit of exclusion processes with killing on weighted Riemannian manifolds via a graph discretization</span></li><li><span class="dpr-home-dashboard-paper-title" title="An Approximate Bayesian Deep Learning Approach for Uncertainty-aware Differential Emission Measure Estimates in the Solar Corona from the SDO">An Approximate Bayesian Deep Learning Approach for Uncertainty-aware Differential Emission Measure Estimates in the Solar Corona from the SDO</span></li><li><span class="dpr-home-dashboard-paper-title" title="Physics of Information Geometry - Part I: Principle of Least Action on the Probability Simplex">Physics of Information Geometry - Part I: Principle of Least Action on the Probability Simplex</span></li></ul>
+<ul class="dpr-home-dashboard-paper-list"><li><span class="dpr-home-dashboard-paper-title" title="Conditional Fisher-Information Central Limit Theorems under Log-Concavity with Information-Theoretic Consequences">Conditional Fisher-Information Central Limit Theorems under Log-Concavity with Information-Theoretic Consequences</span></li><li><span class="dpr-home-dashboard-paper-title" title="Speed Limit for Information Acquisition in Stochastic Learning Dynamics">Speed Limit for Information Acquisition in Stochastic Learning Dynamics</span></li></ul>
   </div>
-  <div class="dpr-home-dashboard-tags"><span class="dpr-home-dashboard-tag">npl-bdl-saig <strong>5</strong></span><span class="dpr-home-dashboard-tag">ml-theory <strong>2</strong></span><span class="dpr-home-dashboard-tag">rl-semantic <strong>1</strong></span></div>
+  <div class="dpr-home-dashboard-tags"><span class="dpr-home-dashboard-tag">npl-bdl-saig <strong>2</strong></span></div>
 </section>
 <section class="dpr-home-dashboard-card dpr-home-skim-card">
   <div class="dpr-home-dashboard-header">
@@ -84,12 +87,12 @@
       <span class="dpr-home-dashboard-kicker">今日累计</span>
       <h3 class="dpr-home-dashboard-title">速读推荐</h3>
     </div>
-    <strong class="dpr-home-dashboard-count">13 篇</strong>
+    <strong class="dpr-home-dashboard-count">11 篇</strong>
   </div>
   <div class="dpr-home-dashboard-body">
-<ul class="dpr-home-dashboard-paper-list"><li><span class="dpr-home-dashboard-paper-title" title="Scalability of Graph Neural Network Policies in Wireless Communication Networks">Scalability of Graph Neural Network Policies in Wireless Communication Networks</span></li><li><span class="dpr-home-dashboard-paper-title" title="A Theoretical Analysis of Generalization Dynamics in Neural Networks under Gradient Descent with Weight Decay">A Theoretical Analysis of Generalization Dynamics in Neural Networks under Gradient Descent with Weight Decay</span></li><li><span class="dpr-home-dashboard-paper-title" title="Stochastic Processes as Non-Metric Geodesics in Information Geometry">Stochastic Processes as Non-Metric Geodesics in Information Geometry</span></li></ul>
+<ul class="dpr-home-dashboard-paper-list"><li><span class="dpr-home-dashboard-paper-title" title="Càdlàg Solutions to Backward Stochastic Dynamics featuring Oblique Subgradients and driven by Martingale Noise">Càdlàg Solutions to Backward Stochastic Dynamics featuring Oblique Subgradients and driven by Martingale Noise</span></li><li><span class="dpr-home-dashboard-paper-title" title="Bayesian deep learning integration of geophysical and drilling data for 3D prediction of copper mineralization and drill targeting: a case study from the Kogodai prospect, Rudny Altai">Bayesian deep learning integration of geophysical and drilling data for 3D prediction of copper mineralization and drill targeting: a case study from the Kogodai prospect, Rudny Altai</span></li><li><span class="dpr-home-dashboard-paper-title" title="Spectral Analysis of Gram Matrices with Missing at Random Observations: Convergence, Central Limit Theorems, and Applications in Statistical Inference">Spectral Analysis of Gram Matrices with Missing at Random Observations: Convergence, Central Limit Theorems, and Applications in Statistical Inference</span></li></ul>
   </div>
-  <div class="dpr-home-dashboard-tags"><span class="dpr-home-dashboard-tag">npl-bdl-saig <strong>6</strong></span><span class="dpr-home-dashboard-tag">ml-theory <strong>5</strong></span><span class="dpr-home-dashboard-tag">rl-semantic <strong>2</strong></span></div>
+  <div class="dpr-home-dashboard-tags"><span class="dpr-home-dashboard-tag">ml-theory <strong>4</strong></span><span class="dpr-home-dashboard-tag">npl-bdl-saig <strong>4</strong></span><span class="dpr-home-dashboard-tag">rl-semantic <strong>3</strong></span></div>
 </section>
 </div>
 
