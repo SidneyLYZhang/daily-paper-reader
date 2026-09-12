@@ -41,17 +41,17 @@
 <section class="dpr-home-dashboard-card dpr-home-report-card">
   <div class="dpr-home-dashboard-header">
     <div>
-      <span class="dpr-home-dashboard-kicker">2026-09-11</span>
+      <span class="dpr-home-dashboard-kicker">2026-09-12</span>
       <h3 class="dpr-home-dashboard-title">今日汇总</h3>
     </div>
-    <strong class="dpr-home-dashboard-count">共 11 篇</strong>
+    <strong class="dpr-home-dashboard-count">共 5 篇</strong>
   </div>
   <dl class="dpr-home-dashboard-stats">
     <div class="dpr-home-dashboard-stat"><dt>累计更新</dt><dd>1 次</dd></div>
-    <div class="dpr-home-dashboard-stat"><dt>精读</dt><dd>3</dd></div>
-    <div class="dpr-home-dashboard-stat"><dt>速读</dt><dd>8</dd></div>
+    <div class="dpr-home-dashboard-stat"><dt>精读</dt><dd>0</dd></div>
+    <div class="dpr-home-dashboard-stat"><dt>速读</dt><dd>5</dd></div>
   </dl>
-  <p class="dpr-home-dashboard-body">最近更新：2026-09-11 22:06:58 UTC<br>状态：成功</p>
+  <p class="dpr-home-dashboard-body">最近更新：2026-09-12 22:01:22 UTC<br>状态：成功</p>
 </section>
 <section class="dpr-home-dashboard-card dpr-home-brief-card">
   <div class="dpr-home-dashboard-header">
@@ -62,9 +62,7 @@
     <strong class="dpr-home-dashboard-count">AI</strong>
   </div>
   <div class="dpr-home-dashboard-body">
-<p>今日从 11 篇论文中精读 3 篇、速读 8 篇，重点覆盖随机矩阵谱性质与大模型信息几何两条主线。</p>
-<p>最值得看的是两篇 8.0 分精读：《Spectral properties of Random Matrices》和《The information geometry of large language models is shared, learned, and controllable》；速读中 LLM 智能体多级技能迁移（Trace2Tower）与图上的字典学习＋最优传输也值得顺手一翻。</p>
-<p>普通读者可先看信息几何那篇，理解大模型内部表示&quot;可共享、可学习、可控制&quot;的含义，再按兴趣挑随机矩阵或智能体技能迁移方向延伸。</p>
+<p>2026-09-12日报：成功速读5篇、精读0篇，最高分7.0，信息几何与生成建模、随机系统合成是今日看点</p>
   </div>
 </section>
 <section class="dpr-home-dashboard-card dpr-home-deep-card">
@@ -73,12 +71,12 @@
       <span class="dpr-home-dashboard-kicker">今日累计</span>
       <h3 class="dpr-home-dashboard-title">精读推荐</h3>
     </div>
-    <strong class="dpr-home-dashboard-count">3 篇</strong>
+    <strong class="dpr-home-dashboard-count">0 篇</strong>
   </div>
   <div class="dpr-home-dashboard-body">
-<ul class="dpr-home-dashboard-paper-list"><li><span class="dpr-home-dashboard-paper-title" title="Spectral properties of Random Matrices">Spectral properties of Random Matrices</span></li><li><span class="dpr-home-dashboard-paper-title" title="The information geometry of large language models is shared, learned, and controllable">The information geometry of large language models is shared, learned, and controllable</span></li><li><span class="dpr-home-dashboard-paper-title" title="Beyond Noise Steering: Dual-Latent Space Reinforcement Learning for Generative Robot Policy">Beyond Noise Steering: Dual-Latent Space Reinforcement Learning for Generative Robot Policy</span></li></ul>
+<p class="dpr-home-dashboard-empty">今日暂无推荐。</p>
   </div>
-  <div class="dpr-home-dashboard-tags"><span class="dpr-home-dashboard-tag">ml-theory <strong>1</strong></span><span class="dpr-home-dashboard-tag">npl-bdl-saig <strong>1</strong></span><span class="dpr-home-dashboard-tag">rl-semantic <strong>1</strong></span></div>
+
 </section>
 <section class="dpr-home-dashboard-card dpr-home-skim-card">
   <div class="dpr-home-dashboard-header">
@@ -86,12 +84,12 @@
       <span class="dpr-home-dashboard-kicker">今日累计</span>
       <h3 class="dpr-home-dashboard-title">速读推荐</h3>
     </div>
-    <strong class="dpr-home-dashboard-count">8 篇</strong>
+    <strong class="dpr-home-dashboard-count">5 篇</strong>
   </div>
   <div class="dpr-home-dashboard-body">
-<ul class="dpr-home-dashboard-paper-list"><li><span class="dpr-home-dashboard-paper-title" title="Trace2Tower: Transition-Aware EigenTrace Induction of Multi-Level Skills for LLM Agents">Trace2Tower: Transition-Aware EigenTrace Induction of Multi-Level Skills for LLM Agents</span></li><li><span class="dpr-home-dashboard-paper-title" title="A dictionary learning framework for graphs via filters and optimal transport">A dictionary learning framework for graphs via filters and optimal transport</span></li><li><span class="dpr-home-dashboard-paper-title" title="PAGR: Proof-Carrying Algebraic-Geometric Retrieval: A Quiver-, Provenance-, and Sheaf-Theoretic Framework for Grounded LLM Retrieval">PAGR: Proof-Carrying Algebraic-Geometric Retrieval: A Quiver-, Provenance-, and Sheaf-Theoretic Framework for Grounded LLM Retrieval</span></li></ul>
+<ul class="dpr-home-dashboard-paper-list"><li><span class="dpr-home-dashboard-paper-title" title="Physics of Information Geometry - Part II: Small-Step Active Inference on the Probability Simplex">Physics of Information Geometry - Part II: Small-Step Active Inference on the Probability Simplex</span></li><li><span class="dpr-home-dashboard-paper-title" title="Newton Matching for Generative Modeling: A Unified Framework for Fine-Tuning and Sampling">Newton Matching for Generative Modeling: A Unified Framework for Fine-Tuning and Sampling</span></li><li><span class="dpr-home-dashboard-paper-title" title="Non-parametric Formal Synthesis of Unknown Stochastic Systems: Asymptotic Convergence Guarantees">Non-parametric Formal Synthesis of Unknown Stochastic Systems: Asymptotic Convergence Guarantees</span></li></ul>
   </div>
-  <div class="dpr-home-dashboard-tags"><span class="dpr-home-dashboard-tag">ml-theory <strong>3</strong></span><span class="dpr-home-dashboard-tag">npl-bdl-saig <strong>3</strong></span><span class="dpr-home-dashboard-tag">rl-semantic <strong>2</strong></span></div>
+  <div class="dpr-home-dashboard-tags"><span class="dpr-home-dashboard-tag">npl-bdl-saig <strong>3</strong></span><span class="dpr-home-dashboard-tag">ml-theory <strong>2</strong></span></div>
 </section>
 </div>
 
