@@ -41,7 +41,7 @@
 <section class="dpr-home-dashboard-card dpr-home-report-card">
   <div class="dpr-home-dashboard-header">
     <div>
-      <span class="dpr-home-dashboard-kicker">2026-09-12</span>
+      <span class="dpr-home-dashboard-kicker">2026-09-13</span>
       <h3 class="dpr-home-dashboard-title">今日汇总</h3>
     </div>
     <strong class="dpr-home-dashboard-count">共 5 篇</strong>
@@ -51,7 +51,7 @@
     <div class="dpr-home-dashboard-stat"><dt>精读</dt><dd>0</dd></div>
     <div class="dpr-home-dashboard-stat"><dt>速读</dt><dd>5</dd></div>
   </dl>
-  <p class="dpr-home-dashboard-body">最近更新：2026-09-12 22:01:22 UTC<br>状态：成功</p>
+  <p class="dpr-home-dashboard-body">最近更新：2026-09-13 22:14:37 UTC<br>状态：成功</p>
 </section>
 <section class="dpr-home-dashboard-card dpr-home-brief-card">
   <div class="dpr-home-dashboard-header">
@@ -62,7 +62,9 @@
     <strong class="dpr-home-dashboard-count">AI</strong>
   </div>
   <div class="dpr-home-dashboard-body">
-<p>2026-09-12日报：成功速读5篇、精读0篇，最高分7.0，信息几何与生成建模、随机系统合成是今日看点</p>
+<p>今日速读5篇、精读0篇，最高分6.0，聚焦非光滑H∞输出反馈策略搜索、广义光滑性随机优化与约束随机min-max。</p>
+<p>最值得关注广义光滑性下的随机优化和约束随机min-max，前者含“定位—重启—加速”思路，后者关注如何让梯度映射变小。</p>
+<p>普通读者可先读这三篇摘要，重点核对假设条件、理论保证边界和实验设置，再决定是否精读。</p>
   </div>
 </section>
 <section class="dpr-home-dashboard-card dpr-home-deep-card">
@@ -87,9 +89,9 @@
     <strong class="dpr-home-dashboard-count">5 篇</strong>
   </div>
   <div class="dpr-home-dashboard-body">
-<ul class="dpr-home-dashboard-paper-list"><li><span class="dpr-home-dashboard-paper-title" title="Physics of Information Geometry - Part II: Small-Step Active Inference on the Probability Simplex">Physics of Information Geometry - Part II: Small-Step Active Inference on the Probability Simplex</span></li><li><span class="dpr-home-dashboard-paper-title" title="Newton Matching for Generative Modeling: A Unified Framework for Fine-Tuning and Sampling">Newton Matching for Generative Modeling: A Unified Framework for Fine-Tuning and Sampling</span></li><li><span class="dpr-home-dashboard-paper-title" title="Non-parametric Formal Synthesis of Unknown Stochastic Systems: Asymptotic Convergence Guarantees">Non-parametric Formal Synthesis of Unknown Stochastic Systems: Asymptotic Convergence Guarantees</span></li></ul>
+<ul class="dpr-home-dashboard-paper-list"><li><span class="dpr-home-dashboard-paper-title" title="Algorithmic Optimality Guarantees for Nonsmooth $H_\infty$ Output-Feedback Policy Search">Algorithmic Optimality Guarantees for Nonsmooth $H_\infty$ Output-Feedback Policy Search</span></li><li><span class="dpr-home-dashboard-paper-title" title="Localize, Restart, Accelerate: Stochastic Optimization under Generalized Smoothness">Localize, Restart, Accelerate: Stochastic Optimization under Generalized Smoothness</span></li><li><span class="dpr-home-dashboard-paper-title" title="How to Make the Gradient Mapping Small for Constrained Stochastic Min-Max Problems and Beyond">How to Make the Gradient Mapping Small for Constrained Stochastic Min-Max Problems and Beyond</span></li></ul>
   </div>
-  <div class="dpr-home-dashboard-tags"><span class="dpr-home-dashboard-tag">npl-bdl-saig <strong>3</strong></span><span class="dpr-home-dashboard-tag">ml-theory <strong>2</strong></span></div>
+  <div class="dpr-home-dashboard-tags"><span class="dpr-home-dashboard-tag">ml-theory <strong>3</strong></span><span class="dpr-home-dashboard-tag">npl-bdl-saig <strong>1</strong></span><span class="dpr-home-dashboard-tag">rl-semantic <strong>1</strong></span></div>
 </section>
 </div>
 
