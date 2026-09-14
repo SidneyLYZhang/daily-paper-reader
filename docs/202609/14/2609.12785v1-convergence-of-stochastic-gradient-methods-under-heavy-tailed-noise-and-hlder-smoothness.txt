@@ -1,0 +1,4595 @@
+Title: Convergence of Stochastic Gradient Methods under Heavy-Tailed Noise and Hölder Smoothness
+
+URL Source: https://arxiv.org/pdf/2609.12785v1
+
+Published Time: Mon, 14 Sep 2026 01:00:07 GMT
+
+Number of Pages: 46
+
+Markdown Content:
+# Convergence of Stochastic Gradient Methods under Heavy-Tailed Noise and Hölder Smoothness 
+
+Misbah Uz Zaman muz21ms243@iiserkol.ac.in Department of Mathematics and Statistics Indian Institute of Science Education and Research Kolkata 
+
+Anirbit Mukherjee anirbit.mukherjee@manchester.ac.uk Department of Computer Science The University of Manchester 
+
+## Abstract 
+
+Classical convergence guarantees for stochastic gradient methods typically assume Lipschitz-smooth objectives and finite-variance gradient noise, both frequently violated in practice. In contrast, we study nonconvex stochastic optimization under the joint relaxation of these as-sumptions: objectives with ( L, s )-Hölder continuous gradients, s ∈ (0 , 1], and gradient noise satisfying only a bounded α-th moment condition for α ∈ (1 , 2]. We establish three conver-gence results. Firstly, that standard SGD converges at rate O(T −s/ (1+ s)) whenever α ≥ 1+ s,extending the classical nonconvex SGD rate to heavy-tailed noise and Hölder smoothness simultaneously. Secondly, we analyze δ-regularized gradient clipping ( δ-GClip), a provable trainer of wide and deep nets, and establish a stationarity rate of O(T −2s(α−1) /[(1+ s)(2 α−1)] )under the same condition. Thirdly, we analyze standard gradient clipping (G-Clip) and show that it recovers the above rate for α ≥ 1 + s while in the very heavy-tailed regime 
+
+α < 1 + s, it has a convergence rate O(T −2s(α−1) /[( α−1)+ s(2 α−1)] ) — the first convergence guarantee in this regime for any stochastic gradient based method. 
+
+## 1 Introduction 
+
+Many tasks in machine learning can be formulated as Empirical Risk Minimization (ERM), where the objec-tive is to minimize ˆRn(θ) = 1
+
+> n
+
+∑ni=1 ℓ(f (xi; θ), y i), based on a dataset {(xi, y i)}ni=1 . In large-scale settings, computing the full gradient is often prohibitively expensive. Stochastic Gradient Descent (SGD) addresses this challenge by using a single sample (or mini-batch) to form an unbiased gradient estimate, reducing the per-iteration cost from O(n) to O(1). The theoretical foundations of such stochastic methods date back to Robbins & Monro (1951) — the seminal work that established convergence of iterative procedures using noisy observations under suitable diminishing step sizes. A finite-time analysis of SGD in nonconvex settings was developed by Ghadimi & Lan (2013), who showed that, under Lipschitz smoothness and bounded variance assumptions, a randomized iterate xR selected from the first N iterations satisfies E∥∇ f (xR)∥2 = O
+
+( 1√N
+
+)
+
+, yielding an iteration complexity of O(ε−4) for finding an ε-stationary point. However, these classical guarantees rely on assumptions that are often violated in modern machine learning applications. Simsekli et al. (2019) provides empirical evidence across a wide range of architectures, loss functions, and datasets, showing that gradient noise is well-described by α-stable distributions with α < 2— where α ∈ (1 , 2] acts as the heavy-tail index characterizing the noise, specifically defining the highest finite moment of the gradient noise that we assume to be bounded, indicating heavy-tailed behavior and suggesting potentially infinite variance. Furthermore, Zhang et al. (2020b) show that the noise in BERT pretraining exhibits pronounced heavy-tailed behavior, with empirical variance failing to stabilize even at very large sample sizes. Crucially, they also establish theoretical lower bounds for optimization under heavy-tailed noise and prove that gradient clipping mechanisms achieve statistically optimal convergence rates in this regime. Recently, Gong et al. (2025) proposed a stochastic optimization method that dynamically 1arXiv:2609.12785v1 [cs.LG] 11 Sep 2026 adapts the tail index of injected α-stable noise based on the evolving sharpness of the loss landscape, with empirical results suggesting improved optimization behavior in practice. Taken together, these findings highlight heavy-tailed gradient noise as a practically significant phenomenon in modern deep learning, and motivate the need for optimization algorithms whose convergence guarantees do not rely on finite-variance assumptions. Beyond the noise model, classical analyses also typically assume that the objective function has a globally Lipschitz continuous gradient. This assumption, however, is frequently violated in practice. To capture a broader class of objectives, the following generalization has often been considered: a differentiable function 
+
+f is said to be ( L, s )-Hölder smooth for parameters L > 0 and s ∈ (0 , 1] if ∥∇ f (x) − ∇ f (y)∥ ≤ L∥x −
+
+y∥s ∀ x, y ∈ Rd, which recovers standard Lipschitz smoothness when s = 1. The above condition arises naturally in machine learning. Wang et al. (2022) explicitly identify several widely used loss functions that fail to satisfy global Lipschitz smoothness: the q-norm soft-margin hinge loss (1 − yw⊤x)q 
+
+> +
+
+for SVMs and the q-norm regression loss |y − w⊤x|q for q ∈ (1 , 2], both of which satisfy (q − 1)-Hölder continuity of the gradient, i.e., satisfy the above condition with s = q − 1. When the smooth hinge loss with parameter s ∈ (0 , 1) is used in SVM training, the gradient of the resulting empirical risk satisfies the s-Hölder condition but fails to be Lipschitz continuous Wang & Tang (2023). These examples demonstrate that Hölder smoothness arises naturally in standard supervised learning problems and therefore constitutes a practically relevant relaxation of classical smoothness assumptions. Importantly, Wang et al. (2022) show that s ≥ 1/2 is already sufficient to achieve an excess population risk of O( √d log(1 /δ ) 
+
+> nϵ
+
++ 1√n
+
+) with linear gradient complexity O(n). This upper bound perfectly matches the known information-theoretic lower bounds for differentially private stochastic convex optimization Bassily et al. (2019), demonstrating that full Lipschitz smoothness is not strictly necessary to attain statistically optimal learning rates. To the best of our knowledge, there are no existing results that analyze the convergence of SGD under heavy-tailed noise for objectives with s-Hölder continuous gradients — the existing literature has largely treated these challenges separately. Standard gradient clipping (GClip), studied by Zhang et al. (2020b), carries a fundamental theoretical limitation despite its favorable convergence guarantees under heavy-tailed noise in the Lipschitz smooth setting — that it has no convergence guarantee for training neural networks. To overcome this limitation, Tucat et al. (2025) introduced the δ-regularized gradient clipping ( δ-GClip) algorithm which modifies standard GClip by enforcing a strictly positive lower bound on the adaptive scaling factor, thereby preventing the effective step size from collapsing to zero when gradient norms become very large. Specifically, δ-GClip applies the update xk+1 = xk − η min 
+
+{
+
+1, max 
+
+{
+
+δ, γ 
+
+> ∥gk∥
+
+}} 
+
+gk, for a parameter 
+
+δ ∈ (0 , 1). This modification admits a natural interpretation as a continuous interpolation between gradient descent ( δ = 1) and standard gradient clipping ( δ = 0), with intermediate values δ ∈ (0 , 1) inheriting desirable properties from both extremes. Crucially, Tucat et al. (2025) proved that for sufficiently wide deep neural networks trained with the squared loss, whose loss landscape satisfies the μ-PL ∗ condition in a neighborhood of initialization, δ-GClip admits geometric convergence guarantees to global minima. Thus Tucat et al. (2025) demonstrated the first adaptive gradient method with provable global convergence guarantee for deep neural networks of arbitrary depth. In the stochastic setting, Tucat et al. (2025) establish stationarity guarantees only under the bounded noise assumption ∥g(w) − ∇ L(w)∥ ≤ θ, which rules out heavy-tailed gradient noise. Moreover, the smoothness assumption used throughout Tucat et al. (2025) is also restricted to the Lipschitz continuity of the gradient. 
+
+Thus motivated, we ask whether convergence properties of δ-GClip extend to settings where simultaneously the gradient noise is heavy-tailed and the objective is only (L, s )-Hölder smooth. To the best of our knowledge, this setting albeit natural has not been previously analyzed for clipping-based stochastic optimization methods, which can also train nets provably. Secondly, we also ask whether for standard gradient clipping it admits convergence guarantees under the simultaneous presence of heavy-tailed noise and (L, s )-Hölder smoothness. 
+
+2Organization The remainder of this report is organized as follows: Section 2 of this chapter summarizes the three main convergence results presented in our work. Section 3 establishes the mathematical prelimi-naries, detailing the formal definitions and core assumptions that we use regarding the noise model and the objective landscape. Section 4 presents the convergence proof for the standard SGD operating in the regime (α ≥ 1 + s). Section 5 presents the convergence analysis of the δ-GClip algorithm, for s ∈ (0 , 1], α ≥ 1 + s.Section 6 presents the convergence analysis of the G-Clip algorithm, giving a unified guarantee across both 1 + s ≤ α and 1 + s > α which in the latter regime yields a first-of-its-kind convergence guarantee. Section 7 concludes the report and discusses promising avenues for future research. Appendix A provides a comprehensive literature review of existing convergence guarantees for stochastic gradient methods under Hölder smoothness and heavy-tailed noise separately. Appendix B gives the proofs deferred from Section 4. Appendix C gives the detailed proofs of the lemmas required for the main theorem in Section 5. Appendix D gives the proofs deferred from Section 6, covering both the α ≥ 1 + s and α < 1 + s
+
+regimes for G-Clip. Appendix E gives the detailed proofs of the auxiliary lemmas required in Appendix D. Appendix F reports an empirical validation of the two central claims of this work: that the convergence rate of SGD is independent of the heavy-tail index α once α ≥ 1 + s, and that G-Clip is the only one of the analysed methods with a provable guarantee once α < 1 + s.
+
+## 2 Summary of Main Results 
+
+This work establishes convergence guarantees for stochastic gradient methods under the simultaneous pres-ence of heavy-tailed gradient noise and ( L, s )-Hölder smooth objective functions. Next we present shortened, informal versions of our two main results. 
+
+Theorem 2.1 (Informal Statement of Theorem 4.1: SGD Under (L, s )-Hölder Smoothness and Heavy-Tailed Gradients). Consider standard SGD applied to an ( L, s )-Hölder smooth, possibly noncon-vex objective f , using the update xk+1 = xk − ηgk, where gk = ∇f (xk) + ξk is a stochastic gradient with zero-mean noise ξk satisfying E[∥ξk∥α | xk] ≤ σα for some σ > 0 i.e., the noise has a finite α-th moment. Assuming the heavy-tail index α of the noise satisfies α ≥ 1 + s, this moment condition holds and a classical descent analysis, without clipping or robustification, applies directly. Running SGD for T iterations with the optimal constant step size η = O(T −1/(1+ s)) yields the convergence rate, 1
+
+T
+
+> T
+
+∑
+
+> k=1
+
+E∥∇ f (xk)∥2 = O
+
+(
+
+T − s
+
+> 1+ s
+
+)
+
+. (1) When s = 1 and α = 2, this recovers the classical O(T −1/2) nonconvex SGD rate of (Ghadimi & Lan, 2013) under Lipschitz smoothness and finite-variance noise; more generally, the rate degrades continuously as s → 0, reflecting the reduced regularity of the objective. 
+
+Theorem 2.2 (Informal Statement of Theorem 5.1: δ-GClip Under (L, s )-Hölder Smoothness and Heavy-Tailed Gradients). For parameters γ > 0 and δ ∈ (0 , 1), the δ-clipped stochastic gradient estimator is ˆ gδ (xk) = min {1, max {δ, γ/ ∥gk∥}} gk, where gk = ∇f (xk) + ξk satisfies the same α-th moment bound E[∥ξk∥α | xk] ≤ σα, and δ-GClip updates via xk+1 = xk − ηˆgδ (xk). Assuming that the heavy-tail index satisfies α ≥ 1 + s, running δ-GClip for T iterations with step size η = O(T −1/(1+ s)) yields the convergence rate, 1
+
+T
+
+> T
+
+∑
+
+> k=1
+
+E [min {∥∇ f (xk)∥2, γ ∥∇ f (xk)∥} ] = O
+
+(
+
+T − 2s(α−1) (1+ s)(2 α−1) 
+
+)
+
+. (2) In the small-gradient regime ∥∇ f (xk)∥ ≤ γ, the LHS of above reduces to the standard stationarity measure. 
+
+Theorem 2.3 (Informal Statement of Theorem 6.1: G-Clip Under (L, s )-Hölder Smoothness and Heavy-Tailed Gradients). For a threshold γ > 0, the standard clipped stochastic gradient estimator (the δ = 0 case of δ-GClip) is ˆ g(xk) = min {1, γ/ ∥gk∥} gk, where gk = ∇f (xk) + ξk satisfies the same α-th moment bound E[∥ξk∥α | xk] ≤ σα, and G-Clip updates via xk+1 = xk − η ˆg(xk). Then running G-Clip for 3T iterations with a suitably chosen constant step size η and clipping threshold γ yields 1
+
+T
+
+> T
+
+∑
+
+> k=1
+
+E[min {∥∇ f (xk)∥2, γ ∥∇ f (xk)∥} ] =
+
+
+
+O
+
+(
+
+T − 2s(α−1) (1+ s)(2 α−1) 
+
+)
+
+, 1 + s ≤ α, O
+
+(
+
+T − 2s(α−1) (α−1)+ s(2 α−1) 
+
+)
+
+, 1 + s ≥ α. 
+
+(3) Thus in the regime 1 + s ≤ α the rate coincides with that of δ-GClip (Theorem 2.2), whereas in the regime 
+
+1 + s ≥ α yields a convergence guarantee in the very heavy-tailed setting α < 1 + s, which lies outside the scope of all preceding and existing results. As in Theorem 2.2, in the small-gradient regime ∥∇ f (xk)∥ ≤ γ
+
+the left-hand side reduces to the standard stationarity measure. An empirical study validating the salient aspects of the above results has been given in Appendix F. In particular the experiments are suggestive of there being a regime where δ-GClip converges for α < 1 + s but which is not yet visible in theory. 
+
+2.1 Comparison with Existing Results 
+
+The behaviour of stochastic gradient methods depends qualitatively on the relationship between the Hölder exponent s and the heavy-tail index α. We organise the discussion into four parameter regimes and examine, in each regime, the convergence rates of the classical SGD Ghadimi & Lan (2013), standard gradient clipping (GClip) Zhang et al. (2020b), our SGD result (Theorem 4.1), our δ-GClip result (Theorem 5.1), and our G-Clip result (Theorem 6.1). The last of these analyses the same standard clipping algorithm as Zhang et al. (2020b) (the δ = 0 case of δ-GClip), but under ( L, s )-Hölder smoothness. 
+
+Regime 1: s = 1 , α = 2 (Lipschitz Smooth, Finite Variance). This is the classical setting where the foundational result of Ghadimi & Lan (2013) established that SGD achieves O(T −1/2). GClip Zhang et al. (2020b) recovers the same rate at α = 2. Theorem 4.1 of the present work also recovers the above raate as a special case. The δ-GClip algorithm (Theorem 5.1) yields O(T −1/3), which is strictly slower than the O(T −1/2) rate of both SGD and GClip; the slowdown from exponent 12 to 13 reflects the additional bias of the δ-regularisation mechanism, a cost paid for the provable deep-network training guarantee of Tucat et al. (2025). Our G-Clip result (Theorem 6.1) recovers the optimal O(T −1/2) here, through its 1 + s ≥ α branch evaluated at s = 1 , α = 2. 
+
+Regime 2: s = 1 , α ∈ (1 , 2) (Lipschitz Smooth, Heavy-Tailed Noise). Both Theorem 4.1 and Theorem 5.1 share the condition α ≥ 1+ s and hence at s = 1, neither provides a convergence guarantee in this regime. In this classical heavy-tailed regime, standard GClip (Zhang et al., 2020b) achieves a provable expected stationarity rate of O(T − 2( α−1) 3α−2 ), which they proved optimal. Our G-Clip result (Theorem 6.1) does cover this regime recovering as a special case the known optimal GClip rate. Thus, among the methods analysed in this work, G-Clip is the only one that provides a guarantee in the classical heavy-tailed Lipschitz regime, and it does so at the optimal rate. Furthermore, recent advancements have established that gradient normalization, when coupled with mo-mentum, can also achieve this optimal rate. Specifically, Sun et al. (2025) analyze Normalized SGD with Clipping (NSGDC), and Liu & Zhou (2025) analyze Batched Normalized SGD with Momentum (Batched NSGDM), and both attain the optimal rate of GClip. The critical algorithmic difference is that both NS-GDC and Batched NSGDM fundamentally rely on maintaining a running exponential moving average of past gradients (momentum) and strictly normalizing the update step. Understanding how momentum and gradient normalization interact with fractional s-Hölder landscapes under heavy-tailed noise remains a highly relevant open question. 
+
+Regime 3: s ∈ (0 , 1) , α ≥ 1+ s (Hölder Smooth, Moderately Heavy-Tailed Noise). This regime is a primary novel contribution of the present work. GClip Zhang et al. (2020b) assumes Lipschitz smoothness (s = 1) and provides no result here. Theorems 4.1, 5.1, and 6.1 all provide convergence guarantees in this setting. SGD (Theorem 4.1) achieves O(T − s 
+
+> 1+ s
+
+), while both δ-GClip (Theorem 5.1) and G-Clip (Theorem 6.1, 1 + s ≤ α branch) achieve O(T − 2s(α−1) (1+ s)(2 α−1) ); that is, the two clipping methods coincide in rate here. 4Comparing the exponents we always have 2s(α−1) (1+ s)(2 α−1) < s 
+
+> 1+ s
+
+, so SGD is strictly faster than either clipping method throughout this regime and remains the best available method in this regime. 
+
+Our Theorem 4.1 can also be seen as extending the convergence result for SGD on Holder continous function as given in Wang & Tang (2023) to the heavy-tailed regime of 1 + s ≤ α ≤ 2. 
+
+Regime 4: s ∈ (0 , 1) , α < 1 + s (Hölder Smooth, Very Heavy-Tailed Noise). When α < 1+ s,the shared condition α ≥ 1+ s (Assumption 2) fails, so neither our SGD result (Theorem 4.1) nor our δ-GClip result (Theorem 5.1) applies, and neither does the GClip analysis of Zhang et al. (2020b). 
+
+Our G-Clip result (Theorem 6.1), separately handles this regime 2 > 1 + s > α > 0, yielding a rate of 
+
+O(T − 2s(α−1) (α−1)+ s(2 α−1) ), giving the first convergence guarantee in this combination which combines heavy-tailed noise and Hölder smoothness , a setting previously left entirely open. Whether this rate is optimal remains an open problem. 
+
+Regime (s, α ) SGD (Thm. 4.1) GClip δ-GClip (Thm. 5.1) 
+
+s = 1 , α = 2 O(T − 12 ) O(T − 12 ) (Zhang et al. (2020b),Thm 6.1) O(T − 13 )
+
+s = 1 , α ∈ (1 , 2) — O(T − 2( α−1) 3α−2 ) (Zhang et al. (2020b),Thm 6.1) —
+
+s ∈ (0 , 1) , α ≥ 1+ s O(T − s 
+
+> 1+ s
+
+) O(T − 2s(α−1) (1+ s)(2 α−1) ) (Thm 6.1) O(T − 2s(α−1) (1+ s)(2 α−1) )
+
+s ∈ (0 , 1) , α < 1+ s — O(T − 2s(α−1) (α−1)+ s(2 α−1) ) (Thm 6.1) —
+
+Table 1: Comparison of expected stationarity convergence rates across four parameter regimes defined by the Hölder exponent s and heavy-tail index α. All the rates mentioned in red entries are new to this work. A dash (—) indicates that no provable guarantee is available for that algorithm in that regime. A detailed survey of related works can be found in Appendix A 
+
+## 3 Mathematical Preliminaries 
+
+Definition 1 (Hölder Continuous Gradient) . An at least once differentiable f : Rd → R is said to be (L, s )-Hölder continuous for some L > 0 and s ∈ (0 , 1], if ∀ x, y ∈ Rd,
+
+∥∇ f (x) − ∇ f (y)∥ ≤ L ∥x − y∥ s.
+
+Equivalently, f satisfies the upper bound, 
+
+f (y) ≤ f (x) + ⟨∇ f (x), y − x⟩ + L
+
+1 + s ∥y − x∥ 1+ s.
+
+Definition 2 (δ-GClip Gradient Estimator of Tucat et al. (2025)) . For parameters γ > 0 and δ ∈ (0 , 1), the 
+
+δ-clipped stochastic gradient estimator is defined as, ˆgδ (x) = min 
+
+{
+
+1, max 
+
+{
+
+δ, γ
+
+∥g(x)∥
+
+}} 
+
+g(x).
+
+Definition 3 (δ-GClip Iteration of Tucat et al. (2025)) . Given a step size ηk > 0, the δ-GClip update is 
+
+xk+1 = xk − ηk ˆgδ (xk).
+
+We recall our motivations to focus on the method of Tucat et al. (2025), as that is the only known adapative step-length scheme for gradient based algorithms, which has the dual property, that in its full-batch settings it is a provable trainer of deep-nets and which in its stochastic set-up also competes heuristics like Adam. 5Definition 4 (G-Clip Gradient Estimator) . For a threshold γ > 0, the clipped stochastic gradient estimator is ˆ g(x) = min {1, γ/ ∥g(x)∥} g(x); in particular ∥ˆg(x)∥ ≤ γ.
+
+Definition 5 (G-Clip Iteration) . Given a step size ηk > 0, the G-Clip update is xk+1 = xk − ηk ˆg(xk). 
+
+Assumption 1 (Bounded α-Moment) . The stochastic gradient g of the at least once differentiable function 
+
+f is said to satisfy a finite α-moment condition for some α ∈ (1 , 2] if for some σ > 0, 
+
+E∥g(x) − ∇ f (x)∥α ≤ σα, ∀x ∈ Rd.
+
+When α < 2, the above corresponds to “heavy-tailed noise" in the stochastic gradient that may have infinite variance, while satisfying the above at α = 2 recovers the classical finite-variance setting. 
+
+Assumption 2 (Lowerbound on the Noise Moment Exponent) . Corresponding to s defined for a function 
+
+f , as given in Definition 1, the noise exponent α of the corresponding stochastic gradient in Assumption 1 is also assumed to satisfy, 
+
+α ≥ 1 + s, 
+
+Assumption 3 (Unbiased Gradient Oracle) . At each iterate x ∈ Rd, the stochastic gradient oracle corre-sponding to an at least once differentiable function f returns a random vector g(x) satisfying, 
+
+E[g(x) | x] = ∇f (x).
+
+Equivalently, if the stochastic gradient noise is defined by ξ(x) := g(x) − ∇ f (x), then E[ξ(x) | x] = 0 . In particular when x1, . . . , xt are t consecutive iterates of the stochastic optimization algorithm then ξ(xt) is assumed to be independent of the filtration generated by the previous iterates. 
+
+Assumption 4 (Objective Function Bounded Below) . The objective function f : Rd → R is bounded below; that is, there exists a constant f ⋆ > −∞ such that 
+
+f (x) ≥ f ⋆, ∀x ∈ Rd.
+
+This assumption prevents the objective from decreasing indefinitely and guarantees that the descent inequal-ities obtained throughout the analysis remain meaningful. 
+
+## 4 Convergence of Standard SGD under s-Hölder and Heavy-Tailed Noise 
+
+In this section we establish convergence of standard SGD under ( L, s )-Hölder smoothness and heavy-tailed noise. 
+
+Theorem 4.1 (Convergence of SGD for α ≥ 1 + s). Under Assumptions 1-4, if we run standard SGD with the update rule xk+1 = xk − ηgk for T iterations using the constant step size η = O(T − 11+ s ), the expected squared gradient norm converges at the rate: 1
+
+T
+
+> T
+
+∑
+
+> k=1
+
+E[∥∇ f (xk)∥2] = O
+
+(
+
+T − s
+
+> 1+ s
+
+)
+
+The proof of the above theorem is given in Appendix B. 
+
+Remark. The proof of Theorem 4.1 in an intermediate step applies Young’s inequality with conjugate exponent q = 21−s , which is finite only for s ∈ (0 , 1) and hence the endpoint s = 1 (the Lipschitz-smooth case) is handled directly. When s = 1, the fractional term in the descent inequality equals L2sη1+ s 
+
+> 1+ s
+
+∥∇ f (xk)∥1+ s =
+
+Lη 2∥∇ f (xk)∥2, which can be absorbed into the descent term −η∥∇ f (xk)∥2 whenever η ≤ 12L (so that 
+
+Lη 2 ≤ η 
+
+> 2
+
+), giving 
+
+E[f (xk+1 ) | xk] ≤ f (xk) − η
+
+2 ∥∇ f (xk)∥2 + Lσ 2η2.
+
+Telescoping exactly as in the proof and choosing η = O(T −1/2) (which satisfies η ≤ 12L for all large T )yields 1
+
+> T
+
+∑Tk=1 E[∥∇ f (xk)∥2] = O(T −1/2), the classical nonconvex SGD rate, in agreement with O(T − s 
+
+> 1+ s
+
+)evaluated at s = 1. 65 Convergence of δ-GClip under s-Hölder and Heavy-Tailed Noise 
+
+Theorem 5.1 (Non-convex convergence of δ-GClip under ( L, s )-Hölder smoothness) . Suppose f : Rd → R
+
+is bounded below by f⋆ and has ( L, s )-Hölder continuous gradients for some s ∈ (0 , 1]. Let the stochastic gradients satisfy Assumptions 1, 2 and 3 with heavy-tail index α ∈ (1 , 2] and noise scale parameter σ. Let 
+
+{xk}T −1 
+
+> k=0
+
+be the iterates generated by the δ-GClip algorithm with parameter δ ∈ (0 , 1]. If the algorithm is run for T iterations with the constant clipping threshold γ and learning rate η specified in Remark , then for every T ≥ 1 the iterates satisfy: 1
+
+T
+
+> T
+
+∑
+
+> k=1
+
+E[min {∥∇ f (xk)∥2, γ ∥∇ f (xk)∥}] = O
+
+(
+
+T − 2s(α−1) (1+ s)(2 α−1) 
+
+)
+
+.
+
+Remark (Explicit Constants) . The explicit forms of the constants used in the theorem cab be made explicit as follows. Fix any “gradient threshold parameter” θ ∈ (0 , 1). Correspondingly the auxiliary algorithmic constants are M = min { 15 θ 
+
+> 16
+
+, 13
+
+} and c = min { 12 , M 
+
+> 16
+
+, 14
+
+}. The variance bounding constant K, which is independent of γ and T , is defined such that 2 sθ1+ s +2 sσ1+ sγ−(1+ s) +Ctail (θ, δ )σαγ−α +2 sδ1+ sσ1+ sγ−(1+ s) ≤
+
+K. The macro-constants for the optimal schedules are then defined as C1 = F0 
+
+> c
+
+, C2 = Cbias (θ,δ ) σ2α  
+
+> 2c
+
+, C3 = 
+
+> LK c(1+ s)
+
+, and C4 = 2( Cs 
+
+> 1
+
+C3) 11+ s , where F0 = f (x0) − f⋆.With Kv := θ−(1+ s) + 2 sδ1+ s, the clipping threshold and learning rate are set, for each T ≥ 1, as 
+
+γ = max 
+
+{
+
+1, 16 ·21/α  
+
+> θ
+
+σ, ( 4·16 α−1
+
+> M θ α−1
+
+)1/α σ, 64 3M θ σ, (C2/C 4) 12α−1 T s
+
+> (1+ s)(2 α−1)
+
+}
+
+,η = min 
+
+{ δ
+
+> 2
+
+( M (1+ s)16 LK v
+
+)1/s γ 1−ss , δ( (1+ s)2 1−s
+
+> 8LK v
+
+)1/s γ 1−ss , (C1/C 3) 11+ s γ−1T − 11+ s
+
+}
+
+.
+
+Taking γ as a maximum and η as a minimum makes both hold at every T ≥ 1; the final entry of each dominates for large T , where ( η, γ ) reduce to the schedule that gives the displayed bound. 
+
+5.1 Auxiliary Lemmas 
+
+Lemma 5.2 (Conditional Probability Bounds for Tail Regions) . Let Assumption 1 and 2 hold, meaning the noise satisfies the bounded moment condition E[∥ξ∥α] ≤ σα for α ∈ (1 , 2]. Suppose the true gradient satisfies the condition ∥∇ f (x)∥ ≤ θγ for a fixed constant θ ∈ (0 , 1). Define the stochastic gradient g = ∇f + ξ and the tail regions B = {γ < ∥g∥ ≤ γ/δ } and C = {∥ g∥ > γ/δ } for γ > 0 and δ ∈ (0 , 1]. Then the conditional probabilities of the stochastic gradient falling into these regions, given ∇f (x), satisfy 
+
+P(B | ∥∇ f (x)∥ ≤ θγ ) ≤ σα
+
+(1 − θ)αγα , (4) 
+
+P(C | ∥∇ f (x)∥ ≤ θγ ) ≤
+
+( δ
+
+1 − θδ 
+
+)α σα
+
+γα . (5) The proof is provided in subsection C.1. 
+
+Lemma 5.3 (Conditional Bias and Variance Bounds for ∥∇ f (x)∥ ≤ θγ ). Let Assumption 1 and 2 hold, Consider the δ-GClip estimator ˆ gδ (x) with clipping threshold γ > 0 and parameter δ ∈ [0 , 1], and suppose the true gradient satisfies ∥∇ f (x)∥ ≤ θγ for some fixed θ ∈ (0 , 1) (Case 1). Define the conditional bias 
+
+Bδ (x) := E[ˆ gδ (x) | ∇ f (x)] − ∇ f (x). Then, for any s ∈ (0 , α − 1], the following conditional bounds hold: 1. Squared Bias Bound: The squared norm of the estimator bias, Bδ = E[ˆ gδ | x] − ∇ f (x), is strictly bounded by: 
+
+∥Bδ (x)∥2 ≤
+
+ 2(1 − θ)2α + 2(1 − δ)2
+
+[
+
+θ
+
+( δ
+
+1 − θδ 
+
+)α
+
++
+
+( δ
+
+1 − θδ 
+
+)α−1]2︸ ︷︷ ︸
+
+> Cbias (θ,δ )
+
+σ2αγ2(1 −α). (6) 72. Moment Bound: The (1 + s)-th moment of the estimator is bounded by: 
+
+E[∥ˆgδ (x)∥1+ s | ∥∇ f (x)∥ ≤ θγ ] ≤ 2s∥∇ f (x)∥1+ s + 2 sσ1+ s
+
++
+
+(
+
+1(1 − θ)α + 2 sδ1+ s
+
+[
+
+θ1+ s
+
+( δ
+
+1 − θδ 
+
+)α
+
++
+
+( δ
+
+1 − θδ 
+
+)α−(1+ s)]) ︸ ︷︷ ︸
+
+> Ctail (θ,δ )
+
+σαγ1+ s−α. (7) The proof is provided in subsection C.2. 
+
+Lemma 5.4 (Inner-product lower bound for δ-GClip for ∥∇ f (x)∥ > θγ ). Let Assumption 1 and 2 hold, Suppose the true gradient satisfies the (Case 2) condition ∥∇ f (x)∥ > θγ for a fixed constant θ ∈ (0 , 1). Define the constant M = min { 15 16 θ, 13
+
+}. If the clipping threshold γ satisfies the following conditions: 
+
+γ ≥ max 
+
+{
+
+16 · 21/α 
+
+θ ,
+
+( 4 · 16 α−1
+
+M θ α−1
+
+)1/α 
+
+, 64 3M θ 
+
+}
+
+σ, 
+
+then the expected inner product guarantees a strictly positive linear descent direction: 
+
+E[⟨∇ f (x), ˆgδ (x)⟩ | x] ≥ 18 M γ ∥∇ f (x)∥.
+
+The proof is provided in subsection C.3. 
+
+Lemma 5.5 (Moment bound for δ-GClip for ∥∇ f (x)∥ > θγ ). Let Assumption 1 and 2 hold, Suppose the true gradient satisfies the (Case 2) condition ∥∇ f (x)∥ > θγ for a fixed constant θ ∈ (0 , 1). Then, for any 
+
+s ∈ (0 , α − 1], the (1 + s)-th moment of the estimator satisfies the following upper bound: 
+
+E[∥ˆgδ (x)∥1+ s | x] ≤
+
+( 1
+
+θ1+ s + 2 sδ1+ s
+
+)
+
+∥∇ f (x)∥1+ s + 2 sδ1+ sσ1+ s.
+
+The proof is provided in subsection C.4. 
+
+Lemma 5.6 (Inner Product Bound (Cutkosky and Mehta, 2020)) . For any v ∈ Rd and point x:
+
+〈 v
+
+∥v∥ , ∇f (x)
+
+〉
+
+≥ 13 ∥∇ f (x)∥ − 83 ∥v − ∇ f (x)∥.
+
+This result is adapted from Lemma 2 of Cutkosky & Mehta (2020). 
+
+5.2 Proof of Theorem 5.1 
+
+Proof of Theorem 5.1. 
+
+Descent under s-Hölder smoothness. Since ∇f is ( L, s )-Hölder continuous, meaning that for all x, y ∈
+
+Rd,
+
+∥∇ f (x) − ∇ f (y)∥ ≤ L∥x − y∥s, s ∈ (0 , 1] ,
+
+the generalized descent lemma implies that for any x, y ∈ Rd,
+
+f (y) ≤ f (x) + ⟨∇ f (x), y − x⟩ + L
+
+1 + s ∥y − x∥ 1+ s. (8) We apply (8) to the update 
+
+xk = xk−1 − ηk−1 ˆgδ,k −1(xk−1),
+
+where ˆ gδ,k −1(xk−1) is the δ-clipped stochastic gradient at xk−1. For a fixed iterate xk−1 and a specific realization of ˆ gδ,k −1,
+
+f (xk) ≤ f (xk−1) − ηk−1⟨∇ f (xk−1), ˆgδ,k −1(xk−1)⟩ + L
+
+1 + s η 1+ sk−1 ∥ˆgδ,k −1(xk−1)∥ 1+ s.
+
+8Taking the conditional expectation with respect to all randomness in ˆ gδ,k −1 yields 
+
+E[f (xk) | xk−1] ≤ f (xk−1) − ηk−1
+
+〈
+
+∇f (xk−1), E[ˆ gδ,k −1(xk−1) | xk−1]
+
+〉
+
++ L
+
+1 + s η 1+ sk−1 E[∥ˆgδ,k −1(xk−1)∥ 1+ s | xk−1].
+
+(9) To obtain a descent inequality from (9), we must bound the two stochastic contributions: the expected inner product (descent signal) and the expected (1 + s)-th moment (variance penalty). These quantities behave differently depending on the size of the true gradient relative to the clipping threshold 
+
+γ and the scaling parameter δ. Accordingly, we partition the state space into three disjoint regimes: 
+
+Case 1: ∥∇ f (xk−1)∥ ≤ θγ, Case 2a: θγ < ∥∇ f (xk−1)∥ ≤ 2γ/δ, Case 2b: ∥∇ f (xk−1)∥ > 2γ/δ. 
+
+In all cases, we bound the two terms separately by decomposing the unclipped stochastic gradient gk−1 into three distinct geometric regions A, B, and C, defined as, 
+
+A := {∥ gk−1∥ ≤ γ}, B := {γ < ∥gk−1∥ ≤ γ/δ }, C := {∥ gk−1∥ > γ/δ }. (10) We now systematically bound the expected progress in each of the three cases. For brevity in the following derivations, we drop the iteration index k − 1 and denote the current iterate as x = xk−1 and the learning rate as η = ηk−1.
+
+Case 1: ∥∇ f (xk−1)∥ ≤ θγ . We define the estimator bias as 
+
+bk−1 := E[ˆ gδ,k −1(xk−1) | xk−1] − ∇ f (xk−1).
+
+Then from (9) we have 
+
+E[f (xk) | xk−1] ≤ f (xk−1) − ηk−1
+
+〈
+
+∇f (xk−1), E[ˆ gδ,k −1(xk−1) | xk−1]
+
+〉
+
++ L
+
+1 + s η 1+ sk−1 E[∥ˆgδ,k −1(xk−1)∥ 1+ s ∣∣ xk−1
+
+]
+
+= f (xk−1) − ηk−1
+
+〈∇f (xk−1), ∇f (xk−1) + bk−1
+
+〉
+
++ L
+
+1 + s η 1+ sk−1 E[∥ˆgδ,k −1(xk−1)∥ 1+ s ∣∣ xk−1
+
+]
+
+= f (xk−1) − ηk−1∥∇ f (xk−1)∥2 − ηk−1⟨∇ f (xk−1), bk−1⟩
+
++ L
+
+1 + s η 1+ sk−1 E[∥ˆgδ,k −1(xk−1)∥ 1+ s ∣∣ xk−1
+
+] . (11) Using −⟨ u, v ⟩ ≤ 12 (∥u∥2 + ∥v∥2) with u = ∇f (xk−1) and v = bk−1, we obtain 
+
+−ηk−1⟨∇ f (xk−1), bk−1⟩ ≤ ηk−1
+
+2 ∥∇ f (xk−1)∥2 + ηk−1
+
+2 ∥bk−1∥2. (12) Substituting (12) into (11) yields 
+
+E[f (xk) | xk−1] ≤ f (xk−1) − ηk−1
+
+2 ∥∇ f (xk−1)∥2 + ηk−1
+
+2 ∥bk−1∥2 + L
+
+1 + s η 1+ sk−1 E[∥ˆgδ,k −1(xk−1)∥ 1+ s | xk−1].
+
+(13) Using Lemma 5.3 on the last two terms of the RHS above, 
+
+E[f (xk) | xk−1] ≤ f (xk−1) − ηk−1
+
+2 ∥∇ f (xk−1)∥2 + ηk−1
+
+2 Cbias (θ, δ )σ2αγ2(1 −α)
+
++ L η 1+ sk−1
+
+1 + s
+
+(
+
+2s∥∇ f (xk−1)∥1+ s + 2 sσ1+ s + Ctail (θ, δ )σαγ1+ s−α
+
+)
+
+≤ f (xk−1) − ηk−1
+
+2 ∥∇ f (xk−1)∥2 + ηk−1
+
+2 Cbias (θ, δ )σ2αγ2(1 −α)
+
++ L η 1+ sk−1
+
+1 + s
+
+(
+
+2s(θγ )1+ s + 2 sσ1+ s + Ctail (θ, δ )σαγ1+ s−α)
+
+(14) 9In the last line above, since we are in Case 1, we have used ∥∇ f (xk−1)∥1+ s ≤ (θγ )1+ s as ∥∇ f (xk−1)∥ ≤ θγ 
+
+for Case 1. Defining the remainder term 
+
+R1,k −1 := ηk−1
+
+2 Cbias (θ, δ )σ2αγ2(1 −α) + L η 1+ sk−1
+
+1 + s
+
+(
+
+2s(θγ )1+ s + 2 sσ1+ s + Ctail (θ, δ )σαγ1+ s−α
+
+)
+
+, (15) the inequality (14) becomes 
+
+E[f (xk) | xk−1
+
+] ≤ f (xk−1) − ηk−1
+
+2 ∥∇ f (xk−1)∥2 + R1,k −1. (16) This establishes the simplified descent inequality for Case 1. 
+
+Case 2a: θγ < ∥∇ f (xk−1)∥ ≤ 2γ/δ .
+
+From the descent inequality (9) we have 
+
+E[f (xk) | xk−1] ≤ f (xk−1) − ηk−1
+
+〈
+
+∇f (xk−1), E[ˆ gδ,k −1(xk−1) | xk−1]
+
+〉
+
++ L
+
+1 + s η 1+ sk−1 E[∥ˆgδ,k −1(xk−1)∥ 1+ s ∣∣ xk−1
+
+] (17) We directly bound the inner product and the variance terms. Using Lemma 5.4 for the expected descent and Lemma 5.5 for the expected (1 + s)-th moment and under the Case 2a condition ∥∇ f (xk−1)∥ ≤ 2γδ , we split the gradient norm to absorb it into the linear descent term: 
+
+E[f (xk) | xk−1] ≤ f (xk−1) − ηk−1c0γ∥∇ f (xk−1)∥
+
++ Lη 1+ sk−1
+
+1 + s
+
+(Kv ∥∇ f (xk−1)∥1+ s + 2 sδ1+ sσ1+ s)
+
+= f (xk−1) − ηk−1c0γ∥∇ f (xk−1)∥
+
++ Lη 1+ sk−1
+
+1 + s Kv ∥∇ f (xk−1)∥s∥∇ f (xk−1)∥ + Lη 1+ sk−1
+
+1 + s 2sδ1+ sσ1+ s
+
+≤ f (xk−1) − ηk−1c0γ∥∇ f (xk−1)∥
+
++ Lη 1+ sk−1
+
+1 + s Kv
+
+( 2γδ
+
+)s
+
+∥∇ f (xk−1)∥ + Lη 1+ sk−1
+
+1 + s 2sδ1+ sσ1+ s
+
+= f (xk−1) − ηk−1γ
+
+(
+
+c0 − Lη sk−1
+
+1 + s Kv
+
+( 2
+
+δ
+
+)s
+
+γs−1
+
+)
+
+∥∇ f (xk−1)∥
+
++ Lη 1+ sk−1
+
+1 + s 2sδ1+ sσ1+ s. (18) where c0 = 18 M and M = min { 15 16 θ, 13
+
+}.To ensure the negative descent term dominates the gradient-dependent smoothness penalty, we require the learning rate to satisfy: 
+
+Lη sk−1
+
+1 + s Kv
+
+( 2
+
+δ
+
+)s
+
+γs−1 ≤ c0
+
+2 =⇒ ηsk−1 ≤ c0(1 + s)2LK v
+
+( δ
+
+2
+
+)s
+
+γ1−s. (19) Assuming the condition in (19) holds, substituting it back into (18) yields the final bounded descent inequality for this case: 
+
+E[f (xk) | xk−1] ≤ f (xk−1) − c0
+
+2 ηk−1γ∥∇ f (xk−1)∥ + Lη 1+ sk−1
+
+1 + s 2sδ1+ sσ1+ s. (20) 10 Defining the remainder term 
+
+R2a,k −1 := L η 1+ sk−1
+
+1 + s
+
+(
+
+2sδ1+ sσ1+ s
+
+)
+
+, (21) the inequality (20) becomes 
+
+E[f (xk) | xk−1
+
+] ≤ f (xk−1) − ηk−1 c0 
+
+> 2
+
+γ∥∇ f (xk−1)∥ + R2a,k −1. (22) This establishes the simplified descent inequality for Case 2a. 
+
+Case 2b: ∥∇ f (xk−1)∥ > 2γ/δ .
+
+From the descent inequality (9) we have 
+
+E[f (xk) | xk−1] ≤ f (xk−1) − ηk−1
+
+〈
+
+∇f (xk−1), E[ˆ gδ,k −1(xk−1) | xk−1]
+
+〉
+
++ L
+
+1 + s η 1+ sk−1 E[∥ˆgδ,k −1(xk−1)∥ 1+ s ∣∣ xk−1
+
+]
+
+. (23) In this extreme scaling regime, the linear descent bound from Lemma 5.5 is insufficient to overcome the fractional variance. Instead, we re-derive the expected inner product directly using the unified scaling region 
+
+C and the geometric buffer zone. Partitioning the expectation and utilizing the zero-mean property of the noise ( E[ξk−1 | xk−1] = 0), we have: We partition the expectation and expand the inner product through a single chain of bounds: 
+
+〈
+
+∇f (xk−1), E[ˆ gδ,k −1 | xk−1]
+
+〉
+
+= E[⟨∇ f (xk−1), ˆgδ,k −1⟩1C
+
+∣∣ xk−1
+
+]
+
++ E[⟨∇ f (xk−1), ˆgδ,k −1⟩1A∪B
+
+∣∣ xk−1
+
+]
+
+≥ E[⟨∇ f (xk−1), δ (∇f (xk−1) + ξk−1)⟩1C
+
+∣∣ xk−1
+
+]
+
+− E[∥∇ f (xk−1)∥∥ ˆgδ,k −1∥1A∪B
+
+∣∣ xk−1
+
+]
+
+≥ δ∥∇ f (xk−1)∥2P(C) + δ
+
+〈
+
+∇f (xk−1), E[ξk−11C | xk−1]
+
+〉
+
+− γ∥∇ f (xk−1)∥P(A ∪ B)= δ∥∇ f (xk−1)∥2P(C) − δ
+
+〈
+
+∇f (xk−1), E[ξk−11A∪B | xk−1]
+
+〉
+
+− γ∥∇ f (xk−1)∥P(A ∪ B)
+
+≥ δ∥∇ f (xk−1)∥2P(C) − δ∥∇ f (xk−1)∥E[∥ξk−1∥1A∪B
+
+∣∣ xk−1
+
+]
+
+− γ∥∇ f (xk−1)∥. (24) The derivation proceeds as follows. First, we decompose the total conditional expectation into two disjoint complementary regions, namely the scaling region C and the bounded clipping regions A ∪ B, yielding an exact equality by partitioning the sample space. Next, in Region C we substitute the explicit form of the estimator ˆ gδ,k −1 = δ(∇f (xk−1) + ξk−1), while in Regions A ∪ B we apply the inequality, ⟨u, v ⟩ ≥ −∥ u∥∥ v∥,to obtain a lower bound on the inner product. We then expand the inner product inside Region C and use the fact that ∇f (xk−1) is deterministic conditioned on xk−1 in order to extract it from the expectation; at the same time, we bound the estimator norm in Regions A ∪ B using the structural constraint ∥ˆgδ,k −1∥ ≤ γ.Subsequently, we invoke the zero-mean property of the stochastic noise, E[ξk−1 | xk−1] = 0, which implies that the total expected noise over all partitioned regions must vanish; therefore, 
+
+E[ξk−11C | xk−1] = − E[ξk−11A∪B | xk−1],
+
+allowing the noise contribution to be transferred entirely outside Region C. Finally, we apply the inequality, 
+
+⟨u, v ⟩ ≥ −∥ u∥∥ v∥ once more to bound the resulting inner product involving the transferred noise term, and we use the trivial bound P(A ∪ B) ≤ 1 to obtain the worst-case linear penalty, completing the argument. 11 To evaluate E[∥ξk−1∥1A∪B
+
+∣∣ xk−1
+
+], we first determine the absolute minimum noise magnitude required for the algorithm to land in the clipping regions A ∪ B. By definition, if the stochastic gradient triggers clipping, its magnitude is bounded by ∥gk−1∥ ≤ γ/δ . Applying the reverse triangle inequality, we lower-bound the necessary noise vector: 
+
+∥ξk−1∥ = ∥gk−1 − ∇ f (xk−1)∥ ≥ ∥∇ f (xk−1)∥ − ∥ gk−1∥ ≥ ∥∇ f (xk−1)∥ − γδ . (25) Because we are strictly analyzing Case 2b, the true gradient satisfies the geometric boundary ∥∇ f (xk−1)∥ >
+
+2γ/δ . Rearranging this yields γ/δ < 12 ∥∇ f (xk−1)∥. Substituting this strict upper bound into our noise inequality establishes a massive geometric buffer zone: 
+
+∥ξk−1∥ > ∥∇ f (xk−1)∥ − 12 ∥∇ f (xk−1)∥ = 12 ∥∇ f (xk−1)∥. (26) This lower bound physically guarantees that any noise capable of forcing the estimator into the clipping regions must be extremely large. Because it is bounded safely away from zero, it strictly prevents any division-by-zero singularities. We now evaluate the adversarial noise expectation. To extract the bounded α-th moment ( E[∥ξk−1∥α |
+
+xk−1] ≤ σα), we multiply and divide the integrand by ∥ξk−1∥α−1. Since we are integrating strictly over the event A ∪ B, we safely substitute the geometric buffer from (26) into the denominator, allowing us to pull the deterministic gradient out of the expectation: 
+
+E[∥ξk−1∥1A∪B | xk−1
+
+] = E
+
+[ ∥ξk−1∥α
+
+∥ξk−1∥α−1 1A∪B
+
+∣∣∣∣ xk−1
+
+]
+
+≤ E
+
+[ ∥ξk−1∥α
+
+( 12 ∥∇ f (xk−1)∥)α−1 1A∪B
+
+∣∣∣∣∣ xk−1
+
+]
+
+= 2α−1
+
+∥∇ f (xk−1)∥α−1 E[∥ξk−1∥α1A∪B | xk−1
+
+]
+
+≤ 2α−1σα
+
+∥∇ f (xk−1)∥α−1 . (27) Substituting the bounded moment (27) into the inner product expansion (24) yields the penalized descent signal: 
+
+〈
+
+∇f (xk−1), E[ˆ gδ,k −1 | xk−1]
+
+〉
+
+≥ δ∥∇ f (xk−1)∥2P(C) − δ∥∇ f (xk−1)∥
+
+( 2α−1σα
+
+∥∇ f (xk−1)∥α−1
+
+)
+
+− γ∥∇ f (xk−1)∥
+
+= δ∥∇ f (xk−1)∥2P(C) − 2α−1δσ α∥∇ f (xk−1)∥2−α − γ∥∇ f (xk−1)∥. (28) To establish a strictly quadratic lower bound, we must first control the probability mass P(C). Since Region 
+
+C is the complement of A∪B, we apply Markov’s inequality directly to the geometric buffer event established in (26): 
+
+P(A ∪ B) ≤ P
+
+(
+
+∥ξk−1∥ > 12 ∥∇ f (xk−1)∥
+
+)
+
+≤ E[∥ξk−1∥α | xk−1]
+
+( 12 ∥∇ f (xk−1)∥)α ≤ 2ασα
+
+∥∇ f (xk−1)∥α . (29) Therefore, the probability of remaining in the scaling zone is lower-bounded by P(C) = 1 − P(A ∪ B) ≥
+
+1 − 2ασα  
+
+> ∥∇ f(xk−1)∥α
+
+.Substituting this probability bound into (28) and factoring out the leading quadratic term δ∥∇ f (xk−1)∥2
+
+gives 
+
+〈
+
+∇f (xk−1), E[ˆ gδ,k −1 | xk−1]
+
+〉
+
+≥ δ∥∇ f (xk−1)∥2
+
+(
+
+1 − 2ασα
+
+∥∇ f (xk−1)∥α
+
+)
+
+− 2α−1δσ α∥∇ f (xk−1)∥2−α − γ∥∇ f (xk−1)∥
+
+= δ∥∇ f (xk−1)∥2
+
+[
+
+1 − 2ασα
+
+∥∇ f (xk−1)∥α − 2α−1σα
+
+∥∇ f (xk−1)∥α − γδ∥∇ f (xk−1)∥
+
+]
+
+= δ∥∇ f (xk−1)∥2
+
+[
+
+1 − 3 · 2α−1σα
+
+∥∇ f (xk−1)∥α − γδ∥∇ f (xk−1)∥
+
+]
+
+. (30) 12 Since we are in Case 2b, the gradient satisfies ∥∇ f (xk−1)∥ > 2γ/δ , which implies 
+
+γδ∥∇ f (xk−1)∥ < 12 .
+
+Applying this bound to (30) yields 
+
+〈
+
+∇f (xk−1), E[ˆ gδ,k −1 | xk−1]
+
+〉
+
+> δ ∥∇ f (xk−1)∥2
+
+[ 12 − 3 · 2α−1σα
+
+∥∇ f (xk−1)∥α
+
+]
+
+. (31) To ensure the descent signal remains positive, we require 3 · 2α−1σα
+
+∥∇ f (xk−1)∥α ≤ 14 ,
+
+which holds whenever 
+
+∥∇ f (xk−1)∥ ≥ (12 · 2α−1)1/α σ. (32) Because ∥∇ f (xk−1)∥ > 2γ/δ in Case 2b, this condition holds throughout the region provided 2γδ ≥ (12 · 2α−1)1/α σ. (33) Combining (32) and (33) yields 
+
+∥∇ f (xk−1)∥ > (12 · 2α−1)1/α σ, 
+
+and therefore 12 − 3 · 2α−1σα
+
+∥∇ f (xk−1)∥α ≥ 12 − 3 · 2α−1σα
+
+12 · 2α−1σα = 14 .
+
+Consequently, 〈
+
+∇f (xk−1), E[ˆ gδ,k −1 | xk−1]
+
+〉
+
+≥ c2 δ∥∇ f (xk−1)∥2, c2 = 14 . (34) Returning to the master descent inequality (9), we substitute this strictly quadratic inner product bound (34) and the fractional variance bound from Lemma 5.5: 
+
+E[f (xk) | xk−1] ≤ f (xk−1) − ηk−1c2δ∥∇ f (xk−1)∥2
+
++ L η 1+ sk−1
+
+1 + s
+
+(
+
+Kv ∥∇ f (xk−1)∥1+ s + 2 sδ1+ sσ1+ s
+
+)
+
+. (35) To mathematically crush the fractional variance, we enforce a learning rate schedule ηk−1 such that the gradient-dependent variance consumes at most half of the quadratic descent signal: 
+
+L η 1+ sk−1
+
+1 + s Kv ∥∇ f (xk−1)∥1+ s ≤ ηk−1
+
+2 c2δ∥∇ f (xk−1)∥2. (36) Since ∥∇ f (xk−1)∥ > 2γ/δ in Case 2b, satisfying the strict condition Lη sk−1 
+
+> 1+ s
+
+Kv ≤ 12 c2δ(2 γ/δ )1−s guarantees this absorption globally. Substituting this absorption into (35) yields a pure net quadratic descent: 
+
+E[f (xk) | xk−1] ≤ f (xk−1) − ηk−1
+
+2 c2δ∥∇ f (xk−1)∥2 + L η 1+ sk−1
+
+1 + s
+
+(
+
+2sδ1+ sσ1+ s)
+
+. (37) To unify this with the linear metric of Case 2a without retaining the scaling parameter δ in the unified coefficient, we apply the geometric substitution enabled exclusively by the Case 2b boundary ( δ∥∇ f (xk−1)∥ >
+
+2γ): 
+
+− ηk−1
+
+2 c2δ∥∇ f (xk−1)∥2 = − ηk−1
+
+2 c2
+
+(δ∥∇ f (xk−1)∥)∥∇ f (xk−1)∥ ≤ − ηk−1c2γ∥∇ f (xk−1)∥. (38) 13 Substituting this upper bound into (37), we obtain the finalized form: 
+
+E[f (xk) | xk−1] ≤ f (xk−1) − ηk−1c2γ∥∇ f (xk−1)∥ + L η 1+ sk−1
+
+1 + s
+
+(
+
+2sδ1+ sσ1+ s)
+
+. (39) Defining the remainder term 
+
+R2b,k −1 := L η 1+ sk−1
+
+1 + s
+
+(
+
+2sδ1+ sσ1+ s)
+
+, (40) the inequality (39) becomes 
+
+E[f (xk) | xk−1
+
+] ≤ f (xk−1) − ηk−1c2γ∥∇ f (xk−1)∥ + R2b,k −1. (41) This establishes the simplified descent inequality for Case 2b. 
+
+Unified single-step descent inequality. Having established the expected progress in all three gradient regimes, we now unify them into a single global descent inequality valid for the entire state space. Recall the individual descent bounds derived for each case: 
+
+Case 1: E[f (xk) | xk−1
+
+] ≤ f (xk−1) − ηk−1 
+
+> 2
+
+∥∇ f (xk−1)∥2 + R1, (42) 
+
+Case 2a: E[f (xk) | xk−1
+
+] ≤ f (xk−1) − ηk−1 c0 
+
+> 2
+
+γ∥∇ f (xk−1)∥ + R2a, (43) 
+
+Case 2b: E[f (xk) | xk−1
+
+] ≤ f (xk−1) − ηk−1c2γ∥∇ f (xk−1)∥ + R2b, (44) where the corresponding remainder terms, tracking the bias and variance penalties, are defined explicitly as: 
+
+R1 = ηk−1
+
+2 Cbias (θ, δ )σ2αγ2(1 −α) + L η 1+ sk−1
+
+1 + s
+
+(
+
+2sθ1+ sγ1+ s + 2 sσ1+ s + Ctail (θ, δ ) σα
+
+γα−s−1
+
+)
+
+, (45) 
+
+R2a = L η 1+ sk−1
+
+1 + s
+
+(
+
+2sδ1+ sσ1+ s)
+
+, (46) 
+
+R2b = L η 1+ sk−1
+
+1 + s
+
+(
+
+2sδ1+ sσ1+ s)
+
+. (47) Notice that because the gradient-dependent variance terms were completely absorbed into the linear descent signals in both Case 2a and Case 2b, their respective remainders consist strictly of the irreducible noise floor. Consequently, R2b = R2a.To bound the maximum per-step penalty ˜Rk−1 globally, we observe that the worst-case error must be bounded by the sum of the maximum penalties from the small-gradient and large-gradient regimes. There-fore, we define the unified global remainder as: 
+
+˜Rk−1 := R1 + R2a. (48) Next, we unify the descent signal. Let c be the smallest of the three per-case descent coefficients, 
+
+c := min 
+
+{ 12 , c0 
+
+> 2
+
+, c 2
+
+}
+
+= c0 
+
+> 2
+
+, (49) where the last equality uses c0 = 18 M with M = min { 15 16 θ, 13 } and c2 = 14 , so that c0 
+
+> 2
+
+= M 
+
+> 16
+
+≤ 148 is the minimum. Since c ≤ 12 , c ≤ c0 
+
+> 2
+
+, and c ≤ c2, each case’s descent bound in (42)–(44) lower-bounds 
+
+c η k−1 min {∥∇ f (xk−1)∥2, γ ∥∇ f (xk−1)∥} : in Case 1 the quadratic term dominates min {·} and 12 ≥ c, while in Cases 2a and 2b the linear term dominates min {·} and c0 
+
+> 2
+
+, c 2 ≥ c.Comparing the isolated descent inequalities (42), (43), and (44), we observe the algorithm’s geometric behavior: it guarantees a strictly quadratic descent proportional to ∥∇ f (xk−1)∥2 when the true gradient is 14 small (Case 1), and a linear descent proportional to γ∥∇ f (xk−1)∥ when the true gradient is large (Cases 2a and 2b). Because the smaller of these two terms always correctly lower-bounds the descent in its respective regime, we can universally lower-bound the algorithmic progress across the entire state space using the generalized metric function: min 
+
+{
+
+∥∇ f (xk−1)∥2, γ ∥∇ f (xk−1)∥
+
+}
+
+. (50) Substituting this unified metric (50), the minimum descent coefficient c, and the worst-case remainder 
+
+˜Rk−1 from (48) into our regime-specific bounds yields the global single-step descent inequality, valid for all iterations k ≥ 1: 
+
+E[f (xk) | xk−1] ≤ f (xk−1) − ηk−1c min 
+
+{
+
+∥∇ f (xk−1)∥2, γ ∥∇ f (xk−1)∥
+
+}
+
++ ˜Rk−1. (51) 
+
+Summation and stationarity. We now sum the unified descent inequality over iterations to derive a stationarity guarantee. Taking total expectation and using the tower property, the unified single-step inequality implies 
+
+E[f (xk)] ≤ E[f (xk−1)] − ηk−1c E[min {∥∇ f (xk−1)∥2, γ ∥∇ f (xk−1)∥}] + E[ ˜Rk−1
+
+]. (52) Summing (52) over k = 1 , . . . , T yields 
+
+c
+
+> T
+
+∑
+
+> k=1
+
+ηk−1E[min {∥∇ f (xk−1)∥2, γ ∥∇ f (xk−1)∥}] ≤ E[f (x0)] − E[f (xT )] +
+
+> T
+
+∑
+
+> k=1
+
+˜Rk−1. (53) Assuming that the objective function is bounded below by f⋆, we have E[f (xT )] ≥ f⋆, and therefore 
+
+c
+
+> T
+
+∑
+
+> k=1
+
+ηk−1E[min {∥∇ f (xk−1)∥2, γ ∥∇ f (xk−1)∥}] ≤ f (x0) − f⋆ + T · ˜Rk−1, (54) Dividing both sides of (54) by cT η k−1 gives 
+
+∑Tk=1 ηk−1E[min {∥∇ f (xk−1)∥2, γ ∥∇ f (xk−1)∥}] 
+
+T η k−1
+
+≤ f (x0) − f⋆
+
+cT η k−1
+
++ ˜Rk−1
+
+cη k−1
+
+. (55) In particular, for a constant step size ηk−1 = η, inequality (55) implies 1
+
+T
+
+> T
+
+∑
+
+> k=1
+
+E[min {∥∇ f (xk−1)∥2, γ ∥∇ f (xk−1)∥}] ≤ f (x0) − f⋆
+
+cηT + 1
+
+cη ˜Rk−1. (56) Define f (x0) − f⋆ := F0, then (56) becomes, 1
+
+T
+
+> T
+
+∑
+
+> k=1
+
+E[min {∥∇ f (xk−1)∥2, γ ∥∇ f (xk−1)∥}] ≤ F0
+
+cηT 
+
+︸︷︷︸ 
+
+> T1
+
++ 1
+
+cη ˜Rk−1
+
+︸ ︷︷ ︸
+
+> T2
+
+. (57) 15 Consider the explicit expansion of T1 + T2. Recalling that the gradient-dependent variance in Cases 2a and 2b is fully absorbed, the maximum remainder is bounded by ˜Rk−1 ≤ R 1 + R2a:
+
+T1 + T2 = F0
+
+cηT + 1
+
+cη 
+
+(
+
+R1 + R2a
+
+)
+
+= F0
+
+cηT + 1
+
+c
+
+[ Cbias (θ, δ )σ2α
+
+2γ2( α−1) 
+
+]
+
++ L η s
+
+c(1 + s)
+
+(
+
+2sθ1+ sγ1+ s + 2 sσ1+ s + Ctail (θ, δ ) σα
+
+γα−s−1 + 2 sδ1+ sσ1+ s
+
+)
+
+. (58) We observe that in the last bracket of (58), the term 2 sθ1+ sγ1+ s is the dominant factor as γ increases. The term proportional to γ−(α−s−1) decays (since α > 1 + s), and the remaining noise terms are constant with respect to γ. Therefore, assuming γ ≥ 1, we can upper bound the bracketed expression as: 2sθ1+ sγ1+ s + 2 sσ1+ s + Ctail (θ, δ ) σα
+
+γα−s−1 + 2 sδ1+ sσ1+ s
+
+= γ1+ s
+
+[
+
+2sθ1+ s + 2sσ1+ s
+
+γ1+ s + Ctail (θ, δ )σα
+
+γα + 2sδ1+ sσ1+ s
+
+γ1+ s
+
+]
+
+≤ K γ 1+ s,
+
+where K is a constant depending on σ, δ, θ, s but independent of γ and T . Substituting this bound into (58), we obtain the simplified upper bound: 
+
+T1 + T2 ≤ C1
+
+ηT + C2
+
+γ2( α−1) + C3 ηsγ1+ s, (59) where we define the constants: 
+
+C1 = F0
+
+c , C2 = Cbias (θ, δ )σ2α
+
+2c , C3 = LK c(1 + s) .
+
+Substituting the parameter choices η =
+
+( C1
+
+> C3
+
+) 11+ s
+
+T − 11+ s γ−1 and γ =
+
+( C2
+
+> C4
+
+) 12α−1
+
+T s 
+
+> (1+ s)(2 α−1)
+
+(where C4 =2( Cs 
+
+> 1
+
+C3) 11+ s ) into inequality (59), we obtain 
+
+T1 + T2 ≤ C1
+
+ηT + C2
+
+γ2( α−1) + C3 ηsγ1+ s = C1
+
+T
+
+[( C1
+
+C3
+
+) 11+ s
+
+T − 11+ s γ−1
+
+]−1
+
++ C2
+
+γ2( α−1) + C3
+
+[( C1
+
+C3
+
+) 11+ s
+
+T − 11+ s γ−1
+
+]s
+
+γ1+ s.
+
+Simplifying the first and third terms jointly gives 
+
+T1 + T2 = C s 
+
+> 1+ s
+> 1
+
+C 11+ s 
+
+> 3
+
+γ T − s 
+
+> 1+ s
+
++ C2
+
+γ2( α−1) + C s 
+
+> 1+ s
+> 1
+
+C 11+ s 
+
+> 3
+
+γ T − s 
+
+> 1+ s
+
+.
+
+Combining the identical contributions yields 
+
+T1 + T2 = 2 ( Cs 
+
+> 1
+
+C3) 11+ s γ T − s 
+
+> 1+ s
+
++ C2
+
+γ2( α−1) .
+
+By the definition C4 = 2( Cs 
+
+> 1
+
+C3)1/(1+ s), this simplifies to 
+
+T1 + T2 ≤ C2
+
+γ2( α−1) + C4γ T − s 
+
+> 1+ s
+
+. (60) 16 Finally, substituting the choice of γ into (60) gives 
+
+T1 + T2 ≤ C2
+
+[( C2
+
+C4
+
+) 12α−1
+
+T s
+
+> (1+ s)(2 α−1)
+
+]−2( α−1) 
+
++ C4
+
+[( C2
+
+C4
+
+) 12α−1
+
+T s
+
+> (1+ s)(2 α−1)
+
+]
+
+T − s 
+
+> 1+ s
+
+,
+
+which simplifies identically in both exponents to 
+
+T1 + T2 = O
+
+(
+
+T − 2s(α−1) (1+ s)(2 α−1) 
+
+)
+
+. (61) This establishes the desired convergence rate. Combining (61) and (57), we obtain 1
+
+T
+
+> T
+
+∑
+
+> k=1
+
+E[min {∥∇ f (xk)∥2, γ ∥∇ f (xk)∥}] = O
+
+(
+
+T − 2s(α−1) (1+ s)(2 α−1) 
+
+)
+
+. (62) 
+
+## 6 Convergence of G-Clip under s-Hölder and Heavy-Tailed Noise 
+
+We analyse G-Clip under ( L, s )-Hölder continuous gradients and heavy-tailed noise across both exponent regimes, 1 + s ≤ α and 1 + s > α . Throughout, γ > 0 is the clipping threshold and θ ∈ (0 , 1) is a fixed gradient-threshold parameter, and every step is split into a small-gradient case ∥∇ f (x)∥ ≤ θγ and a large-gradient case ∥∇ f (x)∥ > θγ . The two exponent regimes use the same algorithm, the same case split, and the same set of auxiliary lemmas; the only place they diverge is the (1 + s)-th moment bound of Lemma 6.3, which is stated separately for each regime. That single difference is exactly the step that controls ∥∇ f (x)∥1+ s
+
+in the small-gradient case, and it is what yields the two different rates. 
+
+Theorem 6.1 (Non-convex convergence of G-Clip in both regimes) . Suppose f : Rd → R is bounded below by f ⋆, set F0 := f (x0) − f ⋆, and let ∇f be ( L, s )-Hölder continuous for some s ∈ (0 , 1]. Let the stochastic gradients satisfy Assumption 1 with heavy-tail index α ∈ (1 , 2] and noise scale σ, and let {xk}T −1
+
+> k=0
+
+be generated by G-Clip run for T iterations at a constant step size and threshold. There exists a constant 
+
+C1 and parametric families of constants C2, C 3, C 4, C′′  
+
+> 3
+
+, C ′′  
+
+> 4
+
+, and γ0 (defined explicitly in the remark below). Then the following hold, for every T ≥ 1. 
+
+(i) (For 1 + s ≤ α.) With 
+
+γ = max 
+
+{
+
+γ0, (C2/C 4) 12α−1 T s
+
+> (1+ s)(2 α−1)
+
+}
+
+, η = min 
+
+{( 5M θ (1+ s)16 L
+
+)1/s 
+
+γ 1−ss , (C1/C 3) 11+ s γ−1T − 11+ s
+
+}
+
+,
+
+1
+
+T
+
+> T
+
+∑
+
+> k=1
+
+E
+
+[
+
+min {∥∇ f (xk)∥2, γ ∥∇ f (xk)∥}]
+
+= O
+
+(
+
+T − 2s(α−1) (1+ s)(2 α−1) 
+
+)
+
+.
+
+(ii) (For 1 + s > α .) With 
+
+γ = max 
+
+{
+
+γ0, (C2/C ′′  
+
+> 4
+
+) 1+ s 
+
+> (α−1)+ s(2 α−1)
+
+T s
+
+> (α−1)+ s(2 α−1)
+
+}
+
+, η = min 
+
+{( 5M θ (1+ s)16 L
+
+)1/s 
+
+γ 1−ss , (C1/C ′′  
+
+> 3
+
+) 11+ s γ− 1+ s−α 
+
+> 1+ s
+
+T − 11+ s
+
+}
+
+,
+
+1
+
+T
+
+> T
+
+∑
+
+> k=1
+
+E
+
+[
+
+min {∥∇ f (xk)∥2, γ ∥∇ f (xk)∥}]
+
+= O
+
+(
+
+T − 2s(α−1) (α−1)+ s(2 α−1) 
+
+)
+
+.
+
+Taking γ as a maximum and η as a minimum in each part makes the threshold and absorption requirements hold at every T ≥ 1; the final entry of each dominates for large T , where ( η, γ ) reduce to the schedule that gives the displayed bound. The proof of the above theorem is given in Appendix D. 17 Remark. The rate for 1 + s ≤ α for GClip as derived above is the same as the rate for δ-GClip as reported in Table 1. The rate for GClip derived above specialized to the case s = 1 and α ≤ 2 recovers the known rate for GClip from Zhang et al. (2020b) as was also reviewed in Table 1. It is interesting to note that there is a discontinuous jump in the rate of GClip at the boundary α = 1 + s.
+
+Remark (Explicit constants) . Fix θ ∈ (0 , 1) and set M = min { 15 16 θ, 13 }. The small-gradient case contributes a quadratic descent with coefficient 12 in regime (i) and 14 in regime (ii); the large-gradient case contributes a linear descent with coefficient 5M 
+
+> 16
+
+; since 5M 
+
+> 16
+
+≤ 14 ≤ 12 , the unified coefficient is c = 5M 
+
+> 16
+
+. The same coefficient 
+
+c also governs the step-size absorption condition ηs ≤ 5M θ (1+ s)16 L γ1−s used in both regimes to keep the large-gradient smoothness penalty below half the linear descent signal. The bias, tail, and variance constants are 
+
+Cbias (θ) = 2(1 − θ)2α , Ctail (θ) = 1(1 − θ)α , Cvar (θ) = 2 s(1 + θ)1+ s−α + 1(1 − θ)α , (63) the Young constant used in regime (ii) is C0 = 2s(2(1 + s))(1+ s)/2
+
+1 + s , and the constant threshold floor is 
+
+γ0 = max {1, 32 3M θ σ}. The shared schedule constants are C1 = F0
+
+c and C2 = Cbias (θ) σ2α
+
+2c . For regime (i) we additionally use the variance-bounding constant K (independent of γ, T ), defined for γ ≥ 1 by 2 sθ1+ s +2sσ1+ sγ−(1+ s) +Ctail (θ)σαγ−α ≤ K, together with C3 = LK c(1 + s) and C4 = 2 ( Cs 
+
+> 1
+
+C3) 11+ s . For regime (ii), the variance term scales as γ1+ s−α rather than γ1+ s, which changes the balance of exponents; the corresponding constants are 
+
+C′′  
+
+> 3
+
+= L C var (θ) σα
+
+c(1 + s) , C′′  
+
+> 4
+
+= 2 ( Cs 
+
+> 1
+
+C′′  
+
+> 3
+
+) 11+ s .
+
+(One can check directly that balancing C1/(ηT ) against C′′  
+
+> 3
+
+ηsγ1+ s−α and then against C2γ−2( α−1) yields the exponent s 
+
+> (α−1)+ s(2 α−1)
+
+on T for γ above, consistent with the rate in part (ii); the Young’s-inequality remainder term η2s/ (1 −s) is dominated by the other three terms at this schedule, exactly as in the proof of part (ii) below.) 
+
+6.1 Auxiliary Lemmas 
+
+The lemmas below are grouped by the case they serve. Lemmas 6.2 and 6.3 are used in the small-gradient case; Lemmas 6.4 and 6.5 in the large-gradient case. All are common to both regimes except the moment bound of Lemma 6.3, which is stated once per regime. 
+
+Lemmas for the small-gradient case ( ∥∇ f (x)∥ ≤ θγ ). Lemma 6.2 (Conditional probability of the clipped region) . Let Assumption 1 hold with α ∈ (1 , 2]. If 
+
+∥∇ f (x)∥ ≤ θγ for a fixed θ ∈ (0 , 1) and B = {∥ g∥ > γ }, then P(B | x) ≤ σα/((1 − θ)αγα). The proof is provided in subsection E.1. 
+
+Lemma 6.3 (Conditional bias and moment for ∥∇ f (x)∥ ≤ θγ ). Let Assumption 1 hold, and suppose 
+
+∥∇ f (x)∥ ≤ θγ for a fixed θ ∈ (0 , 1). Let B(x) := E[ˆ g(x) | x] − ∇ f (x) be the conditional bias. Then the squared bias obeys, in both regimes ,
+
+∥B(x)∥2 ≤ Cbias (θ) σ2αγ2(1 −α), (64) and the conditional (1 + s)-th moment satisfies: 
+
+(i) 1 + s ≤ α : E[∥ˆg(x)∥1+ s | x] ≤ 2s∥∇ f (x)∥1+ s + 2 sσ1+ s + Ctail (θ) σαγ1+ s−α, (65) 
+
+(ii) 1 + s > α : E[∥ˆg(x)∥1+ s | x] ≤ 2s∥∇ f (x)∥1+ s + Cvar (θ) σαγ1+ s−α. (66) Where Cbias (θ), C tail (θ), C var (θ) are as defined in equation 63. The proof is provided in subsection E.2. 18 Lemmas for the large-gradient case ( ∥∇ f (x)∥ > θγ ). Lemma 6.4 (Inner-product lower bound for the large-gradient case) . Let Assumption 1 hold, let M =min { 15 16 θ, 13 }, and suppose ∥∇ f (x)∥ > θγ with γ ≥ γ0 (Remark ). Then, in both regimes ,
+
+E[⟨∇ f (x), ˆg(x)⟩ | x] ≥ 5M
+
+8 γ ∥∇ f (x)∥. (67) The proof is provided in subsection E.3. 
+
+Lemma 6.5 (Moment bound for the large-gradient case) . In both regimes , E[∥ˆg(x)∥1+ s | x] ≤ γ1+ s.The proof is provided in subsection E.4. 
+
+## 7 Conclusion and Future Directions 
+
+This work established first-of-its-kind convergence guarantees for stochastic gradient methods under the simultaneous presence of ( L, s )-Hölder smoothness and heavy-tailed gradient noise, for standard SGD, the 
+
+δ-GClip algorithm of Tucat et al. (2025) and the standard GClip. Several natural directions remain open as next steps. To the best of our knowledge there are no known lowerbounds to the rate of convergence of stochastic algorithms for ( L, s )-H ´’older smooth functions and particularly so, in the presence of heavy-tailed noise. So firstly, we envisage finding this bound as the next step from here. One particularly important open direction is the development of high-probability convergence guarantees under ( L, s )-Hölder smoothness. Recent work by Madden et al. (2024) studied SGD for nonconvex op-timization under norm sub-Weibull noise — a broad class of heavy-tailed distributions parametrized by a tail index θ ≥ 1/2. Specifically, the stochastic gradient noise et = ∇f (xt) − gt is assumed to satisfy 
+
+E
+
+[
+
+exp 
+
+(( ∥et∥
+
+> K
+
+)1/θ ) ∣∣∣ xt
+
+]
+
+≤ 2, for some scale parameter K > 0. Under standard L-smoothness and a di-minishing step size schedule ηt = c/ √t + 1 with c ≤ 1/L , they prove that, with probability at least 1 − δ,
+
+> 1√T
+
+∑T −1  
+
+> t=0 1√t+1
+
+∥∇ f (xt)∥2 = O
+
+( log( T ) log(1 /δ )2θ
+
+> √T
+
+)
+
+. In the sub-Gaussian case θ = 1 /2, this recovers the classi-cal O(1 /√T ) convergence behavior up to logarithmic factors. Motivated by this result, a natural question is whether analogous high-probability convergence guarantees can be established for SGD or δ-GClip or GClip when the smoothness assumption is weakened from Lipschitz continuity to ( L, s )-Hölder continuity of the gradient. Extending martingale concentration arguments to the Hölder setting appears nontrivial, since the descent inequalities involve fractional-order terms that do not arise in the classical smooth case and the opportunity to understanding these technicalities make this an attractive direction for the future. 19 References 
+
+Aleksandar Armacki, Shuhua Yu, Pranay Sharma, Gauri Joshi, Dragana Bajovic, Dusan Jakovetic, and Soummya Kar. High-probability convergence bounds for online nonlinear stochastic gradient descent under heavy-tailed noise. In Proceedings of the 28th International Conference on Artificial Intelligence and Statistics , 2025. Raef Bassily, Vitaly Feldman, Kunal Talwar, and Abhradeep Guha Thakurta. Private stochastic convex optimization with optimal rates. In Advances in Neural Information Processing Systems , volume 32, pp. 11279–11288. Curran Associates, Inc., 2019. Savelii Chezhegov, Yaroslav Klyukin, Andrei Semenov, Aleksandr Beznosikov, Alexander Gasnikov, Samuel Horváth, Martin Takáč, and Eduard Gorbunov. Clipping improves adam-norm and adagrad-norm when the noise is heavy-tailed. In Proceedings of the 42nd International Conference on Machine Learning , 2025. Ashok Cutkosky and Harsh Mehta. Momentum improves normalized SGD. arXiv preprint arXiv:2002.03305 ,2020. Presented at ICML 2020. Saeed Ghadimi and Guanghui Lan. Stochastic first- and zeroth-order methods for nonconvex stochastic programming. SIAM Journal on Optimization , 23(4):2341–2368, 2013. Bochao Gong, Gustavo E Batista, and Pierre Lafaye de Micheaux. Adaptive heavy-tailed stochastic gradient descent. arXiv preprint arXiv:2508.21353 , 2025. Eduard Gorbunov, Marina Danilova, and Alexander Gasnikov. Stochastic optimization with heavy-tailed noise via accelerated gradient clipping. In Advances in Neural Information Processing Systems , volume 33, pp. 15042–15053. Curran Associates, Inc., 2020. Zijian Liu and Zhengyuan Zhou. Nonconvex stochastic optimization under heavy-tailed noises: Optimal convergence without gradient clipping. In International Conference on Learning Representations (ICLR) ,2025. URL https://openreview.net/forum?id=NKotdPUc3L .Liam Madden, Emiliano Dall’Anese, and Stephen Becker. High probability convergence bounds for non-convex stochastic gradient descent with sub-weibull noise. Journal of Machine Learning Research , 25 (241):1–36, 2024. URL http://jmlr.org/papers/v25/23-0466.html .Ta Duy Nguyen, Nhat Hoang Pham, Lam M. Nguyen, and Quoc Tran-Dinh. Improved convergence in high probability of clipped gradient methods with heavy-tailed noise. In Advances in Neural Information Processing Systems , volume 36, 2023. Vivak Patel and Shushu Zhang. Stochastic gradient descent on nonconvex functions with general noise models. arXiv preprint arXiv:2104.00423 , 2021. Herbert Robbins and Sutton Monro. A stochastic approximation method. The Annals of Mathematical Statistics , 22(3):400–407, 1951. Umut Simsekli, Levent Sagun, and Mert Gurbuzbalaban. A tail-index analysis of stochastic gradient noise in deep neural networks. In International Conference on Machine Learning , pp. 5827–5837. PMLR, 2019. Tao Sun, Xinwang Liu, and Kun Yuan. Revisiting gradient normalization and clipping for nonconvex sgd under heavy-tailed noise. Journal of Machine Learning Research , 26, 2025. Matteo Tucat, Anirbit Mukherjee, Mingfei Sun, Procheta Sen, and Omar Rivasplata. Regularized gradient clipping provably trains wide and deep neural networks. Transactions on Machine Learning Research ,2025. URL https://openreview.net/forum?id=ABT1XQLb0x .Hongjian Wang, Mert Gürbüzbalaban, Lingjiong Zhu, Umut Şimşekli, and Murat A. Erdogdu. Convergence rates of stochastic gradient descent under infinite noise variance. In Advances in Neural Information Processing Systems (NeurIPS) , volume 34, 2021. URL https://proceedings.neurips.cc/paper/2021/ hash/9cdf26568d166bc6793ef8da5afa0846-Abstract.html .20 Puyu Wang, Yunwen Lei, Yiming Ying, and Hai Zhang. Differentially private sgd with non-smooth losses. 
+
+Applied and Computational Harmonic Analysis , 56:306–336, 2022. arXiv preprint arXiv:2101.08925. Zixuan Wang and Shanjian Tang. Convergence of gradient algorithms for nonconvex c1+ α cost functions. 
+
+Chinese Annals of Mathematics, Series B , 44(3):445–464, 2023. doi: 10.1007/s11401-023-0024-y. Jingzhao Zhang, Tianxing He, Suvrit Sra, and Ali Jadbabaie. Why gradient clipping accelerates training: A theoretical justification for adaptivity. In 8th International Conference on Learning Representations, ICLR 2020 . OpenReview.net, 2020a. URL https://openreview.net/forum?id=BJgnXpVYwS .Jingzhao Zhang, Sai Praneeth Karimireddy, Andreas Veit, Seungyeon Kim, Sashank Reddi, Sanjiv Kumar, and Suvrit Sra. Why are adaptive methods good for attention models? In H. Larochelle, M. Ranzato, R. Hadsell, M.F. Balcan, and H. Lin (eds.), Advances in Neural Information Processing Systems , vol-ume 33, pp. 15383–15393. Curran Associates, Inc., 2020b. URL https://proceedings.neurips.cc/ paper_files/paper/2020/file/b05b57f6add810d3b7490866d74c0053-Paper.pdf .21 A Literature Review 
+
+A.1 Review of Convergence Guarantees for Noisy-GD and SGD for Holder Functions 
+
+In the following, we review three representative works that study SGD and its variants under s-Hölder continuity, which provide the closest available context for our investigation. Departing from classical analyses that rely on global Lipschitz continuity or bounded variance, Patel & Zhang (2021) study the global behavior of stochastic gradient descent for nonconvex optimization under weak assumptions on both the objective and the noise model. The authors assume that the objective has only a locally s-Hölder continuous gradient and that the stochastic gradients satisfy a general second-moment bound E∥∇ f (θ, X )∥2 ≤ G(θ). Under these conditions, they show that SGD iterates either diverge to infinity or converge to a stationary point with probability one. Moreover, when the iterates remain bounded, the gradient norm satisfies ∥∇ F (θk)∥ → 0 almost surely. Under assumptions of global s-Hölder continuity and stronger expected gradient, they further show that ∥∇ F (θk)∥ → 0 both almost surely and in expectation. We note that the results in Patel & Zhang (2021) don’t come with a rate of convergence. Under an s-Hölder continuity assumption that also accommodates sub-gradients, thereby extending to non-differentiable losses such as the hinge and absolute losses, Wang et al. (2022) develop a theory of differentially private SGD (DP-SGD) for stochastic convex optimization. Their analysis establishes a precise trade-off be-tween smoothness and computational efficiency. Notably, they show that s ≥ 1/2 is already sufficient to achieve an excess population risk of O( √d log(1 /δ ) 
+
+> nϵ
+
++ 1√n
+
+) with linear gradient complexity O(n). This upper bound perfectly matches the known information-theoretic lower bounds for differentially private stochas-tic convex optimization (Bassily et al., 2019), demonstrating that full Lipschitz smoothness is not strictly necessary to attain statistically optimal learning rates. Building upon relaxed smoothness assumptions, Wang & Tang (2023) investigate the convergence of stochas-tic gradient methods with momentum, including SGD, Heavy Ball, and Nesterov’s accelerated gradient, for nonconvex optimization. Departing from classical analyses the authors assume that the objective function has an s-Hölder continuous gradient. Using a stochastic unified momentum (SUM) formulation, they ana-lyze these algorithms simultaneously and show that the expected gradient satisfies ∑∞ 
+
+> t=0
+
+γtE∥∇ f (xt)∥2 < ∞,implying convergence to stationary points in expectation, with rate E∥∇ f (xR)∥2 = O(T −s/ (1+ s)). Table 2: Stochastic optimization under s-Hölder smoothness. 
+
+Paper Algorithm Assumptions Guarantee and Rate 
+
+(Wang et al., 2022) 
+
+> Thm. 12
+
+DP-SGD s-Hölder smooth gradient; convex loss; ( ε, δ )-DP Excess risk: 
+
+O
+
+( √d log(1 /δ ) 
+
+> nε
+
++ 1√n
+
+)
+
+;gradient complexity 
+
+O(n 2−s 
+
+> 1+ s
+
++ n)(Wang & Tang, 2023) 
+
+> Thm. 3.1
+
+SGD, Heavy Ball, NAG 
+
+s-Hölder smooth gradient; nonconvex 
+
+E∥∇ f (xR)∥2 = O(T −s/ (1+ s)); a.s. convergence to stationary points 
+
+A.2 Review of Convergence Guarantees for Noisy-GD and SGD with Heavy-Tailed Noise 
+
+The role of heavy-tailed gradient noise in explaining why adaptive methods outperform SGD in settings such as attention models has been studied empirically and theoretically by Zhang et al. (2020b). The authors show that when stochastic gradients satisfy a bounded α-moment condition with 1 < α ≤ 2, standard SGD can fail to converge due to the influence of large, rare gradients, whereas clipped gradient methods (GClip) remain stable. They prove that for smooth nonconvex objectives, GClip achieves a stationarity rate of O
+
+(
+
+T − α−13α−2
+
+)
+
+,and for strongly convex functions, an optimal convergence rate of O
+
+(
+
+T − 2( α−1) 
+
+> α
+
+)
+
+, matching corresponding 22 lower bounds and thus they establish the optimality of clipping-based methods under heavy-tailed noise. Additionally, the paper demonstrates experimentally that gradient noise in attention models is inherently heavy-tailed, thereby linking the structure of noise to optimizer performance. A complementary relaxation of smoothness, orthogonal to the Hölder-continuity relaxation studied in this work, was proposed by Zhang et al. (2020a), who introduce the ( L0, L 1)-smoothness condition, ∥∇ 2f (x)∥ ≤ 
+
+L0 + L1∥∇ f (x)∥, motivated by the empirical observation that the local smoothness constant along deep network training trajectories grows with the gradient norm. Under this condition, they show gradient clipping and normalized gradient descent converge arbitrarily faster than fixed-step-size gradient descent as 
+
+L1 grows. Unlike ( L, s )-Hölder smoothness, which weakens the global growth rate of the gradient’s modulus of continuity, ( L0, L 1)-smoothness lets the local Lipschitz constant scale with the gradient norm, so the two relaxations are not nested; notably, ( L0, L 1)-smoothness underlies the generalized-smoothness assumption used by Liu & Zhou (2025), discussed below. Under a potentially infinite-variance noise model assuming only a finite α-th moment for α ∈ [1 , 2) Wang et al. (2021) study SGD and identify a curvature condition on the Hessian, termed uniform α-positive definiteness .Under a diminishing step-size γt ≍ t−ρ, they establish convergence rates of O(t−ρ(α−1) ), showing explicit dependence on the tail index. They further prove that Polyak–Ruppert averaging converges to a multivariate 
+
+β-stable distribution (where β ∈ (1 , 2] denotes the stability index) rather than a Gaussian limit. Among the earliest works to establish high-probability convergence guarantees for clipping under heavy-tailed noise, Gorbunov et al. (2020) propose clipped-SSTM, an accelerated stochastic first-order method for smooth convex optimization with heavy-tailed noise in the stochastic gradients. They show that an ε-solution is reached with probability 1 − β after O(√ LR 20/ε ln (LR 20/εβ )) iterations, matching the optimal light-tailed accelerated rate up to logs, and extend the technique to give the first non-trivial high-probability bound for non-accelerated clipped-SGD under heavy-tailed noise. This line directly precedes and motivates Nguyen et al. (2023), discussed next. High-probability convergence guarantees for clipped gradient methods under heavy-tailed noise, with bounded α-th moments for 1 < α ≤ 2, are the focus of Nguyen et al. (2023). The authors establish optimal high-probability convergence rates for clipped stochastic mirror descent in the convex setting and clipped stochastic gradient descent in the nonconvex setting, achieving rates of O(T 1−αα ) and O(T 2−2α 
+
+> 3α−2
+
+) re-spectively, matching known lower bounds. Their approach also allows for time-varying step sizes and clipping parameters when the time horizon is unknown. Relatedly, Madden et al. (2024) establish high-probability guarantees for SGD under sub-Weibull noise. Using a general nonlinear framework encompassing sign, normalization, and clipping transformations applied to the stochastic gradient Armacki et al. (2025) study high-probability convergence of SGD in a streaming setting under heavy-tailed noise. They apply bounded nonlinear transformations such as sign, normalization, and clipping to stochastic gradients. The bounded nonlinear transformation yields an effective noise sequence that is sub-Gaussian, even when the original noise possesses only a finite first moment, which allows the use of moment-generating function bounds to derive high-probability guarantees. Under Lipschitz smoothness and assuming the noise is zero-mean, i.i.d., integrable, with a symmetric density positive around zero, they establish high-probability convergence guarantees. In the nonconvex setting, they obtain a convergence rate arbitrarily close to O(t−1/4), i.e., O(t−1/4+ ϵ) for any ϵ > 0. In the strongly convex case, they establish a rate of O(t−1/2+ ϵ) for the squared error of the averaged iterates. Contrary to the common intuition that adaptivity confers inherent robustness, Chezhegov et al. (2025) show that Adam and AdaGrad can exhibit poor high-probability convergence under heavy-tailed noise with bounded α-th moments and iteration complexity depending polynomially on the confidence level δ, due to instability in the adaptive scaling term under large gradient outliers. To address this, they propose clipped variants of Adam-Norm and AdaGrad-Norm, where clipping is applied both to the gradients and the scal-ing factors. Under standard smoothness assumptions, these methods achieve high-probability convergence with polylogarithmic dependence on δ, requiring ˜O(max {ε−1, ε − αα−1
+
+}) iterations in the convex setting and ˜O
+
+(
+
+ε− 3α−22α−1
+
+)
+
+iterations in the nonconvex case, corresponding to the leading-order term in the complexity bound and matching clipped SGD up to logarithmic factors. 23 The respective roles of gradient clipping and normalization under heavy-tailed noise with finite α-th moments for α ∈ (1 , 2] are revisited by Sun et al. (2025) , who show that normalization coupled with momentum alone suffices for convergence under individual smoothness, achieving a leading-order rate of O
+
+(
+
+σ 2α−23α−2 T − α−13α−2
+
+)
+
+,matching known lower bounds. Combining normalization with clipping further improves convergence under global smoothness and removes logarithmic factors present in prior analyses. The results extend to variance-reduced methods, yielding a leading-order rate of O
+
+(
+
+σ α 
+
+> 2α−1
+
+T − α−12α−1
+
+)
+
+, and to accelerated variants under second-order smoothness, with rate O
+
+(
+
+T − 2α−24α−1
+
+)
+
+.Similarly challenging the necessity of clipping, Liu & Zhou (2025) explore nonconvex stochastic optimization under a generalized heavy-tailed moment condition of the form E[∥ξt∥α | F t−1] ≤ σα 
+
+> 0
+
++ σα 
+
+> 1
+
+∥∇ F (xt)∥α for some α ∈ (1 , 2], extending the standard finite α-th moment assumption. This work showed that clipping is not necessary by analyzing the Batched Normalized Stochastic Gradient Descent with Momentum (NSGDM) algorithm, which normalizes the momentum direction at each step. Under a generalized smoothness condition of the form ∥∇ F (x) − ∇ F (y)∥ ≤ (L0 + L1∥∇ F (x)∥)∥x − y∥, the authors prove that NSGDM achieves the same optimal rate O(T 1−α 
+
+> 3α−2
+
+) in expectation, providing the first result to attain optimal convergence without gradient clipping. The paper also considers the practically relevant scenario where the tail index α is unknown and proves a convergence rate of O(T 1−α 
+
+> 2α
+
+), using parameter choices independent of α.Building on the observation that training dynamics tend to operate near the edge of stability where the leading Hessian eigenvalue λmax rises before plateauing near 2 /η Gong et al. (2025) introduce Adaptive Heavy-Tailed Stochastic Gradient Descent (AHTSGD), which injects Lévy α-stable noise 1 into SGD and dynamically adapts the tail index αt ∈ [1 , 2] based on the evolving sharpness of the loss landscape. The method injects heavier-tailed noise ( αt < 2) during early training to promote exploration and transitions toward Gaussian noise ( αt → 2) as curvature stabilizes. In practice, sharpness is estimated using a log-transformed trace of the Hessian via Hutchinson’s method, rather than the leading eigenvalue directly. The paper presents (unproven) theoretical bounds suggesting that AHTSGD achieves tighter expected suboptimality than SGD in sharp regions, of the form E[f (θt) − f (θ∗)] ≤ L∥θ0−θ∗∥2 
+
+> 2t
+
++ ηLσ 2
+
+> 2
+
+( λmax 
+
+> 2/η
+
+)2−αt
+
+, and additionally conjectures bounds on the expected squared distance to the optimum under an exponential annealing schedule αt = 2 − e−kt ,suggesting accelerated early-stage convergence when αt < 2. However, these results are not formally proved in the paper. Empirical evaluations on MNIST, SVHN, and CIFAR-10 demonstrate improved early-epoch convergence over SGD, robustness to poor initialization including zero initialization where SGD fails to converge, and stable performance across a range of learning rates, with the most pronounced gains observed on the noisier SVHN dataset.              
+
+> 1The update incorporates Lévy α-stable noise ξt∼ S α(0 ,1,0), a symmetric heavy-tailed distribution parameterized by a tail index α∈(0 ,2], where α= 2 recovers Gaussian noise and smaller values of αyield heavier tails with higher probability of large jumps.
+
+24 Table 3: Provable convergence of noisy GD/SGD under heavy-tailed noise (with clipping). 
+
+Paper Algorithm Assumptions Guarantee and Rate 
+
+(Zhang et al., 2020b) 
+
+> Thm. 2
+
+Clipped SGD Smooth nonconvex, heavy-tailed noise (1 < α ≤ 2) Expected stationarity: 
+
+E∥∇ f (xT )∥ = O
+
+(
+
+T − α−13α−2
+
+)
+
+(Gorbunov et al., 2020) 
+
+> Thm. 2.1
+
+Clipped-SSTM (accelerated) (HP analysis) Smooth convex; heavy-tailed noise High-probability: 
+
+f (yN ) − f (x∗) = ˜O(LR 20/N 2)w.p. ≥ 1 − β
+
+(Gorbunov et al., 2020) 
+
+> Thm. 3.1
+
+Clipped SGD (HP analysis) Smooth convex; heavy-tailed noise High-probability: 
+
+f (¯ xN ) − f (x∗) = ˜O(LR 20/N )w.p. ≥ 1 − β
+
+(Nguyen et al., 2023) 
+
+> Thm. 5
+
+Clipped SGD (HP analysis) Smooth nonconvex, heavy-tailed noise (1 < α ≤ 2) High-probability stationarity: 
+
+> 1
+> T
+
+∑Tt=1 ∥∇ f (xt)∥2 =
+
+O
+
+(
+
+T 2−2α
+
+> 3α−2
+
+)
+
+w.p. ≥ 1 − δ
+
+(Nguyen et al., 2023) 
+
+> Thm. 3
+
+Clipped SGD (HP analysis) Smooth convex; heavy-tailed noise (1 < α ≤ 2) High-probability optimality gap: 1
+
+> T
+
+∑Tt=1 (f (xt) − f ∗) = 
+
+O
+
+(
+
+T 1−αα
+
+)
+
+, w.p. ≥ 1 − δ
+
+(Armacki et al., 2025) 
+
+> Thm. 1
+
+Nonlinear SGD (clip/sign/norm) (HP analysis) Smooth nonconvex; symmetric heavy-tailed noise (no moment assumption) High-probability stationarity: min t≤T ∥∇ f (xt)∥2 =
+
+˜O(T −1/4), w.p. ≥ 1 − δ
+
+(Chezhegov et al., 2025) 
+
+> Thm. 3.1
+
+Clip-AdamD/Clip-AdaGradD-Norm (Averaged iterate) (HP analysis) Smooth convex; heavy-tailed noise (1 < α ≤ 2) High-probability optimality gap: f (¯ xT ) − f ∗ = ˜O
+
+(
+
+T 1−αα
+
+)
+
+,w.p. ≥ 1 − δ
+
+(where ¯ xT is averaged iterate.) (Chezhegov et al., 2025) 
+
+> Thm. 3.2
+
+Clip-AdamD/Clip-M-AdaGradD-Norm (HP analysis) Smooth nonconvex ; heavy-tailed noise (1 < α ≤ 2) High-probability stationarity: 
+
+> 1
+> T
+
+∑Tt=1 ∥∇ f (xt)∥2 =
+
+˜O
+
+(
+
+T − 2α−23α−2
+
+)
+
+, w.p. ≥ 1 − δ
+
+(Sun et al., 2025) 
+
+> Thm. 3
+
+Gradient normalization + clipping Smooth nonconvex ; heavy-tailed noise (1 < α ≤ 2) Expected stationarity: 
+
+> 1
+> T
+
+∑Tt=1 ∥∇ f (xt)∥ =
+
+˜O
+
+(
+
+T − α−13α−2
+
+)
+
+25 Table 4: Provable convergence of noisy GD/SGD under heavy-tailed noise (no clipping). 
+
+Paper Algorithm Assumptions Guarantee and Rate 
+
+(Wang et al., 2021) 
+
+> Thm. 3
+
+Vanilla SGD (Last Iterate) Strongly convex; Uniformly α-PD Hessian; heavy-tailed noise (1 < α ≤ 2); 
+
+γt ≍ t−ρ, ρ ∈ (0 , 1) 
+
+E∥xt − x∗∥α = O(t−ρ(α−1) )(Liu & Zhou, 2025) 
+
+> Thm. 3.2
+
+Batched NSGDM Nonconvex; generalized smoothness; heavy-tailed noise (1 < α ≤ 2) 
+
+> 1
+> T
+
+∑Tt=1 E∥∇ F (xt)∥ =
+
+O
+
+(
+
+T 1−α
+
+> 3α−2
+
+)
+
+(Madden et al., 2024) 
+
+> Thm. 15
+
+Vanilla SGD nonconvex; heavy-tailed noise (sub-Weibull 
+
+θ ≥ 1/2); ηt ≍ 1/√t
+
+> 1√T
+
+∑T −1  
+
+> t=0 1√t+1
+
+E∥∇ f (xt)∥2 =
+
+O
+
+( log( T ) log(1 /δ )2θ +γ(θ) log(1 /δ )
+
+> √T
+
+)
+
+26 B Proof of Theorem 4.1 
+
+Proof of Theorem 4.1. We begin with the fundamental inequality provided by ( L, s )-Hölder smoothness (Def-inition 1). Substituting the SGD update rule, xk+1 = xk − ηgk, and substituting ξk := gk − ∇ f (xk), we obtain, 
+
+f (xk+1 ) ≤ f (xk) − η⟨∇ f (xk), ∇f (xk) + ξk⟩ + L
+
+1 + s ∥ − η(∇f (xk) + ξk)∥1+ s
+
+= f (xk) − η∥∇ f (xk)∥2 − η⟨∇ f (xk), ξk⟩ + Lη 1+ s
+
+1 + s ∥∇ f (xk) + ξk∥1+ s
+
+We take expectation of the above conditioned on the current iterate xk and we recall by Assumption 3 that the cross term evaluates to zero. Hence we have, 
+
+E[f (xk+1 ) | xk] ≤ f (xk) − η∥∇ f (xk)∥2 + Lη 1+ s
+
+1 + s E[∥∇ f (xk) + ξk∥1+ s | xk]We expand the conditional variance term using the algebraic inequality ∥a + b∥p ≤ 2p−1(∥a∥p + ∥b∥p) valid for any p ≥ 1, 
+
+∥∇ f (xk) + ξk∥1+ s ≤ 2(1+ s)−1(∥∇ f (xk)∥1+ s + ∥ξk∥1+ s) = 2 s∥∇ f (xk)∥1+ s + 2 s∥ξk∥1+ s
+
+Taking the expectation conditioned on xk gives, 
+
+E[∥∇ f (xk) + ξk∥1+ s | xk] ≤ 2s∥∇ f (xk)∥1+ s + 2 sE[∥ξk∥1+ s | xk]To bound the noise moment, we apply Lyapunov’s inequality (or monotonicity of Lp-norms), which states (E[|X|q ]) 1 
+
+> q
+
+≤ (E[|X|p]) 1 
+
+> p
+
+for any 0 < q < p and a random variable X. Setting X = ∥ξk∥, q = 1 + s, and 
+
+p = α (where 1 + s < α ), we obtain: 
+
+E[∥ξk∥1+ s | xk] = 
+
+(
+
+(E[∥ξk∥1+ s | xk]) 11+ s
+
+)1+ s
+
+≤
+
+(
+
+(E[∥ξk∥α | xk]) 1
+
+> α
+
+)1+ s
+
+= ( E[∥ξk∥α | xk]) 1+ sα
+
+Applying Assumption 1 (E[∥ξk∥α | xk] ≤ σα), we find, ( E[∥ξk∥α | xk]) 1+ sα ≤ (σα) 1+ sα = σ1+ s. Substituting this finite bound back into our previous descent equation gets us, 
+
+E[f (xk+1 ) | xk] ≤ f (xk) − η∥∇ f (xk)∥2 + L2sη1+ s
+
+1 + s ∥∇ f (xk)∥1+ s + L2sσ1+ s
+
+1 + s η1+ s
+
+Next, for s ∈ (0 , 1) (the endpoint s = 1 is treated in Remark ), we apply Young’s inequality, ab ≤ ap 
+
+> p
+
++ bq 
+
+> q
+
+,with conjugates p = 21+ s and q = 21−s . (Note that 1 
+
+> p
+
++ 1 
+
+> q
+
+= 1+ s 
+
+> 2
+
++ 1−s 
+
+> 2
+
+= 1). Corresponding to the above choices of p and q we use a =
+
+( η
+
+> 1+ s
+
+) 1+ s
+
+> 2
+
+∥∇ f (xk)∥1+ s and b = L2sη 1+ s 
+
+> 2
+
+(1 + s)− 1−s 
+
+> 2
+
+to get, 
+
+L2sη1+ s
+
+1 + s ∥∇ f (xk)∥1+ s ≤ η
+
+2 ∥∇ f (xk)∥2 + CsL 21−s η 1+ s
+
+> 1−s
+
+where, Cs = 1−s 
+
+> 2(1+ s)
+
+2 2s 
+
+> 1−s
+
+.Substituting the upper bound into the descent equation and rearranging gets us, 
+
+η
+
+2 ∥∇ f (xk)∥2 ≤ f (xk) − E[f (xk+1 ) | xk] + CsL 21−s η 1+ s 
+
+> 1−s
+
++ L2sσ1+ s
+
+1 + s η1+ s
+
+We now take the total expectation of both sides to get, 
+
+η
+
+2 E[∥∇ f (xk)∥2] ≤ E[f (xk)] − E[f (xk+1 )] + CsL 21−s η 1+ s 
+
+> 1−s
+
++ L2sσ1+ s
+
+1 + s η1+ s
+
+27 Summing this from k = 1 to T yields a telescoping series for the function values, 
+
+η
+
+2
+
+> T
+
+∑
+
+> k=1
+
+E[∥∇ f (xk)∥2] ≤
+
+> T
+
+∑
+
+> k=1
+
+(E[f (xk)] − E[f (xk+1 )]) + T
+
+(
+
+CsL 21−s η 1+ s 
+
+> 1−s
+
++ L2sσ1+ s
+
+1 + s η1+ s
+
+)
+
+We simplify the telescoping sum as, ∑Tk=1 (E[f (xk)] − E[f (xk+1 )]) = f (x1) − E[f (xT +1 )] ≤ f (x1) − f ∗.Further defining, F0 := f (x1) − f ∗ and dividing the entire inequality by ηT  
+
+> 2
+
+we get, 1
+
+T
+
+> T
+
+∑
+
+> k=1
+
+E[∥∇ f (xk)∥2] ≤ 2F0
+
+ηT + 2 CsL 21−s η 2s 
+
+> 1−s
+
++ L2s+1 σ1+ s
+
+1 + s ηs
+
+For s ∈ (0 , 1), we have 2s 
+
+> 1−s
+
+> s . Therefore, as η → 0, the η 2s 
+
+> 1−s
+
+term decays faster and is asymptotically dominated by the ηs pure variance term. The bound simplifies asymptotically to: 1
+
+T
+
+> T
+
+∑
+
+> k=1
+
+E[∥∇ f (xk)∥2] ≤ O 
+
+( 1
+
+ηT 
+
+)
+
++ O (ηs)Plugging the declared step size of η = O(T − 11+ s ) into the above results in the rate of convergence that was claimed, 1
+
+T
+
+> T
+
+∑
+
+> k=1
+
+E[∥∇ f (xk)∥2] = O
+
+(( 
+
+T − 11+ s
+
+)s)
+
+= O
+
+(
+
+T − s
+
+> 1+ s
+
+)
+
+## C Proofs of Lemmas Needed for Theorem 5.1 
+
+C.1 Proof of lemma 5.2 
+
+Proof. For any x ∈ B, we have by definition ∥g∥ > γ . Using the reverse triangle inequality and the condition 
+
+∥∇ f (x)∥ ≤ θγ , we bound the magnitude of the noise: 
+
+∥ξ∥ = ∥g − ∇ f ∥ ≥ ∥ g∥ − ∥∇ f ∥ > γ − θγ = (1 − θ)γ. 
+
+Applying Markov’s inequality to this strictly positive boundary gives the probability bound for region B:
+
+P(B) = P(x ∈ B) ≤ P(∥ξ∥ > (1 − θ)γ) ≤ E[∥ξ∥α]((1 − θ)γ)α ≤ σα
+
+(1 − θ)αγα . (68) Similarly, for any x ∈ C, we have ∥g∥ > γ/δ . The reverse triangle inequality yields: 
+
+∥ξ∥ = ∥g − ∇ f ∥ ≥ ∥ g∥ − ∥∇ f ∥ > γδ − θγ = γ
+
+( 1 − θδ δ
+
+)
+
+.
+
+Applying Markov’s inequality yields the probability bound for region C:
+
+P(C) = P(x ∈ C) ≤ P
+
+(
+
+∥ξ∥ > γ 1 − θδ δ
+
+)
+
+≤ E[∥ξ∥α]
+
+(γ 1−θδ δ
+
+)α ≤
+
+( δ
+
+1 − θδ 
+
+)α σα
+
+γα . (69) 28 C.2 Proof of lemma 5.3 
+
+Proof. Let ˆ gδ (x) := min 
+
+{
+
+1, max 
+
+{
+
+δ, γ
+
+> ∥g(x)∥
+
+}} 
+
+·g(x). We define the disjoint region A = {∥ g∥ ≤ γ} alongside regions B and C defined in Lemma 5.2. The estimator simplifies piecewise to: ˆgδ =
+
+
+
+g, g ∈ A, γ g
+
+∥g∥ , g ∈ B, δg, g ∈ C. 
+
+Throughout the proof, we repeatedly use the elementary inequality for a, b ≥ 0 and p ≥ 1: (a + b)p ≤ 2p−1(ap + bp) (70) 
+
+Moment Bound 
+
+We decompose the expectation over the three regions A, B, C :
+
+E[∥ˆgδ (x)∥p] = E[∥ˆgδ (x)∥p1A
+
+] + E[∥ˆgδ (x)∥p1B
+
+] + E[∥ˆgδ (x)∥p1C
+
+]. (71) 
+
+Region A: ∥g∥ ≤ γ On A, the estimator is unclipped (ˆ gδ = g = ∇f + ξ). 
+
+E[∥ˆgδ (x)∥p1A
+
+] = E[∥∇ f (x) + ξ∥p1A
+
+]
+
+≤ E[2p−1(∥∇ f (x)∥p + ∥ξ∥p)1A
+
+]
+
+= 2 p−1∥∇ f (x)∥pE[1A] + 2 p−1E[∥ξ∥p1A
+
+]
+
+≤ 2p−1∥∇ f (x)∥p + 2 p−1E[∥ξ∥p]
+
+≤ 2p−1∥∇ f (x)∥p + 2 p−1(E[∥ξ∥α])p/α 
+
+≤ 2p−1∥∇ f (x)∥p + 2 p−1σp. (72) In the sequence above, the first inequality applies the inequality 70. We then bound the indicator function 
+
+1A ≤ 1 and its expectation E[1A] ≤ 1. Finally, we apply Hölder’s inequality (valid since p ≤ α) and substitute the noise moment bound from Assumption 1. 
+
+Region B: γ < ∥g∥ ≤ γ/δ On B, the δ-GClip estimator takes the form: ˆgδ (x) = γ g(x)
+
+∥g(x)∥ .
+
+Taking the norm of this estimator, 
+
+∥ˆgδ (x)∥ =
+
+∥∥∥∥γ g(x)
+
+∥g(x)∥
+
+∥∥∥∥ = γ ∥g(x)∥∥g(x)∥ = γ. 
+
+Raising this to the p-th power confirms that the estimator has an exact norm of ∥ˆgδ (x)∥p = γp. Taking expectation: 
+
+E[∥ˆgδ (x)∥p1B ] = E[γp1B ]= γpP(B)
+
+≤ γp
+
+( σα
+
+(1 − θ)αγα
+
+)
+
+= 1(1 − θ)α σαγp−α. (73) Here, we factor out the constant γp and use the definition E[1B ] = P(B). The inequality directly substitutes the probability bound for region B derived in Lemma 5.2, Eq. (4). 29 Region C: ∥g(x)∥ > γ/δ On C, we have ˆ gδ (x) = δg(x). Taking expectation we get, 
+
+E[∥ˆgδ (x)∥p1C
+
+] = δpE[∥∇ f + ξ∥p1C
+
+]
+
+≤ 2p−1δpE[(∥∇ f ∥p + ∥ξ∥p)1C
+
+]
+
+= 2 p−1δp∥∇ f ∥pP(C) + 2 p−1δpE[∥ξ∥p1C
+
+]
+
+≤ 2p−1δp(θγ )pP(C) + 2 p−1δp(E∥ξ∥α)p/α P(C) α−pα
+
+≤ 2p−1δpθpγp
+
+[( δ
+
+1 − θδ 
+
+)α σα
+
+γα
+
+]
+
++ 2 p−1δpσp
+
+[( δ
+
+1 − θδ 
+
+)α σα
+
+γα
+
+] α−pα
+
+= 2 p−1δpσαγp−α
+
+[
+
+θp
+
+( δ
+
+1 − θδ 
+
+)α
+
++
+
+( δ
+
+1 − θδ 
+
+)α−p]
+
+. (74) Here, we first applied inequality (70) and the identity E[1C ] = P(C). We then bound the true gradient using the Case 1 condition ∥∇ f ∥ ≤ θγ and apply Hölder’s inequality to the noise term. Next, we substitute the probability bound for region C from Lemma 5.2, Eq. (5), and Assumption 1. Substituting the individual regional bounds (72), (73), and (74) back into the decomposition (71), we sum the terms together: 
+
+E[∥ˆgδ (x)∥p] ≤
+
+(
+
+2p−1∥∇ f (x)∥p + 2 p−1σp)
+
++
+
+( 1(1 − θ)α σαγp−α
+
+)
+
++
+
+(
+
+2p−1δpσαγp−α
+
+[
+
+θp
+
+( δ
+
+1 − θδ 
+
+)α
+
++
+
+( δ
+
+1 − θδ 
+
+)α−p]) 
+
+. (75) By factoring out the common term σαγp−α from the Region B and Region C bounds, we obtain the complete, fully expanded variance bound: 
+
+E[∥ˆgδ (x)∥p] ≤ 2p−1∥∇ f (x)∥p + 2 p−1σp
+
++
+
+(
+
+1(1 − θ)α + 2 p−1δp
+
+[
+
+θp
+
+( δ
+
+1 − θδ 
+
+)α
+
++
+
+( δ
+
+1 − θδ 
+
+)α−p]) 
+
+σαγp−α. (76) 
+
+Bias Bound 
+
+Define the bias vector Bδ (x) := E[ˆ gδ (x)] − ∇ f (x) = E[ˆgδ (x) − g(x)]. Taking the norm and moving it inside the expectation by Jensen’s inequality, we decompose the error over the three disjoint regions A, B, and C:
+
+∥Bδ (x)∥ ≤ E[∥ˆgδ (x) − g(x)∥]
+
+= E[∥ˆgδ (x) − g(x)∥1A
+
+] + E[∥ˆgδ (x) − g(x)∥1B
+
+] + E[∥ˆgδ (x) − g(x)∥1C
+
+]. (77) Because the estimator is unclipped in region A, we have ˆ gδ (x) = g(x), which means the first term evaluates to exactly zero. Thus, the error decomposes over just B and C:
+
+∥Bδ (x)∥ ≤ E[∥g(x) − ˆgδ (x)∥1B
+
+] + E[∥g(x) − ˆgδ (x)∥1C
+
+]. (78) 
+
+Region B: γ < ∥g∥ ≤ γ/δ On B, the δ-GClip estimator performs standard clipping, scaling the gradient to have an exact norm of γ:ˆgδ (x) = γ g(x)
+
+∥g(x)∥ .
+
+30 Therefore, 
+
+∥g − ˆgδ ∥ =
+
+∥∥∥∥g − γ g
+
+∥g∥
+
+∥∥∥∥ =
+
+∥∥∥∥(
+
+1 − γ
+
+∥g∥
+
+)
+
+g
+
+∥∥∥∥ =
+
+∣∣∣∣1 − γ
+
+∥g∥
+
+∣∣∣∣ ∥g∥.
+
+In Region B, we know ∥g∥ > γ , which guarantees that the scalar coefficient (1 − γ/ ∥g∥) > 0. Removing the absolute value and distributing the norm gives: 
+
+∥g − ˆgδ ∥ =
+
+(
+
+1 − γ
+
+∥g∥
+
+)
+
+∥g∥ = ∥g∥ − γ < ∥g∥.
+
+E[∥g − ˆgδ ∥1B
+
+] ≤ E[∥g∥1B
+
+]
+
+= E[∥∇ f + ξ∥1B
+
+]
+
+≤ ∥∇ f ∥P(B) + E[∥ξ∥1B
+
+]
+
+≤ θγ P(B) + (E∥ξ∥α)1/α P(B) α−1
+
+> α
+
+≤ θγ 
+
+( σα
+
+(1 − θ)αγα
+
+)
+
++ σ
+
+( σα
+
+(1 − θ)αγα
+
+) α−1
+
+> α
+
+= θ
+
+(1 − θ)α σαγ1−α + 1(1 − θ)α−1 σαγ1−α
+
+= 1(1 − θ)α σαγ1−α. (79) The first equality substitutes g = ∇f + ξ. The subsequent inequality applies the triangle inequality. We then apply the Case 1 condition ∥∇ f ∥ ≤ θγ and Hölder’s inequality. Finally, we substitute the probability bound for region B from Lemma 5.2, inequality 4, along with Assumption 1. 
+
+Region C: ∥g(x)∥ > γ/δ On C, the δ-GClip estimator is : ˆgδ (x) = δg(x).
+
+Therefore, 
+
+∥g − ˆgδ ∥ = ∥g − δg∥ = ∥(1 − δ)g∥ = (1 − δ)∥g∥.
+
+Taking expectation we get, 
+
+E[∥g − ˆgδ ∥1C
+
+] = (1 − δ)E[∥∇ f + ξ∥1C
+
+]
+
+≤ (1 − δ)∥∇ f ∥P(C) + (1 − δ)E[∥ξ∥1C
+
+]
+
+≤ (1 − δ)θγ P(C) + (1 − δ)(E∥ξ∥α)1/α P(C) α−1
+
+> α
+
+≤ (1 − δ)θγ 
+
+[( δ
+
+1 − θδ 
+
+)α σα
+
+γα
+
+]
+
++ (1 − δ)σ
+
+[( δ
+
+1 − θδ 
+
+)α σα
+
+γα
+
+] α−1
+
+> α
+
+= (1 − δ)σαγ1−α
+
+[
+
+θ
+
+( δ
+
+1 − θδ 
+
+)α
+
++
+
+( δ
+
+1 − θδ 
+
+)α−1]
+
+. (80) We substitute g = ∇f + ξ, apply the triangle inequality. We then apply the Case 1 condition, Hölder’s inequality, and substitute the probability bound for region C from Lemma 5.2, inequality (5), and Assumption 1. 31 Combine Summing the bounds from inequality 79 and 80 directly yields the final Bias Bound: 
+
+∥Bδ (x)∥ ≤ 
+
+(
+
+1(1 − θ)α + (1 − δ)
+
+[
+
+θ
+
+( δ
+
+1 − θδ 
+
+)α
+
++
+
+( δ
+
+1 − θδ 
+
+)α−1]) 
+
+σαγ1−α. (81) Finally, to compute the Squared Bias Bound, we square inequality 81 and apply the elementary inequality (a + b)2 ≤ 2a2 + 2 b2:
+
+∥Bδ (x)∥2 ≤ 2
+
+( 1(1 − θ)2α
+
+)
+
+σ2αγ2(1 −α) + 2(1 − δ)2
+
+[
+
+θ
+
+( δ
+
+1 − θδ 
+
+)α
+
++
+
+( δ
+
+1 − θδ 
+
+)α−1]2
+
+σ2αγ2(1 −α). (82) 
+
+C.3 Proof of lemma 5.4 
+
+Proof. Throughout this proof we fix the current iterate x and write ∇f := ∇f (x), g := ∇f + ξ for the stochastic gradient, and ξ := g − ∇ f for the zero-mean noise. All conditional expectations are implicitly conditioned on x.
+
+Step 1: Partition of the sample space. Depending on the magnitude of the stochastic gradient g, the 
+
+δ-clipped estimator ˆ gδ takes three structurally different forms. Accordingly, we partition the sample space into the three disjoint regions 
+
+A = {∥ g∥ ≤ γ}, B = {γ < ∥g∥ ≤ γδ }, C = {∥ g∥ > γδ },
+
+with explicit estimator forms on each region: on A : ˆgδ = g = ∇f + ξ (no clipping), on B : ˆgδ = γ g
+
+∥g∥ (norm clipping to γ), on C : ˆgδ = δg = δ(∇f + ξ) (scaling down by δ). Since A, B, C partition the sample space, the expected inner product decomposes as 
+
+E[⟨∇ f, ˆgδ ⟩] = E[⟨∇ f, ˆgδ ⟩1A
+
+]︸ ︷︷ ︸ 
+
+> =: RA
+
++ E[⟨∇ f, ˆgδ ⟩1B
+
+]︸ ︷︷ ︸ 
+
+> =: RB
+
++ E[⟨∇ f, ˆgδ ⟩1C
+
+]︸ ︷︷ ︸ 
+
+> =: RC
+
+. (83) We bound each term from below in turn. Before doing so, we introduce a small-noise event that will let us handle the noise in region A and part of region C sharply. 
+
+Step 2: Small-noise event. Define the event 
+
+E := 
+
+{
+
+∥ξ∥ ≤ ∥∇ f ∥
+
+16 
+
+}
+
+, (84) which captures the regime where the noise is much smaller than the gradient. Its complement Ec is the heavy-noise event. The significance of E is that on E, the noise contributes at most a 116 fraction of ∥∇ f ∥2 to any inner product involving ∇f and ξ:on E: |⟨∇ f, ξ ⟩| ≤ ∥∇ f ∥ ∥ ξ∥ ≤ ∥∇ f ∥2
+
+16 .
+
+We will show later (Step 5) that P(Ec) is small when ∥∇ f ∥ > θγ and γ is chosen large enough. 32 Step 3: Lower bound on RA. On A the estimator is unclipped, so ˆ gδ = ∇f + ξ. Expanding the inner product: 
+
+RA = E[∥∇ f ∥21A
+
+] + E[⟨∇ f, ξ ⟩1A
+
+].
+
+We split the second expectation according to whether E holds or not: 
+
+E[⟨∇ f, ξ ⟩1A
+
+] = E[⟨∇ f, ξ ⟩1A∩E
+
+] + E[⟨∇ f, ξ ⟩1A∩Ec
+
+].
+
+Contribution from A ∩ E. On this event ∥ξ∥ ≤ ∥∇ f ∥/16, so by Cauchy–Schwarz, 
+
+⟨∇ f, ξ ⟩ ≥ −∥∇ f ∥ ∥ ξ∥ ≥ − ∥∇ f ∥2
+
+16 .
+
+Hence 
+
+E[⟨∇ f, ξ ⟩1A∩E
+
+] ≥ − ∥∇ f ∥2
+
+16 P(A ∩ E).
+
+Contribution from A ∩ Ec. Using only Cauchy–Schwarz: 
+
+E[⟨∇ f, ξ ⟩1A∩Ec
+
+] ≥ −∥∇ f ∥ E[∥ξ∥ 1Ec
+
+].
+
+Combining the two contributions: 
+
+RA ≥ ∥∇ f ∥2P(A) − ∥∇ f ∥2
+
+16 P(A ∩ E) − ∥∇ f ∥ E[∥ξ∥ 1Ec
+
+]
+
+≥ ∥∇ f ∥2
+
+(
+
+P(A) − 116 P(A)
+
+)
+
+− ∥∇ f ∥ E[∥ξ∥ 1Ec
+
+]
+
+= 15 16 ∥∇ f ∥2 P(A) − ∥∇ f ∥ E[∥ξ∥ 1Ec
+
+]. (85) Since we are in the regime ∥∇ f ∥ > θγ , we have ∥∇ f ∥2 > θγ ∥∇ f ∥, so inequality 85 gives 
+
+RA ≥ 15 16 θγ P(A) ∥∇ f ∥ − ∥∇ f ∥ E[∥ξ∥ 1Ec
+
+]. (86) 
+
+Step 4: Lower bounds on RB and RC . Region B. On B the estimator clips the gradient to the sphere of radius γ: ˆ gδ = γ g/ ∥g∥. We apply the Cutkosky–Mehta directional inequality, which states that for any vectors u and v with v = u + ξ, 〈 u
+
+∥u∥ , v
+
+∥v∥
+
+〉
+
+≥ 13 − 83
+
+∥ξ∥∥u∥ .
+
+Applying this with u = ∇f , v = g:
+
+〈
+
+∇f, g
+
+∥g∥
+
+〉
+
+≥ 13 ∥∇ f ∥ − 83 ∥ξ∥.
+
+Multiplying through by γ > 0 and taking expectations over B:
+
+RB ≥ 13 γ P(B) ∥∇ f ∥ − 83 γ E[∥ξ∥ 1B
+
+]. (87) 
+
+Region C, small noise ( C ∩ E). On C the estimator scales: ˆ gδ = δg . Because ∥g∥ > γ/δ on C, we have 
+
+δ∥g∥ > γ , so the effective norm ∥ˆgδ ∥ = δ∥g∥ > γ .On C ∩ E, the noise is small ( ∥ξ∥ ≤ ∥∇ f ∥/16), so we again apply the directional inequality: 
+
+〈
+
+∇f, g
+
+∥g∥
+
+〉
+
+≥ 13 ∥∇ f ∥ − 83 ∥ξ∥.
+
+33 Moreover, on C ∩ E the small-noise bound ∥ξ∥ ≤ ∥∇ f ∥/16 makes this lower bound strictly positive: 13 ∥∇ f ∥ − 83 ∥ξ∥ ≥ 13 ∥∇ f ∥ − 83 · ∥∇ f ∥
+
+16 = 13 ∥∇ f ∥ − 16 ∥∇ f ∥ = 16 ∥∇ f ∥ > 0.
+
+Since ˆ gδ = δg with δ∥g∥ > γ , and this lower bound is nonnegative, replacing the factor δ∥g∥ by the smaller 
+
+γ preserves the inequality: 
+
+⟨∇ f, ˆgδ ⟩ = δ∥g∥
+
+〈
+
+∇f, g
+
+∥g∥
+
+〉
+
+≥ δ∥g∥
+
+( 13 ∥∇ f ∥ − 83 ∥ξ∥
+
+)
+
+≥ γ
+
+( 13 ∥∇ f ∥ − 83 ∥ξ∥
+
+)
+
+.
+
+Taking expectations over C ∩ E:
+
+RC∩E ≥ 13 γ P(C ∩ E) ∥∇ f ∥ − 83 γ E[∥ξ∥ 1C∩E
+
+]. (88) 
+
+Region C, large noise ( C ∩ Ec). Here the noise is large and we use only a crude bound. Since ˆ gδ =
+
+δ(∇f + ξ), Cauchy–Schwarz gives 
+
+⟨∇ f, ˆgδ ⟩ = δ(∥∇ f ∥2 + ⟨∇ f, ξ ⟩) ≥ − δ ∥∇ f ∥ ∥ ξ∥ ≥ −∥∇ f ∥ ∥ ξ∥,
+
+where in the last step we used δ ≤ 1. Taking expectations: 
+
+RC∩Ec ≥ −∥∇ f ∥ E[∥ξ∥ 1C∩Ec
+
+]. (89) 
+
+Step 5: Combining all regions. Adding inequalities 86, 87, 88, and 89: 
+
+E[⟨∇ f, ˆgδ ⟩] ≥ γ∥∇ f ∥
+
+( 15 16 θ P(A) + 13 P(B) + 13 P(C ∩ E)
+
+)
+
+− ∥∇ f ∥ E[∥ξ∥ 1Ec
+
+]
+
+− 83 γ E[∥ξ∥ 1B∪(C∩E)
+
+], (90) where we collected the Ec noise terms from RA and RC∩Ec into a single term, and the directional-inequality noise terms from RB and RC∩E into a single term. We now bound each of the three negative terms on the right. 
+
+Step 6: Bounding P(Ec) and the probability sum. By Markov’s inequality applied to ∥ξ∥α:
+
+P(Ec) = P
+
+(
+
+∥ξ∥ > ∥∇ f ∥
+
+16 
+
+)
+
+≤ E[∥ξ∥α](∥∇ f ∥/16) α ≤ 16 α σα
+
+∥∇ f ∥α ,
+
+where we used the moment bound E[∥ξ∥α] ≤ σα. Since ∥∇ f ∥ > θγ , this gives 
+
+P(Ec) ≤ 16 α σα
+
+(θγ )α . (91) Choosing γ large enough so that 
+
+γ ≥ 16 · 21/α 
+
+θ σ, (92) ensures P(Ec) ≤ 1/2, and therefore 
+
+P(A) + P(B) + P(C ∩ E) ≥ 1 − P(Ec) ≥ 12 . (93) Now define 
+
+M := min 
+
+{ 15 16 θ, 13
+
+}
+
+> 0. (94) Since M lower-bounds each coefficient in the probability sum, we have 15 16 θ P(A) + 13 P(B) + 13 P(C ∩ E) ≥ M (P(A) + P(B) + P(C ∩ E)) ≥ M
+
+2 . (95) The first term in inequality 90 is therefore at least M 
+
+> 2
+
+γ∥∇ f ∥.34 Step 7: Bounding ∥∇ f ∥ E[∥ξ∥1Ec ]. We bound the Ec noise moment using the α-th moment assumption. Write 
+
+E[∥ξ∥ 1Ec
+
+] = E
+
+[ ∥ξ∥α
+
+∥ξ∥α−1 1Ec
+
+]
+
+.
+
+On Ec, we have ∥ξ∥ > ∥∇ f ∥/16, so ∥ξ∥α−1 > (∥∇ f ∥/16) α−1. Hence 1 /∥ξ∥α−1 < (16 /∥∇ f ∥)α−1, giving 
+
+E[∥ξ∥ 1Ec
+
+] ≤ 16 α−1
+
+∥∇ f ∥α−1 E[∥ξ∥α 1Ec
+
+] ≤ 16 α−1 σα
+
+∥∇ f ∥α−1 .
+
+Using ∥∇ f ∥ > θγ :
+
+∥∇ f ∥ E[∥ξ∥ 1Ec
+
+] ≤ 16 α−1 σα
+
+∥∇ f ∥α−1 · ∥∇ f ∥ = 16 α−1 σα
+
+∥∇ f ∥α−2 ≤ 16 α−1 σα
+
+(θγ )α−1 ∥∇ f ∥. (96) We want this to be at most M 
+
+> 4
+
+γ∥∇ f ∥. This requires 16 α−1 σα
+
+(θγ )α−1 ≤ M
+
+4 γ, 
+
+i.e., 
+
+γα ≥ 4 · 16 α−1
+
+M θ α−1 σα,
+
+which is satisfied when 
+
+γ ≥
+
+( 4 · 16 α−1
+
+M θ α−1
+
+)1/α 
+
+σ. (97) Under condition (97): 
+
+∥∇ f ∥ E[∥ξ∥ 1Ec
+
+] ≤ M
+
+4 γ∥∇ f ∥. (98) 
+
+Step 8: Bounding 83 γ E[∥ξ∥1B∪(C∩E)]. On B ∪ (C ∩ E) the noise need not be small. We use the crude bound E[∥ξ∥ 1B∪(C∩E)] ≤ E[∥ξ∥]. By Jensen’s inequality (since α ≥ 1): 
+
+E[∥ξ∥] ≤ (E[∥ξ∥α])1/α ≤ σ. 
+
+Hence the noise contribution from B ∪ (C ∩ E) satisfies 83 γ E[∥ξ∥ 1B∪(C∩E)
+
+] ≤ 83 γ σ. (99) We want this to be at most M 
+
+> 8
+
+γ∥∇ f ∥. Since ∥∇ f ∥ > θγ , it suffices to require 83 σ ≤ M θ 
+
+8 γ, 
+
+i.e., 
+
+γ ≥ 64 3 M θ σ. (100) Under condition 100: 83 γ E[∥ξ∥ 1B∪(C∩E)
+
+] ≤ M
+
+8 γ∥∇ f ∥. (101) 35 Step 9: Assembling the final bound. Substituting inequalities 95, 98, and 101 into inequality 90: 
+
+E[⟨∇ f, ˆgδ ⟩] ≥ M
+
+2 γ∥∇ f ∥ − M
+
+4 γ∥∇ f ∥ − M
+
+8 γ∥∇ f ∥
+
+=
+
+( 12 − 14 − 18
+
+)
+
+M γ ∥∇ f ∥
+
+= 18 M γ ∥∇ f ∥. (102) Setting c0 := 18 M > 0, we conclude that under the gradient magnitude condition ∥∇ f (x)∥ > θγ and the three clipping threshold conditions 92, 97, 100 on γ, the following lower bound holds: 
+
+E[⟨∇ f (x), ˆgδ ⟩ | x] ≥ c0 γ ∥∇ f (x)∥,
+
+which is the desired result. 
+
+C.4 Proof of lemma 5.5 
+
+Proof. We produce a strict upper bound for the conditional (1 + s)-th moment E[∥ˆgδ (x)∥1+ s | x]. We define the centered noise ξ = g − ∇ f and partition the space into our standard disjoint clipping regions: 
+
+A = {∥ g∥ ≤ γ}, B = {γ < ∥g∥ ≤ γ/δ }, C = {∥ g∥ > γ/δ }.
+
+We decompose the expected moment into two primary contributions: the strictly bounded regions ( A ∪ B)and the δ-scaled region ( C). 
+
+E[∥ˆgδ ∥1+ s | x] = E[∥ˆgδ ∥1+ s1A∪B | x] + E[∥ˆgδ ∥1+ s1C | x]. (103) 
+
+Upper Bound for Regions A and B In Region A, the estimator is unclipped (ˆ gδ = g), meaning 
+
+∥ˆgδ ∥ = ∥g∥ ≤ γ. In Region B, the estimator is clipped to the boundary (ˆ gδ = γ g 
+
+> ∥g∥
+
+), meaning ∥ˆgδ ∥ = γ.Therefore, across the entire union A ∪ B, the magnitude of the estimator is strictly bounded by γ. We evaluate this expectation: 
+
+E[∥ˆgδ ∥1+ s1A∪B | x] ≤ E[γ1+ s1A∪B | x]
+
+= γ1+ sP(A ∪ B | x)
+
+≤ γ1+ s. (104) 
+
+Upper Bound for Region C On event C, the estimator applies pure linear scaling: ˆ gδ = δg = δ(∇f +ξ). Taking the (1+ s)-th power and applying the elementary inequality ∥a+b∥p ≤ 2p−1(∥a∥p+∥b∥p) with p = 1+ s,we obtain: 
+
+E[∥ˆgδ ∥1+ s1C | x] = δ1+ sE[∥∇ f + ξ∥1+ s1C | x]
+
+≤ 2sδ1+ sE[( ∥∇ f ∥1+ s + ∥ξ∥1+ s)1C | x]
+
+= 2 sδ1+ s∥∇ f ∥1+ sP(C | x) + 2 sδ1+ sE[∥ξ∥1+ s1C | x]. (105) We relax the probability P(C | x) ≤ 1. By Lyapunov’s inequality and Assumption 1, because 1 + s ≤ α, the truncated moment is strictly bounded by the total noise moment: E[∥ξ∥1+ s1C | x] ≤ E[∥ξ∥1+ s | x] ≤ σ1+ s.Substituting these yields: 
+
+E[∥ˆgδ ∥1+ s1C | x] ≤ 2sδ1+ s∥∇ f ∥1+ s + 2 sδ1+ sσ1+ s. (106) 36 Combine and Apply Case 2 Condition Summing the regional bounds 104 and 106, we assemble the total moment: 
+
+E[∥ˆgδ ∥1+ s | x] ≤ γ1+ s + 2 sδ1+ s∥∇ f ∥1+ s + 2 sδ1+ sσ1+ s. (107) Because we are specifically analyzing Case 2 ( ∥∇ f ∥ > θγ ), we can algebraically absorb the clipping threshold into the true gradient. By rearranging the condition, we have γ < 1 
+
+> θ
+
+∥∇ f ∥. Raising this to the (1 + s)-th power yields: 
+
+γ1+ s < 1
+
+θ1+ s ∥∇ f ∥1+ s. (108) Substituting this directly into our combined bound seamlessly consolidates the signal terms: 
+
+E[∥ˆgδ ∥1+ s | x] ≤ 1
+
+θ1+ s ∥∇ f ∥1+ s + 2 sδ1+ s∥∇ f ∥1+ s + 2 sδ1+ sσ1+ s
+
+=
+
+( 1
+
+θ1+ s + 2 sδ1+ s
+
+)
+
+∥∇ f (x)∥1+ s + 2 sδ1+ sσ1+ s. (109) 
+
+## D Proof of Theorem 6.1 
+
+Proof of Theorem 6.1. We prove the two parts separately. Throughout a single step we write x = xk−1,
+
+η = ηk−1, ˆ g = ˆ g(xk−1), and set c = 5M 
+
+> 16
+
+.
+
+Part (i): regime 1 + s ≤ α
+
+Descent inequality. By the ( L, s )-Hölder descent inequality (Definition 1) applied to xk = xk−1 − ηˆg
+
+together with ∥ˆg∥ ≤ γ, taking conditional expectation, 
+
+E[f (xk) | xk−1] ≤ f (xk−1) − η〈∇f (xk−1), E[ˆ g | xk−1]〉 + Lη 1+ s
+
+1 + s E[∥ˆg∥1+ s | xk−1
+
+]. (110) 
+
+Small-gradient case: ∥∇ f (xk−1)∥ ≤ θγ . With b := E[ˆ g | xk−1] − ∇ f and −⟨ u, v ⟩ ≤ 12 (∥u∥2 + ∥v∥2)(u = ∇f , v = b), inequality 110 and the squared-bias bound 64 give 
+
+E[f (xk) | xk−1] ≤ f (xk−1) − η
+
+2 ∥∇ f ∥2 + η
+
+2 Cbias (θ)σ2αγ2(1 −α) + Lη 1+ s
+
+1 + s E[∥ˆg∥1+ s | xk−1
+
+].
+
+Applying the moment bound 65 and substituting the case condition ∥∇ f ∥1+ s ≤ (θγ )1+ s, we obtain, with 
+
+R1 := η
+
+2 Cbias (θ)σ2αγ2(1 −α) + Lη 1+ s
+
+1 + s
+
+(
+
+2s(θγ )1+ s + 2 sσ1+ s + Ctail (θ)σαγ1+ s−α)
+
+,
+
+the small-gradient descent inequality 
+
+E[f (xk) | xk−1] ≤ f (xk−1) − η
+
+2 ∥∇ f (xk−1)∥2 + R1. (111) 
+
+Large-gradient case: ∥∇ f (xk−1)∥ > θγ . Substituting the inner-product lower bound of lemma 6.4 for the descent signal and the moment bound E[∥ˆg∥1+ s | xk−1] ≤ γ1+ s of lemma 6.5 for the smoothness term into inequality 110, under γ ≥ γ0,
+
+E[f (xk) | xk−1] ≤ f (xk−1) − 5M
+
+8 ηγ ∥∇ f ∥ + Lη 1+ s
+
+1 + s γ1+ s. (112) We now choose the step size so that the smoothness penalty consumes at most half of the linear descent signal, i.e. 
+
+Lη 1+ s
+
+1 + s γ1+ s ≤ 5M
+
+16 ηγ ∥∇ f ∥. (113) 37 Dividing inequality 113 by ηγ > 0 and isolating ηs (using η1+ s/η = ηs and γ1+ s/γ = γs), this is equivalent to 
+
+ηs ≤ 5M (1 + s)16 L γ−s ∥∇ f ∥.
+
+The right-hand side is increasing in ∥∇ f ∥, so over the range ∥∇ f ∥ > θγ it is smallest in the limit ∥∇ f ∥ → θγ ;it therefore suffices to impose the ∥∇ f ∥-free condition 
+
+ηs ≤ 5M (1 + s)16 L γ−s · θγ = 5M θ (1 + s)16 L γ1−s, (114) which then implies inequality 113 for every ∥∇ f ∥ > θγ . Under condition 114 the last term of inequality 112 is at most 5M 
+
+> 16
+
+ηγ ∥∇ f ∥, so 
+
+E[f (xk) | xk−1] ≤ f (xk−1) − 5M
+
+8 ηγ ∥∇ f ∥ + 5M
+
+16 ηγ ∥∇ f ∥ = f (xk−1) − 5M
+
+16 ηγ ∥∇ f (xk−1)∥. (115) 
+
+Unified single-step inequality. Since ∥∇ f ∥2 and γ∥∇ f ∥ each dominate min {∥∇ f ∥2, γ ∥∇ f ∥} , and since 
+
+c = 5M 
+
+> 16
+
+≤ 12 , inequalities 111 and 115 both give (adding the nonnegative R1, absent in the large-gradient case) 
+
+E[f (xk) | xk−1] ≤ f (xk−1) − c η min {∥∇ f (xk−1)∥2, γ ∥∇ f (xk−1)∥} + R1. (116) 
+
+Summation. Taking total expectation, summing inequality 116 over k = 1 , . . . , T , using Ef (xT ) ≥ f ⋆ so that the left telescopes to F0 = f (x0) − f ⋆, and dividing by cηT ,1
+
+T
+
+> T
+
+∑
+
+> k=1
+
+E
+
+[
+
+min {∥∇ f (xk−1)∥2, γ ∥∇ f (xk−1)∥}]
+
+≤ F0
+
+cηT + 1
+
+cη R1. (117) Expand 1 
+
+> cη
+
+R1. The bias part is 1 
+
+> cη
+
+· η 
+
+> 2
+
+Cbias (θ)σ2αγ2(1 −α) = Cbias (θ)σ2α 
+
+> 2c
+
+γ−2( α−1) = C2 γ−2( α−1) . The moment part is, 1
+
+cη · Lη 1+ s
+
+1 + s
+
+(
+
+2s(θγ )1+ s + 2 sσ1+ s + Ctail (θ)σαγ1+ s−α)
+
+= Lη s
+
+c(1 + s) γ1+ s [
+
+2sθ1+ s + 2 sσ1+ sγ−(1+ s) + Ctail (θ)σαγ−α]︸ ︷︷ ︸   
+
+> ≤Kfor γ≥1
+
+≤ C3 ηsγ1+ s,
+
+where C3 = LK c(1+ s) . With C1 = F0/c this turns inequality 117 into 1
+
+T
+
+> T
+
+∑
+
+> k=1
+
+E
+
+[
+
+min {∥∇ f (xk−1)∥2, γ ∥∇ f (xk−1)∥}]
+
+≤ C1
+
+ηT + C2
+
+γ2( α−1) + C3 ηsγ1+ s. (118) 
+
+Choosing η, then γ. First substitute η = ( C1/C 3) 11+ s T − 11+ s γ−1 into the first and third terms of inequality 118: 
+
+C1
+
+ηT = C1
+
+( C1
+
+> C3
+
+)− 11+ s
+
+T 11+ s γ·T −1 = C s 
+
+> 1+ s
+> 1
+
+C 11+ s 
+
+> 3
+
+γ T − s 
+
+> 1+ s
+
+, C3 ηsγ1+ s = C3
+
+( C1
+
+> C3
+
+) s
+
+> 1+ s
+
+T − s 
+
+> 1+ s
+
+γ−s·γ1+ s = C s 
+
+> 1+ s
+> 1
+
+C 11+ s 
+
+> 3
+
+γ T − s 
+
+> 1+ s
+
+.
+
+38 These two are equal, and their sum is 2( Cs 
+
+> 1
+
+C3) 11+ s γ T − s 
+
+> 1+ s
+
+= C4 γ T − s 
+
+> 1+ s
+
+(by the definition of C4). Thus in-equality 118 becomes 1
+
+> T
+
+∑ 
+
+> k
+
+E[· · · ] ≤ C2γ−2( α−1) + C4γT − s 
+
+> 1+ s
+
+. Now substitute γ = ( C2/C 4) 12α−1 T s 
+
+> (1+ s)(2 α−1)
+
+:
+
+C2
+
+γ2( α−1) = C2
+
+( C2
+
+> C4
+
+)− 2( α−1) 2α−1
+
+T − 2( α−1) s 
+
+> (1+ s)(2 α−1)
+
+= C 12α−1 
+
+> 2
+
+C 
+
+> 2( α−1) 2α−1
+> 4
+
+T − 2s(α−1) (1+ s)(2 α−1) ,C4 γ T − s 
+
+> 1+ s
+
+= C4
+
+( C2
+
+> C4
+
+) 12α−1
+
+T s   
+
+> (1+ s)(2 α−1) −s
+> 1+ s
+
+= C 12α−1 
+
+> 2
+
+C 
+
+> 2( α−1) 2α−1
+> 4
+
+T − 2s(α−1) (1+ s)(2 α−1) ,
+
+where the last exponent uses s 
+
+> (1+ s)(2 α−1)
+
+− s 
+
+> 1+ s
+
+= s
+
+> 1+ s
+
+( 12α−1 − 1) = s 
+
+> 1+ s
+
+· 2−2α 
+
+> 2α−1
+
+= − 2s(α−1) (1+ s)(2 α−1) . Both terms coincide, so their sum is 2 C 12α−1 
+
+> 2
+
+C 
+
+> 2( α−1) 2α−1
+> 4
+
+T − 2s(α−1) (1+ s)(2 α−1) , giving 1
+
+T
+
+> T
+
+∑
+
+> k=1
+
+E
+
+[
+
+min {∥∇ f (xk)∥2, γ ∥∇ f (xk)∥}]
+
+= O
+
+(
+
+T − 2s(α−1) (1+ s)(2 α−1) 
+
+)
+
+,
+
+which is part (i). 
+
+Part (ii): regime 1 + s > α 
+
+Descent inequality. Exactly as in part (i), the Hölder descent inequality (Definition 1) and ∥ˆg∥ ≤ γ give 
+
+E[f (xk) | xk−1] ≤ f (xk−1) − η〈∇f (xk−1), E[ˆ g | xk−1]〉 + Lη 1+ s
+
+1 + s E[∥ˆg∥1+ s | xk−1
+
+]. (119) 
+
+Small-gradient case: ∥∇ f (xk−1)∥ ≤ θγ . With b := E[ˆ g | xk−1] − ∇ f and −⟨ u, v ⟩ ≤ 12 (∥u∥2 + ∥v∥2), inequality 119 and the squared-bias bound 64 give 
+
+E[f (xk) | xk−1] ≤ f (xk−1) − η
+
+2 ∥∇ f ∥2 + η
+
+2 Cbias (θ)σ2αγ2(1 −α) + Lη 1+ s
+
+1 + s E[∥ˆg∥1+ s | xk−1
+
+].
+
+Applying the moment bound 66 and absorbing the resulting ∥∇ f ∥1+ s into the quadratic descent by Young’s inequality with conjugate exponents 21+ s , 21−s (for s ∈ (0 , 1); for s = 1 the term is absorbed directly and 
+
+TD = 0), 2sLη 1+ s
+
+1 + s ∥∇ f ∥1+ s ≤ η
+
+4 ∥∇ f ∥2 + 1 − s
+
+2
+
+(C0L) 21−s η 1+ s
+
+> 1−s
+
+︸ ︷︷ ︸
+
+> =: TD
+
+,
+
+we obtain, with 
+
+R1 := η
+
+2 Cbias (θ)σ2αγ2(1 −α) + Lη 1+ s
+
+1 + s Cvar (θ)σαγ1+ s−α + TD ,
+
+and using η 
+
+> 2
+
+− η 
+
+> 4
+
+= η 
+
+> 4
+
+, the small-gradient descent inequality 
+
+E[f (xk) | xk−1] ≤ f (xk−1) − η
+
+4 ∥∇ f (xk−1)∥2 + R1. (120) 
+
+Large-gradient case: ∥∇ f (xk−1)∥ > θγ . Substituting the inner-product lower bound of lemma 6.4 and the moment bound E[∥ˆg∥1+ s | xk−1] ≤ γ1+ s of lemma 6.5 into inequality 119, under γ ≥ γ0,
+
+E[f (xk) | xk−1] ≤ f (xk−1) − 5M
+
+8 ηγ ∥∇ f ∥ + Lη 1+ s
+
+1 + s γ1+ s. (121) Requiring, as before, that the smoothness penalty be at most half the linear descent signal, Lη 1+ s 
+
+> 1+ s
+
+γ1+ s ≤ 
+
+> 5M
+> 16
+
+ηγ ∥∇ f ∥, dividing by ηγ gives ηs ≤ 5M (1+ s)16 L γ−s∥∇ f ∥; as this right-hand side increases with ∥∇ f ∥ and 
+
+∥∇ f ∥ > θγ , it suffices to impose the ∥∇ f ∥-free condition 
+
+ηs ≤ 5M (1 + s)16 L γ−s · θγ = 5M θ (1 + s)16 L γ1−s. (122) 39 Under condition 122 the last term of inequality 121 is at most 5M
+
+16 ηγ ∥∇ f ∥, so 
+
+E[f (xk) | xk−1] ≤ f (xk−1) − 5M
+
+8 ηγ ∥∇ f ∥ + 5M
+
+16 ηγ ∥∇ f ∥ = f (xk−1) − 5M
+
+16 ηγ ∥∇ f (xk−1)∥. (123) 
+
+Unified single-step inequality. Since ∥∇ f ∥2 and γ∥∇ f ∥ each dominate min {∥∇ f ∥2, γ ∥∇ f ∥} , and since 
+
+c = 5M
+
+16 ≤ 14 , inequalities 120 and 123 both give 
+
+E[f (xk) | xk−1] ≤ f (xk−1) − c η min {∥∇ f (xk−1)∥2, γ ∥∇ f (xk−1)∥} + R1. (124) 
+
+Summation. Taking total expectation, summing inequality 124 over k = 1 , . . . , T , using Ef (xT ) ≥ f ⋆,and dividing by cηT , and expanding R1 = TC + TB + TD (with TC = η
+
+2 Cbias (θ)σ2αγ2(1 −α) and TB =
+
+Lη 1+ s
+
+1+ s Cvar (θ)σαγ1+ s−α), the bias part again gives 1
+
+cη TC = C2γ−2( α−1) , the variance part gives 1
+
+cη TB =
+
+L C var (θ)σα
+
+c(1+ s) ηsγ1+ s−α, and the Young part gives 1
+
+cη TD = (1 −s)( C0L)2/(1 −s)
+
+2c η 1+ s 
+
+> 1−s
+
+−1 = (1 −s)( C0L)2/(1 −s)
+
+2c η 2s 
+
+> 1−s
+
+.With C1 = F0/c ,1
+
+T
+
+T∑
+
+k=1 
+
+E
+
+[
+
+min {∥∇ f (xk−1)∥2, γ ∥∇ f (xk−1)∥}]
+
+≤ C1
+
+ηT + C2
+
+γ2( α−1) + L C var (θ)σα
+
+c(1 + s) ηsγ1+ s−α+ (1 − s)( C0L)2/(1 −s)
+
+2c η 2s 
+
+> 1−s
+
+.
+
+(125) Write inequality 125 as 1
+
+T
+
+T∑
+
+k=1 
+
+E
+
+[
+
+min {∥∇ f (xk−1)∥2, γ ∥∇ f (xk−1)∥}]
+
+≤ C1
+
+ηT + C2
+
+γ2( α−1) + C′′ 
+
+3 ηsγ1+ s−α + (1 − s)( C0L)2/(1 −s)
+
+2c η 2s 
+
+> 1−s
+
+,
+
+where, exactly as C3 = LK c(1+ s) named the analogous coefficient in inequality 118, 
+
+C′′ 
+
+3 := L C var (θ) σα
+
+c(1 + s) . (126) 
+
+Choosing η, then γ. As in part (i), we first balance the C1
+
+ηT term against the C′′ 
+
+3 ηsγ1+ s−α term. Substitute 
+
+η =
+
+( C1
+
+C′′ 
+
+3
+
+) 11+ s
+
+T − 11+ s γ− 1+ s−α
+
+> 1+ s
+
+into these two terms: 
+
+C1
+
+ηT = C1
+
+( C1
+
+C′′ 
+
+> 3
+
+)− 11+ s
+
+T 11+ s γ 1+ s−α 
+
+> 1+ s
+
+· T −1 = C s
+
+> 1+ s
+
+1 (C′′ 
+
+3 ) 11+ s γ 1+ s−α 
+
+> 1+ s
+
+T − s 
+
+> 1+ s
+
+,C′′ 
+
+3 ηsγ1+ s−α = C′′ 
+
+3
+
+( C1
+
+C′′ 
+
+> 3
+
+) s
+
+> 1+ s
+
+T − s 
+
+> 1+ s
+
+γ− s(1+ s−α)1+ s · γ1+ s−α = C s
+
+> 1+ s
+
+1 (C′′ 
+
+3 ) 11+ s γ 1+ s−α 
+
+> 1+ s
+
+T − s 
+
+> 1+ s
+
+,
+
+using (1 + s − α)(1 − s
+
+1+ s
+
+) = 1+ s−α
+
+1+ s . These two terms are equal, and their sum is 2(Cs
+
+1 C′′ 
+
+3
+
+) 11+ s γ 1+ s−α 
+
+> 1+ s
+
+T − s 
+
+> 1+ s
+
+=: C′′ 
+
+4 γ 1+ s−α 
+
+> 1+ s
+
+T − s 
+
+> 1+ s
+
+, C′′ 
+
+4 := 2 (Cs
+
+1 C′′ 
+
+3
+
+) 11+ s . (127) The inequality above therefore becomes 1
+
+T
+
+T∑
+
+k=1 
+
+E[· · · ] ≤ C2
+
+γ2( α−1) + C′′ 
+
+4 γ 1+ s−α 
+
+> 1+ s
+
+T − s 
+
+> 1+ s
+
++ (1 − s)( C0L)2/(1 −s)
+
+2c η 2s 
+
+> 1−s
+
+.
+
+40 Now balance the first two terms by substituting γ = ( C2/C ′′  
+
+> 4
+
+) 1+ s 
+
+> (α−1)+ s(2 α−1)
+
+T s 
+
+> (α−1)+ s(2 α−1)
+
+: setting the two exponents equal, 1 + s − α
+
+1 + s + 2( α − 1) = (α − 1) + s(2 α − 1) 1 + s ,
+
+(a direct algebraic identity, and exactly the exponent used above for γ), a computation identical in structure to the one closing part (i) gives 
+
+C2
+
+γ2( α−1) + C′′  
+
+> 4
+
+γ 1+ s−α 
+
+> 1+ s
+
+T − s 
+
+> 1+ s
+
+= O
+
+(
+
+T − 2s(α−1) (α−1)+ s(2 α−1) 
+
+)
+
+.
+
+The Young’s-inequality term is lower order. With this choice of γ, the step-size η =(C1/C ′′  
+
+> 3
+
+) 11+ s T − 11+ s γ− 1+ s−α 
+
+> 1+ s
+
+satisfies η ≍ T − (α−1)+ s 
+
+> (α−1)+ s(2 α−1)
+
+(the same rate as before; substituting the explicit γ
+
+above into the formula for η and simplifying the exponent of T recovers this), so 
+
+η 2s 
+
+> 1−s
+
+≍ T − 2s   
+
+> 1−s·(α−1)+ s
+> (α−1)+ s(2 α−1)
+
+,
+
+and exactly as before this decays strictly faster than T − 2s(α−1) (α−1)+ s(2 α−1) since (α−1)+ s 
+
+> 1−s
+
+≥ α−1 ⇐⇒ (α−1)+ s ≥
+
+(α − 1)(1 − s) ⇐⇒ sα ≥ 0, which holds. Hence 1
+
+T
+
+> T
+
+∑
+
+> k=1
+
+E
+
+[
+
+min {∥∇ f (xk)∥2, γ ∥∇ f (xk)∥}]
+
+= O
+
+(
+
+T − 2s(α−1) (α−1)+ s(2 α−1) 
+
+)
+
+,
+
+which is part (ii), now with the explicit (non-asymptotic) schedule 
+
+γ = max 
+
+{
+
+γ0, (C2/C ′′  
+
+> 4
+
+) 1+ s 
+
+> (α−1)+ s(2 α−1)
+
+T s
+
+> (α−1)+ s(2 α−1)
+
+}
+
+, η = min 
+
+{( 5M θ (1+ s)16 L
+
+)1/s 
+
+γ 1−ss , (C1/C ′′  
+
+> 3
+
+) 11+ s γ− 1+ s−α 
+
+> 1+ s
+
+T − 11+ s
+
+}
+
+,
+
+matching Theorem 6.1(ii), where the first entry of η’s minimum enforces condition 122 and the floor γ0 in 
+
+γ’s maximum enforces γ ≥ γ0, so both hold at every T ≥ 1, with the second entry of each dominating for large T .
+
+## E Proofs of Lemmas Needed for Theorem 6.1 
+
+E.1 Proof of lemma 6.2 
+
+Proof. On B, the reverse triangle inequality and ∥∇ f (x)∥ ≤ θγ give ∥ξ∥ = ∥g−∇ f ∥ ≥ ∥ g∥−∥∇ f ∥ > (1 −θ)γ;Markov’s inequality on ∥ξ∥α yields the bound. 
+
+E.2 Proof of lemma 6.3 
+
+Proof. Throughout, condition on x with ∥∇ f ∥ ≤ θγ (writing ∇f ≡ ∇ f (x)), and decompose the sample space by whether clipping is active: 
+
+A = {∥ g∥ ≤ γ} (unclipped: ˆ g = g), B = {∥ g∥ > γ } (clipped: ∥ˆg∥ = γ).
+
+We first record two facts used below. On B the noise must be large: since ∥g∥ > γ and ∥∇ f ∥ ≤ θγ , the reverse triangle inequality gives 
+
+∥ξ∥ = ∥g − ∇ f ∥ ≥ ∥ g∥ − ∥∇ f ∥ > γ − θγ = (1 − θ)γ, so B ⊆ {∥ ξ∥ > (1 − θ)γ}. (128) And for any t > 0, truncating the α-moment (on {∥ ξ∥ > t } one has ∥ξ∥1−α ≤ t1−α since 1 − α ≤ 0) gives 
+
+E[∥ξ∥ 1{∥ ξ∥>t }
+
+] = E[∥ξ∥α ∥ξ∥1−α1{∥ ξ∥>t }
+
+] ≤ t1−α E∥ξ∥α ≤ t1−ασα. (129) 
+
+Step 1: squared bias 64. Since the noise is unbiased, E[g | x] = ∇f , and since ˆ g = g on A, the bias is supported on B:
+
+B(x) = E[ˆ g | x] − ∇ f = E[ˆ g − g | x] = E[(ˆ g − g)1B | x].
+
+41 On B, ˆ g − g = ( γ 
+
+> ∥g∥
+
+− 1)g has norm ∣∣γ − ∥ g∥∣∣ = ∥g∥ − γ, so by ∥E[ · ]∥ ≤ E∥ · ∥ ,
+
+∥B(x)∥ ≤ E[(∥g∥ − γ) 1B
+
+].
+
+On B we have γ ≥ ∥∇ f ∥ (as ∥∇ f ∥ ≤ θγ < γ ), hence ∥g∥ − γ ≤ ∥ g∥ − ∥∇ f ∥ ≤ ∥ ξ∥ by the reverse triangle inequality. Combining this with inequality 128 and then applying ineaulity 129 at t = (1 − θ)γ,
+
+∥B(x)∥ ≤ E[∥ξ∥ 1{∥ ξ∥>(1 −θ)γ}
+
+] ≤ ((1 − θ)γ)1−ασα = (1 − θ)1−ασαγ1−α.
+
+Squaring and using (1 − θ)2(1 −α) = (1 − θ)2(1 − θ)−2α ≤ 2(1 − θ)−2α yields ∥B(x)∥2 ≤ 2(1 −θ)2α σ2αγ2(1 −α) =
+
+Cbias (θ) σ2αγ2(1 −α), which is inequality 64. 
+
+Step 2: moment on the clipped region B (common to both regimes). Since ∥ˆg∥ = γ on B,lemma 6.2 bounds the clip probability and 
+
+E[∥ˆg∥1+ s1B
+
+] = γ1+ sP(B) ≤ γ1+ s · σα
+
+(1 − θ)αγα = 1(1 − θ)α σαγ1+ s−α = Ctail (θ) σαγ1+ s−α. (130) 
+
+Step 3: moment on the unclipped region A. On A, ˆ g = g = ∇f + ξ, so by the convexity bound (a + b)1+ s ≤ 2s(a1+ s + b1+ s) (valid as 1 + s ≥ 1) and P(A) ≤ 1, 
+
+E[∥ˆg∥1+ s1A
+
+] ≤ 2s∥∇ f ∥1+ sP(A) + 2 s E[∥ξ∥1+ s1A
+
+] ≤ 2s∥∇ f ∥1+ s + 2 s E[∥ξ∥1+ s1A
+
+]. (131) Only the noise moment E[∥ξ∥1+ s1A] depends on the regime. 
+
+Regime (i), 1 + s ≤ α. Here E∥ξ∥1+ s is finite, and Lyapunov’s inequality gives the γ-free bound 
+
+E[∥ξ∥1+ s1A] ≤ E∥ξ∥1+ s ≤ (E∥ξ∥α)(1+ s)/α ≤ σ1+ s. Substituting into inequality 131 and adding inequal-ity 130, 
+
+E[∥ˆg∥1+ s | x] ≤ 2s∥∇ f ∥1+ s + 2 sσ1+ s + Ctail (θ) σαγ1+ s−α,
+
+which is inequality 65. 
+
+Regime (ii), 1 + s > α . Now E∥ξ∥1+ s may be infinite, so Lyapunov is unavailable. Instead we use that clipping is inactive on A: from ∥g∥ ≤ γ,
+
+∥ξ∥ = ∥g − ∇ f ∥ ≤ ∥ g∥ + ∥∇ f ∥ ≤ γ + θγ = (1 + θ)γ on A. 
+
+Since 1 + s − α ≥ 0, we peel off the excess power against this deterministic bound and keep the integrable 
+
+α-moment: 
+
+E[∥ξ∥1+ s1A
+
+] = E[∥ξ∥α ∥ξ∥1+ s−α1A
+
+] ≤ ((1 + θ)γ)1+ s−αE[∥ξ∥α1A
+
+] ≤ (1 + θ)1+ s−ασαγ1+ s−α.
+
+Substituting into inequality 131 and adding inequality 130, the two σαγ1+ s−α terms combine into Cvar (θ) = 2s(1 + θ)1+ s−α + 1(1 −θ)α :
+
+E[∥ˆg∥1+ s | x] ≤ 2s∥∇ f ∥1+ s +
+
+(
+
+2s(1 + θ)1+ s−α + 1(1 −θ)α
+
+)
+
+σαγ1+ s−α = 2 s∥∇ f ∥1+ s + Cvar (θ) σαγ1+ s−α,
+
+which is inequality 66. 
+
+E.3 Proof of lemma 6.4 
+
+Proof. Write ∇f ≡ ∇ f (x) and split the expectation according to whether the estimator is clipped: on 
+
+A = {∥ g∥ ≤ γ} we have ˆ g = g, and on B = {∥ g∥ > γ } we have ˆ g = γg/∥g∥, with P(A) + P(B) = 1. Thus 
+
+E[⟨∇ f, ˆg⟩ | x] = E[⟨∇ f, g⟩ 1A
+
+]︸ ︷︷ ︸
+
+> =: RA
+
++ E
+
+[〈∇f, γ 
+
+> ∥g∥
+
+g〉 1B
+
+]︸ ︷︷ ︸
+
+> =: RB
+
+. (132) 42 We lower-bound RA and RB separately; throughout we use E∥ξ∥ ≤ (E∥ξ∥α)1/α ≤ σ (Lyapunov’s inequality, valid since α ≥ 1), hence E[∥ξ∥1S ] ≤ σ for any event S.
+
+Unclipped term RA. On A the estimator is exactly g = ∇f + ξ, so 
+
+⟨∇ f, g⟩ = ⟨∇ f, ∇f ⟩ + ⟨∇ f, ξ⟩ = ∥∇ f ∥2 + ⟨∇ f, ξ⟩ ≥ ∥∇ f ∥2 − ∥∇ f ∥ ∥ ξ∥,
+
+using Cauchy–Schwarz on the noise term. Taking expectations over A, RA ≥ ∥∇ f ∥2P(A) − ∥∇ f ∥ E[∥ξ∥1A]. Since ∥∇ f ∥ > θγ gives ∥∇ f ∥2 = ∥∇ f ∥ · ∥∇ f ∥ ≥ θγ ∥∇ f ∥, and E[∥ξ∥1A] ≤ σ,
+
+RA ≥ θγ ∥∇ f ∥ P(A) − σ∥∇ f ∥. (133) 
+
+Clipped term RB . On B the estimator is ˆ g = γ g/∥g∥, a rescaling of the unit vector g/∥g∥, so ⟨∇ f, ˆg⟩ =
+
+γ ⟨∇ f, g/∥g∥⟩ . Applying lemma 5.6 with v = g (so v − ∇ f = ξ), ⟨∇ f, g/∥g∥⟩ ≥ 13 ∥∇ f ∥ − 83 ∥ξ∥. Taking expectations over B and using E[∥ξ∥1B ] ≤ σ,
+
+RB ≥ γ E
+
+[( 13 ∥∇ f ∥ − 83 ∥ξ∥)1B
+
+]
+
+= 13 γ∥∇ f ∥ P(B) − 83 γ E[∥ξ∥1B ] ≥ 13 γ∥∇ f ∥ P(B) − 83 γσ. (134) 
+
+Combining. Adding bounds 133 and 134 and grouping the two probability-weighted terms, the coefficients 
+
+θ and 13 combine through P(A) + P(B) = 1 as 
+
+θγ ∥∇ f ∥ P(A) + 13 γ∥∇ f ∥ P(B) ≥ min {θ, 13 } γ∥∇ f ∥ (P(A) + P(B)) ≥ M γ ∥∇ f ∥,
+
+where the last step uses min {θ, 13 } ≥ min { 15 16 θ, 13 } = M . Hence 
+
+E[⟨∇ f, ˆg⟩ | x] ≥ M γ ∥∇ f ∥ − σ∥∇ f ∥ − 83 γσ. (135) It remains to show the two error terms are together at most 3M 
+
+> 8
+
+γ∥∇ f ∥ once γ ≥ γ0 = max {1, 32 3M θ σ}.Indeed, γ ≥ 32 3M θ σ ≥ 8 
+
+> M
+
+σ (as 32 3θ ≥ 8 for θ < 1) gives σ ≤ M 
+
+> 8
+
+γ, so σ∥∇ f ∥ ≤ M 
+
+> 8
+
+γ∥∇ f ∥; and θγ ≥ 32 3M σ
+
+together with ∥∇ f ∥ > θγ gives 83 σ ≤ M 
+
+> 4
+
+∥∇ f ∥, so 83 γσ ≤ M 
+
+> 4
+
+γ∥∇ f ∥. Substituting both into inequality 135, 
+
+E[⟨∇ f, ˆg⟩ | x] ≥
+
+(
+
+M − M 
+
+> 8
+
+− M
+
+> 4
+
+)
+
+γ∥∇ f ∥ = 5M
+
+8 γ∥∇ f ∥.
+
+E.4 Proof of lemma 6.5 
+
+Proof. Immediate from ∥ˆg(x)∥ ≤ γ (Definition 4). 
+
+## F Experimental Validation 
+
+In our experiments with synthetic data we investigate the two central claims of this work, namely that the convergence rate of SGD (Theorem 4.1) is independent of the heavy-tail index α whenever α ≥ 1 + s, and that G-Clip (Theorem 6.1) is the only method among those analysed for which we can give a convergence guarantee once α < 1 + s.
+
+Loss function. For our tests we use an ( L, s )-Hölder smooth loss with a known global minimiser. We choose w⋆ = 1d ∈ Rd and sample n points x1, . . . , xn ∈ Rd i.i.d. from N (0, I d/d ) to form the objective, 
+
+f (w) = 1
+
+n
+
+> n
+
+∑
+
+> i=1
+
+∣∣⟨w⋆ − w, xi⟩∣∣1+ s, s ∈ (0 , 1] , (136) with gradient chosen as ∇f (w) = − 1+ sn
+
+∑ni=1 |ri|s sign( ri) xi, where ri = ⟨w⋆ −w, xi⟩. Since r 7 → | r|s sign( r)is s-Hölder continuous, ∇f is ( L, s )-Hölder continuous, and f ≥ 0 with the unique global minimum f (w⋆) = 0. We use d = 10, n = 60, and initialise every run at w0 = 0.43 Noise. At step t the stochastic gradient is chosen as gt = ∇f (wt) + ξt, with ξt drawn independently across iterations as ξt = Rt ut, where ut is uniform on the unit sphere and Rt ≥ 0 is an independent scalar magnitude with a truncated Pareto distribution, survival function P(Rt > r ) = ( r0/r )α for r0 ≤ r < R max 
+
+and a point mass at Rmax = 10 4. This truncation guarantees E[∥ξt∥α] < ∞, as required by Assumption 1, and admits the closed form E[∥ξt∥α] = rα
+
+> 0
+
+(α ln( Rmax /r 0) + 1 ); for each α tested we solve this equation for 
+
+r0 by root-finding so that E[∥ξt∥α] = σα exactly (to machine precision) for a common target σ. 2
+
+Algorithms and schedule. We run SGD, δ-GClip with δ = 0 .1, and G-Clip, each with the constant, horizon-tuned step size (and, for the clipping methods, threshold) of the order prescribed by the corre-sponding theorem for a given horizon T ; for every T in a grid ranging from 500–1000 up to 16 ,000 (for upcoming Check 2) or 128 ,000 (for upcoming Check 1). We run 100–150 independent seeds and record the run-averaged stationarity metric prescribed by each theorem, namely 1
+
+> T
+
+∑ 
+
+> t≤T
+
+∥∇ f (wt)∥2 for SGD and 
+
+> 1
+> T
+
+∑ 
+
+> t≤T
+
+min {∥∇ f (wt)∥2, γ ∥∇ f (wt)∥} for the clipping methods, taking the median across seeds. 3.
+
+Measured and theoretical slopes. Write M (T ) for the run-averaged stationarity metric above, evalu-ated at horizon T . For each algorithm and parameter setting we fit a straight line to {(log T, log M (T )) }
+
+over the tested grid T ∈ { T1, . . . , T K } by ordinary least squares, and report the fitted slope ( ˆ m, ·) := arg min 
+
+> m,b ∈R
+> K
+
+∑
+
+> k=1
+
+( log M (Tk) − m log Tk − b)2 (137) as the measured slope . This is the empirical exponent of M (T ) as a power of T , i.e. M (T ) ≈ CT ˆm for some constant C. We compare ˆ m against the theoretical slope m⋆, defined as the exponent of T in the O(·) rate of the theorem applicable to that algorithm and regime: m⋆ = −s/ (1 + s) for SGD under Theorem 4.1, and 
+
+m⋆ = − 2s(α−1) (α−1)+ s(2 α−1) for G-Clip under Theorem 6.1 in the regime α < 1 + s.Table 5 reports the close math between ˆ m (Eq. 137) against m⋆ for every case tested; a dash indicates no theorem in this work applies, so no m⋆ exists to compare against. 
+
+Check 1: α-independence of SGD. For a start, we fix s = 0 .25 and scanning α ∈ { 1.3, 1.5, 1.7, 2.0}, all of which satisfy α ≥ 1 + s. The measured slope ˆ m approaches the theoretical slope m⋆ = −s/ (1 + s) = −0.20 as α moves away from the boundary α = 1 + s ( ˆ m = −0.166 , −0.188 , −0.193 , −0.196 for α = 1 .3, 1.5, 1.7, 2.0respectively). We traced this to a genuine, theoretically consistent finite-horizon effect rather than an artifact: at a fixed noise level σ, Lyapunov’s inequality E[∥ξ∥1+ s] ≤ σ1+ s (used in the proof of Theorem 4.1) is nearly tight when α is close to 1+ s and increasingly loose as α grows; concretely, for our calibrated noise the realised moment E[∥ξ∥1+ s]/σ 1+ s equals 83% at α = 1 .3 but only 38% at α = 2 .0. Since the constant multiplying the theorem’s rate depends on σ1+ s, an α close to the boundary realises noise close to the worst case the bound allows, inflating the constant (and hence the burn-in horizon) without changing m⋆ — we confirmed this by running α = 1 .3 out to T = 512 ,000, where the measured slope remains pinned at ˆ m ≈ − 0.16 throughout, consistent with a longer, not a different, transient. 
+
+Secondly, for a less smooth and less heavy-tailed case with ( s = 0 .2, α ∈ { 1.5, 1.7, 1.85 , 2.0}, all with gap ≥
+
+0.3) gives measured slopes that agree with one another to within 0 .006 ( ˆ m = −0.150 , −0.155 , −0.155 , −0.156), which is the cleaner and more direct empirical signature of the α-independence asserted by Theorem 4.1. Both the above experiments are reported in Figure 1. 
+
+Check 2: only G-Clip converges when α < 1 + s. Fixing s = 0 .8 and α = 1 .3, so that 1 + s = 1 .8 > α 
+
+ensures that neither Theorem 4.1 nor Theorem 5.1 applies. In this setting we compare SGD, δ-GClip with δ = 0 .1, and G-Clip. SGD fails to converge: its convergence metric does not decrease with T . G-Clip converges with ˆm = −0.29, almost matching its theoretical slope m⋆ = − 2s(α−1) (α−1)+ s(2 α−1) = −0.30 (Theorem 6.1), with essentially no gap between its final mean and median (0 .0188 vs. 0 .0188).   
+
+> 2This avoids the severe Monte Carlo estimation error that a sample-average calibration of this moment would otherwise incur precisely because αis the noise’s own tail index.
+> 3The mean is dominated by rare large deviations under heavy-tailed noise and is not representative.
+
+44 Figure 1: Check 1. Left: measured slope ˆ m (Eq. 137) of the run-averaged ∥∇ f (wt)∥2 against T , plotted against the gap α−(1+ s) to the boundary of Assumption 1, for s = 0 .25; ˆ m converges to the theoretical slope 
+
+m⋆ = −s/ (1 + s) = −0.20 (dashed) as the gap grows, reflecting a longer finite-horizon transient rather than a different asymptotic rate near the boundary. Right: with α held at a healthy distance from the boundary of 1 + s with ( s = 0 .2, α ∈ { 1.5, 1.7, 1.85 , 2.0}), the four curves nearly coincide and track the theoretical slope m⋆ = −s/ (1 + s) = −0.167 (dashed), directly exhibiting the α-independence of Theorem 4.1. 
+
+δ-GClip with δ = 0 .1, for which no guarantee is available in this regime, nonetheless tracks G-Clip closely in this experiment (with ˆ m = −0.28). Thus the experiment is suggestive of there being a regime where δ-GClip converges for α < 1 + s but which is not yet visible in theory. 
+
+Figure 2: Check 2 ( s = 0 .8, α = 1 .3 < 1 + s). Left: run-averaged stationarity metric against the horizon 
+
+T for SGD, δ-GClip ( δ = 0 .1), and G-Clip, with measured slopes ˆm (Eq. 137) in the legend; only the clipping methods descend, with G-Clip tracking its theoretical slope m⋆ = −0.30 (dashed). Right: the corresponding f (wt) trajectories, showing SGD stalling around f ≈ 0.1–0 .3 while both clipping methods continue to decrease toward the global minimum. 45 Check Method Measured slope ˆ m Theory slope m⋆ Guarantee? 1 ( s = 0 .25, near boundary) SGD, α = 1 .3 −0.166 −0.20 ✓
+
+1 ( s = 0 .25, near boundary) SGD, α = 1 .5 −0.188 −0.20 ✓
+
+1 ( s = 0 .25, near boundary) SGD, α = 1 .7 −0.193 −0.20 ✓
+
+1 ( s = 0 .25, near boundary) SGD, α = 2 .0 −0.196 −0.20 ✓
+
+1 ( s = 0 .2, well separated) SGD, α = 1 .5 −0.150 −0.167 ✓
+
+1 ( s = 0 .2, well separated) SGD, α = 1 .7 −0.155 −0.167 ✓
+
+1 ( s = 0 .2, well separated) SGD, α = 1 .85 −0.155 −0.167 ✓
+
+1 ( s = 0 .2, well separated) SGD, α = 2 .0 −0.156 −0.167 ✓
+
+2 ( s = 0 .8, α = 1 .3) SGD −0.03 — ✗
+
+2 ( s = 0 .8, α = 1 .3) δ-GClip ( δ = 0 .1) −0.28 — ✗
+
+2 ( s = 0 .8, α = 1 .3) G-Clip −0.29 −0.30 ✓
+
+Table 5: The run-averaged stationarity metric against horizon T i.e the measured slope ˆm (Eq. 137) vs. theoretical slope m⋆ of , for every algorithm and parameter setting tested. “near boundary” denotes that α
+
+is only slightly above (1 + s) while “well-separate” denotes the α being at least 0 .3 above 1 + s. A ✓ in the last column indicates the corresponding theorem in this work applies; a ✗ indicates no guarantee is available for that method in that regime (so no m⋆ is listed). 46

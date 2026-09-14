@@ -1,0 +1,998 @@
+Title: High-Probability Convergence of SGD via Batched Updates
+
+URL Source: https://arxiv.org/pdf/2609.12765v1
+
+Published Time: Mon, 14 Sep 2026 00:57:47 GMT
+
+Number of Pages: 8
+
+Markdown Content:
+# High-Probability Convergence of SGD via Batched Updates 
+
+Feng Zhu, Robert W. Heath Jr., and Aritra Mitra 
+
+Abstract — Stochastic gradient descent (SGD) is the primary workhorse for large-scale optimization. While the average be-havior of its iterates—typically characterized by mean-squared error bounds—is well-understood, obtaining high-probability guarantees for the last iterate remains challenging. Prior approaches to this problem have either imposed restrictive assumptions (such as bounded domains or gradients) or relied on complex proofs involving auxiliary sequences. In this work, we propose Batched SGD , a simple variant that partitions online samples into epochs and performs a single update per epoch using a refined, low-variance gradient estimate. Our main contribution demonstrates that this batching mechanism en-ables a surprisingly simple high-probability analysis that avoids both restrictive assumptions and auxiliary sequences. Under standard smoothness and norm-sub-Gaussian noise assump-tions, we establish near-optimal rates for both strongly convex and non-convex objectives. Furthermore, we show that our batching idea extends naturally to federated learning (FL). We provide the first high-probability guarantees for FL, achieving logarithmic communication complexity, linear speedup in the number of agents, and resilience to data heterogeneity. 
+
+I. I NTRODUCTION 
+
+We consider the problem of minimizing a smooth objective function f . In modern large-scale machine learning (ML) tasks, either the dataset is massive or data arrives sequen-tially, making the computation of the full gradient ∇f (·) pro-hibitively expensive or even infeasible. As a result, standard gradient descent (GD) becomes inaccessible in such settings. To address this challenge, the seminal work of [1] introduces the well-known stochastic gradient descent (SGD) method, which relies on inexpensive stochastic gradient estimates in place of the full gradient. Due to its computational efficiency, scalability, and favorable convergence properties, SGD has become the workhorse of modern optimization. Given its broad applicability, the convergence properties of SGD have been extensively studied in the literature, with a large body of work focusing on in-expectation analyses [2], [3], which provide mean-squared error (MSE) bounds. While such guarantees characterize the average behavior, they can be less informative in modern large-scale applications, where only a limited number of runs (or even a single run) of the algorithm can be performed due to computational constraints [4]. This has led to an increasing interest in high-probability analyses, which capture tail behavior and quantify the uncertainty of rare but significant deviations.         
+
+> F. Zhu and A. Mitra are with the Dept. of Electrical and Com-puter Engineering, North Carolina State University. Email: {fzhu5, amitra2 }@ncsu.edu . Robert W. Heath Jr. is with the Dept. of Electrical and Computer Engineering at the University of California, San Diego, USA. Email: rwheathjr@ucsd.edu . This material is based upon work supported in part by the NSF under Grant No. NSF-CCF-2225555.
+
+Compared to in-expectation analyses, obtaining such high-probability guarantees is substantially more challenging (see Section II-A), and typically requires stronger assumptions on the noise distribution, such as light-tailedness [5]–[7], captured via norm-sub-Gaussianity, to leverage suitable con-centration inequalities. Nevertheless, even in the simplest setting—smooth and strongly-convex objectives with norm-sub-Gaussian noise—a significant gap exists in the under-standing of high-probability guarantees for standard SGD. Majority of the results rely on restrictive assumptions such as bounded domains [8], [9] or bounded noise/stochastic gradients [4], [10], [11]. These assumptions significantly limit the applicability of the analysis: bounded domains exclude unconstrained problems, while bounded gradient as-sumptions are violated even for simple quadratic objectives. Only a limited number of works avoid such restrictive assumptions; however, they typically provide guarantees only for the averaged iterate and rely on complex analyses [6], [10]. While iterate averaging is useful for analysis, it does not reflect the behavior of the algorithm in practice, where the 
+
+last iterate is often used. Establishing high-probability guar-antees for the last iterate under general conditions remains technically challenging and is still not well understood. A no-table exception is [7], which does provide a high-probability guarantee for the last iterate; however, the analysis is again technically involved and relies on an auxiliary sequence. Due to the complexity of existing analyses, it remains unclear whether they can be readily extended to more complex settings, such as those involving multiple agents in popular paradigms such as federated learning (FL) [12], [13]. Given this context, we now summarize our main contributions. 
+
+• Batched SGD variant. Our first contribution is to propose a variant of online SGD called Batched SGD that leads to surprisingly simple high-probability convergence proofs relative to prior work. Unlike standard SGD that makes updates at every time-step as soon as a new data sample arrives, the essence of our approach (detailed in Section III) lies in making fewer updates, but using more precise variance-reduced update directions. Such directions are constructed by partitioning the online data stream into batches of equal size, and averaging the samples within each batch. The key design step is to choose the batch-size as a function of the properties of the objective function f .
+
+• Last Iterate Rates with Simple Analysis. Given T sam-ples, and a prescribed failure probability δ ∈ (0 , 1) , we es-tablish rates of ˜O (log( dT /δ )/T ) and ˜O
+
+
+
+log( dT /δ )/√T
+
+
+
+for smooth, strongly convex (Theorem 1) and non-convex functions (Theorem 2), respectively, that hold with prob-arXiv:2609.12765v1 [math.OC] 11 Sep 2026 ability 1 − δ; here, d is the dimension of the underlying parameter. Our rate for the strongly convex case is directly for the last iterate. These rates match their in-expectation counterparts in terms of the dependence on T , and achieve a logarithmic dependence on 1/δ , implying tight concentration intervals. Notably, the batching strategy leads to significantly simpler proofs compared to prior work, and requires neither restrictive assumptions nor auxiliary sequences. Instead, we only need to leverage a standard variance reduction property of norm-sub-Gaussian random vectors [14]. 
+
+• Extension to Federated Learning. In Section V, we show that our batching idea extends naturally to federated learning (FL), where local computations at each agent can be interpreted as forming batches between communication rounds. In this view, the batch length directly determines the communication frequency between a central server and the agents. For smooth, strongly convex losses, we show in The-orem 3 that this approach yields high-probability guarantees with logarithmic communication rounds, linear speedup in the number of agents, and no bias due to heterogeneity in agents’ local loss functions. To our knowledge, this is the first high-probability result in FL. It should be noted that while mini-batching is a classical idea, identifying that batching can lead to near-optimal high-probability rates with simple proofs is the key new insight offered by our work. II. P ROBLEM FORMULATION AND MOTIVATION 
+
+We start by providing relevant technical background. Con-sider the following optimization problem: 
+
+min 
+
+> x∈Rd
+
+f (x), (1) where f : Rd → R is the objective function. Our goal is to obtain the optimum x∗ ∈ Rd that minimizes f . To achieve this goal, the classical SGD algorithm [1] operates iteratively, where new samples arrive online at each time-step. Specifically, at time-step (iteration) t, a query is made to an oracle, and the oracle returns a stochastic gradient 
+
+g(xt, ξ t). Here, xt ∈ Rd is the parameter iterate at time-step t, and {ξt}t≥0 is a sequence of I.I.D. (independent and identically distributed) random variables (RVs), capturing the randomness in the algorithm. The iterate xt is updated as: 
+
+xt+1 = xt − αg (xt, ξ t), ∀t = 0 , · · · , T − 1, (2) where T denotes the horizon of the algorithm, and α is the step-size. It is well known that for smooth and strongly convex functions f , the error f (xT ) − f (x∗) decays as 
+
+O (1 /T ) in expectation , when SGD in (2) is run for T
+
+iterations with a suitable step-size [15]. Our interest instead lies in characterizing high-probability concentration bounds on f (xT ) − f (x∗), where {xt} is either generated by SGD or some variant thereof. We summarize this below. 
+
+Problem 1. Given a failure probability δ ∈ (0 , 1) , and T
+
+gradient queries (samples), compute an estimate xT of x∗,and quantify an error bound of the form f (xT ) − f (x∗) ≤
+
+e(T, δ ), which holds with probability at least 1 − δ. 
+
+One can always translate a known in-expectation bound on 
+
+f (xT )−f (x∗) to a probabilistic deviation bound using either Markov’s or Chebyshev’s inequality. However, the resulting error bound e(T, δ ) will then have a polynomial dependence on 1/δ , which can be vacuously large if one seeks guarantees that fail with very low probability (e.g., say δ = 10 −6). In contrast, we aim to obtain error bounds e(T, δ ) that scale logarithmically in 1/δ . To set the stage for such an analysis, we make certain standard assumptions [2], [9], [15]. 
+
+Assumption 1 (Smoothness) . The objective function f is 
+
+L-smooth, i.e., for any x, y ∈ Rd, the following holds: 
+
+∥∇ f (x) − ∇ f (y)∥2 ≤ L ∥x − y∥2 , (3) 
+
+where ∇(·) denotes the (full) gradient operator. 
+
+Assumption 2 (Strong Convexity) . The objective function f
+
+is μ-strongly convex, i.e., for any x, y ∈ Rd, we have 
+
+f (y) ≥ f (x) + ⟨∇ f (x), y − x⟩ + μ
+
+2 ∥x − y∥22 . (4) 
+
+Assumption 3 (Unbiased Gradient) . The stochastic gradient 
+
+g(x, ξ ) is unbiased, i.e., 
+
+Eξ [g(x, ξ )] = ∇f (x), ∀x ∈ Rd. (5) 
+
+Assumption 4 (Norm-Sub-Gaussian Noise) . The norm of the noise in the stochastic gradient g(x, ξ ) is sub-Gaussian, i.e., for any given x ∈ Rd, the following holds: 
+
+Eξ
+
+h
+
+exp 
+
+
+
+∥g(x, ξ ) − ∇ f (x)∥22 /σ 2i 
+
+≤ exp (1) , (6) 
+
+where σ2 > 0 is some constant known as the variance proxy. 
+
+Assumption 4 has been extensively used in the literature to develop high-probability guarantees [4], [5], [7]. Essentially, it implies that the tail of the noise norm distribution decays at least as fast as that of a Gaussian distribution. The remainder of this section is dedicated to highlighting the specific challenges that arise when one aims to derive high-probability bounds for the standard SGD algorithm in (2). These challenges will directly motivate the batching strategy in Section III that leads to a short, simple, and intuitive convergence analysis. To proceed, define rt := 
+
+f (xt) − f (x∗), and et := g(xt, ξ t) − ∇ f (xt) as the noise in the stochastic gradient at time-step t. We then have the following lemma that captures the one-step descent in rt.
+
+Lemma 1 (One-Step Descent) . The following holds for any 
+
+t ≥ 0 by choosing αL ≤ 1/2:               
+
+> rt+1 ≤rt−α
+> 2∥∇ f(xt)∥22−α⟨∇ f(xt), e t⟩+Lα 2∥et∥22.
+
+(7) 
+
+Proof. Since the objective function f is L-smooth, we have                                                 
+
+> rt+1 ≤rt+⟨∇ f(xt), x t+1 −xt⟩+L
+> 2∥xt+1 −xt∥22(a)
+> =rt−α⟨∇ f(xt), g (xt, ξ t)⟩+Lα 2
+> 2∥g(xt, ξ t)∥22(b)
+> ≤rt−α∥∇ f(xt)∥22−α⟨∇ f(xt), e t⟩
+> +Lα 2∥∇ f(xt)∥22+Lα 2∥et∥22(c)
+> ≤rt−α
+> 2∥∇ f(xt)∥22−α⟨∇ f(xt), e t⟩+Lα 2∥et∥22,
+
+(8) where (a) follows from the update rule in (2), (b) holds due to the definition of et and Jensen’s inequality, and (c) is the result of choosing αL ≤ 1/2. The proof is complete. From the right-hand-side (R.H.S.) of (7), we note that the one-step progress made by SGD depends on three terms: (i) the “good term” −(α/ 2) ∥∇ f (xt)∥22, (ii) the cross term 
+
+−α ⟨∇ f (xt), e t⟩, and (iii) the squared-norm term Lα 2 ∥et∥22.Under strong convexity, the good term can be related to the function gap rt, inducing contraction toward the optimum. The main challenge is to control (ii) & (iii) so that their combined effect does not offset this descent and can instead be subsumed into the dominant good term. We first focus on the relatively simpler task of controlling ∥et∥22.
+
+Lemma 2 (Bounding Noise Magnitude) . Given any δ ∈
+
+(0 , 1) , with probability (w.p.) at least 1 − δ, we have: 
+
+∥et∥22 ≤ σ2 log 
+
+ T exp(1) 
+
+δ
+
+
+
+, ∀t ≥ 0 (9) 
+
+where σ2 is as defined in Assumption 4. Proof. Denote Ft := σ (ξ0, ξ 1, · · · , ξ t) as the sigma-algebra capturing all randomnesses up to time-step t (F−1 = ∅ when 
+
+t = 0 ), Pt(·) := P(· | F t−1), and Et[·] := E[· | F t−1] as the probability and expectation operators conditioned on Ft−1.Then, for any fixed t ≥ 0 and s > 0, we have:              
+
+> Pt
+> 
+> ∥et∥22≥s
+> 
+> =Ptexp ∥et∥22
+> σ2
+> !
+> ≥exp
+> sσ2
+> !
+> (a)
+> ≤exp
+> 
+> −sσ2
+> 
+> Et
+> "
+> exp ∥et∥22
+> σ2
+> !#
+> (b)
+> ≤exp
+> 
+> −sσ2+ 1
+> 
+> ,
+
+(10) where (a) holds due to Markov’s inequality, and (b) uses As-sumption 4 and the fact that xt is deterministic conditioned on Ft−1. It then readily follows from the tower property that          
+
+> P
+> 
+> ∥et∥22≥s
+> 
+> =E
+> h
+> Pt
+> 
+> ∥et∥22≥s
+> i
+> ≤exp
+> 
+> −sσ2+ 1
+> 
+> .
+
+(11) Setting the R.H.S. of (11) to δ yields s = σ2 log exp(1)  
+
+> δ
+
+. The proof follows by union-bounding over all T iterations. Thanks to the light-tailedness of the gradient noise norm 
+
+∥et∥2, Lemma 2 tells us that α2L∥et∥22 is on the order of 
+
+O  α2Lσ 2 log( T /δ ). We now proceed to the most delicate part of obtaining the desired high-probability guarantee. 
+
+A. Challenges in the Analysis 
+
+We are left to tackle the cross term −α ⟨∇ f (xt), e t⟩,which poses the main technical difficulty of the analysis. With an in-expectation analysis, this term does not pose a challenge, as it vanishes after taking expectations conditioned on Ft−1 under the unbiased gradient assumption. In contrast, a high-probability analysis precludes taking expectations, and thus the cross term cannot be eliminated in this manner. 
+
+• Why Do Naive Approaches Fail? A natural approach to control the cross term is to use Young’s inequality as follows: 
+
+−α ⟨∇ f (xt), e t⟩ ≤ α
+
+4 ∥∇ f (xt)∥22 + α ∥et∥22 , (12) where the constants are chosen so that the effect of the good term −(α/ 2) ∥∇ f (xt)∥22 is not completely canceled. The issue with this approach is that the ∥et∥22 term is now dominated by α ∥et∥22, which scales linearly with the step-size α, rather than quadratically as Lα 2 ∥et∥22 in the original one-step descent analysis in (8). Consequently, invoking the gradient domination property of strong convexity and unrolling the resulting recursion for 
+
+T time-steps yields a bias of order O  (σ2/μ ) log( T /δ )
+
+in the final bound for rT using Lemma 2. Crucially, this bias term does not get hit by the step-size α. With an in-expectation analysis, the corresponding bias scales as 
+
+O  αLσ 2/μ , allowing the step-size α to be tuned to control the final error floor. However, the naive high-probability analysis using Young’s inequality causes the bias to be step-size independent , leading to vacuous bounds. 
+
+• Martingale-Based Methods. An alternative approach is to observe that the cross term sequence {⟨∇ f (xt), e t⟩} t≥0
+
+forms a martingale difference sequence (MDS) since et is zero-mean conditioned on Ft−1. A natural attempt is then to apply Azuma-Hoeffding to control the cumulative deviation of the cross terms. The obstacle here is that the martingale increments are iterate-dependent : ⟨∇ f (xt), e t⟩ depends on 
+
+∇f (xt), which cannot be uniformly bounded as required by standard martingale concentration inequalities. A large body of work has bypassed this difficulty by imposing restrictive assumptions of boundedness on either the stochastic gradients or on the domain [4], [8]–[11], [16]. However, such assumptions are often unrealistic in practice and can even fail in simple settings; for instance, even for quadratic unconstrained problems, the gradients are unbounded. The few works that avoid such assumptions, e.g., [5], [6], typically establish guarantees only for the averaged iterate. A notable exception is [7], which provides guarantees for the last iterate, but relies on a significantly more involved analysis based on an auxiliary sequence. Motivated by these issues, we ask: Can we develop a simple high-probability analysis for SGD? We provide an affirmative answer in the next section by introducing asimple variant of SGD that offers several advantages: (i) a significantly simpler analysis; (ii) a direct guarantee on the last iterate; and (iii) a straightforward extension to the FL setting. To the best of our knowledge, no prior approach enjoys all three aforementioned benefits. III. B ATCHED SGD A LGORITHM 
+
+Recall that in the standard SGD algorithm (2), the param-eter xt is updated using g(xt, ξ t) at each time-step t, as soon as a new query is made. Since g(xt, ξ t) is constructed from a single sample, it suffers from high variance. Given this observation, our main idea is to develop a variant of online SGD called Batched SGD that makes fewer parameter updates, but each update is made using a less noisier, more precise direction that enjoys a variance-reduction property. 
+
+As we shall see, this intuitive idea will lead to simple convergence proofs. We now provide the details. Round  𝐾 − 1                
+
+> 𝐻
+> Batch 0Batch 1Batch 𝐾 − 1 …
+> 𝐻 𝐻 𝐻 Fig. 1. Illustration of Batched SGD , where Tsamples are divided into K
+> batches with Hsamples each. Red bars indicate where the updates happen.
+
+Algorithm 1 Batched SGD  
+
+> 1:
+
+Input: Step-size α, initial parameter x(0) , number of samples T , number of batches K, batch-size H. 
+
+> 2:
+
+for k = 0 , . . . , K − 1 do  
+
+> 3:
+
+for ℓ = 0 , . . . , H − 1 do  
+
+> 4:
+
+Collect g(x(k), ξ kH +ℓ) 
+
+> 5:
+
+end for  
+
+> 6:
+
+Construct refined gradient gk as per (13)  
+
+> 7:
+
+Update parameter via (14)  
+
+> 8:
+
+end for Core Idea. Recalling that the horizon of the algorithm is 
+
+T , we propose to split the T samples into K batches with H
+
+samples each (we assume for simplicity that T is divisible by both K and H). The parameters K, H will be specified in the next section. For each batch k = 0 , 1, . . . , K − 1, the 
+
+H samples within it are used to construct a refined gradient direction which is used to make one single update to the parameter at the end of the batch. Specifically, denote the parameter at the beginning of batch 
+
+k as x(k). During each batch k, H stochastic gradients 
+
+{g(x(k), ξ kH +ℓ)}H−1 
+
+> ℓ=0
+
+are collected, while the corresponding iterate x(k) is kept “ frozen ” from the beginning of batch k.Then, a refined stochastic gradient gk is constructed as: 
+
+gk := 1
+
+H
+
+> H−1
+
+X
+
+> ℓ=0
+
+g(x(k), ξ kH +ℓ), (13) where ξkH +ℓ is essentially the ℓ-th sample in the k-th batch. Since these random variables are I.I.D., Lemma 4 shows that 
+
+gk enjoys an H-fold lower variance compared to the SGD gradient constructed from a single sample. Using gk, the parameter x(k) is then updated at the end of batch k as: 
+
+x(k+1) = x(k) − αg k. (14) The above steps are summarized in Algorithm 1, and illus-trated in Fig. 1. In the following section, we will establish that the Batched SGD algorithm yields a near-optimal high-probability guarantee with a much simplified proof. IV. M AIN RESULTS AND ANALYSIS 
+
+In this section, we present the main results of our 
+
+Batched SGD algorithm along with the corresponding analysis. We begin with a key lemma that underpins the foundation of our analysis, followed by several insights that highlight the role of the batching idea. 
+
+Lemma 3 (Key Technical Lemma) . Define r(k) := f (x(k))−
+
+f (x∗). Suppose Assumptions 1 to 4 hold. Then, given any 
+
+δ ∈ (0 , 1) , there exists a universal constant c such that with 
+
+α ≤ 1/(2 L), the following holds for Batched SGD w.p. at least 1 − δ:
+
+r(K) ≤
+
+
+
+1 − αμ 
+
+2
+
+K
+
+r(0) 
+
+| {z }
+
+> T1
+
++ 4c2σ2
+
+μH log 2dT δ
+
+| {z }
+
+> T2
+
+. (15) The proof is deferred to later in this section. 
+
+Remark 1. Lemma 3 provides an upper-bound on the function sub-optimality error after K batches (equivalently 
+
+T samples). The upper-bound in (15) comprises an expo-nentially decaying optimization term T1, and a statistical term T2 capturing the effect of noise. A key feature of our approach, enabled by the variance-reduction effect of batching, is that the noise term T2 gets scaled down by the batch size H, which is a tunable parameter. When H = 1 , we recover the standard SGD algorithm, where the noise term 
+
+T2 can no longer be controlled, leading to vacuous bounds, as we had discussed earlier in Section II-A. To see how the additional degree of freedom provided by 
+
+H can be exploited, observe that T1 decays exponentially in 
+
+K, while the noise term T2 decays linearly with H. As such, to balance these two terms, a K on the order of O(log( T )) 
+
+suffices. Since T = KH , this implies that the batch size H
+
+is essentially T up to log factors. 
+
+The above intuition is formalized in the following result which specifies the choices of K and α.
+
+Theorem 1 (Strongly Convex Objective, Batched SGD ).
+
+Suppose the conditions in Lemma 3 hold. Then, given any 
+
+δ ∈ (0 , 1) , by choosing K = 4 κ log T and α = 1 /(2 L), the following holds for Batched SGD w.p. at least 1 − δ:
+
+r(K) ≤ r(0) 
+
+T + 16 c2κσ 2
+
+μT log T log 2dT δ , (16) 
+
+where κ := L/μ is the condition number. 
+
+The proof of Theorem 1 follows immediately from Lemma 3 by selecting α = 1 /(2 L) and K = 4 κ log T . A few takeaways are in order for Theorem 1. 
+
+• Near-Optimal High-Probability Rates. Theorem 1 re-veals that a near-optimal high-probability guarantee of order 
+
+O (log( T ) log( dT /δ )/T ) is achievable using our Batched SGD algorithm. This rate matches the result in [7] up to a 
+
+log d factor, but with a significantly simpler proof. 
+
+• Guarantee on The Last Iterate. Theorem 1 establishes a high-probability guarantee on the last iterate. As far as we know, the only work that achieves this last-iterate high-probability bound for SGD is [7], but with a much more involved analysis that exploits an auxiliary sequence. 
+
+• Logarithmic Update Rounds. A notable feature that emerges from our analysis of Batched SGD is that, to achieve near-optimal high-probability bounds, it suffices to update the parameter only logarithmically many times, quantified by K = O (log T ). This key insight will directly inform the choice of the communication frequency in Sec-tion V, when we study federated learning. We now proceed to prove Lemma 3. Proof of Lemma 3. We first state a variant of [14, Corol-lary 7], which pertains to variance-reduction of norm-sub-Gaussian random vectors. 
+
+Lemma 4 (Variance-Reduced Norm-Sub-Gaussian) . Let ran-dom vectors X1, · · · , X n ∈ Rd be independent, zero-mean, and norm-sub-Gaussian with variance proxy σ2 > 0, i.e., 
+
+E [Xi] = 0, E
+
+h
+
+exp 
+
+
+
+∥Xi∥22 /σ 2
+
+i 
+
+≤ exp(1) , ∀i ∈ [n].Then, there exists a universal constant c such that for any 
+
+δ ∈ (0 , 1) , with probability at least 1 − δ:
+
+1
+
+n
+
+> n
+
+X
+
+> i=1
+
+Xi
+
+> 2
+
+≤ c
+
+r σ2
+
+n log 2dδ . (17) The proof can be found in [14]. Lemma 4 explicitly shows how averaging n norm-sub-Gaussian random vectors leads to an n-fold reduction in variance, causing the norm of the average to concentrate more tightly around zero as n
+
+increases. Using this tool, in the next lemma, we show that the gradient gk in (13) for the Batched SGD algorithm enjoys a similar variance-reduction effect. 
+
+Lemma 5 (Variance-Reduced Gradients) . Define nk := gk −∇f (x(k)), where gk is as in (13) . Given any δ ∈ (0 , 1) ,w.p. at least 1 − δ, the following holds (for Batched SGD )simultaneously for all k = 0 , 1, . . . , K − 1:
+
+∥nk∥22 ≤ c2σ2
+
+H log 2dT δ , (18) 
+
+where c is some universal constant. Proof. First, fix a batch index k. As per the definition of gk
+
+in (13), we can decompose the noise nk as 
+
+nk = 1
+
+H
+
+> H−1
+
+X
+
+> ℓ=0
+
+nk,ℓ , (19) where each component nk,ℓ is defined as 
+
+nk,ℓ := g(x(k), ξ kH +ℓ) − ∇ f (x(k)). (20) We then argue that {nk,ℓ }H−1 
+
+> ℓ=0
+
+satisfies the conditions in Lemma 4. To that end, first condition on FkH −1 such that x(k) becomes deterministic, and the sole source of randomness in {nk,ℓ }H−1 
+
+> ℓ=0
+
+comes from {ξkH +ℓ}H−1 
+
+> ℓ=0
+
+, which is an independent sequence. In the special case of k = 0 , we do not need to condition since x(0) is already deterministic. According to Assumption 3, the stochastic gradient 
+
+g(x(k), ξ kH +ℓ) is an unbiased estimate of the true gradient 
+
+∇f (x(k)), implying that the noise component nk,ℓ is zero-mean conditioned on FkH −1. Moreover, Assumption 4 states that the noise in each stochastic gradient is norm-sub-Gaussian with variance proxy σ2, i.e., 
+
+EkH 
+
+"
+
+exp ∥nk,ℓ ∥22
+
+σ2
+
+!# 
+
+≤ exp(1) , ∀ℓ = 0 , · · · , H − 1,
+
+(21) where recall that EkH [·] := E[· | F kH −1]. We have thus proved that {nk,ℓ }H−1 
+
+> ℓ=0
+
+satisfies the conditions in Lemma 4. Applying Lemma 4 then yields: for any δ ∈ (0 , 1) ,        
+
+> PkH
+> 1
+> H
+> H−1X
+> ℓ=0
+> nk,ℓ
+> 2
+> ≤c
+> s
+> σ2
+> Hlog 2dδ
+> ≥1−δ.
+
+(22) It then follows from using the tower property (similarly as in (11)) that with probability at least 1 − δ,     
+
+> ∥nk∥2≤c
+> s
+> σ2
+> Hlog 2dδ .
+
+(23) Union bounding over all K ≤ T batches and squaring both sides then yields the desired claim. We can now complete the proof of Lemma 3 by first estab-lishing a one-step descent (similar to Lemma 1), and then controlling the resulting cross term via Young’s inequality coupled with Lemma 5. Using the smoothness of f and selecting α ≤ 1/(2 L), we obtain: 
+
+r(k+1) ≤ r(k) − α 
+
+> 2
+
+∇f (x(k)) 22 − α ∇f (x(k)), n k + Lα 2 ∥nk∥22 .
+
+Using Young’s inequality to bound the cross term, we have                              
+
+> r(k+1) ≤r(k)−α
+> 2∇f(x(k))22+Lα 2∥nk∥22
+> +α
+> 4∇f(x(k))22+α∥nk∥22
+> ≤r(k)−α
+> 4∇f(x(k))22+ 2 α∥nk∥22,
+
+(24) where we use the fact that αL ≤ 1, implying Lα 2 ≤ α. Now recall the gradient domination property of strongly convex functions: ∥∇ f (x)∥22 ≥ 2μ(f (x) − f (x∗)) , ∀x ∈ Rd. Using this and plugging in (18) from Lemma 5 into (24) yields with probability at least 1 − δ, for all k ≥ 0:
+
+r(k+1) ≤
+
+
+
+1 − αμ 
+
+2
+
+
+
+r(k) + 2c2σ2αH log 2dT δ . (25) Iterating from k = 0 to K −1 leads to the claim of Lemma 3. We now show that our proof technique extends readily to non-convex functions as well. 
+
+Theorem 2 (Non-Convex Objective, Batched SGD ). Sup-pose Assumptions 1, 3, 4 hold. Then, given any δ ∈ (0 , 1) ,there exists a universal constant c such that with K = √T
+
+and α ≤ 1/(2 L), the following holds for Batched SGD 
+
+w.p. at least 1 − δ:
+
+1
+
+K
+
+> K−1
+
+X
+
+> k=0
+
+∇f (x(k)) 22
+
+≤ 8Lr (0) 
+
+√T + 8c2σ2
+
+√T log 2dT δ . (26) 
+
+Proof. First, note that arriving at (24) only requires smooth-ness of f . As such, telescoping (24) from k = 0 to K − 1
+
+and dividing both sides by αK/ 4 yields: 
+
+1
+
+K
+
+> K−1
+
+X
+
+> k=0
+
+∇f (x(k)) 22
+
+≤ 4  r(0) − r(K)
+
+αK + 8
+
+K
+
+> K−1
+
+X
+
+> k=0
+
+∥nk∥22 .
+
+(27) Removing the negative term on the R.H.S., selecting α =1/(2 L), and plugging in (18) from Lemma 5 into (27) yields w.p. at least 1 − δ,
+
+1
+
+K
+
+> K−1
+
+X
+
+> k=0
+
+∇f (x(k)) 22
+
+≤ 8Lr (0) 
+
+K + 8c2σ2
+
+H log 2dT δ . (28) Selecting K = √T then establishes the desired claim. 
+
+Main Takeaways. Theorem 2 shows that the guaran-tee obtained by Batched SGD also extends to the gen-eral non-convex case, achieving a near-optimal rate of 
+
+O
+
+
+
+log( dT /δ )/√T
+
+
+
+. Compared with prior works [5], [7], this rate incurs only an extra log d factor as in the strongly convex case, while the proof remains significantly simpler. 
+
+Remark 2. Interestingly, to achieve near-optimal rates, while K = O(log( T )) updates sufficed for the strongly-convex case, the non-convex case requires K = √T updates (from Theorem 2). Thus, favorable structural properties of f
+
+allow for less frequent parameter updates. 
+
+V. E XTENSION TO THE FEDERATED SETTING 
+
+In this section, we extend the batching principle developed in Section III to the federated setting. Recall that the core idea of Batched SGD is to refine the stochastic gradient using multiple samples before performing an update, thereby reducing the variance of the noise, simplifying the high-probability analysis, and saving the number of update rounds. Interestingly, the same idea naturally translates to the federated setting, where local gradient computations can be viewed as forming batches between successive communica-tion rounds. From this perspective, the batch-size H directly informs the communication frequency between the central server and the agents . We show that this batching idea leads to logarithmic rounds of communication and a simple high-probability analysis for federated optimization. 
+
+A. Problem Formulation 
+
+We consider a setting involving a central server and M
+
+agents, where each agent i ∈ [M ] is associated with a local objective function fi : Rd → R. The standard federated learning [12], [13] problem seeks to solve: 
+
+min 
+
+> x∈Rd
+
+f (x) := 1
+
+M
+
+X 
+
+> i∈[M]
+
+fi(x), (29) subject to stringent privacy and communication constraints. To capture the standard “intermittent communication model” in FL [12], [13], suppose each agent i ∈ [M ] has access to 
+
+T online samples, and let ξi,t denote the noise sample for agent i at time-step t. These T samples are partitioned into 
+
+K communication rounds of duration H each, such that T =
+
+KH . The standard FL algorithm proposed in [12] proceeds as follows. At the beginning of each communication round 
+
+k = 0 , · · · , K − 1, the server broadcasts the current global parameter ¯x(k) to all agents. Each agent then initializes its local parameter from ¯x(k), and performs H local parameter updates (in isolation) of the following form: 
+
+x(k) 
+
+> i,ℓ +1
+
+= x(k) 
+
+> i,ℓ
+
+− αg i(x(k) 
+
+> i,ℓ
+
+, ξ i,kH +ℓ), ℓ = 0 , · · · , H − 1. (30) Here, α is the step-size, x(k) 
+
+> i,ℓ
+
+denotes the local parameter of agent i at local iteration ℓ of round k, gi(x(k) 
+
+> i,ℓ
+
+, ξ i,kH +ℓ) is a noisy version of ∇fi(x(k) 
+
+> i,ℓ
+
+), and ξi,kH +ℓ is the RV capturing the randomness in gi. After H local updates, the server aggregates the local models to update the global parameter: 
+
+¯x(k+1) = 1
+
+M
+
+X 
+
+> i∈[M]
+
+x(k) 
+
+> i,H
+
+. (31) The new global model ¯x(k+1) is then broadcast to all agents to initiate the next round. Although the expected 
+
+behavior of the above algorithm (and its numerous variants) has been extensively analyzed [17], [18], we are unaware of any non-trivial high-probability bounds in FL. To close this gap, we start by making the following assumptions, which are natural FL counterparts of those in Section II. 
+
+Assumption 5 (Unbiased Gradient) . For each agent i ∈
+
+[M ], the stochastic gradient gi(x, ξ ) is unbiased, i.e., 
+
+Eξ [gi(x, ξ )] = ∇fi(x), ∀x ∈ Rd.
+
+Assumption 6 (Norm-Sub-Gaussian Noise) . For each agent 
+
+i ∈ [M ], the noise in gi(x, ξ ) is norm-sub-Gaussian, i.e., 
+
+Eξ
+
+h
+
+exp 
+
+
+
+∥gi(x, ξ ) − ∇ fi(x)∥22 /σ 2i 
+
+≤ exp (1) , ∀x ∈ Rd,
+
+(32) 
+
+where σ2 > 0 is the variance proxy. 
+
+Assumption 7 (Independence) . The stochastic processes 
+
+{ξi,t } and {ξj,t } are statistically independent ∀i̸ = j ∈ [M ].
+
+Assumption 7 is standard, and needed to obtain collabo-rative speedups w.r.t. the number of agents; see [18]–[20]. 
+
+B. Batched SGD for FL 
+
+Similar to the SGD update rule in (2), in standard FL algorithms like FedAvg [12], the local parameter x(k) 
+
+> i,ℓ
+
+of each agent i ∈ [M ] is updated H times in each round via (30); each such update is made using a noisy stochastic gradient constructed from a single sample ξi,kH +ℓ. Unlike in the single-agent case, this vanilla update rule results in what is known as the “client-drift” issue in the FL setting [17], [18]. Specifically, since each agent i ∈ [M ] updates its local model H times during each communication round without synchronization, the local model of agent i tends to drift toward its own local optimum x∗ 
+
+> i
+
+∈ argmin x fi(x). Con-sequently, naively aggregating the local models as per (31) yields a bias term in the final guarantee that hinders the benefits of collaboration [17], [18]. In what follows, we will show that this drift issue can be completely resolved by using the batching idea. Concretely, during each round k, instead of making multiple local updates using highly noisy stochastic gradients, we advocate making one single update using a refined gradient gi,k 
+
+constructed using the samples collected during round k:
+
+gi,k := 1
+
+H
+
+> H−1
+
+X
+
+> ℓ=0
+
+gi(¯ x(k), ξ i,kH +ℓ). (33) Agent i then makes a single update to its local model as: 
+
+x(k) 
+
+> i
+
+= ¯ x(k) − αg i,k , (34) Round 0 Round 1 Round 𝐾 − 1 …              
+
+> 𝐻 𝐻 𝐻
+> …
+> Agent 1
+> Agent 2
+> Agent 𝑀 Fig. 2. Illustration of Batched FL . Each agent in [M]partitions its T
+> samples into Kcommunication rounds. At the red bars, agents update their local parameters and the server aggregates them.
+
+Algorithm 2 Batched FL  
+
+> 1:
+
+Input: Step-size α, initial parameter ¯x(0) , number of samples T , number of communication rounds K, number of samples in each round H, number of agents M . 
+
+> 2:
+
+for k = 0 , . . . , K − 1 do  
+
+> 3:
+
+for i = 1 , . . . , M do  
+
+> 4:
+
+for ℓ = 0 , . . . , H − 1 do  
+
+> 5:
+
+Agent i computes gi(¯ x(k), ξ i,kH +ℓ) 
+
+> 6:
+
+end for  
+
+> 7:
+
+Agent i constructs gi,k as per (33)  
+
+> 8:
+
+Agent i computes local model x(k) 
+
+> i
+
+via (34) and transmits it to the server  
+
+> 9:
+
+end for  
+
+> 10:
+
+Server broadcasts ¯x(k+1) computed as in (35)  
+
+> 11:
+
+end for 
+
+where x(k) 
+
+> i
+
+denotes the local model of agent i at the end of round k. Finally, the server aggregates the local models across agents and updates the global parameter as follows: 
+
+¯x(k+1) = 1
+
+M
+
+X 
+
+> i∈[M]
+
+x(k) 
+
+> i
+
+. (35) We call the above method Batched FL , and summarize it in Algorithm 2, with an illustration in Fig. 2. 
+
+Remark 3. Departing fundamentally from the standard FL template [12], [13], [17]–[20] where multiple local updates are made per round using noisy gradients, the essence of Batched FL lies in making a single precise update using a direction that enjoys an H-fold lower variance. This ensures that the local models are always synchronized ,thereby preventing biases from heterogeneity in local loss functions, while preserving collaborative benefits. We later show that this mechanism only requires logarithmically 
+
+many communication rounds for strongly convex objectives. C. Results And Analysis 
+
+In this section, we present the high-probability rates for 
+
+Batched FL . To do so, let us define r(k) := f (¯ x(k)) −
+
+f (x∗) as the global function sub-optimality gap in round k,where x∗ := arg min x f (x). We then have the following theorem for strongly convex loss functions. 
+
+Theorem 3 (Strongly Convex Objective, Batched FL ).
+
+Suppose the global objective function f in (29) satisfies Assumptions 1, 2, and suppose Assumptions 5, 6, 7 hold. Then, given any δ ∈ (0 , 1) , there exists a universal constant 
+
+c such that with K = 4 κ log M T and α = 1 /(2 L), the following holds for Batched FL w.p. at least 1 − δ:
+
+r(K) ≤ r(0) 
+
+M T + 16 c2κσ 2
+
+μM T log M T log 2dT δ . (36) 
+
+Proof. Similar to Lemma 1, using smoothness of f , defining 
+
+gk := (1 /M ) P  
+
+> i∈[M]
+
+gi,k , nk := gk − ∇ f (¯ x(k)) and selecting αL ≤ 1/2, we have the one-step descent 
+
+r(k+1) ≤ r(k) − α
+
+4 ∇f (¯ x(k)) 22
+
++ 2 α ∥nk∥22 . (37) Next, we need to bound the squared-norm term ∥nk∥22,which follows a similar process as in the proof of Lemma 5. Fixing a round k, as per the definition of nk, we have       
+
+> nk=1
+> M
+> X
+> i∈[M]
+> 1
+> H
+> H−1X
+> ℓ=0
+> gi(¯ x(k), ξ i,kH +ℓ)− ∇ fi(¯ x(k))
+> !
+> =1
+> M H
+> X
+> i∈[M]
+> H−1X
+> ℓ=0
+> ni,k,ℓ ,
+
+(38) where we define ni,k,ℓ := gi(¯ x(k), ξ i,kH +ℓ) − ∇ fi(¯ x(k)).We now verify that {ni,k,ℓ }i,ℓ satisfies the conditions for invoking the variance-reduction effect in Lemma 4. To do so, let FkH −1 := {ξi,t }i∈[M ],t ≤kH −1 be the sigma-algebra generated by all the randomness across all agents in [M ]
+
+up to time-step kH − 1 (F−1 = ∅). Observe that ¯x(k)
+
+is FkH −1-measurable. Conditioned on FkH −1 then, from Assumption 7, {ni,k,ℓ }i,ℓ is independent since the only ran-domness lies in {ξi,kH +ℓ}i,ℓ ; from Assumption 5, it is zero-mean due to the unbiasedness of gi’s. Finally, Assumption 6 states that each ni,k,ℓ is σ2-norm-sub-Gaussian , i.e., 
+
+E
+
+"
+
+exp ∥ni,k,ℓ ∥22
+
+σ2
+
+!
+
+| F kH −1
+
+#
+
+≤ exp(1) , ∀i, ℓ. (39) Now that we have shown that the noise sequence {ni,k,ℓ }i,ℓ 
+
+satisfies all the requirements for Lemma 4, invoking it and using the tower property to get rid of the conditioning on 
+
+FkH −1 yields for any δ ∈ (0 , 1) , w.p. at least 1 − δ:
+
+∥nk∥2 ≤ c
+
+r σ2
+
+M H log 2dδ . (40) Union bounding over all K ≤ T rounds and squaring both sides yields w.p. at least 1 − δ,
+
+∥nk∥22 ≤ c2σ2
+
+M H log 2dT δ . (41) Plugging this into (37) and using the gradient domination property of f yields w.p. at least 1 − δ,
+
+r(k+1) ≤
+
+
+
+1 − αμ 
+
+2
+
+
+
+r(k) + 2c2σ2αM H log 2dT δ . (42) Iterating from k = 0 to K − 1 and selecting α = 1 /(2 L)
+
+yields w.p. at least 1 − δ,       
+
+> r(K)≤exp
+> 
+> −K
+> 4κ
+> 
+> r(0) + 4c2σ2
+> μM H log 2dT δ.
+
+(43) Selecting K = 4 κ log M T yields the desired claim. A few comments are in order regarding Theorem 3. 
+
+• High-Probability Guarantees for FL. The significance of Theorem 3 lies in providing the first near-optimal high-probability rate on the order of 
+
+O (log( M T ) log ( dT /δ ) /(M T )) in FL. We note also that Theorem 3 applies to a fairly general setting, where the local loss functions can be arbitrarily heterogeneous, and they need not be smooth or even convex. 
+
+• Linear Speedup with No Heterogeneity Bias. Comparing the rate in (16) with that in (36), we note that the latter is tighter by a factor of M . This improvement by a factor of M
+
+is typically referred to as a “linear-speedup” effect, and stems from collaboration. Notably, we achieve such an effect with-out relying on sophisticated control-variate/gradient-tracking techniques used in prior FL work [17]–[20]. 
+
+• Logarithmic Communication Rounds. The batching idea informs the communication frequency in the federated setting just as it informs the number of updates in the single-agent setting. Specifically, since K = O (log M T ), only logarithmic communication rounds between the server and the agents suffice to achieve near-optimal rates, significantly reducing the communication overhead. Similarly to Section IV, we can develop high-probability guarantees for a non-convex f as well. 
+
+Theorem 4 (Non-Convex Objective, Batched FL ). Sup-pose the global objective function f in (29) satisfies Assump-tion 1, and suppose Assumptions 5, 6, 7 hold. Then, given any δ ∈ (0 , 1) , there exists a universal constant c such that with K = √M T and α = 1 /(2 L), the following holds for 
+
+Batched FL w.p. at least 1 − δ:
+
+1
+
+K
+
+> K−1
+
+X
+
+> k=0
+
+∇f (¯ x(k)) 22 ≤ 8Lr (0) 
+
+√M T + 8c2σ2
+
+√M T log 2dT δ . (44) 
+
+Proof. The proof follows the exact same telescoping argu-ment used for proving Theorem 2, where we now use the bound on ∥nk∥22 in (41), and set K = √M T . 
+
+Main Takeaways. Theorem 4 establishes a high-probability guarantee for general non-convex objectives on the order of O
+
+
+
+log( dT /δ )/√M T 
+
+
+
+, once again demonstrat-ing an explicit linear speedup with respect to the number of agents M . Compared to the strongly-convex setting, however, a higher communication frequency of K = √M T 
+
+is needed to achieve this speedup. VI. C ONCLUSION 
+
+We studied the problem of deriving high-probability bounds in the context of stochastic optimization. To that end, we introduced a simple variant of SGD called Batched SGD which partitions the online data stream into multi-ple batches, constructs low variance gradient directions per batch, and makes parameter updates using such refined directions. For this variant, we established near-optimal high-probability concentration bounds for smooth strongly-convex and non-convex functions. Notably, our proofs are significantly simpler relative to prior work and require no restrictive assumptions. Finally, we showed how our batching idea can be naturally extended to the federated learning setting. We conjecture that the basic idea employed in this paper can be used to generate simple concentration proofs for other stochastic approximation problems as well, including those that arise in reinforcement learning. Formalizing this conjecture is part of our ongoing work. REFERENCES [1] H. Robbins and S. Monro, “A stochastic approximation method,” The Annals of Mathematical Statistics , pp. 400–407, 1951. [2] L. Bottou, F. E. Curtis, and J. Nocedal, “Optimization methods for large-scale machine learning,” SIAM review , vol. 60, no. 2, pp. 223– 311, 2018. [3] E. Moulines and F. Bach, “Non-asymptotic analysis of stochastic approximation algorithms for machine learning,” Advances in neural information processing systems , vol. 24, 2011. [4] N. J. Harvey, C. Liaw, Y. Plan, and S. Randhawa, “Tight analyses for non-smooth stochastic gradient descent,” in Conference on Learning Theory . PMLR, 2019, pp. 1579–1613. [5] X. Li and F. Orabona, “A high probability analysis of adaptive SGD with momentum,” arXiv preprint arXiv:2007.14294 , 2020. [6] Z. Liu, T. D. Nguyen, T. H. Nguyen, A. Ene, and H. Nguyen, “High probability convergence of stochastic gradient methods,” in 
+
+International conference on machine learning . PMLR, 2023, pp. 21 884–21 914. [7] Z. Liu and Z. Zhou, “Revisiting the last-iterate convergence of stochastic gradient methods,” arXiv preprint arXiv:2312.08531 , 2023. [8] A. Rakhlin, O. Shamir, and K. Sridharan, “Making gradient descent optimal for strongly convex stochastic optimization,” arXiv preprint arXiv:1109.5647 , 2011. [9] P. Jain, D. M. Nagaraj, and P. Netrapalli, “Making the last iterate of sgd information theoretically optimal,” SIAM Journal on Optimization ,vol. 31, no. 2, pp. 1108–1130, 2021. [10] X. Li and F. Orabona, “On the convergence of stochastic gradient descent with adaptive stepsizes,” in The 22nd international conference on artificial intelligence and statistics . PMLR, 2019, pp. 983–992. [11] A. Kavis, K. Y. Levy, and V. Cevher, “High probability bounds for a class of nonconvex algorithms with adagrad stepsize,” arXiv preprint arXiv:2204.02833 , 2022. [12] B. McMahan, E. Moore, D. Ramage, S. Hampson, and B. A. y Arcas, “Communication-efficient learning of deep networks from decentral-ized data,” in Artificial Intelligence and Statistics . PMLR, 2017, pp. 1273–1282. [13] J. Koneˇ cn` y, H. B. McMahan, D. Ramage, and P. Richt´ arik, “Federated optimization: Distributed machine learning for on-device intelligence,” 
+
+arXiv preprint arXiv:1610.02527 , 2016. [14] C. Jin, P. Netrapalli, R. Ge, S. M. Kakade, and M. I. Jordan, “A short note on concentration inequalities for random vectors with subgaussian norm,” arXiv preprint arXiv:1902.03736 , 2019. [15] A. Nemirovski, A. Juditsky, G. Lan, and A. Shapiro, “Robust stochas-tic approximation approach to stochastic programming,” SIAM Journal on optimization , vol. 19, no. 4, pp. 1574–1609, 2009. [16] N. J. Harvey, C. Liaw, and S. Randhawa, “Simple and optimal high-probability bounds for strongly-convex stochastic gradient descent,” 
+
+arXiv preprint arXiv:1909.00843 , 2019. [17] A. Mitra, R. Jaafar, G. J. Pappas, and H. Hassani, “Linear convergence in federated learning: Tackling client heterogeneity and sparse gradi-ents,” in Advances in Neural Information Processing Systems , vol. 34, 2021, pp. 14 606–14 619. [18] S. P. Karimireddy, S. Kale, M. Mohri, S. Reddi, S. Stich, and A. T. Suresh, “Scaffold: Stochastic controlled averaging for federated learning,” in International Conference on Machine Learning . PMLR, 2020, pp. 5132–5143. [19] F. Zhu, A. Mitra, and R. W. Heath, “Achieving tighter finite-time rates for heterogeneous federated stochastic approximation under markovian sampling,” Transactions on Machine Learning Research , 2026. [20] P. Mangold, S. Samsonov, S. Labbi, I. Levin, R. Alami, A. Naumov, and E. Moulines, “Scafflsa: Taming heterogeneity in federated linear stochastic approximation and td learning,” in Advances in Neural Information Processing Systems , vol. 37, 2024, pp. 13 927–13 981.
