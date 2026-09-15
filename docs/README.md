@@ -41,17 +41,17 @@
 <section class="dpr-home-dashboard-card dpr-home-report-card">
   <div class="dpr-home-dashboard-header">
     <div>
-      <span class="dpr-home-dashboard-kicker">2026-09-14</span>
+      <span class="dpr-home-dashboard-kicker">2026-09-15</span>
       <h3 class="dpr-home-dashboard-title">今日汇总</h3>
     </div>
-    <strong class="dpr-home-dashboard-count">共 7 篇</strong>
+    <strong class="dpr-home-dashboard-count">共 10 篇</strong>
   </div>
   <dl class="dpr-home-dashboard-stats">
     <div class="dpr-home-dashboard-stat"><dt>累计更新</dt><dd>1 次</dd></div>
-    <div class="dpr-home-dashboard-stat"><dt>精读</dt><dd>1</dd></div>
-    <div class="dpr-home-dashboard-stat"><dt>速读</dt><dd>6</dd></div>
+    <div class="dpr-home-dashboard-stat"><dt>精读</dt><dd>0</dd></div>
+    <div class="dpr-home-dashboard-stat"><dt>速读</dt><dd>10</dd></div>
   </dl>
-  <p class="dpr-home-dashboard-body">最近更新：2026-09-14 22:15:33 UTC<br>状态：成功</p>
+  <p class="dpr-home-dashboard-body">最近更新：2026-09-15 22:52:18 UTC<br>状态：成功</p>
 </section>
 <section class="dpr-home-dashboard-card dpr-home-brief-card">
   <div class="dpr-home-dashboard-header">
@@ -62,9 +62,8 @@
     <strong class="dpr-home-dashboard-count">AI</strong>
   </div>
   <div class="dpr-home-dashboard-body">
-<p>今日共生成 7 篇推荐（精读 1 篇，速读 6 篇）</p>
-<p>精读：《Groupoid-Based Internal State Representations for Reinforcement Learning with Local Symmetries》（8.0/10）</p>
-<p>速读：《Convergence of Stochastic Gradient Methods under Heavy-Tailed Noise and Hölder Smoothness》（7.0/10）, 《Propagation of Chaos on Riemannian Manifolds》（7.0/10）, 《Almost Sure Convergence Analysis of Stochastic Gradient Methods with Clipping and Additive Noise》（6.0/10）</p>
+<p>今日共生成 10 篇推荐（精读 0 篇，速读 10 篇）</p>
+<p>速读：《Stochastic Gradient Descent over P2》（7.0/10）, 《Risk comparison theorems and application to deep learning of diffusion coefficients》（7.0/10）, 《Learning to Solve Stochastic Controls with Unknown Drifts and Running Rewards: Theory, Algorithms and Convergence》（7.0/10）</p>
 <p>这些结果覆盖了当下较热的方向，建议先看精读区论文的关键问题与方法。</p>
   </div>
 </section>
@@ -74,12 +73,12 @@
       <span class="dpr-home-dashboard-kicker">今日累计</span>
       <h3 class="dpr-home-dashboard-title">精读推荐</h3>
     </div>
-    <strong class="dpr-home-dashboard-count">1 篇</strong>
+    <strong class="dpr-home-dashboard-count">0 篇</strong>
   </div>
   <div class="dpr-home-dashboard-body">
-<ul class="dpr-home-dashboard-paper-list"><li><span class="dpr-home-dashboard-paper-title" title="Groupoid-Based Internal State Representations for Reinforcement Learning with Local Symmetries">Groupoid-Based Internal State Representations for Reinforcement Learning with Local Symmetries</span></li></ul>
+<p class="dpr-home-dashboard-empty">今日暂无推荐。</p>
   </div>
-  <div class="dpr-home-dashboard-tags"><span class="dpr-home-dashboard-tag">rl-semantic <strong>1</strong></span></div>
+
 </section>
 <section class="dpr-home-dashboard-card dpr-home-skim-card">
   <div class="dpr-home-dashboard-header">
@@ -87,12 +86,12 @@
       <span class="dpr-home-dashboard-kicker">今日累计</span>
       <h3 class="dpr-home-dashboard-title">速读推荐</h3>
     </div>
-    <strong class="dpr-home-dashboard-count">6 篇</strong>
+    <strong class="dpr-home-dashboard-count">10 篇</strong>
   </div>
   <div class="dpr-home-dashboard-body">
-<ul class="dpr-home-dashboard-paper-list"><li><span class="dpr-home-dashboard-paper-title" title="Convergence of Stochastic Gradient Methods under Heavy-Tailed Noise and Hölder Smoothness">Convergence of Stochastic Gradient Methods under Heavy-Tailed Noise and Hölder Smoothness</span></li><li><span class="dpr-home-dashboard-paper-title" title="Propagation of Chaos on Riemannian Manifolds">Propagation of Chaos on Riemannian Manifolds</span></li><li><span class="dpr-home-dashboard-paper-title" title="Almost Sure Convergence Analysis of Stochastic Gradient Methods with Clipping and Additive Noise">Almost Sure Convergence Analysis of Stochastic Gradient Methods with Clipping and Additive Noise</span></li></ul>
+<ul class="dpr-home-dashboard-paper-list"><li><span class="dpr-home-dashboard-paper-title" title="Stochastic Gradient Descent over P2">Stochastic Gradient Descent over P2</span></li><li><span class="dpr-home-dashboard-paper-title" title="Risk comparison theorems and application to deep learning of diffusion coefficients">Risk comparison theorems and application to deep learning of diffusion coefficients</span></li><li><span class="dpr-home-dashboard-paper-title" title="Learning to Solve Stochastic Controls with Unknown Drifts and Running Rewards: Theory, Algorithms and Convergence">Learning to Solve Stochastic Controls with Unknown Drifts and Running Rewards: Theory, Algorithms and Convergence</span></li></ul>
   </div>
-  <div class="dpr-home-dashboard-tags"><span class="dpr-home-dashboard-tag">ml-theory <strong>3</strong></span><span class="dpr-home-dashboard-tag">npl-bdl-saig <strong>2</strong></span><span class="dpr-home-dashboard-tag">rl-semantic <strong>1</strong></span></div>
+  <div class="dpr-home-dashboard-tags"><span class="dpr-home-dashboard-tag">npl-bdl-saig <strong>5</strong></span><span class="dpr-home-dashboard-tag">rl-semantic <strong>3</strong></span><span class="dpr-home-dashboard-tag">ml-theory <strong>2</strong></span></div>
 </section>
 </div>
 
