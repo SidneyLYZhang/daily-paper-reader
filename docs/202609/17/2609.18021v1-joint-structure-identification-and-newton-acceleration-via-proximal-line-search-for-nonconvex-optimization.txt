@@ -1,0 +1,1853 @@
+Title: Joint Structure Identification and Newton Acceleration via Proximal Line Search for Nonconvex Optimization
+
+URL Source: https://arxiv.org/pdf/2609.18021v1
+
+Published Time: Thu, 17 Sep 2026 00:27:58 GMT
+
+Number of Pages: 13
+
+Markdown Content:
+1
+
+# Joint Structure Identification and Newton Acceleration via Proximal Line Search for Nonconvex Optimization 
+
+Yiming Zhou and Wei Dai 
+
+Abstract —We consider composite optimization with a smooth, possibly nonconvex function and a separable convex polyhedral term. Such problems have a simple nonsmooth structure but arise widely in applications. Existing Newton-type methods may fail to identify nonsmooth coordinates during direction computation, move coordinates away from them reached by the full step during line search, or rely on separate first-order steps for identification. In this work, we propose a unified inexact proximal Newton method that couples structure identification with second-order acceleration through a proximal line search designed to retain the nonsmooth structure revealed at the local model. In particular, on a predicted working set, we solve a quadratic model inexactly but enforce its constraints exactly, allowing coordinates to reach new kinks without leaving the selected affine intervals. This set also includes small-margin kink coordinates to exploit Hessian coupling effect. To globalize the direction, we construct a proximal line search using an isotropic proximal model whose linear term is chosen so that the initial trial exactly recovers the full step. Backtracking increases the proximal curvature until sufficient decrease holds, allowing coordinates to remain at kinks reached by the full step while damping other components. Generating each trial point requires only proximal operator evaluations. We prove finite backtracking and finite active-set identification under strict complementarity and a non-singular reduced Hessian, together with local Q-superlinear convergence under a directional Dennis–Mor´ e condition and vanishing relative inexactness. Numerical results verify the effectiveness of the proposed method. 
+
+Index Terms —Proximal Newton methods, inexact methods, nonconvex composite optimization, nonsmooth optimization 
+
+I. I NTRODUCTION 
+
+# IN this paper, we consider the composite optimization 
+
+min 
+
+x∈Rn F (x) := q(x) + 
+
+n∑
+
+i=1 
+
+hi(xi), (1) where q : Rn → R is smooth and possibly nonconvex, and each hi : R → R is convex polyhedral. Such structured nonsmooth formulations arise widely in signal processing and machine learning. Examples include ℓ1 regularization and its weighted variants, which form the basis of many sparse recov-ery methods for identifying low-dimensional structure in high-dimensional data [1]. More problems can be cast as (1) through suitable objective decompositions [2] or changes of variables. For example, finite-slope folded-concave sparsity penalties admit exact decompositions into a weighted ℓ1 term and a nonconvex smooth term. Consider R(x) = ∑ni=1 φi (|xi|),
+
+Y. Zhou and W. Dai are with the Department of Electrical and Elec-tronic Engineering, Imperial College London, London, UK (e-mail: yim-ing.zhou18@imperial.ac.uk; wei.dai1@imperial.ac.uk). TABLE I REPRESENTATIVE EXACT SPLITS φi(|t|) = φ′
+
+> i, +
+
+(0) |t| − ψi(t).Penalty φi φ′
+
+> i, +
+
+(0) ψi(t)
+
+SCAD [5], ai > 2 μi
+
+
+
+0, |t| ≤ μi,
+
+(|t| − μi)2
+
+2( ai − 1) , μi < |t| ≤ aiμi,μi|t| − (ai + 1) μ2
+
+> i
+
+2 , |t| > a iμi
+
+MCP [6], γi > 0 μi
+
+
+
+|t|2
+
+2γi
+
+, |t| ≤ γiμi,μi|t| − γiμ2
+
+> i
+
+2 , |t| > γ iμi
+
+CEL0 [7], di > 0 di
+
+√2μ
+
+
+
+d2 
+
+> i
+
+|t|2
+
+2 , |t| ≤ √2μ/d i,di
+
+√2μ |t| − μ, |t| > √2μ/d i
+
+where each φi is nondecreasing and concave, has a finite right derivative φ′
+
+i, +(0) , and has a Lipschitz-continuous derivative. Defining ψi(t) , φ′
+
+i, +(0) |t|− φi(|t|) gives the exact decom-position 
+
+˜q(x)+ 
+
+n∑
+
+i=1 
+
+φi (|xi|) = 
+
+(
+
+˜q(x) −
+
+n∑
+
+i=1 
+
+ψi (xi)
+
+)︸ ︷︷ ︸
+
+q(x)
+
++
+
+n∑
+
+i=1 
+
+φ′
+
+i, +(0) |xi|
+
+︸ ︷︷ ︸∑ni=1 hi (xi)
+
+.
+
+Table I summarizes representative choices of φ′
+
+i, +(0) and ψi.Suitable changes of variables allow SVMs [3] and quantile regression models [4] to be cast in the form (1). Consider 
+
+min 
+
+θ∈Rd
+
+12 θ⊤P θ +
+
+n∑
+
+i=1 
+
+hi(ci + ( Aθ )i) ,
+
+where P ≻ 0, A ∈ Rn×d has full row rank, and c ∈ Rn.Setting x = c+Aθ and G = AP −1A⊤ ≻ 0, and eliminating 
+
+θ, gives the formulation with the residual variable 
+
+min 
+
+x∈Rn
+
+12 (x − c)⊤G−1(x − c) + 
+
+n∑
+
+i=1 
+
+hi(xi).
+
+The solution x⋆ recovers the original variable as θ⋆ =
+
+P −1A⊤G−1(x⋆ − c). For a binary hinge-loss SVM, take 
+
+c = 0, A = Y Q , and hi(x) = Ci[1 − x]+, where Y =diag( y1, . . . , y n). For ridge-regularized quantile regression, take c = y, A = −Q, and hi(x) = ωi(τ [x]+ +(1 −τ )[ −x]+).In this case, x = y − Qθ is the residual variable. arXiv:2609.18021v1 [eess.SP] 16 Sep 2026 2
+
+A. Related Works 
+
+The proximal gradient method is the first-order baseline to (1). Each iteration evaluates ∇q and applies the Euclidean proximal operator of h. Common acceleration strategies in-clude adaptive step size [8] and inertial updates [9]–[11]. These methods are inexpensive per iteration and effective at scale for moderate accuracy, but ill-conditioning can limit high-accuracy convergence, motivating the use of second-order information. We next turn to second-order methods and group them according to how they compute Newton-type directions. Proximal Newton-type methods compute the direction by approximately solving 
+
+pk ∈ arg min  
+
+> p
+
+〈∇ q (xk) , p〉 + 12 p⊤Bkp + h (xk + p) ,
+
+where Bk is either the exact Hessian ∇2q (xk) or its suitable approximation, and h is used in the exact form. Existing methods differ mainly in their globalization strategies. A line-search approach computes the direction satisfying relative proximal residual and model decrease conditions, switches to proximal gradient if the direction fails a descent test, and then applies an Armijo line search [12]. Another approach avoids line search by regularizing the Hessian, assesses the full inexact step using the ratio of actual to predicted reduction, and updates the regularization accordingly [13]. Trust-region methods instead constrain the step explicitly and update the radius based on model agreement [14], [15]. However, generic model-gap and KKT-residual inexact criteria control only subproblem accuracy and do not ensure that the endpoint identifies the active polyhedral face. For ℓ1-regularized prob-lem, the resulting endpoint need not be sparse. The method in [16] achieves active-structure identification by computing an inexact direction with a proximal inner solver under a fixed relative model-gap tolerance. The overall algorithm is two-stage, requiring a switch to smooth optimization on the identified manifold and proximal gradient steps as a fallback. Another class of Newton-type methods exploits the structure of h(xk) when computing the search direction. These methods typically use h(xk) to select a candidate orthant and solve a Newton model for the associated smooth restriction. Orthant consistency is ensured by post-processing the direction and projection line search. The resulting direction subproblem has the generic form 
+
+pk ∈ arg min 
+
+> p∈Sk
+
+{
+
+〈˜gk, p〉 + 12 p⊤Bkp
+
+}
+
+.
+
+Here, Sk denotes either the full space or a selected free subspace, and ˜gk is the pseudo-gradient associated with the selected orthant. Specifically, the work in [17] projects the trial points generated during the line search onto the selected orthant. The semismooth Newton framework of [18] character-izes orthant methods as reduced-space minimization followed by a projected line search. A related method accommodates a nonconvex smooth term and augments the direction system with diagonal curvature information derived from a partial Huber regularization of the ℓ1 term [19]. These methods are primarily designed for ℓ1-regularized problems. During line search, applying a uniform step size can leave a coordinate nonzero even when the full projected step would set it to zero, losing the structure revealed at the model endpoint. Active-set Newton methods generally separate structure identification from second-order acceleration. An identification phase estimates the active manifold, after which Newton-type steps are applied to the resulting smooth reduced problem [20]. For convex composite objectives, forward-backward methods identify this manifold in finitely many iterations under partial smoothness and nondegeneracy [21]. For nonconvex problems, the method interleaves proximal-gradient steps that update the manifold estimate with Riemannian Newton steps that accelerate optimization on the current manifold [22]. For specific problems, i.e., ℓ1-regularized optimization, related methods either combine active-set prediction with inexact second-order subspace minimization [23], [24] or use reduced proximal-gradient steps to expand the predicted support [25]. Thus, although second-order acceleration is effective after stabilization, identification and Newton acceleration remain staged or alternating, and first-order steps or tests are needed to establish and revise the active set. 
+
+B. Our contribution 
+
+Although existing second-order methods can substantially improve the efficiency for solving (1), they do not always make full use of the available structure. This motivates a unified algorithm for joint active-set identification and Newton-type acceleration via proximal line search . We summarize our main contributions below.  
+
+> •
+
+Unified identification and acceleration via proximal line search. We develop a single-stage proximal Newton method that solves a quadratic model inexactly but en-forces its box constraints exactly, allowing coordinates to reach new kinks within selected affine intervals. The working set also admits small-margin kink coordinates to exploit Hessian coupling. To keep the structure obtained by this model, we design the linear term of an isotropic proximal model so that the initial trial exactly recovers the computed full step. Backtracking increases proximal cur-vature until sufficient decrease holds, allowing endpoint kink coordinates to remain fixed while other components are damped. Trial points require only separable proximal evaluations.  
+
+> •
+
+Global convergence and finite identification. We show the proposed method automatically reduces to an inexact Newton method on the smooth subspace. Under basic regularity and relative inexactness conditions, we prove finite termination of backtracking and stationarity of every accumulation point. Strict complementarity and nonsingularity of the reduced Hessian further ensure convergence of the full sequence and finite active-set identification. Under a directional Dennis–Mor´ e condi-tion and vanishing relative inexactness, full steps are eventually accepted and the iterates converge locally Q-superlinearly. 
+
+C. Notations 
+
+Let [n] := {1, . . . , n }, R+ := [0 , ∞), and R++ := (0 , ∞).Vectors and matrices are written in boldface, and (·)⊤ denotes 3
+
+transposition. For index sets I, J ⊆ [n], |I| and Ic denote the cardinality and complement of I; xI and AIJ denote the corresponding subvector and submatrix. The coordinate embedding EI satisfies E⊤I x = xI , and e(i) is the ith canonical basis vector. The Euclidean inner product and norm are denoted by 〈· , ·〉 and ‖ · ‖ , respectively. For matrices, ‖ · ‖ 
+
+is the spectral norm, while ‖ · ‖ p denotes the usual ℓp norm. For A ≻ 0, set ‖u‖A := ( u⊤Au )1/2 and let dist A(z, C)
+
+be the associated distance. We use λmin (A), λmax (A), and 
+
+σmin (A) for the extreme eigenvalues and the smallest singular value, and write A  B when A − B is positive semidefinite. For a nonempty closed convex set C, ΠC , dist( ·, C), NC , ιC ,and ri( C) denote its Euclidean projection, distance, normal cone, indicator function, and relative interior, respectively. For a function ϕ, ∂ϕ denotes its limiting subdifferential. [t]+ := max {t, 0}. Finally, h(x) := ∑ni=1 hi(xi), g(x) := ∇q(x),and H(x) := ∇2q(x) whenever the Hessian exists; the subscript k indicates evaluation at xk.II. P RELIMINARIES 
+
+Assumption 1. The following conditions hold for (1). (i) The function q : Rn → R is smooth, possibly nonconvex with a L-Lipschitz continuous gradient 
+
+‖∇ q(x) − ∇ q(y)‖ ≤ L‖x − y‖, ∀x, y ∈ Rn. (2) (ii) For every i ∈ [n], the function hi : R → R is finite-valued, convex, and polyhedral. (iii) The function F is bounded below, and the initial sublevel set 
+
+L0 := {x ∈ Rn : F (x) ≤ F (x0)} (3) is compact. Assumption 1 (i) gives the standard quadratic upper model 
+
+q(y) ≤ q(x) + 〈g(x), y − x〉 + L
+
+2 ‖y − x‖2, x, y ∈ Rn. (4) Condition (ii) implies h and F are continuous on Rn, and (iii) ensures F attains its minimum over L0. For σ > 0, the proximal operator of h is 
+
+prox 1 
+
+> σh
+
+(z) := argmin 
+
+> u∈Rn
+
+{
+
+h(u) + σ
+
+2 ‖u − z‖2}
+
+. (5) The objective in (5) is strongly convex so the proximal operator is single-valued and nonexpansive. Separability gives 
+
+[
+
+prox 1 
+
+> σh
+
+(z)
+
+] 
+
+> i
+
+= prox 1  
+
+> σhi
+
+(zi), i ∈ [n]. (6) 
+
+A. Polyhedral structure of hi
+
+For each scalar convex function hi, the left and right derivatives exist at every point. For arbitrary t ∈ R, we denote them by h′
+
+> i, −
+
+(t) and h′
+
+> i, +
+
+(t), respectively. Define the kink point set B := {t ∈ R : h′
+
+> i, −
+
+(t) < h ′
+
+> i, +
+
+(t)} . Moreover, t / ∈ B 
+
+if and only if h′
+
+> i, −
+
+(t) = h′
+
+> i, +
+
+(t). The subdifferential of h at t
+
+is ∂h i(t) = [ a− 
+
+> i
+
+(t), a + 
+
+> i
+
+(t)] . Consequently, 
+
+∂h (x) = 
+
+> n
+
+∏
+
+> i=1
+
+[h′
+
+> i, −
+
+(xi), h ′
+
+> i, +
+
+(xi)] . (7) The directional derivative of h is therefore 
+
+h′(x; d) = ∑
+
+> i:di>0
+
+h′ 
+
+> i, +
+
+(xi) di + ∑
+
+> i:di<0
+
+h′ 
+
+> i, −
+
+(xi) di. (8) For ξ ∈ {− 1, +1 }, we write h′ 
+
+> i,ξ
+
+to collect h′ 
+
+> i, +
+
+and h′
+
+> i, −
+
+.Then 
+
+F ′ (x; ξei) = ξ (gi(x) + h′ 
+
+> i,ξ
+
+(xi)) . (9) 
+
+B. Stationarity, residuals, and active sets 
+
+A point x is called stationary if 0 ∈ ∂F (x), and the stationary set is X := {x ∈ Rn : 0 ∈ ∂F (x)}. The following stationarity conditions are equivalent. 
+
+Proposition 1. For x ∈ R, the following statements are equivalent. (i) x ∈ X .(ii) For every i ∈ [n], −gi(x) ∈ [h′ 
+
+> i, −
+
+(xi) , h ′ 
+
+> i, +
+
+(xi)].(iii) For every i ∈ [n], F ′ (x; ξei) ≥ 0 for ξ ∈ {− 1, +1 }.(iv) F ′(x; d) ≥ 0 for every d ∈ Rn.Proof. The equivalence of (i) and (ii) follows from (7) and the definition of ∂F . The equivalence of (ii) and (iii) follows from (9). Finally, (8) gives the equivalence with (iv). At a kink point, the two-sided condition in (iii) is required to establish stationarity. Moreover, F ′(x; ξei) < 0 indicates that 
+
+ξei is a strict descent direction. We use two complementary stationarity residuals. The first is the minimum-norm subgra-dient 
+
+r(x) := Π ∂F (x)(0) = g(x) + Π ∂h (x)
+
+(−g(x)). (10) It satisfies 
+
+‖r(x)‖ = min   
+
+> v∈∂F (x)
+
+‖v‖ = dist (0, ∂F (x)), (11) and its components are 
+
+ri(x) = gi(x) + Π [hi, −(xi), h i, + (xi)] 
+
+(−gi(x)), i ∈ [n]. (12) 
+
+r(x) vanishes exactly on X . In addition 
+
+|ri(x)| = dist (−gi(x), [h′
+
+> i, −
+
+(xi), h ′
+
+> i, +
+
+(xi)] )
+
+= [−F ′(x; ei
+
+)]  
+
+> +
+
++ [−F ′(x; −ei
+
+)]  
+
+> +
+
+. (13) The two positive-part terms in (13) cannot both be nonzero because F ′(x; ei
+
+) + F ′(x; −ei
+
+) = h′
+
+> i, +
+
+(xi) − h′
+
+> i, −
+
+(xi) ≥
+
+0. |ri(x)| measures the magnitude of the violated one-sided stationarity condition. r(x) is discontinuous when a coordinate crosses a kink point. For a continuous stationarity measure, define the proximal-gradient residual 
+
+Gσ (x) := σ [x − prox σ−1h (x − σ−1g(x))] , (14) where σ ≥ λmax (∇2q(x)) . The nonexpansiveness of the proximal mapping and the continuity of g imply that Gσ
+
+is continuous. The proximal optimality condition also shows that Gσ(x) = 0 for x ∈ X . Moreover, its norm is bounded above by the minimum-norm residual ‖Gσ(x)‖ ≤ ‖ r(x)‖ =dist (0, ∂F (x)).We next isolate the active polyhedral structure at a stationary point. For x⋆ ∈ X , define the free and active index sets 
+
+S⋆ := {i : x⋆i /∈ B ⋆} , Z⋆ := [ n]\S⋆. (15) 4
+
+An equivalent definition of the free set is S⋆ := {i : h′ 
+
+> i, −
+
+(x⋆i ) = h′ 
+
+> i, +
+
+(x⋆i )}, since convexity gives h′ 
+
+> i, −
+
+(x⋆i ) ≤
+
+h′ 
+
+> i, +
+
+(x⋆i ). We call x⋆ nondegenerate, or strictly complemen-tary, if 
+
+−gi (x⋆) ∈ ri ∂h i (x⋆i ) , i ∈ Z⋆. (16) Strict complementarity provides a positive separation from both boundary equalities in the coordinate-wise stationarity conditions. Together with convergence and a vanishing opti-mality residual, this separation is the mechanism used in finite-identification analyses of proximal and coordinate methods; see, e.g., [21], [22]. Based on the design of the proposed method, we later establish its finite-identification property. III. A LGORITHM CONSTRUCTION 
+
+This section develops a proximal line search method for joint active-set identification and Newton-type acceleration. At 
+
+xk, Section III-A predicts a working set Wk by augmenting the standard first-order selection with small-margin kink co-ordinates to exploit Hessian coupling. Section III-B computes 
+
+pk on this set by solving the quadratic model inexactly but enforcing its box constraints exactly, allowing coordinates to reach new kinks within selected affine intervals. A relative KKT-residual criterion controls the inexactness. To retain the nonsmooth structure revealed at xk + pk during globalization, Section III-C uses a subgradient at this endpoint to choose the linear term of an isotropic proximal model whose initial trial recovers this endpoint exactly. Backtracking increases the proximal curvature until sufficient decrease holds, generating trial points through separable proximal evaluations. Unlike uniform scaling of pk, this search can retain endpoint kink coordinates while damping other components. The inexactness criterion and proximal construction jointly yield a composite first-order descent bound along the search path. Section III-D analyzes properties of the algorithm. 
+
+A. Active-set prediction with curvature coupling 
+
+At the current iterate xk, we classify each coordinate according to whether hi is differentiable at xk,i . Define 
+
+Sk := {i : h′ 
+
+> i, −
+
+(xk,i ) = h′ 
+
+> i, +
+
+(xk,i )} , Z k := [ n] \ Sk.
+
+Thus, Sk and Zk partition [n] into smooth and nonsmooth coordinates, respectively. This partition serves as the starting point for active-set prediction. We construct a working set of coordinates that may contribute to descent and define the predicted active set as its complement. A standard first-order rule places every i ∈ Sk in the working set, together with any 
+
+i ∈ Zk that violates the coordinate-wise stationarity condition. We additionally include selected small-margin indices from 
+
+Zk, since off-diagonal Hessian coupling with other coordinates may still make their movement beneficial. 1 Specifically, for each i ∈ Zk, we assess coordinate-wise stationarity by computing 
+
+ξk,i = arg min  
+
+> ξ∈{− 1,+1 }
+
+F ′ (xk; ξei)
+
+δk,i = min  
+
+> ξ∈{− 1,+1 }
+
+F ′ (xk; ξei) . 
+
+> 1The formal quantitative analysis is given in Section III-D.
+
+Here, ξk,i ei is a minimizing direction within the coordinate unit ball, and δk,i is the corresponding minimum directional derivative. Thus, δk,i < 0 indicates first-order descent along 
+
+i, whereas δk,i = 0 indicates the stationarity. A positive δk,i 
+
+means that moving coordinate i alone in either signed direction increases the objective. Nevertheless, when δk,i is small, a joint step involving i and other coordinates may still decrease the objective because of off-diagonal Hessian coupling. Define 
+
+Vk := {i ∈ Zk : δk,i < 0} , E k := {i ∈ Zk\Vk : 0 ≤ δk,i < ν k} ,
+
+where νk > 0. The released kink, working, and active sets are 
+
+Jk := Vk ∪ Ek, W k := Sk ∪ Jk, N k := W ck . (17) 
+
+B. Inexact Newton direction from constrained QP 
+
+We jointly consider the local polyhedral geometry of the nonsmooth term with the curvature of the smooth term to ob-tain the Newton-type direction. It enforces structural feasibility exactly while solving the resulting quadratic model inexactly. Specifically, given Wk and the selected signs {ξk,i }i∈Jk , let 
+
+p denote a Newton-type direction. For each i ∈ Wk , we constrain xk,i + pi to the corresponding affine interval of hi.This restriction makes h(xk + p) − h(xk) exactly linear in 
+
+pWk . Consequently, computing p reduces to approximately solving a strongly convex, box-constrained quadratic program subject to pNk = 0 . We first define the affine intervals. For 
+
+i ∈ Wk, let b−
+
+> k,i
+
+and b+
+
+> k,i
+
+denote the nearest breakpoints of hi
+
+strictly to the left and right of xk,i , respectively. That is b− 
+
+> k,i
+
+:= max {b ∈ B : b < x k,i } , b + 
+
+> k,i
+
+:= min {b ∈ B : b > x k,i }. The affine interval is then 
+
+Ik,i := 
+
+
+
+[b−
+
+> k,i
+
+, b +
+
+> k,i
+
+], i ∈ Sk,
+
+[xk,i , b +
+
+> k,i
+
+], i ∈ Jk, ξ k,i = +1 ,
+
+[b−
+
+> k,i
+
+, x k,i ], i ∈ Jk, ξ k,i = −1.
+
+(18) Write Ik,i = [ lk,i , u k,i ] for simplicity, and let αk,i denote the slope of hi on this interval; explicitly, 
+
+αk,i := 
+
+{h′ 
+
+> i
+
+(xk,i ) , i ∈ Sk,h′ 
+
+> i,ξ k,i
+
+(xk,i ) , i ∈ Jk. (19) Consequently, hi(t) − hi (xk,i ) = αk,i (t − xk,i ) , t ∈ Ik,i .Because h(xk + p) − h(xk) is linear in pWk over the interval (18), we compute the exact Newton-type direction as 
+
+p⋆k = arg min 
+
+> p∈Ck
+
+〈gk,W k + αk,W k , pWk 〉+ 12 p⊤ 
+
+> Wk
+
+(Bk)Wk Wk pWk ,
+
+(20) where Ck := {p ∈ Rn : pNk = 0, x k,i + pi ∈ Ik,i ∀i ∈ Wk},and Bk is an appropriate approximation to ∇2q(xk) satisfying 
+
+mI  (Bk)Wk Wk  M I (21) for some 0 < m < M < ∞. We next introduce an inexactness criterion for (20). Let Ck,W k be the reduced feasible set in R|Wk | and define ak := gk,W k +αk,W k , BWk := (Bk)Wk Wk , qk(p) := ak +BWk pWk for simplicity. The KKT residual to (20) is 
+
+εk(p) := dist (BWk )−1
+
+(
+
+0, ak + BWk pWk + NCk,W k (pWk )
+
+)
+
+.5
+
+Each iteration, we solve (20) for pk ∈ Ck, and 
+
+εk (pk) ≤ ϑk ‖pk,W k ‖BWk
+
+, 0 ≤ ϑk ≤ ¯ϑ < 12 . (IC) Accordingly, there exist nk ∈ NCk,W k (pk,W k ) such that the residual ek = qk(pk,W k ) + nk, satisfies ‖ek‖(BWk )−1 =
+
+εk (pk). The bounded BWk gives ‖ek‖ ≤ √M ‖ek‖(BWk )−1 ≤
+
+M ϑ k ‖pk‖. To avoid computing a weighted projection onto the model normal cone, we use the following inexpensive suffi-cient condition. For a feasible pk, Ek ∈ R|Wk | componentwise by 
+
+[Ek ]i := 
+
+
+
+[qk(pk)] i , lk,i < p k,i + xk,i < u k,i ,
+
+min {[qk(pk)] i , 0} , pk,i + xk,i = lk,i < u k,i ,
+
+max {[qk(pk)] i , 0} , pk,i + xk,i = uk,i > l k,i ,
+
+0, lk,i = uk,i .
+
+(22) We show the connection between (IC) and (22). 
+
+Lemma 1. For a feasible pk,
+
+‖Ek ‖ = dist 
+
+(
+
+0, qk(pk) + NCk,W k (pk,W k )
+
+)
+
+. (23) 
+
+Consequently, ‖Ek‖ ≤ mϑ k ‖pk,W k ‖ implies (IC) .Proof. See Appendix A. Because BWk  mI and Ck,W k is a box, the reduced model is a strongly convex box-constrained quadratic program. Hence the inexact condition is attainable by standard feasible set, projected-gradient, or coordinate methods; see, e.g., [12], [26], [27]. 
+
+C. Globalization via proximal line search 
+
+The proposed globalization strategy aims to retain the nonsmooth pattern revealed by the Newton-type direction while ensuring sufficient decrease. A conventional line search uniformly damps the step and may therefore move coordinates away from kinks reached at xk + pk. We instead embed 
+
+pk into a specially constructed isotropic proximal surrogate constructed so that its initial trial returns xk + pk exactly. As backtracking increases the proximal curvature, coordinates that have reached kinks are encouraged to remain fixed there, while the remaining coordinates are gradually damped. For 
+
+pk 6 = 0 , define βk := pT    
+
+> kBkpk
+> ‖pk‖2
+
+, m ≤ βk ≤ M measures the normalized curvature of the quadratic model along pk.We choose vk ∈ ∂h (xk + pk) to minimize the endpoint stationarity residual 
+
+vk := proj ∂h (xk +pk ) (−gk − βkpk) , (24) which is componentwise projection onto the intervals in (18). Define 
+
+ck := −gk − βkpk − vk. (25) For any λ ≥ βk, the isotropic proximal surrogate used in backtracking is given by 
+
+zk(λ) = prox λ−1h
+
+(xk − λ−1(gk + ck))
+
+= arg min  
+
+> z
+
+h(z) + 〈gk + ck, z − xk〉 + λ
+
+2 ‖z − xk‖2 . (26) 
+
+Algorithm 1 Inexact Proximal Newton Method 
+
+Require: x0, γ > 1, η ∈ (0 , 1) , {νk}k≥0 with νk > 0,
+
+{ϑk}k≥0 with 0 ≤ ϑk ≤ ¯ϑ < 1/2, and ǫ > 0 
+
+> 1:
+
+for k = 0 , 1, . . . do  
+
+> 2:
+
+Evaluate gk and r(xk) 
+
+> 3:
+
+if ‖r(xk)‖ ≤ ǫ, return xk 
+
+> 4:
+
+Compute Wk, Nk, and {Ik,i , α k,i }i∈Wk via (17), (18), and (19)  
+
+> 5:
+
+Construct Bk satisfying (21)  
+
+> 6:
+
+Compute pk ∈ Ck satisfying (IC)  
+
+> 7:
+
+Backtrack to the first trial λk,j k satisfying (31)  
+
+> 8:
+
+xk+1 ← zk(λk,j k ) 
+
+> 9:
+
+end for 
+
+The first-order optimality condition for zk(λ) is 
+
+0 ∈ gk + ck + λ (zk(λ) − xk) + ∂h (zk(λ)) . (27) 
+
+Remark 1. At λ = βk, consider the candidate z = xk + pk.The corresponding condition becomes gk + ck + βkpk +
+
+∂h (xk +pk). By construction, gk +ck +βkpk +vk = 0 , vk ∈
+
+∂h (xk + pk). Hence, xk + pk satisfies the optimality condi-tion. Since the proximal subproblem has a unique minimizer, 
+
+zk(βk) = xk + pk and the full step is recovered. At each iteration, backtracking starts from λ = βk and increases λ geometrically, moving zk(λ) toward xk. For any fixed λ, Theorem 1 gives a closed form for (26) and reveals non-uniform damping that tends to preserve the nonsmooth pattern at the endpoint. Define 
+
+Dk := {i ∈ Wk : pk,i > 0, x k,i + pk,i = uk,i }∪ { i ∈ Wk : pk,i < 0, x k,i + pk,i = lk,i }, (28) and the composite first-order change ∆k(d) := 〈gk, d〉 +
+
+h(xk + d) − h(xk), and set σ(ϑ) := 1 − 14(1 −ϑ) , ¯σ =
+
+σ( ¯ϑ) > 1/2, where ¯ϑ < 1/2 is the uniform bound in (IC). Set 
+
+dk(λ) := zk(λ) − xk, ω k,i := sign( pk,i )( vk,i − αk,i ) ≥ 0.
+
+Theorem 1. Let pk ∈ Ck \ { 0} satisfy (IC) , and λ ≥ βk,then, for every i ∈ [n]
+
+dk,i (λ) = 
+
+
+
+βk
+
+λ pk,i , i / ∈ Dk,
+
+min 
+
+{
+
+1, βk + ωk,i /|pk,i |
+
+λ
+
+}
+
+pk,i , i ∈ Dk.
+
+(29) 
+
+Consequently, βk 
+
+> λ
+
+‖pk‖ ≤ ‖ dk(λ)‖ ≤ ‖ pk‖. For every i ∈ Dk,
+
+zk,i (λ) = yk,i exactly when λ ≤ βk + ωk,i /|pk,i |. Finally, the entire proximal path satisfies 
+
+∆k
+
+(dk(λ)) ≤ − ¯σλ ‖dk(λ)‖2. (30) 
+
+Proof. See Appendix B. The backtracking stops when a sufficient descent condition is satisfied. Given γ > 1 and η ∈ (0 , 1) , backtracking tests 
+
+λk,j = βkγj for j = 0 , 1, . . . and accepts the first value satisfying 
+
+F (zk(λk,j )) ≤ F (xk) − η λk,j 
+
+2 ‖dk(λk,j )‖2 . (31) For the accepted λk,j , set xk+1 = zk(λk,j ). Algorithm 1 summarizes the complete method. 6
+
+D. Algorithm properties 
+
+This section derives error and descent bounds under the inexact condition, shows the benefit of using curvature infor-mation to expand the working set, and proves finite termination of proximal backtracking. For p ∈ Ck, define the local quadratic model mk(p) := 〈ak, pWk 〉 + 12 ‖pWk ‖2
+
+> BWk
+
+.
+
+Lemma 2. Suppose (21) holds. Let pk ∈ Ck satisfy (IC) with the residual ek. Then p⋆k is unique and 
+
+∥∥pk,W k − p⋆k,W k
+
+∥∥BWk
+
+≤ ‖ ek‖(BWk )−1 (32) 
+
+0 ≤ mk (pk) − mk (p⋆k) ≤ 12 ‖ek‖2
+
+(BWk )−1 . (33) 
+
+Moreover, pk = 0 if and only if r(xk) = 0 .Proof. See Appendix C. We next clarify the role of the small-margin set Ek. The following two propositions show that its coordinates become nonzero only under sufficiently negative coupling and quantify the resulting model decrease, accounting for inexactness. 
+
+Proposition 2. Let p⋆k be the exact minimizer of (20) . For 
+
+j ∈ Ek , p⋆k,j 6 = 0 if and only if 
+
+−ξk,j 
+
+∑ 
+
+> i∈Wk\{ j}
+
+(Bk)ji p⋆k,i > δ k,j . (34) 
+
+Proof. See Appendix D. 
+
+Proposition 3. Let ̂ pk be the exact solution of the model where Ek = ∅,̂ pk = argmin   
+
+> p∈C k,pEk=0
+
+mk(p). Let p⋆k be the exact minimizer of (20) . Then 
+
+mk (̂ pk) − mk (p⋆k) ≥ 12
+
+∥∥̂ pk,W k − p⋆k,W k
+
+∥∥2
+
+> BWk
+
+≥ 0. (35) 
+
+Moreover mk (p⋆k) < m k (̂ pk) if and only if p⋆k,E k 6 = 0. For the computed inexact step pk, it further gives 
+
+mk (̂ pk) − mk (pk) ≥ 12
+
+(∥∥̂ pk,W k − p⋆k,W k
+
+∥∥2
+
+> BWk
+
+− ‖ ek‖2
+
+(BWk )−1
+
+)
+
+.
+
+(36) 
+
+Proof. See Appendix E. We show the backtracking is well-defined. 
+
+Theorem 2. Suppose Assumption 1 and condition (21) hold and let pk satisfy (IC) , then every λk,j ≥ L 
+
+> 2¯ σ−η
+
+satisfies the sufficient decrease condition (31) . Moreover, if λk is the accepted value, then βk ≤ λk ≤ ¯λ, where ¯λ =max 
+
+{
+
+M, γL 
+
+> 2¯ σ−η
+
+}
+
+. Consequently, βk 
+
+> λk
+
+≥ m 
+
+> ¯λ
+
+> 0.
+
+Proof. See Appendix F. IV. C ONVERGENCE ANALYSIS 
+
+This section analyzes convergence to stationary points, finite identification, and the local convergence rate of the proposed algorithm. We first establish a uniform descent bound for accepted steps and show that every accumulation point is stationary. The main difficulty is that a coordinate may approach a kink from either side. 
+
+Theorem 3. Suppose assumptions of Theorem 2 hold. Then 
+
+F (xk) − F (xk+1 ) ≥ ηm 2
+
+2¯λ ‖pk‖2. (37) 
+
+Consequently, ∑∞ 
+
+> k=0
+
+‖pk‖2 < ∞ and lim k→∞ ‖pk‖ =lim k→∞ ‖dk‖ = lim k→∞ ‖ek‖ = 0 . Moreover, every accu-mulation point of {xk} is stationary. In particular, 
+
+dist( xk, X ) → 0. (38) 
+
+Proof. See Appendix G. Theorem 3 ensures that every accumulation point is sta-tionary, but it does not yet guarantee convergence to a single stationary point or finite stabilization of the polyhedral struc-ture. 
+
+A. Finite identification 
+
+The identification analysis has two steps. First, we use strict complementarity and reduced-Hessian non-singularity to iso-late x⋆, which upgrades sub-sequential convergence to conver-gence of the full sequence. Second, the strict-complementarity margin, together with our proximal update (26), forces every coordinate in Z⋆ to reach its limiting kink in finitely many iterations and prevents it from being moved again. The analysis is inspired by [28]. We first recall some basic definitions and introduce the assumptions. Let x⋆ be an accumulation point of xk. Then x⋆ ∈ X by Theorem 3. Recall the free and active index sets i⋆ /∈ B , Z⋆ = [ n] \ S⋆. For each i ∈ S⋆, let 
+
+I⋆i denote the open affine interval of hi containing x⋆i . For the limiting kink coordinates, define the strict-complementarity margin 
+
+∆⋆ := 
+
+{
+
+min i∈Z⋆ {F ′ (x⋆; ei) , F ′ (x⋆; −ei)} , Z⋆ 6 = ∅,
+
++∞, Z⋆ = ∅.
+
+Since x⋆ is stationary, ∆⋆ ≥ 0.
+
+Assumption 2. Let x⋆ be an accumulation point of xk and 
+
+q be twice continuously differentiable on a neighborhood of 
+
+x⋆. The following conditions hold (i) ∆⋆ > 0, and lim sup k→∞ νk < ∆⋆.
+
+(ii) The reduced Hessian satisfies ker ( HS⋆S⋆ (x⋆)) = {0}.The condition ∆⋆ > 0 is equivalent to strict complemen-tarity at every kink coordinate of a selected accumulation point. This ensures a positive margin on either side of each kink. lim sup k→∞ νk < ∆⋆ ensures, near x⋆, a limiting kink coordinate cannot enter either Vk or Ek. Non-singularity of the reduced Hessian locally isolates the stationary point on the free coordinates. The reduced Hessian may still be indefinite. 
+
+Proposition 4. Suppose that Assumptions 1 and 2 hold. Then 
+
+x⋆ is an isolated stationary point, and the entire sequence 
+
+{xk} converges to x⋆.Proof. See Appendix H. Define the limiting active manifold 
+
+M⋆ := {x ∈ Rn | xZ⋆ = x⋆Z⋆ , x i ∈ I⋆i ∀i ∈ S⋆} .7
+
+> SPIN IRPNM OESOM ANCG
+
+(a) 
+
+> SPIN IRPNM OESOM ANCG
+
+(b) 
+
+> SPIN IRPNM OESOM ANCG
+
+(c) 
+
+> SPIN IRPNM OESOM ANCG
+
+(d) 
+
+> SPIN IRPNM OESOM ANCG
+
+(e) Fig. 1. Convergence trajectories for five test cases. The top and middle rows show ‖Gσ (xk )‖ versus iteration count and time in seconds, respectively, while the bottom row shows F (xk ) versus time. (a) Default setting. (b) Distant initialization with x0 = 10 × rand() . (c) Larger problem with m = 1000 ,
+
+n = 3000 , and κ = 100 . (d) Smaller regularization parameter with ζ = 0 .01 ‖A⊤b‖∞. (e) Denser x⋆ with κ = 160 .
+
+The next theorem shows that the algorithm reaches this man-ifold in finitely many iterations and thereafter works only on the smooth coordinates. 
+
+Theorem 4. Suppose that Assumptions 1 and 2 hold. Then there exists Kid < ∞ such that, for every k ≥ Kid , xk ∈ M ⋆.Proof. See Appendix I. 
+
+B. Local convergence rate 
+
+Once the active manifold is identified, the method reduces to an inexact Newton scheme for the reduced smooth problem. Under a directional Dennis–Mor´ e condition on the identified smooth coordinates and negligible inexactness relative to the step, we establish local superlinear convergence. For brevity, we use the following notation throughout this section. Write 
+
+α⋆S⋆ := (h′
+
+> i
+
+(x⋆i )) 
+
+> i∈S⋆
+
+, and rSk := gk,S ⋆ + α⋆S⋆ , pSk := 
+
+pk,S ⋆ , eSk := ek,S ⋆ , and BSk := (Bk)S⋆ S⋆ , HSk := (Hk)S⋆ S⋆ , HS⋆ := HS⋆S⋆ (x⋆).
+
+Assumption 3. Along the non-stationary iterations after iden-tification, 
+
+‖eSk ‖‖pSk ‖ → 0, ‖(BSk − HSk )pSk ‖‖pSk ‖ → 0.
+
+Theorem 5. Suppose Assumptions 1–3 hold. Then there exists 
+
+Kfull < ∞ such that the full step is accepted λk = βk and 
+
+xk+1 = xk + pk for k ≥ Kfull . Moreover, 
+
+lim 
+
+> k→∞
+
+‖xk+1 − x⋆‖‖xk − x⋆‖ = 0 . (39) 
+
+Proof. See Appendix J. V. N UMERICAL RESULTS 
+
+We evaluate the efficiency and robustness of the proposed method (SPIN) in three sets of experiments. We first use LASSO problems under varied settings to assess robustness and scalability. We then study nonconvex sparse models with convex or nonconvex smooth losses and SCAD, MCP, or CEL0 penalties, comparing convergence speed and stationary-point quality. Finally, we evaluate the method on ridge-regularized hinge-loss SVMs using public datasets. We com-pare the proposed algorithm with IRPNM [13], OESOM [19], and ANCG [24], which represent the main second-order approaches reviewed in Section I-A. Comparisons with first-order methods have been reported in these studies and are not repeated here. We measure stationarity using the residual in (14) and terminate each algorithm when ‖Gσ(xk)‖ < tol .We typically set tol < 10 −8 for high accuracy, adjusting it by test when needed. We set σ to the Lipschitz constant of ∇q.For each baseline, we use the recommended settings or code defaults. For SPIN, we set νk = max {10 −5, ‖Gσ (xk)‖0.5},
+
+¯ϑ = 0 .25 , ϑk = min 
+
+{ ¯ϑ, ‖Gσ (xk)‖0.5}
+
+, γ = 2 , and η =10 −4. Bk = Hk + max {0, 0.05 − λmin (Hk)} I. The box-constrained QP (20) is solved by projected gradient initialized at zero, maintaining feasibility by projection onto Ck. All tested algorithms share the same initial point x0.
+
+A. Convex sparse recovery 
+
+We consider the convex sparse recovery 
+
+min 
+
+> x∈Rn
+
+12 ‖Ax − b‖22 + ζ‖x‖1, (40) where A ∈ Rm×n, and ζ > 0. In the default setting shown in Figure 1(a), A ∈ R400 ×800 has i.i.d. Gaussian entries 8          
+
+> (a) (b) (c) (d) Fig. 2. Convergence of 6 nonconvex models. Rows show SCAD, MCP, and CEL0 from top to bottom. Columns (a) and (b) plot ‖Gσ(xk)‖against outer iteration count and elapsed time, respectively, for the convex least-squares loss. Columns (c) and (d) show the corresponding results for the nonconvex Cauchy loss. Results for each loss–penalty pair are aggregated over 60 independent realizations. Solid curves show the median across realizations at each iteration or aligned time point, and shaded bands span the corresponding 25th–75th percentiles.
+
+with mean zero and variance 0.01 . The true signal x⋆ has 
+
+κ = 40 nonzero entries with values sampled using Julia’s 
+
+rand() function. The same random function is used to generate x0. We choose b = Ax ⋆ + ǫ where components of ǫ are i.i.d Gaussian noises with a standard deviation 0.01 .The regularization parameter is ζ = 0 .1‖A⊤b‖∞.Figure 1 compares the convergence behavior of the pro-posed method and the baselines across five cases that vary the initialization, problem size, regularization parameter, and ground-truth sparsity. SPIN converges rapidly in both iteration count and runtime and remains robust across problem settings, whereas each baseline is sensitive to at least one problem factor. ANCG performs comparably to SPIN in panels (a), (c), and (e), but slows substantially under a distant initialization or small ζ, as shown in panels (b) and (d). In these cases, it requires many iterations to identify the correct active set. SPIN typically does so in only a few iterations. 
+
+B. Nonconvex sparse recovery 
+
+We next consider six nonconvex models of the form 
+
+min  
+
+> x∈Rn
+
+˜qℓ(x) + 
+
+> n
+
+∑
+
+> i=1
+
+φp(|xi|), (41) where ℓ indexes the least-squares ( LS ) and Cauchy ( Cau )losses, p indexes the SCAD, MCP, and CEL0 penalties, and all six pairings are considered. The least-squares loss ˜qLS takes the form given in (40), while the Cauchy loss is defined by 
+
+˜qCau (x) = 1
+
+m
+
+> m
+
+∑
+
+> j=1
+
+δ2
+
+2 log 
+
+(
+
+1 + (a⊤ 
+
+> j
+
+x − bj )2
+
+δ2
+
+)
+
+, (42) where a⊤ 
+
+> j
+
+denotes the jth row of A. The Cauchy loss limits the influence of large residuals and is nonconvex because its scalar loss has negative curvature whenever |a⊤ 
+
+> j
+
+x − bj | > δ .Problem (41) can be directly cast in the form (1) handled by all tested algorithms using objective decompositions described in Section I. The common experimental setup is summarized as follows. For each realization, we generate A ∈ R200 ×300 
+
+with independent standard Gaussian entries and normalize each column to have Euclidean norm √m. The ground-truth signal x⋆ has κ = 30 randomly selected nonzero entries with values 2zi, where zi are independently sampled from N (0 , 1) .The observation is generated as b = Ax ⋆ + ǫ, where ǫj are independently sampled from N (0 , 0.05 2). For the Cauchy-loss models, we further contaminate 15% of the observations by adding perturbations of magnitude 10 with random signs. We set δ = 0 .5 and ζ = 0 .2 ‖∇ ˜qℓ(0)‖∞. We use μi = ζ and 
+
+ai = 3 .7 for SCAD, and μi = ζ and γi = 3 for MCP. For CEL0, the column normalization and 1/m loss scaling imply di = 1 , so we set μ = ζ2/2, yielding di
+
+√2μ = ζ. For each loss–penalty combination, we generate 60 independent 9
+
+TABLE II PERFORMANCE COMPARISON OF THE SOLVERS FOR SVM 
+
+> CLASSIFICATION ON REAL
+
+-WORLD DATASETS .                                                                                                                                                                                                                                                                                                                   
+
+> Dataset
+> (ntr , d )Algo. Total
+> k/t (s)
+> Identification
+> k/t (s)
+> australian
+> (483 ,14)
+> SPIN 7/0.092 6/0.079
+> IRPNM 9 / 0.692 6/0.361
+> OESOM 44 / 0.294 18 / 0.125
+> ANCG 146 / 0.193 146 / 0.193
+> diabetes
+> (538 ,8)
+> SPIN 10 /0.241 9 / 0.215
+> IRPNM 10 /1.332 6/0.586
+> OESOM 46 / 0.424 20 / 0.213
+> ANCG 124 / 0.297 123 / 0.294
+> fourclass
+> (603 ,2)
+> SPIN 11 /0.597 10 / 0.539
+> IRPNM 13 / 2.785 7/1.049
+> OESOM 56 / 0.534 15 / 0.139
+> ANCG 84 / 0.179 84 / 0.179
+> german
+> (700 ,24)
+> SPIN 7/0.320 6/0.307
+> IRPNM 9 / 1.852 7 / 1.195
+> OESOM 61 / 0.824 34 / 0.476
+> ANCG 148 / 0.648 148 / 0.648
+> ionosphere
+> (246 ,33)
+> SPIN 6/0.020 5 / 0.016
+> IRPNM 9 / 0.150 4/0.046
+> OESOM 38 / 0.082 12 / 0.025
+> ANCG 62 / 0.017 61 / 0.017
+> splice
+> (700 ,60)
+> SPIN 5/0.240 5/0.240
+> IRPNM 10 / 2.421 5/0.849
+> OESOM 39 / 0.500 10 / 0.127
+> ANCG 34 / 0.098 34 / 0.098
+> leukemia
+> (51 ,7129)
+> SPIN 3/1.66 ×10 −43/1.66 ×10 −4
+> IRPNM 6 / 8.24 ×10 −44 / 5.06 ×10 −4
+> OESOM 211 / 0.0063 30 / 8.58 ×10 −4
+> ANCG 11 / 2.02 ×10 −410 / 1.87 ×10 −4
+> a1a
+> (1123 ,110)
+> SPIN 7/0.727 6/0.635
+> IRPNM 9 / 3.603 6/1.833
+> OESOM 50 / 1.389 11 / 0.310
+> ANCG 75 / 0.403 74 / 0.394
+> svmguide3
+> (899 ,21)
+> SPIN 8/0.664 7/0.612
+> IRPNM 14 / 6.998 8 / 2.806
+> OESOM 41 / 0.786 17 / 0.328
+> ANCG 77 / 0.742 77 / 0.742
+> dna-ovr
+> (1400 ,180)
+> SPIN 3/2.511 3/2.511
+> IRPNM 14 / 13 .66 6 / 3.401
+> OESOM 56 / 3.073 9 / 0.454
+> ANCG 130 / 0.967 129 / 0.832
+> vehicle-ovr
+> (592 ,18)
+> SPIN 8/0.358 8 / 0.358
+> IRPNM 10 / 1.752 6/0.890
+> OESOM 41 / 0.489 13 / 0.172
+> ANCG 61 / 0.456 60 / 0.452
+> vowel-ovr
+> (693 ,10)
+> SPIN 13 / 0.772 12 / 0.726
+> IRPNM 12 /3.477 8/1.953
+> OESOM 68 / 1.286 27 / 0.360
+> ANCG 168 / 1.136 168 / 1.136
+> svmguide1
+> (4962 ,4)
+> SPIN 10 /22 .89 / 20 .9
+> IRPNM 13 / 154 7/62 .5
+> OESOM 50 / 35 .914 / 9.7
+> ANCG 124 / 27 .0123 / 26 .6
+> mushrooms
+> (5687 ,112)
+> SPIN 6/29 .75/25 .4
+> IRPNM 10 / 106 5/42 .9
+> OESOM 42 / 31 .310 / 7.04
+> ANCG 138 / 32 .8137 / 32 .6
+> phishing
+> (7739 ,68)
+> SPIN 8/31 .68 / 31 .6
+> IRPNM 12 / 244 6/98 .2
+> OESOM 55 / 71 .315 / 18 .9
+> ANCG 80 / 25 .179 / 24 .9
+
+realizations. Within each realization, all methods use the same data and the random initialization. Figure 2 examines convergence on six nonconvex models under a relatively benign regularization setting, using 60 inde-pendent realizations per model. SPIN converges consistently across all cases. Figure 3 compares the quality of the local solutions returned by the algorithms through their cumulative success rates over 60 realizations. For an algorithm, realization 
+
+r is successful at tolerance ǫ if its final iterate x satisfies 
+
+‖Gσ(x)‖ ≤ 10 −6, and (F (x) − F best 
+
+> r
+
+) /max {1, |F best  
+
+> r
+
+|} ≤ 
+
+ǫ, where F best  
+
+> r
+
+is the lowest final objective attained on real-ization r by any method satisfying the stationarity criterion. 
+
+C. Cost-Sensitive Kernel SVMs 
+
+We finally consider the cost-sensitive kernel SVM 
+
+min   
+
+> f∈H K, b ∈R
+
+λf
+
+2 ‖f ‖2 
+
+> HK
+
++ λb
+
+2 b2 +
+
+> n
+
+∑
+
+> i=1
+
+Ci
+
+[ρi − yi
+
+(f (ai) + b)] 
+
+> +
+
+,
+
+where HK is the RKHS induced by an RBF kernel, Ci are class-balanced weights, and ρi are class-dependent margin targets. Following the change-of-variable strategy in Section I, the problem is cast into the composite form (1) for all tested methods. We use 15 public datasets from the LIBSVM Data repository [29], retaining all samples and applying stratified 
+
+70 /30 training–test splits. Multiclass datasets are converted into one-vs-rest binary classification tasks. Features are stan-dardized using the training data, and the kernel bandwidth is selected by the median-distance rule. We set λf = λb = 10 −2
+
+and ρi = 1 .25 for the minority class and ρi = 1 otherwise. Table II reports the iteration counts and times required to satisfy ‖Gσ(x)‖ ≤ 10 −7 and identify the final active set. VI. C ONCLUSION 
+
+We proposed an inexact proximal quasi-Newton method that combines active-set identification with Newton-type accelera-tion for nonconvex composite problems with separable convex polyhedral terms. It predicts the working set using first-order tests and Hessian coupling, then solves a constrained quadratic model inexactly while enforcing the structure constraints ex-actly. A proximal line search globalizes the step and tends to preserve the nonsmooth structure reached at the model endpoint. We proved finite termination of backtracking and stationarity of every accumulation point. Under strict com-plementarity and nonsingularity of the reduced Hessian, the full sequence converges and identifies the active manifold in finitely many iterations. A directional Dennis–Mor´ e condition and vanishing inexactness further guarantee eventual full-step acceptance and local Q-superlinear convergence. Numerical experiments demonstrate the practical effectiveness of the method on the tested problems. APPENDIX APROOF OF LEMMA 1
+
+Proof. The normal cone of a Cartesian box is the product of its scalar normal cones. For a nondegenerate interval, the scalar normal is {0} in the interior, (−∞ , 0] at the lower endpoint, and [0 , +∞) at the upper endpoint. Therefore the Euclidean projection of −qi onto the scalar normal leaves the residual qi, min {qi, 0}, or max {qi, 0}, respectively. A degenerate interval has normal cone R and hence zero residual. Squaring and summing the coordinate-wise distances proves (23). The bounded BWk gives εk (pk) ≤ m−1/2 ‖Ek‖ ≤
+
+ϑk
+
+√m ‖pk,W k ‖ ≤ ϑk ‖pk,W k ‖BWk
+
+, which is (IC). APPENDIX BPROOF OF THEOREM 1
+
+Proof. Since h is separable, (26) decomposes into independent scalar subproblems. Fix i and, for brevity, write x = xk,i , p =10        
+
+> Fig. 3. Cumulative success rates for three nonconvex models. Left :LS + CEL0 .Middle :Cauchy + SCAD .Right :Cauchy + MCP .
+
+pk,i , y = x + p, z = zk,i (λ), v = vk,i . By the definition of 
+
+ck, the scalar optimality condition is 
+
+0 ∈ λ(z − x) − βkp + ∂h i(z) − v. (43) If p = 0 , then v ∈ ∂h i(x), so z = x satisfies this condition and is therefore the unique scalar proximal minimizer. If p 6 = 0 ,monotonicity of ∂h i implies 
+
+0 ≤ sign( p)( z − x − βk
+
+λ p) ≤ sign( p)( y − x − βk
+
+λ p).
+
+Indeed, if sign( p)( z−x− βk 
+
+> λ
+
+p) < 0, then sign( p)( ζ−v) ≤ 0 for every ζ ∈ ∂h i(z). If sign( p)( z−y) > 0, then sign( p)( ζ −v) ≥
+
+0. Either case contradicts the preceding inclusion. Thus, z lies between x + βk 
+
+> λ
+
+p and x + p.If i / ∈ Dk, this segment lies in the affine interval and v =
+
+αk,i which gives z = x + βk 
+
+> λ
+
+p. Now let i ∈ Dk. There exists 
+
+κk,i ≥ 0 at y such that 
+
+∂h i(y) = αk,i + sign( p)[0 , κ k,i ], v = αk,i + sign( p)ωk,i .
+
+The endpoint z = y is optimal exactly when v − sign( p)( λ −
+
+βk)|p| ∈ ∂h i(y), which is equivalent to λ ≤ βk + ωk,i /|pk,i |.Otherwise, z lies strictly before y, where ∂h i(z) = {αk,i },and hence 
+
+z − x = βk + ωk,i /|p|
+
+λ p. 
+
+This proves (29) and all stated geometric consequences. As-sume (IC) holds. Exact structure feasibility gives ∆k(pk) = 
+
+a⊤ 
+
+> k
+
+pk,W k . Taking the inner product of 
+
+ek = ak + BWk pk,W k + nk
+
+with pk,W k , and using n⊤ 
+
+> k
+
+pk,W k ≥ 0, gives 
+
+∆k(pk) = 〈ek, pk,W k 〉 − ‖ pk,W k ‖2
+
+> BWk
+
+− 〈 nk, pk,W k 〉≤ − (1 − ϑk)‖pk,W k ‖2
+
+> BWk
+
+= −(1 − ϑk)βk‖pk‖2.
+
+(44) We next build the bound on dk(λ) to show (30). For i ∈ Dk,define 
+
+ρk,i := min 
+
+{( 
+
+1 − βk
+
+λ
+
+)
+
+|p|, ωk,i 
+
+λ
+
+}
+
+,
+
+and set ρk,i = 0 for i / ∈ Dk. The coordinate formula gives 
+
+dk(λ) = βk
+
+λ pk + ∑
+
+> i∈Dk
+
+sign( p)ρk,i ei.
+
+All coordinates remain in the selected interval so 
+
+∆k
+
+(dk(λ)) = βk
+
+λ ∆k(pk) + ∑
+
+> i∈Dk
+
+sign( p)( gk,i + αk,i )ρk,i .
+
+For i ∈ Dk with ρk,i > 0, the definition of vk,i (24) gives 
+
+sign( p)( gk,i + βkp + vk,i ) ≤ 0. Hence 
+
+− sign( p) ( gk,i + αk,i ) = βk |p| + ωk,i − sign( p)( gk,i + βkp + vk,i )
+
+≥ βk |p| + λρ k,i . (45) For a, b ≥ 0 and 0 ≤ ϑ < 1/2,
+
+(1 − ϑ)a2 + ab + b2 (46) 
+
+= σ(ϑ)( a + b)2 + ((1 − 2ϑ)a − b)2
+
+4(1 − ϑ) ≥ σ(ϑ)( a + b)2.
+
+Apply (46) coordinate-wise with a = (βk/λ ) |p| and 
+
+b = ρk,i , using (44)–(45). Summation gives ∆k(dk(λ)) ≤−σ(ϑk)λ ‖dk(λ)‖2. Since ϑk ≤ ϑ < 12 and σ(ϑ) is decreasing on [0 , 1/2) , (30) follows. APPENDIX CPROOF OF LEMMA 2
+
+Proof. Since BWk  mI, the reduced model is strongly convex, hence p⋆k,W k is unique. Choose n⋆k satisfying ak +
+
+BWk p⋆k +n⋆k = 0 . The definition of ek and using monotonicity of the normal cone gives 
+
+〈ek, pk,W k − p⋆k,W k
+
+〉 = ∥∥pk,W k − p⋆k,W k
+
+∥∥2
+
+> BWk
+
++ 〈nk − n⋆k, pk,W k − p⋆k,W k
+
+〉 ≥ ∥∥pk,W k − p⋆k,W k
+
+∥∥2
+
+> BWk
+
+.
+
+Cauchy-Schwarz in BWk -metric therefore yields (32). Next, define φ(w) := a⊤ 
+
+> k
+
+w+ 12 w⊤BWk w+ιCk,W k (w). The function is one-strongly convex in the BWk norm and ek ∈ ∂φ (pk,W k ).Hence 
+
+mk (pk) − mk (p⋆k) ≤ 〈ek, pk,W k − p⋆k,W k
+
+〉
+
+− 12
+
+∥∥pk,W k − p⋆k,W k
+
+∥∥2
+
+> BWk
+
+≤ 12 ‖ek‖2
+
+(BWk )−1 , (47) where the last inequality is Young’s inequality. We then show the stationarity equivalence. Suppose first that r (xk) = 0. Then −gk ∈ ∂h (xk). By convexity of h,
+
+h (xk + pk) − h (xk) ≥ − 〈 gk, pk〉, and hence ∆k (pk) ≥ 0.Combining this inequality with the preceding descent estimate 11 
+
+gives 0 ≤ ∆k (pk) ≤ − (1 − ϑk) ‖pk,W k ‖2
+
+> BWk
+
+Therefore 
+
+pk,W k = 0. Since feasibility also imposes pk,N k = 0, it follows that pk = 0. Conversely, suppose that pk = 0.(IC) yields εk(0) = 0 , so the origin satisfies the exact KKT conditions of the reduced box model. For every i ∈ Sk, the origin is an interior point of the displacement interval, and therefore gk,i + αk,i = 0 . Now suppose, for contradiction, that δk,i < 0 for some i ∈ Zk. Then i ∈ Vk ⊆ Jk, so this coordinate is included in the working set. At a selected kink coordinate, the scalar KKT condition at the endpoint pi = 0 
+
+is ξk,i (gk,i + αk,i ) = δk,i ≥ 0 contradicting δk,i < 0. Thus 
+
+δk,i ≥ 0 for every i ∈ Zk. Based on the definition of δk,i ,both directional derivatives are nonnegative. Together with the equalities on Sk, Proposition 1 gives r (xk) = 0.APPENDIX DPROOF OF PROPOSITION 2
+
+Proof. Fix j ∈ Ek. Because j is released only in the selected direction ξk,j , its feasible displacement is pj = ξk,j t with 
+
+t ≥ 0. Hold all the other components fixed at their optimal values p⋆k,i . As a function of t, the terms of the quadratic model involving coordinate j are 
+
+φj (t) = 
+
+δk,j + ξk,j 
+
+∑ 
+
+> i∈Wk\{ j}
+
+(Bk)ji p⋆k,i 
+
+ t + 12 (Bk)jj t2.
+
+The function φj is strictly convex, so its minimizer satisfies 
+
+t > 0 exactly when its derivative at the origin is negative 
+
+φ′ 
+
+> j
+
+(0) = δk,j + ξk,j 
+
+∑ 
+
+> i∈Wk\{ j}
+
+(Bk)ji p⋆k,i < 0. (48) Because p⋆k,j = ξk,j t, this condition is equivalent to (34). APPENDIX EPROOF OF PROPOSITION 3
+
+Proof. For any q ∈ Ck , the quadratic expansion of mk around 
+
+p⋆k gives 
+
+mk(q) − mk (p⋆k) = 〈∇mk (p⋆k)Wk , qWk − p⋆k,W k
+
+〉
+
++ 12
+
+∥∥qWk − p⋆k,W k
+
+∥∥2
+
+> BWk
+
+. (49) Because p⋆k minimizes (20), we have 〈
+
+∇mk (p⋆k)Wk , qWk − p⋆k,W k
+
+〉
+
+≥ 0. Taking q =̂ pk
+
+yields mk (̂pk) − mk (p⋆k) ≥ 12
+
+∥∥∥̂ pk,W k − p⋆k,W k
+
+∥∥∥2
+
+> BWk
+
+.Suppose p⋆k,E k 6 = 0. Then p⋆k is not feasible for the empty 
+
+Ek model, so ̂ pk 6 = p⋆k. Strong convexity therefore makes 
+
+mk (p⋆k) < m k (̂pk) . (50) Finally, using (33) and mk (̂pk) − mk (pk) =[mk (̂pk) − mk (p⋆k)] − [mk (pk) − mk (p⋆k)] proves (36). APPENDIX FPROOF OF THEOREM 2
+
+Proof. For any trial value λ ≥ βk, the Lipschitz continuity of 
+
+∇q and the path-descent estimate (30) give 
+
+F (zk(λ)) − F (xk) ≤ ∆k (dk(λ)) + L
+
+2 ‖dk(λ)‖2
+
+≤ − 
+
+(
+
+¯σλ − L
+
+2
+
+)
+
+‖dk(λ)‖2 .
+
+If λ ≥ L 
+
+> 2¯ σ−η
+
+, then ¯σλ − L 
+
+> 2
+
+≥ ηλ  
+
+> 2
+
+. Hence, (31) holds. Since the trial values are λk,j = βkγj , γ > 1, they eventually exceed the required threshold. Thus, backtracking terminates finitely. If βk already exceeds the threshold, the first trial is accepted and λk = βk ≤ M. Otherwise, the first trial exceeding the threshold is smaller than γL  
+
+> 2¯ σ−η
+
+. Therefore, λk ≤
+
+max 
+
+{
+
+M, γL 
+
+> 2¯ σ−η
+
+}
+
+= ¯λ. Finally, since βk ≥ m, βk 
+
+> λk
+
+≥ m 
+
+> ¯λ
+
+> 0.
+
+This completes the proof. APPENDIX GPROOF OF THEOREM 3
+
+Proof. The acceptance condition (31), The path bound (29), and the uniform bound λk ≤ ¯λ from Theorem (2) give 
+
+F (xk) − F (xk+1 ) ≥ ηλ k
+
+2 ‖dk‖2 ≥ ηλ k
+
+2
+
+( βk
+
+λk
+
+)2
+
+‖pk‖2
+
+= ηβ 2
+
+> k
+
+2λk
+
+‖pk‖2 ≥ ηm 2
+
+2¯λ ‖pk‖2.
+
+This proves (37). Since F (xk) is nonincreasing and bounded below, ∑∞ 
+
+> k=0
+
+‖pk‖2 < ∞ and hence pk → 0. (30) and (IC) imply ‖dk‖ ≤ ‖ pk‖ → 0 and ‖ek‖ ≤ M ϑ k‖pk‖ → 0. It remains to prove stationarity. Let xkj → ¯x be any convergent subsequence, and define yk := xk + pk. Then ykj → ¯x, and 
+
+xkj +1 → ¯x.
+
+Fix a coordinate i. If ¯xi /∈ B , then, for all sufficiently large j,both xkj ,i and ykj ,i lie in the interior of the same affine interval of hi. The corresponding normal component is therefore zero, and the model residual relation gives 
+
+ekj ,i = gi(xkj ) + h′
+
+> i
+
+(¯ xi) + ( Bkj pkj )i.
+
+Since ‖BWkj ‖ ≤ M , passing to the limit yields gi( ¯ x) + 
+
+h′
+
+> i
+
+(¯ xi) = 0 .Now suppose that ¯xi = b ∈ B . We show that ξ(gi( ¯ x) + 
+
+h′
+
+> i,ξ
+
+(b)) ≥ 0, ξ ∈ {− 1, +1 }. Assume, to the contrary, that for some ξ ∈ {− 1, +1 },
+
+ξ(gi( ¯ x) + h′
+
+> i,ξ
+
+(b)) < 0. (51) After passing to a further subsequence, either ξ(xkj ,i − b) ≥ 0
+
+for every j, or ξ(xkj ,i − b) < 0 for every j. Consider first the case. For all sufficiently large j, the selected interval has slope h′
+
+> i,ξ
+
+(b). Moreover, since pkj → 0, the model point cannot reach the far endpoint of this interval. Hence the corresponding normal component satisfies ξn kj ,i ≤ 0.
+
+Multiplying the coordinate residual relation by ξ gives 
+
+ξe kj ,i ≤ ξ(gi(xkj ) + h′ 
+
+> i,ξ
+
+(b)) + M ‖pkj ‖. (52) 12 
+
+The right-hand side converges to the negative quantity in (51), contradicting ekj → 0. For the second case, if ykj ,i 6 = b along an infinite subsequence, then, for all sufficiently large j, the model point lies in the interior of the opposite affine interval. Its normal component is zero, and its slope is h′
+
+> i, −ξ
+
+(b).Convexity of hi gives ξh ′
+
+> i, −ξ
+
+(b) ≤ ξh ′ 
+
+> i,ξ
+
+(b). Therefore, (52) is obtained which again contradicts (51). Consequently, ykj ,i = b
+
+for all sufficiently large j, and sign( pkj ,i ) = ξ. 
+
+Since βkj ≤ M and pkj ,i → 0, condition (51) implies 
+
+ξ (−gi(xkj ) − βkj pkj ,i − h′
+
+> i,ξ
+
+(b)) > 0
+
+for all sufficiently large j. Hence the projection in (24) selects the endpoint subgradient vkj ,i = h′ 
+
+> i,ξ
+
+(b). It follows that 
+
+ωkj ,i = ξ (h′ 
+
+> i,ξ
+
+(b) − h′ 
+
+> i, −ξ
+
+(b)) = h′
+
+> i, +
+
+(b) − h′
+
+> i, −
+
+(b) > 0.
+
+Because λkj ≤ ¯λ and pkj ,i → 0, we eventually have 
+
+λkj ≤ βkj + ωkj ,i 
+
+|pkj ,i | .
+
+Theorem 1 therefore gives xkj +1 ,i = b. Applying the first case to the shifted subsequence {xkj +1 } yields the same contradiction. Thus both one-sided directional derivatives are nonnegative at every kink coordinate. Together with the equality obtained at smooth coordinates, Proposition 1 gives 
+
+0 ∈ ∂F ( ¯ x). Hence every accumulation point is stationary. Finally, suppose that (38) fails. Then there exist ε > 0 and a subsequence satisfying dist( xkj , X ) ≥ ε. All iterates lie in the compact initial sublevel set, so a further subsequence converges to some ¯x. The preceding argument gives ¯x ∈ X ,and therefore dist( xkj , X ) ≤ ‖ xkj − ¯x‖ → 0, a contradiction. This proves (38). APPENDIX HPROOF OF PROPOSITION 4
+
+Proof. We first prove that x⋆ is isolated. For every i ∈ Z⋆,strict complementarity gives gi(x⋆) + h′
+
+> i, +
+
+(x⋆i ) > 0, and 
+
+gi(x⋆) + h′
+
+> i, −
+
+(x⋆i ) < 0. After shrinking a neighborhood of x⋆,these inequalities remain valid, and x⋆i is the only kink of hi
+
+in that neighborhood. Let x be a stationary point in this neigh-borhood. If xi > x ⋆i , stationarity requires gi(x)+ h′
+
+> i, +
+
+(x⋆i ) = 0 
+
+contradicting the first strict inequality. If xi < x ⋆i , stationarity similarly requires gi(x) + h′
+
+> i, −
+
+(x⋆i ) = 0 contradicting the second strict inequality. Hence every nearby stationary point satisfies xZ⋆ = x⋆Z⋆ . If S⋆ = ∅, local uniqueness follows immediately. Otherwise, shrink the neighborhood further so that xi ∈ I⋆i for every i ∈ S⋆. Define α⋆S⋆ := ( h′
+
+> i
+
+(x⋆i )) i∈S⋆ ,and define the reduced stationarity mapping 
+
+R(u) := gS⋆ (ES⋆ u + EZ⋆ x⋆Z⋆ ) + α⋆S⋆ . (53) Then R(x⋆S⋆ ) = 0 and ∇R(x⋆S⋆ ) = HS⋆S⋆ (x⋆). The reduced Hessian is nonsingular, so the inverse function theorem implies that x⋆ is the unique nearby zero of R. Thus x⋆ is isolated in X .It remains to prove convergence of the full sequence. The iterates remain in the compact initial sublevel set. By Theorem 3, ‖xk+1 − xk‖ → 0 and every accumulation point belongs to X . By the standard connected cluster-set result for bounded sequences with vanishing successive differences [30], the cluster set Ω of {xk} is nonempty, compact, and con-nected. Because x⋆ ∈ Ω ⊆ X and x⋆ is isolated in X , the singleton {x⋆} is both relatively open and relatively closed in Ω. Connectedness therefore implies Ω = {x⋆}. Hence, 
+
+xk → x⋆.
+
+APPENDIX IPROOF OF THEOREM 4
+
+Proof. Proposition 4 and Theorems 2 and 3 give xk →
+
+x⋆, pk → 0, βk ≤ M, λk ≤ ¯λ. Hence xk,i ∈ I⋆i for every i ∈ S⋆ and all sufficiently large k. If Z⋆ = ∅, the conclusion follows immediately. Hence assume Z⋆ 6 = ∅. Set 
+
+yk = xk + pk. Strict complementarity, continuity of g, and 
+
+lim sup k→∞ νk < ∆⋆ imply that there exist ε > 0 and K0
+
+such that, for every k ≥ K0 and i ∈ Z⋆,
+
+min {gk,i + h′
+
+> i, +
+
+(x⋆i ), −gk,i − h′
+
+> i, −
+
+(x⋆i )} − νk ≥ 2ε, 
+
+‖ek‖ + M ‖pk‖ < ε. 
+
+Increase K0, if necessary, so that neither xk,i nor yk,i can reach a breakpoint other than x⋆i .Fix i ∈ Z⋆ and k ≥ K0. First suppose xk,i 6 = x⋆i and let 
+
+sk,i := sign( xk,i − x⋆i ). Then i ∈ Sk, and the slope of its current interval is αk,i = h′ 
+
+> i,s k,i
+
+(x⋆i ). The preceding margin therefore gives sk,i (gk,i + αk,i ) ≥ 2ε. We claim that yk,i =
+
+x⋆i . Otherwise, yk,i lies in the interior of the current affine interval, so the corresponding normal component is zero. The coordinate residual equation then gives 
+
+2ε ≤ sk,i (gk,i + αk,i ) ≤ | ek,i | + |(Bkpk)i|≤ ‖ ek‖ + M ‖pk‖ < ε, 
+
+which is impossible. Hence yk,i = x⋆i , p k,i = x⋆i − xk,i , and therefore i ∈ Dk.Since strict complementarity gives −gi(x⋆) ∈ ri ∂h i(x⋆i ),
+
+the convergence above implies, for all sufficiently large k,
+
+−gk,i − βkpk,i ∈ ri ∂h i(x⋆i ).
+
+Thus the projection in (24) is inactive and vk,i = −gk,i −
+
+βkpk,i . Because sign( pk,i ) = −sk,i , we obtain 
+
+βk + ωk,i 
+
+|pk,i | = sk,i (gk,i + αk,i )
+
+|pk,i | ≥ 2ε
+
+|pk,i | −→ +∞.
+
+Since λk ≤ ¯λ, Theorem 1 eventually gives xk+1 ,i = yk,i = x⋆i
+
+Now suppose xk,i = x⋆i . Both one-sided directional deriva-tives are larger than νk, so i / ∈ Vk ∪ Ek. Since i is a kink coordinate, it follows that i / ∈ Wk and pk,i = 0 . (29) then gives xk+1 ,i = xk,i = x⋆i . Thus each coordinate in Z⋆ reaches its target kink after finitely many iterations and remains there. Since Z⋆ is finite, there is a common Kid < ∞ such that 
+
+xk,Z ⋆ = x⋆Z⋆ with k ≥ Kid .APPENDIX JPROOF OF THEOREM 5
+
+Proof. The finite identification property in Theorem 4 implies for sufficiently large k, Wk = S⋆ and pk,Z ⋆ = 0. Since pk →
+
+0, the model residual becomes 
+
+BSk pSk = −rSk + eSk . (54) 13 
+
+Let sk := xk,S ⋆ −x⋆S⋆ . Since rS⋆ = 0, the mean-value formula gives rSk = Aksk, and 
+
+Ak := 
+
+∫ 10
+
+HS⋆S⋆
+
+(x⋆ + t(xk − x⋆)) dt. 
+
+Because Ak → HS⋆ and HS⋆ is nonsingular, ‖rSk ‖ =Θ( ‖sk‖). Combining (54), (21) and Assumption 3 gives 
+
+(m − o(1)) ‖pSk ‖ ≤ ‖ rSk ‖ ≤ (M + o(1)) ‖pSk ‖.
+
+Therefore, 
+
+‖pk‖ = Θ( ‖xk − x⋆‖) . (55) We next show that the full step is eventually accepted. At 
+
+λ = βk, zk(βk) = xk + pk. Since h is affine on the identified manifold and q is twice continuously differentiable, 
+
+F (xk + pk) − F (xk) + ηβ k
+
+2 ‖pk‖2
+
+= − 1 − η
+
+2 (pSk )⊤BSk pSk + ( eSk )⊤pSk
+
++ 12 (pSk )⊤(HSk − BSk )pSk + o(‖pSk ‖2),
+
+where we used (54) and βk‖pk‖2 = ( pSk )⊤BSk pSk . By As-sumption 3, the two error terms and the Taylor remainder are 
+
+o(‖pSk ‖2). Hence, 
+
+F (xk + pk) − F (xk) + ηβ k
+
+2 ‖pk‖2
+
+≤ − 
+
+( (1 − η)m
+
+2 − o(1) 
+
+)
+
+‖pSk ‖2 < 0
+
+for all sufficiently large k. Thus, λk = βk eventually. For these iterations, sk+1 = sk + pSk . Using (54) and rSk = Aksk, we obtain 
+
+HSk sk+1 = ( HSk − Ak)sk + eSk + ( HSk − BSk )pSk .
+
+Continuity of the Hessian gives ‖HSk − Ak‖ → 0. Assump-tion 3 and (55) show that the remaining two terms are also 
+
+o(‖sk‖). Since HSk → HS⋆ and HS⋆ is nonsingular, (HSk )−1
+
+is uniformly bounded for all sufficiently large k. Therefore, 
+
+‖sk+1 ‖ = o(‖sk‖). The coordinates in Z⋆ are fixed at their limiting values, so (39) holds. REFERENCES [1] E. J. Cand` es, M. B. Wakin, and S. P. Boyd, “Enhancing sparsity by reweighted ℓ1 minimization,” J. Fourier Anal. Appl. , vol. 14, no. 5–6, pp. 877–905, 2008, doi: 10.1007/s00041-008-9045-x. [2] Q. Yao and J. T. Kwok, “Efficient learning with a family of nonconvex regularizers by redistributing nonconvexity,” J. Mach. Learn. Res. ,vol. 18, no. 179, pp. 1–52, 2018. [3] J. Rybak, H. Battey, and W.-X. Zhou, “On inference for the support vector machine,” J. Mach. Learn. Res. , vol. 26, no. 85, pp. 1–54, 2025. [4] C. Wang and X. Feng, “Optimal kernel quantile learning with random features,” in Proc. 41st Int. Conf. Mach. Learn. (ICML) , ser. Proc. Mach. Learn. Res., vol. 235. PMLR, 2024, pp. 50 419–50 452. [5] J. Fan and R. Li, “Variable selection via nonconcave penalized likelihood and its oracle properties,” J. Amer. Statist. Assoc. , vol. 96, no. 456, pp. 1348–1360, 2001, doi: 10.1198/016214501753382273. [6] C.-H. Zhang, “Nearly unbiased variable selection under minimax con-cave penalty,” Ann. Statist. , vol. 38, no. 2, pp. 894–942, 2010, doi: 10.1214/09-AOS729. [7] E. Soubies, L. Blanc-F´ eraud, and G. Aubert, “A continuous exact ℓ0
+
+penalty (CEL0) for least squares regularized problem,” SIAM J. Imaging Sci. , vol. 8, no. 3, pp. 1607–1639, 2015, doi: 10.1137/151003714. [8] S. Bonettini, I. Loris, F. Porta, and M. Prato, “Variable metric inexact line-search-based methods for nonsmooth optimization,” SIAM J. Op-tim. , vol. 26, no. 2, pp. 891–921, 2016, doi: 10.1137/15M1019325. [9] P. Ochs and T. Pock, “Adaptive FISTA for nonconvex optimiza-tion,” SIAM J. Optim. , vol. 29, no. 4, pp. 2482–2503, 2019, doi: 10.1137/17M1156678. [10] J. Liang and R. D. C. Monteiro, “Average curvature FISTA for noncon-vex smooth composite optimization problems,” Comput. Optim. Appl. ,vol. 86, pp. 275–302, 2023, doi: 10.1007/s10589-023-00490-3. [11] S. Bonettini, M. Prato, and S. Rebegoldi, “A new proximal heavy ball inexact line-search algorithm,” Comput. Optim. Appl. , vol. 88, no. 2, pp. 525–565, 2024, doi: 10.1007/s10589-024-00565-9. [12] C. Kanzow and T. Lechner, “Globalized inexact proximal Newton-type methods for nonconvex composite functions,” Comput. Optim. Appl. ,vol. 78, no. 2, pp. 377–410, 2021, doi: 10.1007/s10589-020-00243-6. [13] S. vom Dahl and C. Kanzow, “An inexact regularized proximal Newton method without line search,” Comput. Optim. Appl. , vol. 89, no. 3, pp. 585–624, 2024, doi: 10.1007/s10589-024-00600-9. [14] A. Y. Aravkin, R. Baraldi, and D. Orban, “A proximal quasi-Newton trust-region method for nonsmooth regularized optimization,” SIAM J. Optim. , vol. 32, no. 2, pp. 900–929, 2022, doi: 10.1137/21M1409536. [15] R. J. Baraldi and D. P. Kouri, “A proximal trust-region method for nonsmooth optimization with inexact function and gradient evalua-tions,” Math. Program. , vol. 201, no. 1–2, pp. 559–598, 2023, doi: 10.1007/s10107-022-01915-3. [16] C.-P. Lee, “Accelerating inexact successive quadratic approximation for regularized optimization through manifold identification,” Math. Program. , vol. 201, no. 1–2, pp. 599–633, 2023, doi: 10.1007/s10107-022-01916-2. [17] G. Andrew and J. Gao, “Scalable training of ℓ1-regularized log-linear models,” in Proc. 24th Int. Conf. Mach. Learn. (ICML) . ACM, 2007, pp. 33–40, doi: 10.1145/1273496.1273501. [18] R. H. Byrd, G. M. Chin, J. Nocedal, and F. Oztoprak, “A family of second-order methods for convex ℓ1-regularized optimization,” Math. Program. , vol. 159, no. 1–2, pp. 435–467, 2016, doi: 10.1007/s10107-015-0965-3. [19] J. C. De Los Reyes, E. Loayza, and P. Merino, “Second-order orthant-based methods with enriched Hessian information for sparse ℓ1-optimization,” Comput. Optim. Appl. , vol. 67, no. 2, pp. 225–258, 2017, doi: 10.1007/s10589-017-9891-z. [20] A. S. Lewis and C. Wylie, “Active-set Newton methods and partial smoothness,” Math. Oper. Res. , vol. 46, no. 2, pp. 712–725, 2021, doi: 10.1287/moor.2020.1075. [21] J. Liang, J. Fadili, and G. Peyr´ e, “Activity identification and local lin-ear convergence of forward–backward-type methods,” SIAM J. Optim. ,vol. 27, no. 1, pp. 408–437, 2017, doi: 10.1137/16M106340X. [22] G. Bareilles, F. Iutzeler, and J. Malick, “Newton acceleration on man-ifolds identified by proximal-gradient methods,” Math. Program. , vol. 200, pp. 37–70, 2023, doi: 10.1007/s10107-022-01873-w. [23] N. S. Keskar, J. Nocedal, F. ¨Oztoprak, and A. W¨ achter, “A second-order method for convex ℓ1-regularized optimization with active-set prediction,” Optim. Methods Softw. , vol. 31, no. 3, pp. 605–621, 2016, doi: 10.1080/10556788.2016.1138222. [24] W. Cheng and Y.-H. Dai, “An active set Newton-CG method for ℓ1
+
+optimization,” Appl. Comput. Harmon. Anal. , vol. 50, pp. 303–325, 2021, doi: 10.1016/j.acha.2019.08.005. [25] T. Chen, F. E. Curtis, and D. P. Robinson, “A reduced-space algo-rithm for minimizing ℓ1-regularized convex functions,” SIAM J. Optim. ,vol. 27, no. 3, pp. 1583–1610, 2017, doi: 10.1137/16M1062259. [26] R. H. Byrd, J. Nocedal, and F. Oztoprak, “An inexact successive quadratic approximation method for ℓ1 regularized optimization,” Math. Program. , vol. 157, no. 2, pp. 375–396, 2016, doi: 10.1007/s10107-015-0941-y. [27] C.-P. Lee and S. J. Wright, “Inexact successive quadratic approximation for regularized optimization,” Comput. Optim. Appl. , vol. 72, no. 3, pp. 641–674, 2019, doi: 10.1007/s10589-019-00059-z. [28] W. L. Hare and A. S. Lewis, “Identifying active constraints via partial smoothness and prox-regularity,” J. Convex Anal. , vol. 11, no. 2, pp. 251–266, 2004. [29] C.-C. Chang and C.-J. Lin. LIBSVM data: Classification, regression, and multi-label. Accessed: Aug. 28, 2026. [Online]. Available: https://www.csie.ntu.edu.tw/ ∼cjlin/libsvmtools/datasets/ [30] A. M. Ostrowski, Solution of Equations and Systems of Equations , ser. Pure and Applied Mathematics: A Series of Monographs and Textbooks. Elsevier, 2016, vol. 9.
