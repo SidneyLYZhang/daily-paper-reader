@@ -41,17 +41,17 @@
 <section class="dpr-home-dashboard-card dpr-home-report-card">
   <div class="dpr-home-dashboard-header">
     <div>
-      <span class="dpr-home-dashboard-kicker">2026-09-18</span>
+      <span class="dpr-home-dashboard-kicker">2026-09-19</span>
       <h3 class="dpr-home-dashboard-title">今日汇总</h3>
     </div>
-    <strong class="dpr-home-dashboard-count">共 4 篇</strong>
+    <strong class="dpr-home-dashboard-count">共 2 篇</strong>
   </div>
   <dl class="dpr-home-dashboard-stats">
     <div class="dpr-home-dashboard-stat"><dt>累计更新</dt><dd>1 次</dd></div>
-    <div class="dpr-home-dashboard-stat"><dt>精读</dt><dd>1</dd></div>
-    <div class="dpr-home-dashboard-stat"><dt>速读</dt><dd>3</dd></div>
+    <div class="dpr-home-dashboard-stat"><dt>精读</dt><dd>0</dd></div>
+    <div class="dpr-home-dashboard-stat"><dt>速读</dt><dd>2</dd></div>
   </dl>
-  <p class="dpr-home-dashboard-body">最近更新：2026-09-18 22:04:10 UTC<br>状态：成功</p>
+  <p class="dpr-home-dashboard-body">最近更新：2026-09-19 21:16:49 UTC<br>状态：成功</p>
 </section>
 <section class="dpr-home-dashboard-card dpr-home-brief-card">
   <div class="dpr-home-dashboard-header">
@@ -62,10 +62,7 @@
     <strong class="dpr-home-dashboard-count">AI</strong>
   </div>
   <div class="dpr-home-dashboard-body">
-<p>今日共生成 4 篇推荐（精读 1 篇，速读 3 篇）</p>
-<p>精读：《Maximum Entropy Probability Distributions on Spheres with Fixed Mean Busemann Function and Holomorphic-Information-Geometric Model of Cognition》（8.0/10）</p>
-<p>速读：《A Geometric Theory of Decision Boundaries in Structured Markov Decision Processes》（6.0/10）, 《Compressed Active Subspaces for Scalable Bayesian Inference》（6.0/10）, 《Learning Reliable Parking Policies via Offline Reinforcement Learning with Quantized Action Representations》（6.0/10）</p>
-<p>这些结果覆盖了当下较热的方向，建议先看精读区论文的关键问题与方法。</p>
+<p>今日速读两篇：归纳图上的在线贝叶斯节点分类应对分布偏移，以及利用记忆持久性的随机子空间梯度下降。最值得关注图模型在分布偏移下的在线适应（7.0/10），其次是随机子空间优化降低梯度下降开销的思路（6.0/10）。建议普通读者优先了解图模型如何在数据分布变化时持续更新，再看优化效率方向。</p>
   </div>
 </section>
 <section class="dpr-home-dashboard-card dpr-home-deep-card">
@@ -74,12 +71,12 @@
       <span class="dpr-home-dashboard-kicker">今日累计</span>
       <h3 class="dpr-home-dashboard-title">精读推荐</h3>
     </div>
-    <strong class="dpr-home-dashboard-count">1 篇</strong>
+    <strong class="dpr-home-dashboard-count">0 篇</strong>
   </div>
   <div class="dpr-home-dashboard-body">
-<ul class="dpr-home-dashboard-paper-list"><li><span class="dpr-home-dashboard-paper-title" title="Maximum Entropy Probability Distributions on Spheres with Fixed Mean Busemann Function and Holomorphic-Information-Geometric Model of Cognition">Maximum Entropy Probability Distributions on Spheres with Fixed Mean Busemann Function and Holomorphic-Information-Geometric Model of Cognition</span></li></ul>
+<p class="dpr-home-dashboard-empty">今日暂无推荐。</p>
   </div>
-  <div class="dpr-home-dashboard-tags"><span class="dpr-home-dashboard-tag">npl-bdl-saig <strong>1</strong></span></div>
+
 </section>
 <section class="dpr-home-dashboard-card dpr-home-skim-card">
   <div class="dpr-home-dashboard-header">
@@ -87,12 +84,12 @@
       <span class="dpr-home-dashboard-kicker">今日累计</span>
       <h3 class="dpr-home-dashboard-title">速读推荐</h3>
     </div>
-    <strong class="dpr-home-dashboard-count">3 篇</strong>
+    <strong class="dpr-home-dashboard-count">2 篇</strong>
   </div>
   <div class="dpr-home-dashboard-body">
-<ul class="dpr-home-dashboard-paper-list"><li><span class="dpr-home-dashboard-paper-title" title="A Geometric Theory of Decision Boundaries in Structured Markov Decision Processes">A Geometric Theory of Decision Boundaries in Structured Markov Decision Processes</span></li><li><span class="dpr-home-dashboard-paper-title" title="Compressed Active Subspaces for Scalable Bayesian Inference">Compressed Active Subspaces for Scalable Bayesian Inference</span></li><li><span class="dpr-home-dashboard-paper-title" title="Learning Reliable Parking Policies via Offline Reinforcement Learning with Quantized Action Representations">Learning Reliable Parking Policies via Offline Reinforcement Learning with Quantized Action Representations</span></li></ul>
+<ul class="dpr-home-dashboard-paper-list"><li><span class="dpr-home-dashboard-paper-title" title="Online Bayesian Node Classification on Inductive Graphs under Distribution Shift">Online Bayesian Node Classification on Inductive Graphs under Distribution Shift</span></li><li><span class="dpr-home-dashboard-paper-title" title="Gradient Descent with Stochastic Subspaces via Persistence of Memory">Gradient Descent with Stochastic Subspaces via Persistence of Memory</span></li></ul>
   </div>
-  <div class="dpr-home-dashboard-tags"><span class="dpr-home-dashboard-tag">ml-theory <strong>1</strong></span><span class="dpr-home-dashboard-tag">npl-bdl-saig <strong>1</strong></span><span class="dpr-home-dashboard-tag">rl-semantic <strong>1</strong></span></div>
+  <div class="dpr-home-dashboard-tags"><span class="dpr-home-dashboard-tag">ml-theory <strong>1</strong></span><span class="dpr-home-dashboard-tag">npl-bdl-saig <strong>1</strong></span></div>
 </section>
 </div>
 
