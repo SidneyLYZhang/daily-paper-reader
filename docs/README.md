@@ -41,17 +41,17 @@
 <section class="dpr-home-dashboard-card dpr-home-report-card">
   <div class="dpr-home-dashboard-header">
     <div>
-      <span class="dpr-home-dashboard-kicker">2026-09-19</span>
+      <span class="dpr-home-dashboard-kicker">2026-09-20</span>
       <h3 class="dpr-home-dashboard-title">今日汇总</h3>
     </div>
-    <strong class="dpr-home-dashboard-count">共 2 篇</strong>
+    <strong class="dpr-home-dashboard-count">共 7 篇</strong>
   </div>
   <dl class="dpr-home-dashboard-stats">
     <div class="dpr-home-dashboard-stat"><dt>累计更新</dt><dd>1 次</dd></div>
     <div class="dpr-home-dashboard-stat"><dt>精读</dt><dd>0</dd></div>
-    <div class="dpr-home-dashboard-stat"><dt>速读</dt><dd>2</dd></div>
+    <div class="dpr-home-dashboard-stat"><dt>速读</dt><dd>7</dd></div>
   </dl>
-  <p class="dpr-home-dashboard-body">最近更新：2026-09-19 21:16:49 UTC<br>状态：成功</p>
+  <p class="dpr-home-dashboard-body">最近更新：2026-09-20 22:04:25 UTC<br>状态：成功</p>
 </section>
 <section class="dpr-home-dashboard-card dpr-home-brief-card">
   <div class="dpr-home-dashboard-header">
@@ -62,7 +62,9 @@
     <strong class="dpr-home-dashboard-count">AI</strong>
   </div>
   <div class="dpr-home-dashboard-body">
-<p>今日速读两篇：归纳图上的在线贝叶斯节点分类应对分布偏移，以及利用记忆持久性的随机子空间梯度下降。最值得关注图模型在分布偏移下的在线适应（7.0/10），其次是随机子空间优化降低梯度下降开销的思路（6.0/10）。建议普通读者优先了解图模型如何在数据分布变化时持续更新，再看优化效率方向。</p>
+<p>今日速读7篇、精读0篇，涵盖非凸-凹极小极大优化的确定性一阶预言机复杂度、全局时空记忆世界模型GLAM的主动探索与导航，以及五专家预测与几何停止的概率构造与解析验证，均分7.0。</p>
+<p>最值得关注两个方向：GLAM用潜在世界模型支撑机器人主动探索与导航，偏应用；极小极大优化复杂度一文给出确定性一阶算法的理论最优界，偏理论。</p>
+<p>建议普通读者先挑GLAM读摘要与实验部分看效果，理论那篇只需记住&quot;确定性一阶方法已达最优复杂度&quot;这一结论即可。</p>
   </div>
 </section>
 <section class="dpr-home-dashboard-card dpr-home-deep-card">
@@ -84,12 +86,12 @@
       <span class="dpr-home-dashboard-kicker">今日累计</span>
       <h3 class="dpr-home-dashboard-title">速读推荐</h3>
     </div>
-    <strong class="dpr-home-dashboard-count">2 篇</strong>
+    <strong class="dpr-home-dashboard-count">7 篇</strong>
   </div>
   <div class="dpr-home-dashboard-body">
-<ul class="dpr-home-dashboard-paper-list"><li><span class="dpr-home-dashboard-paper-title" title="Online Bayesian Node Classification on Inductive Graphs under Distribution Shift">Online Bayesian Node Classification on Inductive Graphs under Distribution Shift</span></li><li><span class="dpr-home-dashboard-paper-title" title="Gradient Descent with Stochastic Subspaces via Persistence of Memory">Gradient Descent with Stochastic Subspaces via Persistence of Memory</span></li></ul>
+<ul class="dpr-home-dashboard-paper-list"><li><span class="dpr-home-dashboard-paper-title" title="Optimal Deterministic First-Order Oracle Complexity for Nonconvex-Concave Minimax Optimization">Optimal Deterministic First-Order Oracle Complexity for Nonconvex-Concave Minimax Optimization</span></li><li><span class="dpr-home-dashboard-paper-title" title="GLAM: Training a latent world model over global spatiotemporal memory for active exploration and navigation">GLAM: Training a latent world model over global spatiotemporal memory for active exploration and navigation</span></li><li><span class="dpr-home-dashboard-paper-title" title="Prediction with Five Experts and Geometric Stopping: A Probabilistic Construction and Analytic Verification">Prediction with Five Experts and Geometric Stopping: A Probabilistic Construction and Analytic Verification</span></li></ul>
   </div>
-  <div class="dpr-home-dashboard-tags"><span class="dpr-home-dashboard-tag">ml-theory <strong>1</strong></span><span class="dpr-home-dashboard-tag">npl-bdl-saig <strong>1</strong></span></div>
+  <div class="dpr-home-dashboard-tags"><span class="dpr-home-dashboard-tag">npl-bdl-saig <strong>5</strong></span><span class="dpr-home-dashboard-tag">ml-theory <strong>1</strong></span><span class="dpr-home-dashboard-tag">rl-semantic <strong>1</strong></span></div>
 </section>
 </div>
 
