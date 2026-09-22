@@ -41,17 +41,17 @@
 <section class="dpr-home-dashboard-card dpr-home-report-card">
   <div class="dpr-home-dashboard-header">
     <div>
-      <span class="dpr-home-dashboard-kicker">2026-09-20</span>
+      <span class="dpr-home-dashboard-kicker">2026-09-22</span>
       <h3 class="dpr-home-dashboard-title">今日汇总</h3>
     </div>
-    <strong class="dpr-home-dashboard-count">共 7 篇</strong>
+    <strong class="dpr-home-dashboard-count">共 14 篇</strong>
   </div>
   <dl class="dpr-home-dashboard-stats">
     <div class="dpr-home-dashboard-stat"><dt>累计更新</dt><dd>1 次</dd></div>
-    <div class="dpr-home-dashboard-stat"><dt>精读</dt><dd>0</dd></div>
-    <div class="dpr-home-dashboard-stat"><dt>速读</dt><dd>7</dd></div>
+    <div class="dpr-home-dashboard-stat"><dt>精读</dt><dd>1</dd></div>
+    <div class="dpr-home-dashboard-stat"><dt>速读</dt><dd>13</dd></div>
   </dl>
-  <p class="dpr-home-dashboard-body">最近更新：2026-09-20 22:04:25 UTC<br>状态：成功</p>
+  <p class="dpr-home-dashboard-body">最近更新：2026-09-22 22:14:13 UTC<br>状态：成功</p>
 </section>
 <section class="dpr-home-dashboard-card dpr-home-brief-card">
   <div class="dpr-home-dashboard-header">
@@ -62,9 +62,9 @@
     <strong class="dpr-home-dashboard-count">AI</strong>
   </div>
   <div class="dpr-home-dashboard-body">
-<p>今日速读7篇、精读0篇，涵盖非凸-凹极小极大优化的确定性一阶预言机复杂度、全局时空记忆世界模型GLAM的主动探索与导航，以及五专家预测与几何停止的概率构造与解析验证，均分7.0。</p>
-<p>最值得关注两个方向：GLAM用潜在世界模型支撑机器人主动探索与导航，偏应用；极小极大优化复杂度一文给出确定性一阶算法的理论最优界，偏理论。</p>
-<p>建议普通读者先挑GLAM读摘要与实验部分看效果，理论那篇只需记住&quot;确定性一阶方法已达最优复杂度&quot;这一结论即可。</p>
+<p>今日14篇推荐成功出炉，精读《D-JEPA》以8.0分领跑，速读中可见城市网络、非凸优化与特殊Kähler几何。</p>
+<p>最值得看的是“决策对齐的潜在世界模型”方向，以及非光滑非凸优化中确定性的指数代价这一理论警示。</p>
+<p>普通读者可先读D-JEPA，再按应用或理论兴趣选读城市网络校准或优化/几何速读。</p>
   </div>
 </section>
 <section class="dpr-home-dashboard-card dpr-home-deep-card">
@@ -73,12 +73,12 @@
       <span class="dpr-home-dashboard-kicker">今日累计</span>
       <h3 class="dpr-home-dashboard-title">精读推荐</h3>
     </div>
-    <strong class="dpr-home-dashboard-count">0 篇</strong>
+    <strong class="dpr-home-dashboard-count">1 篇</strong>
   </div>
   <div class="dpr-home-dashboard-body">
-<p class="dpr-home-dashboard-empty">今日暂无推荐。</p>
+<ul class="dpr-home-dashboard-paper-list"><li><span class="dpr-home-dashboard-paper-title" title="D-JEPA: A Decision-Aligned Latent World Model">D-JEPA: A Decision-Aligned Latent World Model</span></li></ul>
   </div>
-
+  <div class="dpr-home-dashboard-tags"><span class="dpr-home-dashboard-tag">rl-semantic <strong>1</strong></span></div>
 </section>
 <section class="dpr-home-dashboard-card dpr-home-skim-card">
   <div class="dpr-home-dashboard-header">
@@ -86,12 +86,12 @@
       <span class="dpr-home-dashboard-kicker">今日累计</span>
       <h3 class="dpr-home-dashboard-title">速读推荐</h3>
     </div>
-    <strong class="dpr-home-dashboard-count">7 篇</strong>
+    <strong class="dpr-home-dashboard-count">13 篇</strong>
   </div>
   <div class="dpr-home-dashboard-body">
-<ul class="dpr-home-dashboard-paper-list"><li><span class="dpr-home-dashboard-paper-title" title="Optimal Deterministic First-Order Oracle Complexity for Nonconvex-Concave Minimax Optimization">Optimal Deterministic First-Order Oracle Complexity for Nonconvex-Concave Minimax Optimization</span></li><li><span class="dpr-home-dashboard-paper-title" title="GLAM: Training a latent world model over global spatiotemporal memory for active exploration and navigation">GLAM: Training a latent world model over global spatiotemporal memory for active exploration and navigation</span></li><li><span class="dpr-home-dashboard-paper-title" title="Prediction with Five Experts and Geometric Stopping: A Probabilistic Construction and Analytic Verification">Prediction with Five Experts and Geometric Stopping: A Probabilistic Construction and Analytic Verification</span></li></ul>
+<ul class="dpr-home-dashboard-paper-list"><li><span class="dpr-home-dashboard-paper-title" title="Learning to Move Cities: Deep Meta-Models and Reinforcement Policies for Calibration and Control in Urban Networks">Learning to Move Cities: Deep Meta-Models and Reinforcement Policies for Calibration and Control in Urban Networks</span></li><li><span class="dpr-home-dashboard-paper-title" title="Homogeneous Non Symmetric Special Kähler Geometries as Broken Isometry Metrics on Symmetric CV {K}ähler Manifolds:a new tool for $r=2$ CaNNs">Homogeneous Non Symmetric Special Kähler Geometries as Broken Isometry Metrics on Symmetric CV {K}ähler Manifolds:a new tool for $r=2$ CaNNs</span></li><li><span class="dpr-home-dashboard-paper-title" title="The Exponential Price of Determinism in Nonsmooth Nonconvex Optimization">The Exponential Price of Determinism in Nonsmooth Nonconvex Optimization</span></li></ul>
   </div>
-  <div class="dpr-home-dashboard-tags"><span class="dpr-home-dashboard-tag">npl-bdl-saig <strong>5</strong></span><span class="dpr-home-dashboard-tag">ml-theory <strong>1</strong></span><span class="dpr-home-dashboard-tag">rl-semantic <strong>1</strong></span></div>
+  <div class="dpr-home-dashboard-tags"><span class="dpr-home-dashboard-tag">ml-theory <strong>5</strong></span><span class="dpr-home-dashboard-tag">npl-bdl-saig <strong>4</strong></span><span class="dpr-home-dashboard-tag">rl-semantic <strong>4</strong></span></div>
 </section>
 </div>
 
