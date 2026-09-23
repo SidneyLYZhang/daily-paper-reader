@@ -1,0 +1,5307 @@
+Title: Convergence of Rotation-based Matrix Optimizers: A Unified Analysis of SOAP, Conda, and SPlus
+
+URL Source: https://arxiv.org/pdf/2609.24522v1
+
+Published Time: Tue, 22 Sep 2026 02:37:36 GMT
+
+Number of Pages: 22
+
+Markdown Content:
+# Convergence of Rotation-based Matrix Optimizers: A Unified Analysis of SOAP, Conda, and SPlus 
+
+Yiwen Sun 1 Huan Li 2 Zhouchen Lin 3
+
+## Abstract 
+
+In this work, we develop a unified theoretical framework for analyzing the convergence of rotation-based matrix optimizers, which apply orthogonal transformations to map the momentum into a rotated space, perform coordinate-wise or normalized updates there, and then rotate the updates back. Our framework encompasses prominent matrix optimizers, including SOAP, Conda, and truncated SPlus, as well as matrix-parameterized Adam as a special case. As our main result, we establish, for the first time, the convergence rate of SOAP with sharp dimensional dependence, as well as the convergence rate of Adam measured by the nuclear norm. Our framework also covers a more general variant of rotation-based optimizers that allows arbitrary orthogonal rotation matrices, allowing these matrices to depend on the current stochastic gradient at each iteration. Technically, our framework leverages a row-column trace-control argument that converts elementwise bounds into bounds on two diagonal control matrices, thereby improving the dimension dependence of the resulting bound. 
+
+## 1. Introduction 
+
+Pre-training large language models incurs substantial computational costs. Over the past decade, the Adam family of algorithms, including AdaGrad (Duchi et al., 2011; McMahan & Streeter, 2010), RMSProp (Tieleman & Hinton, 2012), Adam (Kingma & Ba, 2015), and AdamW (Loshchilov & Hutter, 2019), has served as the de facto standard for optimizing deep neural networks. These methods treat the network’s parameters as a single high-dimensional vector and do not explicitly exploit row/column correlations within matrices. More recently, matrix-based optimizers, which exploit the inherent matrix structure of deep neural network parameters, have garnered increasing attention and demonstrated the potential to outperform their vector-based counterparts. Prominent examples include Shampoo (Gupta et al., 2018), Muon (Jordan et al., 2024), SOAP (Vyas et al., 2025), SPlus (Frans et al., 2025), and Conda (Wang et al., 2025). The latter three approaches can be collectively classified as rotation-based optimizers, which rotate the gradient or momentum into a new space via an orthogonal transformation, produce an update in that space, and then rotate the update back to the original space. These methods differ mainly in how the rotation matrices and the transformed update are constructed: SOAP combines the eigenbasis of Shampoo’s preconditioners, used as the rotation matrix, with an Adam-style update; SPlus replaces the Adam-style update with a sign-type update; and Conda employs the singular-vector basis of the momentum as the rotation matrix. A general algorithmic formulation encompassing most popular algorithms in this family is provided in (Gong et al., 2026). While Gong et al. (2026) provide a unified framework at the algorithmic level, our work provides a unified framework at the level of theoretical analysis. Although the convergence behavior of vector-based optimizers has been thoroughly studied in the literature (D´ efossez et al., 2022; Shi et al., 2020; Li et al., 2025b; Zhang et al., 2022; Hong & Lin, 2024; Li et al., 2023; 2025a), the theoretical understanding of matrix-based optimizers remains comparatively underdeveloped. To date, convergence and convergence rates have been established for only a few matrix optimizers, such as Muon (Li & Hong, 2025; Kim & Oh, 2026; Shen et al., 2026; Chen et al., 2026; Sato et al., 2025) and Shampoo (Li et al., 2026; Xie et al., 2026). For rotation-based matrix optimizers, most notably SOAP, rigorous convergence analysis is still lacking. Relative to Muon and Shampoo, 
+
+> 1
+
+School of the Gifted Young, University of Science and Technology of China, Hefei, China. 
+
+> 2
+
+Institute of Robotics and Automatic Information Systems, College of Artificial Intelligence, Nankai University, Tianjin, China. 
+
+> 3
+
+National Key Lab of General AI, School of Intelligence Science and Technology, Peking University, Beijing, China. . Correspondence to: Huan Li and Zhouchen Lin <lihuanss@nankai.edu.cn, zlin@pku.edu.cn >.arXiv:2609.24522v1 [math.OC] 21 Sep 2026 Convergence of Rotation-based Matrix Optimizers 
+
+the main technical hurdles stem from two intrinsic properties of rotation-based updates. First, it is non-trivial to combine the properties in the two spaces; moreover, the rotation matrices may depend on the current stochastic gradient. Second, coordinate-wise updates in the rotated space introduce an undesirable dependence on the number of matrix entries, mn .
+
+1.1. Contributions 
+
+To address the above issues, we treat SOAP, Conda, and SPlus in a unified framework with the following contributions: 1. We establish the following convergence rate 
+
+1
+
+K
+
+> K
+
+X
+
+> k=1
+
+E [∥∇ f (Xk)∥∗] ≤ O √m+n max 
+
+(
+
+> 4
+
+r σ2L (f (X1)−f ∗)
+
+K ,
+
+r L (f (X1)−f ∗)
+
+K
+
+)! 
+
+for generalized SOAP, Conda and the truncated modification of SPlus, matching the state-of-the-art rate of Shampoo (Li et al., 2026) for matrix optimizers. 2. Our analysis extends to a considerably more general variant that accommodates arbitrary orthogonal rotation matrices, requiring only that they be orthogonal. This flexibility allows the rotation matrices to be constructed adaptively from the entire optimization history up to the current step (and thus may depend on the current stochastic gradient), covering those used in SOAP, Conda, and SPlus. Consequently, the theoretical guarantees we establish not only apply directly to these methods but also shed light on a broader class of rotation-based matrix optimizers, providing a unified analytical framework for understanding their convergence behavior. 3. In particular, our analysis also applies when the rotation matrices reduce to the identity matrix, in which case SOAP reduces to Adam and thus the above convergence rate also applies to Adam. By contrast, the existing literature measures the convergence rate of Adam only in the ℓ1 or ℓ2 norm; we provide the first nuclear-norm convergence rate for Adam with matrix-valued parameters, identical to that of matrix optimizers such as AdamW-style Shampoo (Li et al., 2026). 4. Technically, we propose a row-column trace-control argument in which the control matrices are carefully designed, reducing the problem to rigorously bounding their traces and lowering the dimensional dependence from √mn to √m + n. To handle the difficulty posed by orthogonal transformations between the two spaces, we exploit unitary invariance, which holds for any unitarily invariant norm such as the nuclear norm and the Frobenius norm. 
+
+1.2. Problem Settings, Notations, and Assumptions 
+
+We study the following nonconvex problem with matrix-valued parameters in this paper 
+
+min 
+
+> X∈Rm×n
+
+f (X), (1) where f (X) = Eζ∼P [f (X; ζ)] and ζ is the sample drawn from the data distribution P. We assume that f is bounded below and denote f ∗ = inf X f (X).We denote vectors by lowercase bold letters and matrices by uppercase bold letters. For vectors, denote ∥ · ∥ 2 as the ℓ2
+
+Euclidean norm. For matrices, denote ∥ · ∥ F , ∥ · ∥ op , and ∥ · ∥ ∗ as the Frobenius norm, spectral norm (largest singular value), and nuclear norm (sum of singular values), respectively. Denote Xk,i,j , Xk,i, :, and Xk, :,j to be the (i, j )-th element, i-th row, and j-th column of matrix X at iteration k, respectively. For matrices X and Y, denote XY , X2, |X|, and X 1 
+
+> p
+
+as the elementwise division, square, absolute value, and the 1 
+
+> p
+
+-th power (different from the matrix power, with a slight abuse of terminology), respectively. Denote Fk = σ(ζ1, ζ 2, · · · , ζ k) to be the sigma field of the stochastic gradients up to k, denote 
+
+EFk [·] as the expectation with respect to Fk and Ek[·|F k−1] the conditional expectation with respect to ζk given Fk−1. For the sake of brevity, EFK [·] will be denoted as E[·]. Denote σi(A) and λi(A) as the i-th singular value and eigenvalue of A,respectively. We make the following assumptions throughout this paper: 
+
+Assumption 1 Smoothness: ∥∇ f (Y) − ∇ f (X)∥F ≤ L∥Y − X∥F , ∀X, Y.
+
+Assumption 2 Unbiased estimator: Ek
+
+Gk Fk−1
+
+ = ∇f (Xk).
+
+Assumption 3 Bounded noise variance: Ek
+
+∥Gk − ∇ f (Xk)∥2 
+
+> F
+
+Fk−1
+
+ ≤ σ2.Convergence of Rotation-based Matrix Optimizers 
+
+Algorithm 1 General Rotation-Based Matrix Optimizer Hyper parameters: η, θ .Initialize X1, M0 = 0.
+
+for k = 1 , 2, · · · , K do 
+
+Gk = GradOracle (Xk)
+
+Mk = θMk−1 + (1 − θ)Gk
+
+Generate arbitrary orthogonal matrices Pk ∈ Rm×m and Qk ∈ Rn×n
+
+Xk+1 = Xk − ηPkΦkQ⊤ 
+
+> k
+
+, where Φk = P⊤   
+
+> kMkQk
+> Dk
+
+for some Dk
+
+end for  
+
+> Table 1. Representative Rotation-Based Optimizers with Their Rotation Matrices and Updates
+
+Optimizers Rotation Matrices Update in the rotated space SOAP Eigenbasis of Shampoo’s preconditioner Adam-style update SPlus Eigenbasis of Shampoo’s preconditioner Sign-type update Conda Singular-vector basis of the momentum Adam-style update Our generalizations Arbitrary orthogonal matrices Adam-style or truncated sign-type update 
+
+1.3. Related Work 
+
+Among matrix-based methods, the convergence properties of Muon have been extensively investigated and are now largely understood, owing to its relatively simple structure (Li & Hong, 2025; Shen et al., 2026; Chen et al., 2026; Sato et al., 2025). For more intricate optimizers, recent progress includes the work of Li et al. (2026), who established rigorous convergence guarantees for a practical AdamW-style implementation of Shampoo. Nevertheless, with the exception of these two cases, the convergence analysis of other matrix-based optimizers remains an open problem to the best of our knowledge, especially for the representative SOAP optimizer. Perhaps the most closely related study is that of He et al. (2025), which analyzes a variant of the GaLore algorithm (Zhao et al., 2024). However, their approach replaces the orthogonal rotation employed by SOAP and semi-orthogonal low-rank projection by GaLore with a random projection matrix and uses momentum stochastic gradient descent (MSGD) within the projected space, whereas SOAP and GaLore leverage the adaptive mechanisms of Adam. Consequently, the analytical techniques developed in (He et al., 2025) are far from sufficient to establish the convergence of the full SOAP algorithm, as well as of Conda, and SPlus. He et al. (2025) also constructed a counterexample demonstrating the non-convergence of GaLore due to its low-rank projection. Other works have studied SOAP from different perspectives (Lin et al., 2026; Lu et al., 2025), but none has provided a convergence guarantee. 
+
+## 2. Rotation-based Matrix Optimizers 
+
+We begin by examining the general framework of rotation-based matrix optimizers presented in Algorithm 1. Here Φk
+
+denotes the update method used in the rotated space, such as the Adam-style update in SOAP and Conda, and the sign-type update in SPlus. We require the update Φk to admit the following representation for an entrywise positive matrix Dk:
+
+Φk = P⊤ 
+
+> k
+
+MkQk
+
+Dk
+
+,
+
+where Dk can be regarded as a normalizer. We describe the choice of Dk for each algorithm individually in the following subsections. The orthogonal rotation matrices Pk and Qk may be generated by any procedure, including periodic updates, and need not be independent of the current stochastic gradient at each iteration. We also provide examples of the generation process for each algorithm in the following subsections. The rotation matrices and the transformed update capture the main differences among these algorithms, thus allowing the framework to represent and include many popular algorithms. Table 1 lists the representative examples studied in this paper. Convergence of Rotation-based Matrix Optimizers 
+
+Algorithm 2 SOAP (Vyas et al., 2025) Hyper parameters: η, θ, β, ε, T 
+
+Initialize X1, M0, V0, L0, R0, P1, Q1.
+
+for k = 1 , 2, · · · , K do 
+
+Gk = GradOracle (Xk)
+
+Mk = θMk−1 + (1 − θ)Gk
+
+G′ 
+
+> k
+
+= P⊤ 
+
+> k
+
+GkQk
+
+M′ 
+
+> k
+
+= P⊤ 
+
+> k
+
+MkQk
+
+Vk = βVk−1 + (1 − β)( G′
+
+> k
+
+)2
+
+Xk+1 = Xk − ηPk M′  
+
+> k√Vk+ε
+
+Q⊤
+
+> k
+
+Lk = βLk−1 + (1 − β)GkG⊤
+
+> k
+
+Rk = βRk−1 + (1 − β)G⊤ 
+
+> k
+
+Gk
+
+if k mod T = 0 then 
+
+Pk+1 = Eigenvector (Lk)
+
+Qk+1 = Eigenvector (Rk)
+
+else 
+
+Pk+1 = Pk, Qk+1 = Qk
+
+end if end for Algorithm 3 SPlus (Frans et al., 2025) Hyper parameters: η, θ, β, κ, T 
+
+Initialize X1, X′
+
+> 1
+
+, M0, L0, R0, P0, Q0.
+
+for k = 1 , 2, · · · , K do 
+
+Gk = GradOracle (X′
+
+> k
+
+)
+
+Mk = θMk−1 + (1 − θ)Gk
+
+Lk = (1 − β)Lk−1 + βGkG⊤
+
+> k
+
+Rk = (1 − β)Rk−1 + βG⊤ 
+
+> k
+
+Gk
+
+if k mod T = 0 then 
+
+Pk = Eigenvector (Lk)
+
+Qk = Eigenvector (Rk)
+
+else 
+
+Pk = Pk−1, Qk = Qk−1
+
+end if 
+
+X′ 
+
+> k+1
+
+= X′ 
+
+> k
+
+− 2ηm+n PkSign( P⊤ 
+
+> k
+
+MkQk)Q⊤
+
+> k
+
+Xk+1 = (1 − κ)Xk + κX′
+
+> k+1
+
+end for Algorithm 4 Generalized SOAP Hyper parameters: η, θ, β, ε 
+
+Initialize X1, M0 = 0, V0 = 0.
+
+for k = 1 , 2, · · · , K do 
+
+Gk = GradOracle (Xk)
+
+Mk = θMk−1 + (1 − θ)Gk
+
+Generate arbitrary orthogonal matrices 
+
+Pk ∈ Rm×m and Qk ∈ Rn×n
+
+Vk = βVk−1 + (1 − β)( P⊤ 
+
+> k
+
+GkQk)2
+
+Xk+1 = Xk − ηPk P⊤    
+
+> kMkQk
+> √Vk+ε
+
+Q⊤
+
+> k
+
+end for Algorithm 5 Conda (Wang et al., 2025) Hyper parameters: η, θ, β, ε 
+
+Initialize X1, M0 = 0, V0 = 0.
+
+for k = 1 , 2, · · · , K do 
+
+Gk = GradOracle (Xk)
+
+Mk = θMk−1 + (1 − θ)Gk
+
+Pk, Σk, R⊤ 
+
+> k
+
+= SVD (Mk)
+
+Vk = βVk−1 + (1 − β)( P⊤ 
+
+> k
+
+Gk)2
+
+Xk+1 = Xk − ηPk P⊤  
+
+> kMk
+> √Vk+ε
+
+end for Algorithm 6 Generalized truncated SPlus Hyper parameters: η, θ 
+
+Initialize X1, M0 = 0.
+
+for k = 1 , 2, · · · , K do 
+
+Gk = GradOracle (Xk)
+
+Mk = θMk−1 + (1 − θ)Gk
+
+Generate orthogonal matrices 
+
+Pk ∈ Rm×m and Qk ∈ Rn×n
+
+Xk+1 = Xk − ηPk P⊤  
+
+> kMkQk
+> max
+
+{| P⊤   
+
+> kMkQk
+
+|,δ } Q⊤
+
+> k
+
+end for 2.1. SOAP 
+
+We present the generalized SOAP algorithm in Algorithm 4, which includes the original SOAP (Algorithm 2) as a special case. In this case, the quantities Φk and Dk in Algorithm 1 can be written as 
+
+Φk = P⊤ 
+
+> k
+
+MkQk
+
+√Vk + ε , Dk = pVk + ε. (2) The original SOAP periodically constructs orthogonal rotation matrices from the eigenbases of Shampoo’s preconditioners 
+
+L and R, whereas the generalized form accommodates essentially arbitrary orthogonal matrices, including those used in SOAP as special cases. This enables new classes of rotation matrices that may offer superior practical performance. 
+
+2.2. Conda 
+
+Conda is a special case of the generalized SOAP in Algorithm 4, obtained by choosing Pk ∈ Rm×m as the matrix of left singular vectors of Mk (suppose that m ≤ n), setting Qk to the identity matrix, and using the same Φk function as in SOAP. The relaxation of the constraints on Pk and Qk in generalized SOAP, which allows them to depend on Gk, is especially Convergence of Rotation-based Matrix Optimizers 
+
+important here, since Conda constructs Pk from the current momentum, which depends on Gk. This illustrates more explicitly why general rotation matrices are needed, enabling Conda to fit naturally within the same framework as SOAP. 
+
+2.3. SPlus 
+
+SPlus adopts the same rotation matrices as SOAP, together with the sign-type update in the rotated space, as presented in Algorithm 3. In contrast to SOAP, however, its rotation matrices Pk and Qk depend on the current stochastic gradient, whereas SOAP uses one-step-delayed counterparts. We further generalize SPlus to accommodate arbitrary orthogonal matrices in Algorithm 6. When the sign-type update is adopted, the function Φk in Algorithm 1 is given by 
+
+Φk = Sign  P⊤ 
+
+> k
+
+MkQk
+
+ = P⊤ 
+
+> k
+
+MkQk
+
+|P⊤ 
+
+> k
+
+MkQk| , Dk = |P⊤ 
+
+> k
+
+MkQk|.
+
+Though in our analysis, we assume Dk,i,j ≥ δ. This assumption, however, does not always hold for the original sign update in SPlus. SOAP avoids this issue by introducing the stabilization parameter ε. We therefore focus on a truncated modification of the sign function in Algorithm 6: 
+
+Φk = P⊤ 
+
+> k
+
+MkQk
+
+Dk
+
+, Dk,i,j = max 
+
+n
+
+P⊤ 
+
+> k
+
+MkQk i,j , δ 
+
+o
+
+. (3) We consider only the internal iterates and omit the output averaging step used in the original SPlus algorithm. A convergence guarantee for the averaged output would require an additional argument. 
+
+## 3. Unified Convergence Analysis Framework 
+
+3.1. Bounding the Normalized Rotated Gradient 
+
+We first establish unified properties for the general framework presented in Algorithm 1; the argument does not rely on any specific properties of Dk, except that it is entrywise positive with a lower bound. Following the proofs in (Li et al., 2025a), we obtain the following lemma for Algorithm 1, which bounds the normalized rotated gradient in expectation. 
+
+Lemma 1 Suppose that Assumptions 1-3 and condition Dk,i,j ≥ δ hold. Let ˆσ2 = max 
+
+n
+
+σ2, L(f (X1)−f ∗)
+
+> Kγ 2
+
+o
+
+with any 
+
+γ ∈ (0 , 1] , 1 − θ =
+
+q L(f (X1)−f ∗)  
+
+> Kˆσ2
+
+, and η =
+
+q δ2(f (X1)−f ∗)4LK ˆσ2 . Then for the general Algorithm 1, we have 
+
+SK := 
+
+> K
+
+X
+
+> k=1
+
+E
+
+ P⊤ 
+
+> k
+
+∇f (Xk)Qk
+
+D 12
+
+> k
+> 2
+> F
+
+ ≤ 7
+
+δ
+
+pK ˆσ2L (f (X1) − f ∗).
+
+In contrast to (Li et al., 2025a), we handle the difficulty posed by orthogonal transformations between the original space and rotated space by exploiting the property ∥P⊤XQ ∥ = ∥X∥ whenever P and Q are orthogonal, for any unitarily invariant norm ∥ · ∥ , as is the case for the nuclear norm and the Frobenius norm. In other words, the Frobenius and nuclear norms of 
+
+X are preserved under rotation from the original space to the rotated space. 
+
+3.2. Row-Column Trace-controlling 
+
+If we strictly follow the argument in (Li et al., 2025a), we obtain a convergence rate order of O( √mn K1/4 ) measured by nuclear norm: 
+
+1
+
+K
+
+> K
+
+X
+
+> k=1
+
+E [∥∇ f (Xk)∥∗] ≤ O √mn 4
+
+r ˆσ2L (f (X1) − f ∗)
+
+K
+
+!
+
+.
+
+The dimension factor is larger by a factor of 
+
+q mn m+n than the convergence rate of Shampoo (Li et al., 2026). Upon closer inspection, the problematic √mn term stems from the use of an elementwise upper bound. This is not an issue in the analysis of Adam in (Li et al., 2025a), as that work focuses on vector-based optimizers. Matrix-based optimizers, by contrast, require a different analysis that exploits the matrix structure, especially SOAP, which employs an Adam-type update in the Convergence of Rotation-based Matrix Optimizers 
+
+rotated space. To address this issue, we propose a row-column trace-control argument that separately controls the row-wise and column-wise maxima. Namely, denote 
+
+bk,i ≥ max  
+
+> 1≤j≤n
+
+Dk,i,j , Bk = diag ( bk, 1, b k, 2, . . . b k,m ) ,ck,j ≥ max  
+
+> 1≤i≤m
+
+Dk,i,j , Ck = diag ( ck, 1, c k, 2 · · · ck,n ) . (4) With the control matrices defined above, we obtain the following lemma. The idea is that introducing control matrices allows the desired convergence rate for the nuclear norm of the gradient to decompose into (i) a term Sk, already bounded in Lemma 1, and (ii) the traces of the two control matrices, E [tr Bk] and E [tr Ck]. Thus, we reduce the problem to bounding these traces for different optimizers. 
+
+Lemma 2 For the general Algorithm 1 and Bk and Ck defined in (4), we have 
+
+> K
+
+X
+
+> k=1
+
+E [∥∇ f (Xk)∥∗]
+
+!2
+
+≤ 12
+
+> K
+
+X
+
+> k=1
+
+E [tr Bk]+ 
+
+> K
+
+X
+
+> k=1
+
+E [tr Ck]
+
+!
+
+·
+
+> K
+
+X
+
+> k=1
+
+E
+
+ P⊤ 
+
+> k
+
+∇f (Xk)Qk
+
+D 12
+
+> k
+> 2
+> F
+
+. (5) We explain the rationale for choosing the control matrices to be of the row-wise and column-wise maxima diagonal form. As proved in Appendix A, by employing unitary invariance of nuclear norm, Schatten-H¨ older inequality, and the H¨ older’s inequality, we obtain 
+
+> K
+
+X
+
+> k=1
+
+E [∥∇ f (Xk)∥∗]
+
+!2
+
+≤
+
+vuut KX
+
+> k=1
+
+E [tr Bk] ·
+
+> K
+
+X
+
+> k=1
+
+E [tr Ck] ·
+
+> K
+
+X
+
+> k=1
+
+E
+
+
+
+B− 14 
+
+> k
+
+P⊤ 
+
+> k
+
+∇f (Xk)QkC− 14
+
+> k
+> 2
+> F
+
+
+
+.
+
+Then, for the last term, we have 
+
+B− 14 
+
+> k
+
+P⊤ 
+
+> k
+
+∇f (Xk)QkC− 14
+
+> k
+> 2
+> F
+
+=
+
+> m
+
+X
+
+> i=1
+> n
+
+X
+
+> j=1
+
+ P⊤ 
+
+> k
+
+∇f (Xk)Qk
+
+
+
+> i,j
+> 4
+
+pbk,i ck,j 
+
+!2
+
+≤
+
+> m
+
+X
+
+> i=1
+> n
+
+X
+
+> j=1
+
+P⊤ 
+
+> k
+
+∇f (Xk)Qk
+
+D 12
+
+> k
+
+!2
+
+> i,j
+
+= P⊤ 
+
+> k
+
+∇f (Xk)Qk
+
+D 12
+
+> k
+> 2
+> F
+
+,
+
+where we use the diagonal forms of B and C, together with bk,i ≥ max 1≤j≤n Dk,i,j and ck,j ≥ max 1≤i≤m Dk,i,j . We finally convert ∇f (Xk) into P⊤   
+
+> k∇f(Xk)Qk
+> D
+> 12
+> k
+
+.The reason adding control matrices yields a sharper bound lies in the number of terms that must be controlled. In other words, the bound improves because row/column trace aggregation replaces mn coordinate-wise controls with m + n trace controls, providing more refined control than elementwise bounding. From this point on, we examine several algorithms through the lens of this framework. 
+
+3.3. Algorithms with EMA-based Normalizers 
+
+We say that an algorithm has EMA-based normalizers if its associated matrix Dk necessarily incorporates EMA (exponential moving average) values in addition to the input P⊤ 
+
+> k
+
+MkQk.3.3.1. SOAP SOAP is a canonical example of an EMA-based algorithm: Bt (2), Dk = √Vk + ε, which involves the EMA term Vk. By exploiting the recursive update of Vk, the following lemma bounds the traces of the control matrices in SOAP. 
+
+Lemma 3 Suppose that Assumption 3 holds. Let ˆσ2 = max 
+
+n
+
+σ2, L(f (X1)−f ∗)
+
+> Kγ 2
+
+o
+
+with any γ ∈ (0 , 1] , 0 < β < 1 and Convergence of Rotation-based Matrix Optimizers 
+
+V0 = 0. Then for generalized SOAP (Algorithm 4), we have 
+
+> K
+
+X
+
+> k=1
+
+E [tr Bk] ≤ K
+
+√2mˆσ + m√ε
+
+
+
++ 4 
+
+> K
+
+X
+
+> k=1
+
+E
+
+"
+
+P⊤ 
+
+> k
+
+∇f (Xk)Qk
+
+> 4
+
+√Vk + ε
+
+> 2
+> F
+
+#
+
+,
+
+> K
+
+X
+
+> k=1
+
+E [tr Ck] ≤ K
+
+√2nˆσ + n√ε
+
+
+
++ 4 
+
+> K
+
+X
+
+> k=1
+
+E
+
+"
+
+P⊤ 
+
+> k
+
+∇f (Xk)Qk
+
+> 4
+
+√Vk + ε
+
+> 2
+> F
+
+#
+
+.
+
+(6) 
+
+Design of the Control Matrices : We focus on the row-controlling and the column construction is analogous. First, we begin designing the control matrix as follows: 
+
+ϕk,i = max  
+
+> 1≤j≤n
+
+P⊤ 
+
+> k
+
+∇f (Xk)Qk i,j , φk,i = max  
+
+> 1≤j≤n
+
+P⊤ 
+
+> k
+
+(Gk − ∇ f (Xk)) Qk i,j ,
+
+¯αk,i = β ¯αk−1,i + 2(1 − β)  ϕ2 
+
+> k,i
+
++ φ2
+
+> k,i
+
+ with ¯α0,i = 0 , bk,i = p¯αk,i + ε. 
+
+Then from the recursion of Vk in Algorithm 4 and by induction, we have 
+
+¯αk,i ≥ Vk,i,j and bk,i ≥ pVk,i,j + ε = Dk,i,j for all j = 1 , 2, · · · , n. 
+
+Thus, the coefficients bk,i satisfy (4). Thus it is a valid choice for the trace-control process. Next, we upper bound it. To exclude the noise variance of bk, we further define 
+
+¯φk,i = β ¯φk−1,i + 2(1 − β)φ2 
+
+> k,i
+
+with ¯φ0,i = 0 , nk,i = p ¯φk,i + ε. 
+
+Then, it is possible to construct a recursion inequality 
+
+bk,i − nk,i ≤ pβ(bk−1,i − nk−1,i ) + 2(1 − β) ϕ2
+
+> k,i
+
+bk,i 
+
+.
+
+This further gives an upper bound of bk:
+
+bk,i ≤ nk,i + 2(1 − β)
+
+> k
+
+X
+
+> t=1
+
+β k−t
+
+> 2
+
+ϕ2
+
+> t,i
+
+bt,i 
+
+.
+
+Summing over k and i and taking expectation, the PKk=1 
+
+Pmi=1 E[nk,i ] term converts into 
+
+q
+
+2Km PKk=1 
+
+Pmi=1 E[φ2
+
+> k,i
+
+] + 
+
+Km √ε, while the latter 2(1 − β) PKk=1 
+
+Pmi=1 
+
+Pkt=1 β k−t 
+
+> 2
+
+E
+
+h ϕ2
+
+> t,i
+> bt,i
+
+i
+
+turns out to be 4 PKk=1 
+
+Pmi=1 E
+
+h ϕ2
+
+> k,i
+> bk,i
+
+i
+
+. By employing 
+
+> K
+
+X
+
+> k=1
+> m
+
+X
+
+> i=1
+
+E φ2
+
+> k,i
+
+ ≤
+
+> K
+
+X
+
+> k=1
+> m
+
+X
+
+> i=1
+> n
+
+X
+
+> j=1
+
+E
+
+h P⊤ 
+
+> k
+
+(Gk − ∇ f (Xk)) Qk
+
+2
+
+> i,j
+
+i
+
+=
+
+> K
+
+X
+
+> k=1
+
+E
+
+h
+
+P⊤ 
+
+> k
+
+(Gk − ∇ f (Xk)) Qk
+
+> 2
+> F
+
+i
+
+=
+
+> K
+
+X
+
+> k=1
+
+E
+
+h
+
+∥Gk − ∇ f (Xk)∥2
+
+> F
+
+i
+
+≤ Kσ 2
+
+and 
+
+> K
+
+X
+
+> k=1
+> m
+
+X
+
+> i=1
+
+ϕ2
+
+> k,i
+
+bk,i 
+
+≤
+
+> K
+
+X
+
+> k=1
+> m
+
+X
+
+> i=1
+> n
+
+X
+
+> j=1
+
+ P⊤ 
+
+> k
+
+∇f (Xk)Qk
+
+2
+
+> i,j
+
+bk,i 
+
+≤
+
+> K
+
+X
+
+> k=1
+> m
+
+X
+
+> i=1
+> n
+
+X
+
+> j=1
+
+ P⊤ 
+
+> k
+
+∇f (Xk)Qk
+
+> 4
+
+√Vk + ε
+
+2
+
+> i,j
+
+,
+
+we have the conclusion. ■
+
+With the above supporting lemmas, we get to the following theorem establishing the convergence of SOAP. 
+
+Theorem 1 Suppose that Assumptions 1-3 and condition pVk,i,j + ε ≥ δ hold. Let ˆσ2 = max 
+
+n
+
+σ2, L(f (X1)−f ∗)
+
+> Kγ 2
+
+o
+
+with any γ ∈ (0 , 1] , 1 − θ =
+
+q L(f (X1)−f ∗)  
+
+> Kˆσ2
+
+, 0 < β < 1, η =
+
+q δ2(f (X1)−f ∗)4LK ˆσ2 , and ε = τ ˆσ2 
+
+> m+n
+
+, where τ is a tuning factor with 
+
+τ ∈ (0 , 1] . Then for generalized SOAP (Algorithm 4), we have 
+
+1
+
+K
+
+> K
+
+X
+
+> k=1
+
+E [∥∇ f (Xk)∥∗] ≤
+
+
+
+2√m + n + 16 ˆσδ
+
+
+
+· 4
+
+r ˆσ2L (f (X1) − f ∗)
+
+K .Convergence of Rotation-based Matrix Optimizers 
+
+When δ = √ε =
+
+q τm+n ˆσ, the right-hand side of the above convergence rate becomes 
+
+
+
+2 + 16 
+
+√τ
+
+ √m + n · 4
+
+r ˆσ2L (f (X1) − f ∗)
+
+K
+
+=
+
+
+
+2 + 16 
+
+√τ
+
+ √m + n · max 
+
+(
+
+> 4
+
+r σ2L (f (X1) − f ∗)
+
+K ,
+
+s
+
+L (f (X1) − f ∗)
+
+Kγ 
+
+)
+
+,
+
+which is exactly the same order as Shampoo’s convergence rate (Li et al., 2026). If we further set τ = Θ(1) , then, since 
+
+∥∇ f (Xk)∥F ≤ ∥∇ f (Xk)∥∗ ≤ pmin {m, n }∥∇ f (Xk)∥F , this rate is comparable to the optimal convergence rate of SGD and matches the lower bound of stochastic nonconvex optimization (Arjevani et al., 2023) under the ideal condition 
+
+∥∇ f (Xk)∥∗ = Θ( pmin {m, n })∥∇ f (Xk)∥F and balanced m and n.Nevertheless, even for modern industrial large language models, the dimensions m and n are not particularly large. For example, in GPT-3 with 175 billion parameters, the QKV projection matrices have dimensions m = n = 12288 , while the weight matrices in the feed-forward layer have dimensions (m, n ) = (12288 , 49152) or (49152 , 12288) . So ˆσ2 
+
+> m+n
+
+may not be a very small constant. Consequently, our parameter ε = τ ˆσ2 
+
+> m+n
+
+with τ = Θ(1) is set larger than what is typically used in practice. However, choosing τ small would slow the theoretical convergence rate. On the other hand, whenever Vk,i,j = Θ( ˆσ2 
+
+> m+n
+
+), we have δ2 = Θ( ˆσ2 
+
+> m+n
+
+) regardless of the value chosen for ε, and the convergence rate remains unaffected. This permits ε to be chosen much smaller than δ2, consistent with practical settings. 3.3.2. A DAM 
+
+Theorem 1 holds for arbitrary orthogonal matrices Pk and Qk. In particular, setting Pk = Im and Qk = In reduces SOAP to Adam when applied to problems whose parameters are matrices, so Theorem 1 also applies to Adam. This observation requires no separate convergence argument, as it follows directly from the general framework by choosing the identity matrices as the orthogonal bases. Thus, we establish a nuclear-norm convergence guarantee for Adam for the first time, whereas existing analyses of Adam under comparable assumptions typically report bounds in vector ℓ1 norm (Li et al., 2025a) or ℓ2 norm (Li et al., 2023). For example, when applied to matrix-valued parameters, the analysis in (Li et al., 2025a) establishes the following convergence rate for Adam 
+
+1
+
+K
+
+> K
+
+X
+
+> k=1
+
+E [∥∇ f (Xk)∥1] ≤ O √mn 4
+
+r ˆσ2L (f (X1) − f ∗)
+
+K
+
+!
+
+.
+
+In contrast, our new convergence rate is measured by the nuclear norm on the left-hand side and reduces √mn to √m + n
+
+on the right-hand side, at the cost of requiring a larger value of ε; Li et al. (2025a) sets only ε = ˆσ2 
+
+> mn
+
+. This leads to a striking finding: elementwise Adam attains a nuclear-norm convergence rate identical to that of AdamW-style Shampoo (Li et al., 2026). 3.3.3. C ONDA 
+
+Conda provides another useful illustration of our unified analysis framework: Theorem 1 applies directly to Conda with the choice of rotation matrices specified in Section 2.2. More importantly, it shows that the row-column trace-control argument has a broad range of applicability, spanning simple choices such as that in Conda as well as more complicated ones such as in SOAP. 
+
+3.4. Algorithms with Instantaneous normalizers 
+
+In contrast to the types of algorithms discussed above, there exist algorithms that do not require EMA in Dk. We refer to these as algorithms with instantaneous normalizers. They have the favorable property that less data needs to be stored and processed, which helps alleviate the memory burden. 3.4.1. SP LUS 
+
+The formal definition of Φk and Dk studied in this paper is shown in (3). Since no EMA values are involved, directly following the proofs of SOAP to form a recursion becomes difficult, which forces us to take a different route (see Appendix Convergence of Rotation-based Matrix Optimizers 
+
+C for more details). Nevertheless, we establish the convergence rate of the truncated SPlus in the following theorem. 
+
+Theorem 2 Suppose that Assumptions 1-3 hold. Let ˆσ2 = max 
+
+n
+
+σ2, L(f (X1)−f ∗)
+
+> Kγ 2
+
+o
+
+with any γ ∈ (0 , 1] , 1 − θ =
+
+q L(f (X1)−f ∗)  
+
+> Kˆσ2
+
+, η =
+
+q δ2(f (X1)−f ∗)4LK ˆσ2 , and δ = τ ˆσ√m+n , where τ is a tuning factor with τ ∈ (0 , 1] . Then for generalized truncated SPlus (Algorithm 6), we have 
+
+1
+
+K
+
+> K
+
+X
+
+> k=1
+
+E [∥∇ f (Xk)∥∗] ≤
+
+
+
+4 + 11 
+
+τ
+
+ √m + n · 4
+
+r ˆσ2L (f (X1) − f ∗)
+
+K .
+
+Design of the Control Matrices : We only focus on the row-controlling. Define 
+
+j∗ 
+
+> i
+
+= argmax 
+
+> 1≤j≤n
+
+P⊤ 
+
+> k
+
+MkQk i,j , bk,i = P⊤ 
+
+> k
+
+MkQk i,j ∗
+
+> i
+
++ δ ≥ max  
+
+> 1≤j≤n
+
+Dk,i,j 
+
+for (3). Therefore, 
+
+bk,i ≤ P⊤ 
+
+> k
+
+∇f (Xk)Qk i,j ∗
+
+> i
+
++ P⊤ 
+
+> k
+
+(Mk − ∇ f (Xk)) Qk i,j ∗
+
+> i
+
++ δ
+
+≤
+
+P⊤ 
+
+> k
+
+∇f (Xk)Qk
+
+> 2
+> i,j ∗
+> i
+
+2bk,i 
+
++ bk,i 
+
+2 + P⊤ 
+
+> k
+
+(Mk − ∇ f (Xk)) Qk i,j ∗
+
+> i
+
++ δ
+
+≤
+
+> n
+
+X
+
+> j=1
+
+P⊤ 
+
+> k
+
+∇f (Xk)Qk
+
+> 2
+> i,j
+
+2Dk,i,j 
+
++ bk,i 
+
+2 +  P⊤ 
+
+> k
+
+(Mk − ∇ f (Xk)) Qk
+
+ 
+
+> i, :2
+
++ δ, 
+
+which gives an upper bound of bk,i . Similar to the discussion below Lemma 3, using 
+
+> K
+
+X
+
+> k=1
+
+E [∥Mk − ∇ f (Xk)∥F ] ≤ √13 K ˆσ
+
+established in Lemma 8, we can finally obtain an upper bound on PKk=1 E [tr Bk] as 
+
+> K
+
+X
+
+> k=1
+
+E [tr Bk] ≤ 2√13 mK ˆσ + 2 Kmδ +
+
+> K
+
+X
+
+> k=1
+
+E
+
+ P⊤ 
+
+> k
+
+∇f (Xk)Qk
+
+D 12
+
+> k
+> 2
+> F
+
+ .
+
+■
+
+## 4. Conclusion 
+
+This paper provides a unified convergence analysis framework for rotation-based matrix optimizers, including SOAP, Conda, and truncated SPlus. The framework permits arbitrary orthogonal rotations that may depend on the current stochastic gradient andyields convergence bounds in terms of the nuclear norm of the gradient for generalized SOAP, Conda, truncated SPlus, and matrix-parameterized Adam. Technically, our main approach leverages a row-column trace-control argument that decomposes the control term into row-wise and column-wise maxima and converts elementwise bounds into bounds on two diagonal control matrices. The framework can be applied to other rotation-based updates whenever their normalizers admit a uniform positive lower bound and suitable row and column trace bounds. 
+
+Limitations. Our theorems rely on parameter choices that depend on problem-dependent quantities, such as the initial optimality gap and the noise bound. Our analysis requires a uniform positive lower bound on Dk. Although SOAP and the truncated SPlus satisfy this condition, it imposes an additional restriction on other rotation-based optimizers, such as the untruncated SPlus. The SPlus result pertains to its internal iterates; extending the analysis to averaged outputs remains open. 
+
+## References 
+
+Arjevani, Y., Carmon, Y., Duchi, J. C., Foster, D. J., Srebro, N., and Woodworth, B. Lower bounds for non-convex stochastic optimization. Mathematical Programming , 199:165–214, 2023. Convergence of Rotation-based Matrix Optimizers 
+
+Bhatia, R. (ed.). Matrix Analysis . Springer, New York, 1997. Chen, L., Li, J., and Liu, Q. Muon optimizes under spectral norm constraints. Transactions on Machine Learning Research ,2026. D´ efossez, A., Bottou, L., Bach, F., and Usunier, N. A simple convergence proof of Adam and AdaGrad. Transactions on Machine Learning Research , 2022. Duchi, J., Hazan, E., and Singer, Y. Adaptive subgradient methods for online learning and stochastic optimization. Journal of Machine Learning Research , 12(7):2121–2159, 2011. Frans, K., Levine, S., and Abbeel, P. A stable whitening optimizer for efficient neural network training. In Advances in Neural Information Processing Systems (NeurIPS) , 2025. Gong, W., Zazo, J., Luo, Q., Wang, P., Hensman, J., and Ma, C. ARO: A new lens on matrix optimization for large models. 
+
+arXiv:2602.09006 , 2026. Gupta, V., Koren, T., and Singer, Y. Shampoo: Preconditioned stochastic tensor optimization. In International Conference on Machine Learning (ICML) , 2018. He, Y., Li, P., Hu, Y., Chen, C., and Yuan, K. Subspace optimization for large language models with convergence guarantees. In International Conference on Machine Learning (ICML) , 2025. Hong, Y. and Lin, J. On convergence of Adam for stochastic optimization under relaxed assumptions. In Advances in Neural Information Processing Systems (NeurIPS) , 2024. Jordan, K., Jin, Y., Boza, V., You, J., Cesista, F., Newhouse, L., and Bernstein, J. Muon: An optimizer for hidden layers in neural networks. https://kellerjordan.github.io/posts/muon/ , 2024. Kim, G. Y. and Oh, M. Convergence of Muon with Newton-Schulz. In International Conference on Learning Representations (ICLR) , 2026. Kingma, D. P. and Ba, J. Adam: a method for stochastic optimization. In International Conference on Learning Representations (ICLR) , 2015. Li, H., Rakhlin, A., and Jadbabaie, A. Convergence of Adam under relaxed assumptions. In Advances in Neural Information Processing Systems (NeurIPS) , 2023. Li, H., Dong, Y., and Lin, Z. On the O( √dK1/4 ) convergence rate of AdamW measured by ℓ1 norm. In Advances in Neural Information Processing Systems (NeurIPS) , 2025a. Li, H., Dong, Y., and Lin, Z. On the O( √dT 1/4 ) convergence rate of RMSProp and its momentum extension measured by ℓ1
+
+norm. Journal of Machine Learning Research , 26(131):1–25, 2025b. Li, H., Dong, Y., and Lin, Z. Convergence rate analysis of the AdamW-style Shampoo: Unifying one-sided and two-sided preconditioning. In International Conference on Machine Learning (ICML) , 2026. Li, J. and Hong, M. A note on the convergence of Muon. arXiv:2502.02900 , 2025. Lin, W., Lowe, S. C., Dangel, F., Eschenhagen, R., Xu, Z., and Grosse, R. B. Understanding and improving Shampoo and SOAP via Kullback-Leibler minimization. In International Conference on Learning Representations (ICLR) , 2026. Loshchilov, I. and Hutter, F. Decoupled weight decay regularization. In International Conference on Learning Representa-tions (ICLR) , 2019. Lu, Y., Wang, L., and Liu, J. Understanding SOAP from the perspective of gradient whitening. arXiv:2509.22938 , 2025. McMahan, H. B. and Streeter, M. Adaptive bound optimization for online convex optimization. In Conference on Learning Theory (COLT) , 2010. Sato, N., Naganuma, H., and Iiduka, H. Convergence bound and critical batch size of Muon optimizer. arXiv:2507.01598 ,2025. Convergence of Rotation-based Matrix Optimizers 
+
+Shen, W., Huang, R., Huang, M., Shen, C., and Zhang, J. On the convergence analysis of Muon. Transactions on Machine Learning Research , 2026. Shi, N., Li, D., Hong, M., and Sun, R. RMSProp converges with proper hyper-parameter. In International Conference on Learning Representations (ICLR) , 2020. Tieleman, T. and Hinton, G. Lecture 6.5-RMSProp: Divide the gradient by a running average of its recent magnitude. In 
+
+COURSERA: Neural Networks for Machine Learning , 2012. Vyas, N., Morwani, D., Zhao, R., Kwun, M., Shapira, I., Brandfonbrener, D., Janson, L., and Kakade, S. SOAP: Improving and stabilizing Shampoo using Adam. In International Conference on Learning Representations (ICLR) , 2025. Wang, J., Zhou, P., Dong, Y., Li, H., Li, J., Zhou, X., Lao, Q., Fang, C., and Lin, Z. Conda: Column-normalized adam for training large language models faster. arXiv:2509.24218 , 2025. Xie, S., Wang, T., Wu, B., and Li, Z. A tale of two geometries: Adaptive optimizers and non-Euclidean descent. In 
+
+International Conference on Learning Representations (ICLR) , 2026. Zhang, Y., Chen, C., Shi, N., Sun, R., and Luo, Z. Adam can converge without any modification on update rules. In 
+
+Advances in Neural Information Processing Systems (NeurIPS) , 2022. Zhao, J., Zhang, Z., Chen, B., Wang, Z., Anandkumar, A., and Tian, Y. GaLore: Memory-efficient LLM training by gradient low-rank projection. In International Conference on Machine Learning (ICML) , 2024. Convergence of Rotation-based Matrix Optimizers 
+
+## A. Proofs for the General Framework 
+
+We first give the H¨ older’s inequality and Schatten-H¨ older inequality, as well as two standard identities for Schatten norms. 
+
+Lemma 4 (H¨ older’s Inequality) For all x1, x 2, · · · , x n, y 1, y 2, · · · , y n ≥ 0, if 1 
+
+> p
+
++ 1 
+
+> q
+
+= 1 , we have 
+
+> n
+
+X
+
+> i=1
+
+xiyi ≤
+
+> n
+
+X
+
+> i=1
+
+xpi
+
+! 1
+
+> p
+
+·
+
+> n
+
+X
+
+> i=1
+
+yqi
+
+! 1
+
+> q
+
+.
+
+Lemma 5 (Schatten-H¨ older inequality) (Bhatia, 1997) For X ∈ Rm×n, Y ∈ Rn×s, and Z ∈ Rs×t, if 1 
+
+> p
+
++ 1 
+
+> q
+
++ 1 
+
+> r
+
+= 1 ,we have 
+
+∥XYZ ∥S1 ≤ ∥ X∥Sp ∥Y∥Sq ∥Z∥Sr ,
+
+where the Schatten-p norm is defined as 
+
+∥X∥Sp =
+
+(  Pmin {m,n } 
+
+> i=1
+
+σi(X)p
+
+1/p 
+
+, 1 ≤ p < ∞,σ1(X), p = ∞.
+
+Lemma 6 For any diagonal matrix X ∈ Rn×n with positive entries, Y ∈ Rm×n, and p > 1, we have 
+
+X 1
+
+> p
+> pSp
+
+= tr X, ∥Y∥2 
+
+> S2
+
+= ∥Y∥2 
+
+> F
+
+.
+
+Proof 1 Recall that we denote σi and λi as the i-th singular value and eigenvalue, respectively. Therefore σi
+
+
+
+X 1
+
+> p
+
+
+
+=
+
+σi (X) 1 
+
+> p
+
+and σi(X) = λi(X). So we have 
+
+X 1
+
+> p
+> pSp
+
+=
+
+> n
+
+X
+
+> i=1
+
+λi (X) 1 
+
+> p·p
+
+! 1 
+
+> p·p
+
+=
+
+> n
+
+X
+
+> i=1
+
+λi (X) = tr X,
+
+and 
+
+∥Y∥2 
+
+> S2
+
+=
+
+
+
+> min {m,n }
+
+X
+
+> i=1
+
+σi (Y)2
+
+ 
+
+> 12·2
+
+= tr YY ⊤ = ∥Y∥2 
+
+> F
+
+.
+
+■
+
+Remark 1 Throughout this paper, we define X 1 
+
+> p
+
+as the element-wise 1 
+
+> p
+
+-th power. To avoid having to define the matrix power, we prove the first equality only for diagonal X, although it holds for any symmetric positive semi-definite matrix. 
+
+Definition 1 (Unitarily invariant norm) (Bhatia, 1997) A norm is unitarily invariant if it satisfies ∥PAQ ⊤∥ = ∥A∥ for orthogonal matrices P and Q. Both the Frobenius norm and nuclear norm are unitarily invariant norms. 
+
+The proof of Lemma 1 presented below follows the technical framework of AdamW established in (Li et al., 2025a). The difference lies in that we extend the argument to accommodate orthogonal rotations, which is the main difficulty in analyzing rotation-based optimizers such as SOAP. 
+
+Proof 2 (Proof of Lemma 1) As the gradient is L-Lipschitz, we have 
+
+f (Xk+1 ) − f (Xk)
+
+≤ ⟨∇ f (Xk), Xk+1 − Xk⟩ + L
+
+2 ∥Xk+1 − Xk∥2
+
+> F
+
+= − η
+
+
+
+∇f (Xk), Pk
+
+P⊤ 
+
+> k
+
+MkQk
+
+Dk
+
+Q⊤
+
+> k
+
+
+
++ Lη 2
+
+2 Pk
+
+P⊤ 
+
+> k
+
+MkQk
+
+Dk
+
+Q⊤
+
+> k
+> 2
+> F
+
+= − η
+
+
+
+P⊤ 
+
+> k
+
+∇f (Xk)Qk, P⊤ 
+
+> k
+
+MkQk
+
+Dk
+
+
+
++ Lη 2
+
+2 Pk
+
+P⊤ 
+
+> k
+
+MkQk
+
+Dk
+
+Q⊤
+
+> k
+> 2
+> F
+
+Convergence of Rotation-based Matrix Optimizers 
+
+> a
+
+= − η
+
+*
+
+P⊤ 
+
+> k
+
+∇f (Xk)Qk
+
+D 12
+
+> k
+
+, P⊤ 
+
+> k
+
+MkQk
+
+D 12
+
+> k
+
++
+
++ Lη 2
+
+2
+
+P⊤ 
+
+> k
+
+MkQk
+
+Dk
+
+> 2
+> Fb
+
+≤ − η
+
+*
+
+P⊤ 
+
+> k
+
+∇f (Xk)Qk
+
+D 12
+
+> k
+
+, P⊤ 
+
+> k
+
+MkQk
+
+D 12
+
+> k
+
++
+
++ Lη 2
+
+2δ
+
+P⊤ 
+
+> k
+
+MkQk
+
+D 12
+
+> k
+> 2
+> F
+
+= − η
+
+2
+
+P⊤ 
+
+> k
+
+∇f (Xk)Qk
+
+D 12
+
+> k
+> 2
+> F
+
+− η
+
+2
+
+P⊤ 
+
+> k
+
+MkQk
+
+D 12
+
+> k
+> 2
+> F
+
++ η
+
+2
+
+P⊤ 
+
+> k
+
+∇f (Xk)Qk
+
+D 12
+
+> k
+
+− P⊤ 
+
+> k
+
+MkQk
+
+D 12
+
+> k
+> 2
+> F
+
++ Lη 2
+
+2δ
+
+P⊤ 
+
+> k
+
+MkQk
+
+D 12
+
+> k
+> 2
+> Fc
+
+≤ − η
+
+2
+
+P⊤ 
+
+> k
+
+∇f (Xk)Qk
+
+D 12
+
+> k
+> 2
+> F
+
+− η
+
+4
+
+P⊤ 
+
+> k
+
+MkQk
+
+D 12
+
+> k
+> 2
+> F
+
++ η
+
+2δ P⊤ 
+
+> k
+
+∇f (Xk)Qk − P⊤ 
+
+> k
+
+MkQk
+
+> 2
+> Fd
+
+= − η
+
+2
+
+P⊤ 
+
+> k
+
+∇f (Xk)Qk
+
+D 12
+
+> k
+> 2
+> F
+
+− η
+
+4
+
+P⊤ 
+
+> k
+
+MkQk
+
+D 12
+
+> k
+> 2
+> F
+
++ η
+
+2δ ∥∇ f (Xk) − Mk∥2 
+
+> F
+
+,
+
+(7) 
+
+where we use the notation that XY and X 12 are the elementwise division and square-root in a
+
+=, b
+
+≤, and c
+
+≤, the fact that ∥ · ∥ F
+
+is a unitarily invariant norm such that ∥PAQ ⊤∥F = ∥A∥F for orthogonal matrices P and Q in a
+
+= and d
+
+=, the condition 
+
+Dk,i,j ≥ δ in b
+
+≤ and c
+
+≤, and let η ≤ δ 
+
+> 2L
+
+in c
+
+≤. Taking expectation on both sides of (7) with respect to ζk conditioned on 
+
+Fk−1, multiplying both sides of (11) by η 
+
+> 2δ(1 −θ)
+
+, and adding to (7), we have 
+
+Ek
+
+f (Xk+1 ) − f ∗ + ηθ 
+
+2δ(1 − θ) ∥∇ f (Xk) − Mk∥2 
+
+> F
+
++ η
+
+4
+
+P⊤ 
+
+> k
+
+MkQk
+
+D 12
+
+> k
+> 2
+> F
+
+Fk−1
+
+
+
+≤f (Xk) − f ∗ − η
+
+2 Ek
+
+ P⊤ 
+
+> k
+
+∇f (Xk)Qk
+
+D 12
+
+> k
+> 2
+> F
+
+Fk−1
+
+
+
++ ηθ 
+
+2δ(1 − θ) ∥Mk−1 − ∇ f (Xk−1)∥2 
+
+> F
+
++ L2η3
+
+2δ2(1 − θ)2
+
+P⊤
+
+> k−1
+
+Mk−1Qk−1
+
+D 12
+
+> k−1
+> 2
+> F
+
++ η(1 − θ)σ2
+
+2δ
+
+≤f (Xk) − f ∗ − η
+
+2 Ek
+
+ P⊤ 
+
+> k
+
+∇f (Xk)Qk
+
+D 12
+
+> k
+> 2
+> F
+
+Fk−1
+
+
+
++ ηθ 
+
+2δ(1 − θ) ∥Mk−1 − ∇ f (Xk−1)∥2 
+
+> F
+
++ η
+
+4
+
+P⊤
+
+> k−1
+
+Mk−1Qk−1
+
+D 12
+
+> k−1
+> 2
+> F
+
++ η(1 − θ)σ2
+
+2δ ,
+
+(8) 
+
+where we let η2 ≤ δ2(1 −θ)2 
+
+> 2L2
+
+in the last inequality. Taking expectation with respect to Fk−1 and summing (7) with k = 1 and (8) over k = 2 , 3, · · · , K , we have 
+
+EFK
+
+f (XK+1 ) − f ∗ + ηθ 
+
+2δ(1 − θ) ∥∇ f (XK ) − MK ∥2 
+
+> F
+
++ η
+
+4
+
+P⊤ 
+
+> K
+
+MK QK
+
+D 12
+
+> K
+> 2
+> F
+
+
+
+≤f (X1) − f ∗ − η
+
+2
+
+> K
+
+X
+
+> k=1
+
+EFk
+
+ P⊤ 
+
+> k
+
+∇f (Xk)Qk
+
+D 12
+
+> k
+> 2
+> F
+
+
+
++
+
+ η
+
+2δ + ηθ 
+
+2δ(1 − θ)
+
+
+
+EF1
+
+h
+
+∥M1 − ∇ f (X1)∥2
+
+> F
+
+i
+
++ (K − 1) η(1 − θ)σ2
+
+2δConvergence of Rotation-based Matrix Optimizers 
+
+=f (X1) − f ∗ − η
+
+2
+
+> K
+
+X
+
+> k=1
+
+EFk
+
+ P⊤ 
+
+> k
+
+∇f (Xk)Qk
+
+D 12
+
+> k
+> 2
+> F
+
+
+
++ η
+
+2δ(1 − θ) EF1
+
+h
+
+∥M1 − ∇ f (X1)∥2
+
+> F
+
+i
+
++ (K − 1) η(1 − θ)σ2
+
+2δ .
+
+(9) 
+
+As the gradient is L-Lipschitz, we have 
+
+f ∗ ≤ f
+
+
+
+X − 1
+
+L ∇f (X)
+
+
+
+≤ f (X) − 1
+
+L ⟨∇ f (X), ∇f (X)⟩ + L
+
+2
+
+1
+
+L ∇f (X)
+
+> 2
+> F
+
+= f (X) − 12L ∥∇ f (X)∥2 
+
+> F
+
+.
+
+Using the recursion of M1 and M0 = 0, as well as Assumptions 2-3, we have 
+
+EF1
+
+h
+
+∥∇ f (X1) − M1∥2
+
+> F
+
+i
+
+=EF1
+
+h
+
+∥θ∇f (X1) + (1 − θ) ( ∇f (X1) − G1)∥2
+
+> F
+
+i
+
+=θ2 ∥∇ f (X1)∥2 
+
+> F
+
++ (1 − θ)2EF1
+
+h
+
+∥∇ f (X1) − G1∥2
+
+> F
+
+i
+
+≤2L (f (X1) − f ∗) + (1 − θ)2σ2.
+
+(10) 
+
+Plugging into (9), we have 
+
+EFK
+
+f (XK+1 ) − f ∗ + ηθ 
+
+2δ(1 − θ) ∥∇ f (XK ) − MK ∥2 
+
+> F
+
++ η
+
+4
+
+P⊤ 
+
+> K
+
+MK QK
+
+D 12
+
+> K
+> 2
+> F
+
+
+
+≤f (X1) − f ∗ − η
+
+2
+
+> K
+
+X
+
+> k=1
+
+EFk
+
+ P⊤ 
+
+> k
+
+∇f (Xk)Qk
+
+D 12
+
+> k
+> 2
+> F
+
+ + Lη δ(1 − θ) (f (X1) − f ∗) + Kη (1 − θ)σ2
+
+2δ
+
+≤f (X1) − f ∗ − η
+
+2
+
+> K
+
+X
+
+> k=1
+
+EFk
+
+ P⊤ 
+
+> k
+
+∇f (Xk)Qk
+
+D 12
+
+> k
+> 2
+> F
+
+ + Lη δ(1 − θ) (f (X1) − f ∗) + Kη (1 − θ)ˆ σ2
+
+2δ ,
+
+where we denote ˆσ2 = max 
+
+n
+
+σ2, L(f (X1)−f ∗)
+
+> Kγ 2
+
+o
+
+with any γ ∈ (0 , 1] . So we have 
+
+> K
+
+X
+
+> k=1
+
+EFk
+
+ P⊤ 
+
+> k
+
+∇f (Xk)Qk
+
+D 12
+
+> k
+> 2
+> F
+
+ ≤ 2
+
+η (f (X1) − f ∗) + 2Lδ(1 − θ) (f (X1) − f ∗) + K(1 − θ)ˆ σ2
+
+δ
+
+= 7
+
+δ
+
+pK ˆσ2L (f (X1) − f ∗)
+
+by letting 1 − θ =
+
+q L(f (X1)−f ∗)  
+
+> Kˆσ2
+
+and η =
+
+q δ2(f (X1)−f ∗)4LK ˆσ2 , which also satisfies η2 = δ2(1 −θ)2 
+
+> 4L2
+
+≤ δ2(1 −θ)2 
+
+> 2L2
+
+and η ≤ δ 
+
+> 2L
+
+. ■
+
+We present the proof of Lemma 2 below, which follows the technical framework of AdamW-style Shampoo established in (Li et al., 2026). The difference lies in that we introduce the control matrices Bk and Ck and converte ∇f (Xk) into    
+
+> P⊤
+> k∇f(Xk)Qk
+> D
+> 12
+> k
+
+.
+
+Proof 3 (Proof of Lemma 2) Recall that we define 
+
+bk,i ≥ max  
+
+> 1≤j≤n
+
+Dk,i,j , Bk = diag ( bk, 1, b k, 2, . . . b k,m ) ,ck,j ≥ max  
+
+> 1≤i≤m
+
+Dk,i,j , Ck = diag ( ck, 1, c k, 2 · · · ck,n ) .Convergence of Rotation-based Matrix Optimizers 
+
+So we have 
+
+> K
+
+X
+
+> k=1
+
+E [∥∇ f (Xk)∥∗]
+
+!2
+
+> a
+
+=
+
+> K
+
+X
+
+> k=1
+
+E  P⊤ 
+
+> k
+
+∇f (Xk)Qk ∗
+
+!2
+
+> b
+
+≤
+
+> K
+
+X
+
+> k=1
+
+E
+
+
+
+B 14 
+
+> kS4
+
+B− 14 
+
+> k
+
+P⊤ 
+
+> k
+
+∇f (Xk)QkC− 14 
+
+> kS2
+
+C 14 
+
+> kS4
+
+!2
+
+> c
+
+≤
+
+> K
+
+X
+
+> k=1
+
+E
+
+
+
+B 14
+
+> k
+> 4
+> S4
+
+! 12
+
+·
+
+> K
+
+X
+
+> k=1
+
+E
+
+
+
+B− 14 
+
+> k
+
+P⊤ 
+
+> k
+
+∇f (Xk)QkC− 14
+
+> k
+> 2
+> S2
+
+
+
+·
+
+> K
+
+X
+
+> k=1
+
+E
+
+
+
+C 14
+
+> k
+> 4
+> S4
+
+! 12
+
+> d
+
+=
+
+vuut KX
+
+> k=1
+
+E [tr Bk] ·
+
+> K
+
+X
+
+> k=1
+
+E [tr Ck] ·
+
+> K
+
+X
+
+> k=1
+
+E
+
+
+
+B− 14 
+
+> k
+
+P⊤ 
+
+> k
+
+∇f (Xk)QkC− 14
+
+> k
+> 2
+> F
+
+
+
+=
+
+vuut KX
+
+> k=1
+
+E [tr Bk] ·
+
+> K
+
+X
+
+> k=1
+
+E [tr Ck] ·
+
+> K
+
+X
+
+> k=1
+
+E
+
+
+
+> m
+
+X
+
+> i=1
+> n
+
+X
+
+> j=1
+
+ P⊤ 
+
+> k
+
+∇f (Xk)Qk
+
+
+
+> i,j
+> 4
+
+pbk,i ck,j 
+
+!2
+
+> e
+
+≤ 12
+
+> K
+
+X
+
+> k=1
+
+E [tr Bk] + 
+
+> K
+
+X
+
+> k=1
+
+E [tr Ck]
+
+!
+
+·
+
+> K
+
+X
+
+> k=1
+
+E
+
+
+
+> m
+
+X
+
+> i=1
+> n
+
+X
+
+> j=1
+
+P⊤ 
+
+> k
+
+∇f (Xk)Qk
+
+D 12
+
+> k
+
+!2
+
+> i,j
+
+
+
+= 12
+
+> K
+
+X
+
+> k=1
+
+E [tr Bk] + 
+
+> K
+
+X
+
+> k=1
+
+E [tr Ck]
+
+!
+
+·
+
+> K
+
+X
+
+> k=1
+
+E
+
+ P⊤ 
+
+> k
+
+∇f (Xk)Qk
+
+D 12
+
+> k
+> 2
+> F
+
+ ,
+
+where we use the fact that ∥ · ∥ ∗ is a unitarily invariant norm such that ∥P⊤AQ ∥∗ = ∥A∥∗ for orthogonal matrices P
+
+and Q in a
+
+=, the Schatten-H¨ older inequality and ∥X∥∗ = ∥X∥S1 in b
+
+≤, H¨ older’s inequality in c
+
+≤, Lemma 6 in d
+
+=, and 
+
+bk,i ck,j ≥ D2 
+
+> k,i,j
+
+in e
+
+≤. ■
+
+The following lemma is similar to the corresponding lemma in (Li et al., 2025a) and we list the proof here only for the sake of completeness. 
+
+Lemma 7 Suppose that Assumptions 1-3 and condition Dk,i,j ≥ δ hold. Then for Algorithm 1, for k ≥ 2, we have 
+
+Ek
+
+h
+
+∥∇ f (Xk) − Mk∥2 
+
+> F
+
+Fk−1
+
+i
+
+≤θ ∥Mk−1 − ∇ f (Xk−1)∥2 
+
+> F
+
++ L2η2
+
+δ(1 − θ)
+
+P⊤
+
+> k−1
+
+Mk−1Qk−1
+
+D 12
+
+> k−1
+> 2
+> F
+
++ (1 − θ)2σ2.
+
+(11) 
+
+Proof 4 Denoting Γk = Gk − ∇ f (Xk), we have Ek
+
+Γk Fk−1
+
+ = 0 and Ek
+
+h
+
+∥Γk∥2 
+
+> F
+
+Fk−1
+
+i
+
+≤ σ2. From the update of 
+
+Mk, we have 
+
+Mk − ∇ f (Xk) = θMk−1 + (1 − θ)Gk − ∇ f (Xk)=θ (Mk−1 − ∇ f (Xk−1)) + (1 − θ) ( ∇f (Xk) + Γ k) − ∇ f (Xk) + θ∇f (Xk−1)=θ (Mk−1 − ∇ f (Xk−1)) + (1 − θ)Γ k − θ (∇f (Xk) − ∇ f (Xk−1)) 
+
+and 
+
+Ek
+
+h
+
+∥∇ f (Xk) − Mk∥2 
+
+> F
+
+Fk−1
+
+i
+
+= ∥θ (Mk−1 − ∇ f (Xk−1)) − θ (∇f (Xk) − ∇ f (Xk−1)) ∥2 
+
+> F
+
++ (1 − θ)2Ek
+
+h
+
+∥Γk∥2 
+
+> F
+
+Fk−1
+
+i
+
+≤θ2
+
+
+
+1 + 1 − θθ
+
+
+
+∥Mk−1 − ∇ f (Xk−1)∥2 
+
+> F
+
++ θ2
+
+
+
+1 + θ
+
+1 − θ
+
+
+
+∥∇ f (Xk) − ∇ f (Xk−1)∥2
+
+> F
+
++ (1 − θ)2Ek
+
+h
+
+∥Γk∥2 
+
+> F
+
+Fk−1
+
+iConvergence of Rotation-based Matrix Optimizers 
+
+≤θ ∥Mk−1 − ∇ f (Xk−1)∥2 
+
+> F
+
++ 11 − θ ∥∇ f (Xk) − ∇ f (Xk−1)∥2 
+
+> F
+
++ (1 − θ)2σ2
+
+≤θ ∥Mk−1 − ∇ f (Xk−1)∥2 
+
+> F
+
++ L2
+
+1 − θ ∥Xk − Xk−1∥2 
+
+> F
+
++ (1 − θ)2σ2
+
+=θ ∥Mk−1 − ∇ f (Xk−1)∥2 
+
+> F
+
++ L2η2
+
+1 − θ Pk−1
+
+P⊤
+
+> k−1
+
+Mk−1Qk−1
+
+Dk−1
+
+Q⊤
+
+> k−1
+> 2
+> F
+
++ (1 − θ)2σ2
+
+> a
+
+=θ ∥Mk−1 − ∇ f (Xk−1)∥2 
+
+> F
+
++ L2η2
+
+1 − θ
+
+P⊤
+
+> k−1
+
+Mk−1Qk−1
+
+Dk−1
+
+> 2
+> F
+
++ (1 − θ)2σ2
+
+> b
+
+≤θ ∥Mk−1 − ∇ f (Xk−1)∥2 
+
+> F
+
++ L2η2
+
+δ(1 − θ)
+
+P⊤
+
+> k−1
+
+Mk−1Qk−1
+
+D 12
+
+> k−1
+> 2
+> F
+
++ (1 − θ)2σ2,
+
+where we use the fact that ∥ · ∥ F is a unitarily invariant norm such that ∥PAQ ⊤∥F = ∥A∥F for orthogonal matrices P
+
+and Q in a
+
+=, the notation that XY and X 12 are the elementwise division and square-root and condition Dk,i,j ≥ δ in b
+
+≤. ■
+
+## B. Proofs for SOAP 
+
+We now give the proof of Lemma 3. Instead of directly following the proof in (Li et al., 2025a), which makes use of an 
+
+Fk−1-measurable upper bound on eVk, we separate the main recursion term from the stochastic error term. This demonstrates how the error term affects the main term in a more straightforward way, and also provides an explicit recursion for both terms. 
+
+Proof 5 (Proof of Lemma 3) Consider Bk. Denote 
+
+ϕk,i = max  
+
+> 1≤j≤n
+
+P⊤ 
+
+> k
+
+∇f (Xk)Qk i,j ,φk,i = max  
+
+> 1≤j≤n
+
+P⊤ 
+
+> k
+
+(Gk − ∇ f (Xk)) Qk i,j .
+
+In order to upper bound Vk,i,j , define 
+
+¯αk,i = β ¯αk−1,i + 2(1 − β)  ϕ2 
+
+> k,i
+
++ φ2
+
+> k,i
+
+ ,bk,i = p¯αk,i + ε, 
+
+with ¯α0,i = 0 . Therefore, 
+
+ P⊤ 
+
+> k
+
+GkQk
+
+2 
+
+> i,j
+
+=  P⊤ 
+
+> k
+
+∇f (Xk) Qk + P⊤ 
+
+> k
+
+(Gk − ∇ f (Xk)) Qk
+
+2
+
+> i,j
+
+≤ 2
+
+ P⊤ 
+
+> k
+
+∇f (Xk)Qk
+
+2 
+
+> i,j
+
++  P⊤ 
+
+> k
+
+(Gk − ∇ f (Xk)) Qk
+
+2
+
+> i,j
+
+
+
+≤ 2  ϕ2 
+
+> k,i
+
++ φ2
+
+> k,i
+
+ .
+
+Compared to the definition of Vk,i,j , by induction and V0,i,j = ¯ α0,i = 0 , we obtain, 
+
+¯αk,i ≥ Vk,i,j and bk,i ≥ pVk,i,j + ε for all j = 1 , 2, · · · , n, (12) 
+
+Thus, the coefficients bk,i satisfy (4) since Dk = √Vk + ε for SOAP. Thus, bk,i is a valid choice for the trace-control process in the general framework. Then we exclude the stochastic error by recording the average error term: 
+
+¯φk,i = β ¯φk−1,i + 2(1 − β)φ2
+
+> k,i
+
+,nk,i = p ¯φk,i + ε, Convergence of Rotation-based Matrix Optimizers 
+
+with ¯φ0,i = 0 . Therefore, 
+
+bk,i − nk,i = ¯αk,i − ¯φk,i 
+
+bk,i + nk,i 
+
+= β ¯αk−1,i − ¯φk−1,i 
+
+bk,i + nk,i 
+
++ 2(1 − β) ϕ2
+
+> k,i
+
+bk,i + nk,i a
+
+≤ pβ ¯αk−1,i − ¯φk−1,i 
+
+bk−1,i + nk−1,i 
+
++ 2(1 − β) ϕ2
+
+> k,i
+
+bk,i 
+
+= pβ(bk−1,i − nk−1,i ) + 2(1 − β) ϕ2
+
+> k,i
+
+bk,i 
+
+,
+
+where we use b2 
+
+> k,i
+
+= ¯ αk,i + ε ≥ β ¯αk−1,i + βε = βb 2 
+
+> k−1,i
+
+and a similar inequality for nk,i in a
+
+≤. Using this recursion and 
+
+b0,i = n0,i = √ε, we have 
+
+bk,i ≤ nk,i + 2(1 − β)
+
+> k
+
+X
+
+> t=1
+
+β k−t
+
+> 2
+
+ϕ2
+
+> t,i
+
+bt,i 
+
+,
+
+and in conclusion, 
+
+> K
+
+X
+
+> k=1
+
+E [tr Bk] = 
+
+> K
+
+X
+
+> k=1
+> m
+
+X
+
+> i=1
+
+E [bk,i ]
+
+≤
+
+> K
+
+X
+
+> k=1
+> m
+
+X
+
+> i=1
+
+E [nk,i ] + 2(1 − β)
+
+> K
+
+X
+
+> k=1
+> m
+
+X
+
+> i=1
+> k
+
+X
+
+> t=1
+
+β k−t 
+
+> 2
+
+E
+
+" ϕ2
+
+> t,i
+
+bt,i 
+
+#
+
+=
+
+> K
+
+X
+
+> k=1
+> m
+
+X
+
+> i=1
+
+E p ¯φk,i + ε + 2(1 − β)
+
+> K
+
+X
+
+> k=1
+> m
+
+X
+
+> i=1
+> k
+
+X
+
+> t=1
+
+β k−t 
+
+> 2
+
+E
+
+" ϕ2
+
+> t,i
+
+bt,i 
+
+#
+
+> b
+
+≤ √Km 
+
+vuut KX
+
+> k=1
+> m
+
+X
+
+> i=1
+
+E [ ¯ φk,i ] + Kmε + 2(1 − β)
+
+> K
+
+X
+
+> k=1
+> m
+
+X
+
+> i=1
+> k
+
+X
+
+> t=1
+
+β k−t 
+
+> 2
+
+E
+
+" ϕ2
+
+> t,i
+
+bt,i 
+
+#
+
+= √Km 
+
+vuut2(1 − β)
+
+> K
+
+X
+
+> k=1
+> m
+
+X
+
+> i=1
+> k
+
+X
+
+> t=1
+
+βk−tE φ2
+
+> t,i
+
+ + Kmε + 2(1 − β)
+
+> K
+
+X
+
+> k=1
+> m
+
+X
+
+> i=1
+> k
+
+X
+
+> t=1
+
+β k−t 
+
+> 2
+
+E
+
+" ϕ2
+
+> t,i
+
+bt,i 
+
+#
+
+> c
+
+≤ √Km 
+
+vuut2
+
+> K
+
+X
+
+> k=1
+> m
+
+X
+
+> i=1
+
+E
+
+h
+
+φ2
+
+> k,i
+
+i
+
++ Kmε + 4 
+
+> K
+
+X
+
+> k=1
+> m
+
+X
+
+> i=1
+
+E
+
+" ϕ2
+
+> k,i
+
+bk,i 
+
+#
+
+> d
+
+≤ √2Km 
+
+vuut KX
+
+> k=1
+> m
+
+X
+
+> i=1
+
+E
+
+h
+
+φ2
+
+> k,i
+
+i
+
++ Km √ε + 4 
+
+> K
+
+X
+
+> k=1
+> m
+
+X
+
+> i=1
+> n
+
+X
+
+> j=1
+
+E
+
+" P⊤ 
+
+> k
+
+∇f (Xk)Qk
+
+> 4
+
+√Vk + ε
+
+2
+
+> i,j
+
+#
+
+> e
+
+≤ K√2mσ + Km √ε + 4 
+
+> K
+
+X
+
+> k=1
+
+E
+
+"
+
+P⊤ 
+
+> k
+
+∇f (Xk)Qk
+
+> 4
+
+√Vk + ε
+
+> 2
+> F
+
+#
+
+,
+
+where b
+
+≤ uses the concavity of √x, c
+
+≤ uses the fact that 
+
+(1 − β)
+
+> K
+
+X
+
+> k=1
+> m
+
+X
+
+> i=1
+> k
+
+X
+
+> t=1
+
+βk−tE φ2
+
+> t,i
+
+ = (1 − β)
+
+> K
+
+X
+
+> t=1
+> m
+
+X
+
+> i=1
+
+E φ2
+
+> t,i
+
+ KX
+
+> k=t
+
+βk−t
+
+!
+
+≤
+
+> K
+
+X
+
+> k=1
+> m
+
+X
+
+> i=1
+
+E φ2
+
+> k,i
+
+ ,
+
+as well as, 
+
+(1 − β)
+
+> K
+
+X
+
+> k=1
+> m
+
+X
+
+> i=1
+> k
+
+X
+
+> t=1
+
+β k−t 
+
+> 2
+
+E
+
+" ϕ2
+
+> t,i
+
+bt,i 
+
+#
+
+= (1 − β)
+
+> K
+
+X
+
+> t=1
+> m
+
+X
+
+> i=1
+
+E
+
+" ϕ2
+
+> t,i
+
+bt,i 
+
+# KX
+
+> k=t
+
+β k−t
+
+> 2
+
+!
+
+≤ 2
+
+> K
+
+X
+
+> k=1
+> m
+
+X
+
+> i=1
+
+E
+
+" ϕ2
+
+> k,i
+
+bk,i 
+
+#
+
+.Convergence of Rotation-based Matrix Optimizers 
+
+In d
+
+≤, the first term uses √a + b ≤ √a + √b, and the second term follows 
+
+ϕ2
+
+> k,i
+
+bk,i 
+
+≤
+
+> n
+
+X
+
+> j=1
+
+ P⊤ 
+
+> k
+
+∇f (Xk)Qk
+
+2
+
+> i,j
+
+bk,i 
+
+≤
+
+> n
+
+X
+
+> j=1
+
+ P⊤ 
+
+> k
+
+∇f (Xk)Qk
+
+> 4
+
+√Vk + ε
+
+2
+
+> i,j
+
+,
+
+where we use (12). In e
+
+≤, we use 
+
+> K
+
+X
+
+> k=1
+> m
+
+X
+
+> i=1
+
+E φ2
+
+> k,i
+
+ ≤
+
+> K
+
+X
+
+> k=1
+> m
+
+X
+
+> i=1
+> n
+
+X
+
+> j=1
+
+E
+
+h P⊤ 
+
+> k
+
+(Gk − ∇ f (Xk)) Qk
+
+2
+
+> i,j
+
+i
+
+=
+
+> K
+
+X
+
+> k=1
+
+E
+
+h
+
+P⊤ 
+
+> k
+
+(Gk − ∇ f (Xk)) Qk
+
+> 2
+> F
+
+i
+
+=
+
+> K
+
+X
+
+> k=1
+
+E
+
+h
+
+∥Gk − ∇ f (Xk)∥2
+
+> F
+
+i
+
+≤ Kσ 2,
+
+where we use the fact that ∥ · ∥ F is a unitarily invariant norm such that ∥P⊤AQ ∥F = ∥A∥F for orthogonal matrices P
+
+and Q. Similarly, we obtain 
+
+> K
+
+X
+
+> k=1
+
+E [tr Ck] ≤ K
+
+√2nσ + n√ε
+
+
+
++ 4 
+
+> K
+
+X
+
+> k=1
+
+E
+
+"
+
+P⊤ 
+
+> k
+
+∇f (Xk)Qk
+
+> 4
+
+√Vk + ε
+
+> 2
+> F
+
+#
+
+,
+
+and finish the proof by σ ≤ ˆσ. ■
+
+The following gives the proof of Theorem 1. 
+
+Proof 6 (Proof of Theorem 1) Plugging (6) in (5) , we have 
+
+> K
+
+X
+
+> k=1
+
+E [∥∇ f (Xk)∥∗]
+
+!2
+
+≤ 12
+
+> K
+
+X
+
+> k=1
+
+E [tr Bk] + 
+
+> K
+
+X
+
+> k=1
+
+E [tr Ck]
+
+!
+
+SK
+
+≤
+
+ 12 K
+
+√2  √m + √n ˆσ + ( m + n) √ε
+
+
+
++ 4 SK
+
+
+
+· S K
+
+≤
+
+
+
+K√m + n
+
+
+
+ˆσ + 12
+
+p(m + n) ε
+
+
+
++ 4 SK
+
+
+
+· S Ka
+
+≤  2K√m + nˆσ + 4 SK
+
+ · S Kb
+
+≤ 2K√m + nˆσ + 28 
+
+pK ˆσ2L (f (X1) − f ∗)
+
+δ
+
+!
+
+· 7
+
+pK ˆσ2L (f (X1) − f ∗)
+
+δ
+
+=14 K√m + nˆσ ·
+
+pK ˆσ2L (f (X1) − f ∗)
+
+δ + 196 K ˆσ2L (f (X1) − f ∗)
+
+δ2 ,
+
+where we let ε = τ ˆσ2 
+
+> m+n
+
+with τ ≤ 1 in a
+
+≤, while using the upper bound for SK in Lemma 1 at b
+
+≤. Therefore, 
+
+1
+
+K
+
+> K
+
+X
+
+> k=1
+
+E [∥∇ f (Xk)∥∗] ≤√14 4
+
+r (m + n)ˆ σ2
+
+δ2
+
+> 4
+
+r ˆσ2L (f (X1) − f ∗)
+
+K + 14 
+
+r ˆσ2L (f (X1) − f ∗)
+
+Kδ 2
+
+> c
+
+≤ 4
+
+√m + n ˆσδ
+
+ 12
+
++ 14 ˆσδ
+
+!
+
+· 4
+
+r ˆσ2L (f (X1) − f ∗)
+
+K
+
+≤
+
+
+
+2√m + n + 16 ˆσδ
+
+
+
+· 4
+
+r ˆσ2L (f (X1) − f ∗)
+
+K ,
+
+where we use ˆσ4 ≥ ˆσ2L(f (X1)−f ∗) 
+
+> K
+
+from the definition of ˆσ in c
+
+≤. ■Convergence of Rotation-based Matrix Optimizers 
+
+## C. Proofs for SPlus 
+
+The SPlus algorithm proposed in (Frans et al., 2025) is shown in Algorithm 3. We extract the core idea of sign-based normalization, replace the sign-type update by a truncated modification, absorb the factor 2 
+
+> m+n
+
+into η, and omit the iterate averaging, which leads to a suitable generalized Algorithm 6. We take a slightly different analysis approach for SPlus: since the operation Φk in this algorithm is computed directly from the current rotated momentum (unlike SOAP, which includes a historical averaging term Vk), the entire analysis is simplified. We can deduce the following lemma from Lemma 7. It is crucial for non-historic dependent update algorithms, such as SPlus. 
+
+Lemma 8 Suppose that Assumptions 1-3 and condition Dk,i,j ≥ δ hold. Let ˆσ2 = max 
+
+n
+
+σ2, L(f (X1)−f ∗)
+
+> Kγ 2
+
+o
+
+with any 
+
+γ ∈ (0 , 1] , 1 − θ =
+
+q L(f (X1)−f ∗)  
+
+> Kˆσ2
+
+, and η =
+
+q δ2(f (X1)−f ∗)4LK ˆσ2 . Then for the general Algorithm 1, we have 
+
+> K
+
+X
+
+> k=1
+
+EFk [∥Mk − ∇ f (Xk)∥F ] ≤ √13 K ˆσ. 
+
+Proof 7 Taking expectation on both sides of (11) with respect to ζk conditioned on Fk−1, summing over k = 2 , 3, · · · , K ,and adding (10), we have 
+
+> K
+
+X
+
+> k=1
+
+EFk
+
+h
+
+∥∇ f (Xk) − Mk∥2
+
+> F
+
+i
+
+≤θ
+
+> K
+
+X
+
+> k=2
+
+EFk−1
+
+h
+
+∥Mk−1 − ∇ f (Xk−1)∥2
+
+> F
+
+i
+
++ L2η2
+
+δ(1 − θ)
+
+> K
+
+X
+
+> k=2
+
+EFk−1
+
+ P⊤
+
+> k−1
+
+Mk−1Qk−1
+
+D 12
+
+> k−1
+> 2
+> F
+
+
+
++ ( K − 1)(1 − θ)2σ2 + 2 L (f (X1) − f ∗) + (1 − θ)2σ2
+
+≤θ
+
+> K
+
+X
+
+> k=1
+
+EFk
+
+h
+
+∥Mk − ∇ f (Xk)∥2
+
+> F
+
+i
+
++ L2η2
+
+δ(1 − θ)
+
+> K
+
+X
+
+> k=1
+
+EFk
+
+ P⊤ 
+
+> k
+
+MkQk
+
+D 12
+
+> k
+> 2
+> F
+
+
+
++ K(1 − θ)2σ2 + 2 L (f (X1) − f ∗)
+
+≤θ
+
+> K
+
+X
+
+> k=1
+
+EFk
+
+h
+
+∥Mk − ∇ f (Xk)∥2
+
+> F
+
+i
+
++ 2L2η2
+
+δ(1 − θ)
+
+> K
+
+X
+
+> k=1
+
+EFk
+
+ P⊤ 
+
+> k
+
+∇f (Xk)Qk
+
+D 12
+
+> k
+> 2
+> F
+
+
+
++ 2L2η2
+
+δ(1 − θ)
+
+> K
+
+X
+
+> k=1
+
+EFk
+
+ P⊤ 
+
+> k
+
+(Mk − ∇ f (Xk)) Qk
+
+D 12
+
+> k
+> 2
+> F
+
+ + K(1 − θ)2σ2 + 2 L (f (X1) − f ∗)
+
+> a
+
+≤θ
+
+> K
+
+X
+
+> k=1
+
+EFk
+
+h
+
+∥Mk − ∇ f (Xk)∥2
+
+> F
+
+i
+
++ 2L2η2
+
+δ(1 − θ)
+
+> K
+
+X
+
+> k=1
+
+EFk
+
+ P⊤ 
+
+> k
+
+∇f (Xk)Qk
+
+D 12
+
+> k
+> 2
+> F
+
+
+
++ 2L2η2
+
+δ2(1 − θ)
+
+> K
+
+X
+
+> k=1
+
+EFk
+
+h
+
+P⊤ 
+
+> k
+
+(Mk − ∇ f (Xk)) Qk
+
+> 2
+> F
+
+i
+
++ K(1 − θ)2σ2 + 2 L (f (X1) − f ∗)
+
+> b
+
+≤θ
+
+> K
+
+X
+
+> k=1
+
+EFk
+
+h
+
+∥Mk − ∇ f (Xk)∥2
+
+> F
+
+i
+
++ δ(1 − θ)2
+
+> K
+
+X
+
+> k=1
+
+EFk
+
+ P⊤ 
+
+> k
+
+∇f (Xk)Qk
+
+D 12
+
+> k
+> 2
+> F
+
+
+
++ 1 − θ
+
+2
+
+> K
+
+X
+
+> k=1
+
+EFk
+
+h
+
+∥Mk − ∇ f (Xk)∥2
+
+> F
+
+i
+
++ K(1 − θ)2σ2 + 2 L (f (X1) − f ∗) ,Convergence of Rotation-based Matrix Optimizers 
+
+where we use Dk,i,j ≥ δ in a
+
+≤, L2η2 
+
+> δ2(1 −θ)2
+
+≤ 14 and the fact that ∥ · ∥ F is a unitarily invariant norm in b
+
+≤. So we have 
+
+> K
+
+X
+
+> k=1
+
+EFk
+
+h
+
+∥∇ f (Xk) − Mk∥2
+
+> F
+
+i
+
+≤ 4L (f (X1) − f ∗)1 − θ + 2 K(1 − θ)σ2 + δ
+
+> K
+
+X
+
+> k=1
+
+EFk
+
+ P⊤ 
+
+> k
+
+∇f (Xk)Qk
+
+D 12
+
+> k
+> 2
+> F
+
+
+
+> c
+
+≤ 4L (f (X1) − f ∗)1 − θ + 2 K(1 − θ)σ2 + 7 pK ˆσ2L (f (X1) − f ∗)
+
+> d
+
+≤13 pK ˆσ2L (f (X1) − f ∗) e
+
+≤ 13 K ˆσ2,
+
+where we use Lemma 1 in c
+
+≤, 1 − θ =
+
+q L(f (X1)−f ∗)  
+
+> Kˆσ2
+
+and σ2 ≤ ˆσ2 in d
+
+≤, and L (f (X1) − f ∗) ≤ K ˆσ2 from the definition of ˆσ in e
+
+≤. Using Cauchy-Schwarz inequality, we have 
+
+> K
+
+X
+
+> k=1
+
+EFk [∥∇ f (Xk) − Mk∥F ] ≤
+
+vuutK
+
+> K
+
+X
+
+> k=1
+
+EFk
+
+h
+
+∥∇ f (Xk) − Mk∥2
+
+> F
+
+i
+
+≤ √13 K ˆσ. 
+
+■
+
+The following lemma is an analogue of Lemma 3, but with a simpler proof. 
+
+Lemma 9 Suppose that Assumptions 1-3 and condition Dk,i,j ≥ δ hold. Let ˆσ2 = max 
+
+n
+
+σ2, L(f (X1)−f ∗)
+
+> Kγ 2
+
+o
+
+with any 
+
+γ ∈ (0 , 1] , 1 − θ =
+
+q L(f (X1)−f ∗)  
+
+> Kˆσ2
+
+, and η =
+
+q δ2(f (X1)−f ∗)4LK ˆσ2 . Then for Algorithm 6, we have 
+
+> K
+
+X
+
+> k=1
+
+E [tr Bk] ≤ 2√13 mK ˆσ + 2 Kmδ +
+
+> K
+
+X
+
+> k=1
+
+EFk
+
+ P⊤ 
+
+> k
+
+∇f (Xk)Qk
+
+D 12
+
+> k
+> 2
+> F
+
+ ,
+
+> K
+
+X
+
+> k=1
+
+E [tr Ck] ≤ 2√13 nK ˆσ + 2 Knδ +
+
+> K
+
+X
+
+> k=1
+
+EFk
+
+ P⊤ 
+
+> k
+
+∇f (Xk)Qk
+
+D 12
+
+> k
+> 2
+> F
+
+ .
+
+(13) 
+
+Proof 8 Different from the definition for SOAP, we instead define 
+
+bk,i = max  
+
+> 1≤j≤n
+
+P⊤ 
+
+> k
+
+MkQk i,j + δ ≥ max  
+
+> 1≤j≤n
+
+Dk,i,j 
+
+for (3). Denote 
+
+j∗ 
+
+> i
+
+= argmax 
+
+> 1≤j≤n
+
+P⊤ 
+
+> k
+
+MkQk i,j .
+
+Therefore, 
+
+bk,i = P⊤ 
+
+> k
+
+MkQk i,j ∗
+
+> i
+
++ δ ≤ P⊤ 
+
+> k
+
+∇f (Xk)Qk i,j ∗
+
+> i
+
++ P⊤ 
+
+> k
+
+(Mk − ∇ f (Xk)) Qk i,j ∗
+
+> i
+
++ δ. 
+
+Since 
+
+P⊤ 
+
+> k
+
+∇f (Xk)Qk i,j ∗
+
+> i
+
+≤
+
+P⊤ 
+
+> k
+
+∇f (Xk)Qk
+
+> 2
+> i,j ∗
+> i
+
+2bk,i 
+
++ bk,i 
+
+2 ,Convergence of Rotation-based Matrix Optimizers 
+
+plugging in gives 
+
+bk,i ≤
+
+P⊤ 
+
+> k
+
+∇f (Xk)Qk
+
+> 2
+> i,j ∗
+> i
+
+bk,i 
+
++ 2 P⊤ 
+
+> k
+
+(Mk − ∇ f (Xk)) Qk i,j ∗
+
+> i
+
++ 2 δ
+
+≤
+
+> n
+
+X
+
+> j=1
+
+P⊤ 
+
+> k
+
+∇f (Xk)Qk
+
+> 2
+> i,j
+
+bk,i 
+
++ 2  P⊤ 
+
+> k
+
+(Mk − ∇ f (Xk)) Qk
+
+ 
+
+> i, :2
+
++ 2 δ
+
+≤
+
+> n
+
+X
+
+> j=1
+
+P⊤ 
+
+> k
+
+∇f (Xk)Qk
+
+D 12
+
+> k
+
+!2
+
+> i,j
+
++ 2  P⊤ 
+
+> k
+
+(Mk − ∇ f (Xk)) Qk
+
+ 
+
+> i, :2
+
++ 2 δ. 
+
+Summing over i = 1 , . . . , m and k = 1 , . . . , K gives 
+
+> K
+
+X
+
+> k=1
+
+E [tr Bk] = 
+
+> K
+
+X
+
+> k=1
+> m
+
+X
+
+> i=1
+
+E [bk,i ]
+
+≤
+
+> K
+
+X
+
+> k=1
+> m
+
+X
+
+> i=1
+> n
+
+X
+
+> j=1
+
+EFk
+
+ P⊤ 
+
+> k
+
+∇f (Xk)Qk
+
+D 12
+
+> k
+
+!2
+
+> i,j
+
++2 
+
+> K
+
+X
+
+> k=1
+> m
+
+X
+
+> i=1
+
+EFk
+
+h  P⊤ 
+
+> k
+
+(Mk −∇ f (Xk)) Qk
+
+ 
+
+> i, :2
+
+i
+
++2 Kmδ 
+
+≤
+
+> K
+
+X
+
+> k=1
+
+EFk
+
+ P⊤ 
+
+> k
+
+∇f (Xk)Qk
+
+D 12
+
+> k
+> 2
+> F
+
++2 
+
+> K
+
+X
+
+> k=1
+
+EFk
+
+vuutm
+
+> m
+
+X
+
+> i=1
+
+ P⊤ 
+
+> k
+
+(Mk−∇ f (Xk)) Qk
+
+
+
+> i, :
+> 22
+
++2 Kmδ 
+
+=
+
+> K
+
+X
+
+> k=1
+
+EFk
+
+ P⊤ 
+
+> k
+
+∇f (Xk)Qk
+
+D 12
+
+> k
+> 2
+> F
+
+ + 2 √m
+
+> K
+
+X
+
+> k=1
+
+EFk
+
+ P⊤ 
+
+> k
+
+(Mk − ∇ f (Xk)) Qk F
+
+ + 2 Kmδ 
+
+=
+
+> K
+
+X
+
+> k=1
+
+EFk
+
+ P⊤ 
+
+> k
+
+∇f (Xk)Qk
+
+D 12
+
+> k
+> 2
+> F
+
+ + 2 √m
+
+> K
+
+X
+
+> k=1
+
+EFk [∥Mk − ∇ f (Xk)∥F ] + 2 Kmδ 
+
+≤
+
+> K
+
+X
+
+> k=1
+
+EFk
+
+ P⊤ 
+
+> k
+
+∇f (Xk)Qk
+
+D 12
+
+> k
+> 2
+> F
+
+ + 2 √13 mK ˆσ + 2 Kmδ, 
+
+where we use Lemma 8 in the last inequality. Similarly, 
+
+> K
+
+X
+
+> k=1
+
+E [tr Ck] ≤
+
+> K
+
+X
+
+> k=1
+
+EFk
+
+ P⊤ 
+
+> k
+
+∇f (Xk)Qk
+
+D 12
+
+> k
+> 2
+> F
+
+ + 2 √13 nK ˆσ + 2 Knδ. 
+
+■
+
+Similar to the proof of Theorem 1, the following gives the proof of Theorem 2. 
+
+Proof 9 (Proof of Theorem 2) Substituting (13) into (5) and using the bound of SK in Lemma 1, we have 
+
+> K
+
+X
+
+> k=1
+
+E [∥∇ f (Xk)∥∗]
+
+!2
+
+≤
+
+√13  √m + √n K ˆσ + K(m + n)δ + SK
+
+
+
+· S K
+
+≤ p38( m + n)K ˆσ + 7 
+
+pK ˆσ2L (f (X1) − f ∗)
+
+δ
+
+!
+
+· 7
+
+pK ˆσ2L (f (X1) − f ∗)
+
+δ
+
+=7 p38( m + n)K ˆσ ·
+
+pK ˆσ2L (f (X1) − f ∗)
+
+δ + 49 K ˆσ2L (f (X1) − f ∗)
+
+δ2 ,Convergence of Rotation-based Matrix Optimizers 
+
+and 
+
+1
+
+K
+
+> K
+
+X
+
+> k=1
+
+E [∥∇ f (Xk)∥∗] ≤7 4
+
+r (m + n)ˆ σ2
+
+δ2
+
+> 4
+
+r ˆσ2L (f (X1) − f ∗)
+
+K + 7 
+
+r ˆσ2L (f (X1) − f ∗)
+
+Kδ 2
+
+≤ 7
+
+√m + n ˆσδ
+
+ 12
+
++ 7 ˆσδ
+
+!
+
+· 4
+
+r ˆσ2L (f (X1) − f ∗)
+
+K
+
+≤
+
+
+
+4√m + n + 11 ˆσδ
+
+
+
+· 4
+
+r ˆσ2L (f (X1) − f ∗)
+
+K ,
+
+where we use δ = τ ˆσ√m+n . Substituting this setting yields the stated bound. ■

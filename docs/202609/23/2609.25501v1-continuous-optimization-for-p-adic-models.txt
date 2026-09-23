@@ -1,0 +1,1349 @@
+Title: Continuous Optimization for p-adic Models
+
+URL Source: https://arxiv.org/pdf/2609.25501v1
+
+Published Time: Wed, 23 Sep 2026 00:28:06 GMT
+
+Number of Pages: 26
+
+Markdown Content:
+# Continuous Optimization for p-adic Models 
+
+Julian Salazar 
+
+Google DeepMind 
+
+julsal@google.com 
+
+Dimitri Kanevsky 
+
+Google DeepMind 
+
+dkanevsky@google.com 
+
+Matt Harvey 
+
+Google DeepMind 
+
+mattharvey@google.com 
+
+Pascal Getreuer 
+
+Google DeepMind 
+
+Lucas Dixon 
+
+Google DeepMind 
+
+# Abstract 
+
+We present the first method for native, continuous gradient descent for machine learning models with p-adic parameters. Existing native optimizers are discrete, mostly combinatorial searches, as the p-adic numbers Qp are totally disconnected, with standard losses that are flat away from their minima. To enable continuous optimization, we propose working with Qp via its Berkovich affine line: a canonical, path-connected expansion of Qp that preserves its isometries and uniquely extends its analytic maps. This hull is a metric tree with interpretable points and local derivatives, which we show enables effective optimizers and backpropagation. We formulate gradient descent and show that its approximations efficiently learn linear models with coefficients in Qp to do modular arithmetic, an XOR-like task not expressible by linear models in R. We also demonstrate momentum and Adam variants, linear regression, and classification on binary-encoded hierarchies (Quillian semantic networks), addressing open problems posed by Martins (2025). 
+
+# 1 Introduction 
+
+Most machine learning methods assume inputs and parameters in real Euclidean space Rn. The field of p-adic numbers Qp offers another geometry: its distances d(x, y ) depend on divisibility by p and are ultrametric , satisfying d(x, z ) ≤ max {d(x, y ), d (y, z )} (Section 2). For example, there is no real linear classifier that separates even numbers from odd ones. But in Q2, evens are closer to each other than to any odd number; the p-adic classifier vp(wx + b) ≥ 0 is perfect at p = 2 , w = 12 , b = 0 .Such models may be useful for real-world data with known ultrametric or p-adic structure (e.g., Mantegna, 1999; Dragovich and Dragovich, 2010; Hua and Hovestadt, 2021), for hierarchies where properties correlate with subtrees (Section 6.2), and for approximating number-theoretic algorithms (such as Satoh, 2000 or Kedlaya, 2001). While hyperbolic embeddings (Nickel and Kiela, 2017) and ultrametric fitting (Chierchia and Perret, 2019) approximate such geometries, what they learn is real-valued (embedding coordinates or edge weights of a graph); they do not learn models with 
+
+p-adic parameters. An isometric embedding —a map preserving all pairwise distances—of N distinct ultrametric points requires at least N − 1 Euclidean dimensions (Lemin, 1985). However, direct optimization is difficult: Qp is totally disconnected, and natural losses have vanishing gradients (Section 2). Existing methods use discrete searches (Khrennikov and Tirozzi, 2000; Baker and Molla-Aliod, 2022; Baker et al., 2025; Zubarev, 2025; Martins, 2025; Mihara, 2026c) or real-valued optimization (Zúñiga-Galindo, 2024; N’guessan, 2025). Systematic searches can scale exponentially with dimension or depth; random walks and annealing avoid exhaustive enumeration but do not use gradients to guide their proposals. Instead, we exploit the analytic structure of machine learning models: affine maps composed with piecewise analytic functions , which admit local Taylor expansions. For p-adic models, analytic geometry provides a canonical path-connected enlargement of Qp: the Berkovich affine line, to which 
+
+> Preprint. Submitted for peer review on May 6, 2026. This version has been revised thanks to initial feedback. arXiv:2609.25501v1 [cs.LG] 21 Sep 2026
+
+analytic maps and the p-adic norm extend (Tate, 1971; Berkovich, 1990). Using these extensions, we construct continuous losses with informative directional derivatives and demonstrate native 
+
+continuous optimization of models with p-adic parameters for the first time . Specifically: • We construct a canonical path-connected space for p-adic numbers: the tight span Γp of Qp,which is its convex hull in the Berkovich affine line. Model parameters live in the product space 
+
+Γdp.• We develop the first continuous general p-adic optimizers: joint gradient descent, Momentum, and Adam, approximated through grouped coordinate descent (Section 4.2). • We define informative losses that continuously relax p-adic regression and classification, and efficiently train linear models for modular arithmetic and binary-encoded semantic hierarchies. • We formulate backpropagation and release an OSS library (https://github.com/ google-deepmind/padic-ml ) to facilitate research towards deep, truly p-adic neural networks. Our work resolves Open Problem 6.1 (linear multi-class classifiers) and addresses 6.2 (gradient-based optimization) of Martins (2025), and opens a path to 6.3 (multi-layer networks). 
+
+# 2 Background: p-adics and Related Work 
+
+A field is a set where addition, multiplication, and their inverses (subtraction, division) are well-defined (except x/ 0) and satisfy the usual arithmetic laws. The p-adic numbers Qp form such a field (Gouvêa, 2020) and can be defined as the set of formal series 
+
+x := X
+
+> i≥k
+
+aipi, k ∈ Z, ai ∈ { 0, . . . , p − 1}, with ak̸ = 0 unless all ai = 0 .
+
+The series with no negative powers of p form the p-adic integers Zp. Written as digits , the series extends infinitely to the left : . . . a 2a1a0.a −1 . . . a k. Addition and multiplication are defined by adding and multiplying the series and carrying in base p. Subtraction x − y is the unique z satisfying 
+
+y + z = x; for y̸ = 0 , division x/y is the unique z satisfying yz = x. For example, . . . 666 7 = −1,since adding 1 carries forever to give . . . 000 7.The valuation vp(x) is k, the index of the rightmost nonzero digit, with vp(0) := + ∞. The p-adic absolute value or norm is |x|p := p−vp(x), with |0|p := 0 . For example, 1.25 = 1 ·20 +0 ·2−1 +1 ·2−2,so v2(1 .25) = −2 and |1.25 |2 = 4 . The p-adic distance d(x, y ) = |x − y|p is ultrametric , i.e., non-negative, symmetric, zero only when x = y, and satisfies the strong triangle inequality :
+
+|x − z|p ≤ max( |x − y|p, |y − z|p), with equality when |x − y|p̸ = |y − z|p. (1) This discretely R-valued function has unintuitive behavior: d(0 , 25) = 125 but d(0 , 25 .1) = 5 .
+
+Qp is not an ordered field : no total ordering is compatible with its addition and multiplication. Unlike 
+
+p-adic analysis, which studies maps f : Qmp → Qnp , optimization minimizes a loss, requiring values in an ordered field like R.
+
+Qp is totally path-disconnected , i.e., all paths (continuous functions γ : [0 , 1] → Qp) are constant. Hence functions L : Qdp → R do not support the usual pathwise derivative. Natural loss functions like absolute error ℓ1(θ) := |f (x; θ) − y|p are locally constant (i.e., “flat”) away from their minima, which gives vanishing gradients (Baker et al., 2025; Zubarev, 2025). Indeed, two predictions closer to each other than to the target have the same loss: if |f (x; θ) − f (x; θ′)|p < |f (x; θ) − y|p, then eq. 1 forces ℓ1(θ′) = ℓ1(θ). Absolute error is thus locally constant at parameters that are not exact fits. See Figure 1a for a depiction of Q3.
+
+Prior p-adic learning. Early p-adic neural networks set weights digit by digit for a single example (Albeverio et al., 1999) or by random search over finite digit prefixes (Khrennikov and Tirozzi, 2000). Bradley (2009) clusters p-adic data under a sum-of-norms loss, choosing each cluster center by descending into the most populated branch. Recent p-adic optimizers still choose discrete moves: searching finite digit prefixes (Martins, 2025), modifying coefficient residues (Mihara, 2026c,b), or drawing loss-weighted random increments (Zubarev, 2025).Mihara’s character-network formulation likewise reduces training to polynomial feasibility over finite rings (Mihara, 2026a). Other approaches 2027 9128 2 29                 
+
+> (a) Q3: disconnected; clusters are near w.r.t. dp
+> Vertices (r∈pZ)Edges (r̸∈pZ)
+> Leaves ∈Q3(r= 0 )
+> ζ0,1
+> ζ0,1/9
+> ζ0,1/27
+> 027 9
+> ζ1,1/27
+> 128
+> (b) Γ3: the p-adic convex hull containing Q3
+
+Figure 1: The 3-adics are disconnected (left), but path-connected in the p-adic hull within the Berkovich affine line (right). Not shown are the infinite set of vertices ζx,p −v from a leaf to e.g. ζ0,1.obtain updates through real-valued optimization: backpropagation in networks organized by non-Archimedean trees (Zúñiga-Galindo, 2024), or perturbed or rounded real optimizer steps (N’guessan, 2025). Appendix B describes the recent methods and compares costs in more detail. In contrast, we operate in an intrinsically defined space Γp (the tight span of Qp, Section 3) and show how to differentiate task losses with respect to its product space in Section 4. 
+
+Learning on hierarchies and trees. Related approaches include hyperbolic embeddings of hierar-chies (Nickel and Kiela, 2017; Chami et al., 2020) and ultrametric fitting through real edge weights (Chierchia and Perret, 2019; Yu et al., 2025). Tropical geometry describes ReLU networks (Zhang et al., 2018) and admits steepest descent in the tropical norm (Talbut and Monod, 2025); Section 3.2 relates both to our radius propagation. Metric gradient flows and minimizing movements (Mayer, 1998; Ambrosio et al., 2008; Jordan et al., 1998), and subgradient methods on nonpositively curved spaces (Goodwin et al., 2026) have been used to optimize on tree-like spaces like Γp; we discuss these and alternative descent rules in Section 4.1. 
+
+# 3 Analytic Maps on the p-adic Hull Γp
+
+A real parameter can move continuously because any two real values are joined by an interval. The field Qp has no such paths (Figure 1a). Hence, we work in the Berkovich affine line A1,an  
+
+> Qp
+
+: a canonical, path-connected enlargement of Qp that gives generalized points over which analytic maps extend uniquely (where convergent) and remain compositional. Appendix C describes its formal construction as a space of multiplicative seminorms, due to Berkovich (1990). Specifically, within 
+
+A1,an  
+
+> Qp
+
+we define the p-adic hull Γp and show it is the natural connected space for parameters in Qp.
+
+3.1 Parameter Space 
+
+Geometrically, the Berkovich affine “line” is an infinite tree, which means every pair of values 
+
+ζ, ζ ′ ∈ A1,an  
+
+> Qp
+
+is joined by a unique arc we denote [ζ, ζ ′]. For optimization, we restrict individual parameters to the convex hull of Qp within this tree. For the canonical embedding ι : Qp ,→ A1,an  
+
+> Qp
+
+,this is Γp = S 
+
+> x,y ∈Qp
+
+[ι(x), ι (y)] as a metric space; its infinite subtree is visualized in Figure 1b. 
+
+Points on Γp. As we establish in Proposition C.3, we can write Γp’s elements as ζx,r , indexed by pairs of p-adic and non-negative real numbers where two tuples represent the same point iff they have the same radius r and their p-adic index x are within this distance :
+
+Γp ∼= ( Qp × R≥0) / (ζx,r = ζx′,r ′ ⇐⇒ r = r′ and |x − x′|p ≤ r) . (2) The points in Γp corresponding to Qp proper are those with zero radius ( ζx, 0). The radius is the continuous variable Qp lacks; a loss that is flat on x (Section 2) can now vary continuously over r.
+
+Arcs. The unique arc [ζx, 0, ζ y, 0] ⊂ Γp that connects the hull representatives of x, y ∈ Qp is 
+
+ζx, 0 −→ radius increases −→ ζx, |x−y|p = ζy, |x−y|p −→ radius decreases −→ ζy, 0. (3) 3From ζx, 0, the radius increases while keeping x fixed until r = |x − y|p, the smallest radius at which 
+
+x and y represent the same point via the equivalence in eq. 2. This point is their least common ancestor (LCA). Decreasing radius with y fixed arrives at ζy, 0 Although radii vary continuously, paths rising from distinct p-adic numbers must meet only at radii in pZ, because these are the possible nonzero distances output by |x − y|p (Section 2). These imply an infinite tree (Figure 1b): • leaves , or ordinary points , correspond to r = 0 , the ordinary p-adic numbers in Qp;• open edges correspond to r > 0, r̸ ∈ pZ (i.e., the radius is not p to an integer exponent); • inner vertices correspond to r ∈ pZ. It has p + 1 outgoing edges: one where the radius increases (moving up the tree), and p where the radius decreases down towards the Qp points. Choosing one of the p downward edges at an inner vertex commits to an additional p-adic digit. For 
+
+p = 3 , three numbers sharing the two rightmost digits meet at radius 3−2:
+
+5 = . . . 0012 3, 14 = . . . 0112 3, 23 = . . . 0212 3, ζ5,3−2 = ζ14 ,3−2 = ζ23 ,3−2 . (4) Below this radius, their paths separate according to the next digit 0, 1, or 2. The upward edge reaches 
+
+r = 3 −1, where only the rightmost digit 2 remains fixed. 
+
+Distances. Let ζx,R = ζy,R be the LCA of ζx,r , ζ y,s ∈ Γp. Its radius R equals |x − y|p if they are on divergent branches of the tree (eq. 3), else one is above the other and R equals max( r, s ) (the Hsia kernel; Baker and Rumely, 2010). Therefore, the arc length of [ζx,r , ζ y,s ] is 
+
+darc (ζx,r , ζ y,s ) = ( R − r) + ( R − s) = 2 max( |x − y|p, r, s ) − r − s. (5) By construction, the metric darc on Γp makes arcs [ζx,r , ζ y,s ] the geodesics of Γp. Restricted to ordinary points ζx, 0, ζ y, 0—those coming from x, y ∈ Qp—this simplifies to 2|x − y|p. Hence, 
+
+(Qp, | · | p) ,→ (Γ p, 12 darc ) is an isometric embedding of metric spaces. In fact (Γ p, 12 darc ) is, up to isometry, the tight span (also called the injective or metric envelope) of (Qp, | · | p), i.e., it is the “smallest” hyperconvex metric space containing (Qp, | · | p), making it a canonical choice for p-adic optimization. To our knowledge this identification is new; we state and prove it in Theorem C.6. 
+
+Multiple parameters. Our aggregate parameter space is the Cartesian product Γdp with parameter states θ := ( θ1, . . . , θ d). The induced ( ℓ2) product metric over its components is therefore: 
+
+d2(θ, θ′) := 
+
+vuut dX
+
+> i=1
+
+darc (θi, θ ′
+
+> i
+
+)2. (6) We take the default ℓ2 so that on products of open edges, steepest descent is the usual negative-gradient update in arc-length coordinates (Boyd and Vandenberghe, 2004), and it is understood how to maintain separate adaptive scales (Bécigneul and Ganea, 2019). The product Γdp contains all classical parameter values but omits mixed seminorms of the full Berkovich affine space, which may offer additional descent directions (Definition C.4); whether they improve optimization remains open. 
+
+3.2 Forward Propagation 
+
+We want to optimize parametric models ˆy := f (x; θ) with x ∈ Qmp , θ ∈ Qdp, and ˆy ∈ Qnp . Fix an input x and write F := f (x; −), decomposed into stages F = FK ◦ · · · ◦ F1 by the structure of the model, with Fk : Qdk−1 
+
+> p
+
+→ Qdk 
+
+> p
+
+, where d0 = d and dK = n. In this notation, a stage “uses up” some parameters and propagates intermediate outputs and the remaining parameters; at the end, only final outputs are left. If each Fk is analytic—given locally by convergent Taylor expansions— then it has a unique analytification (Proposition D.3), which induces a unique function we write 
+
+˜Fk : Γ dk−1 
+
+> p
+
+→ Γdk 
+
+> p
+
+that extends Fk and has the same Taylor series (eq. 16). Hence the stage-by-stage composite ˜FK ◦ · · · ◦ ˜F1 also extends F , though it does not equal ˜F in general. For c ∈ Qdk−1 
+
+> p
+
+and 
+
+r ∈ Rdk−1 
+
+> ≥0
+
+, write ζc,r := ( ζc1,r 1 , . . . , ζ cdk−1 ,r dk−1 ) ∈ Γdk−1 
+
+> p
+
+. Write Fk as its coordinate functions 
+
+(Fk, 1, . . . , F k,d k ). Let aI be the coefficient of Q 
+
+> j
+
+(zj − cj )Ij in the Taylor expansion of Fk,i at c,4where I = ( I1, . . . , I dk−1 ) lists nonnegative integer exponents and |I| := P 
+
+> j
+
+Ij (eq. 16). Then 
+
+˜Fk(ζc,r ) := ζˆc,ˆr ∈ Γdk 
+
+> p
+
+, where ˆc := Fk(c), and for i = 1 , . . . , d k:
+
+ˆri := max  
+
+> |I|≥ 1
+
+|aI |pdk−1
+
+Y
+
+> j=1
+
+r Ij 
+
+> j
+
+, Ai := argmax 
+
+> |I|≥ 1
+
+|aI |pdk−1
+
+Y
+
+> j=1
+
+r Ij 
+
+> j
+
+. (7) Hence the output radius is a maximum over coefficients scaled by input radius. The multi-indices (equivalently, monomials) Ai that attain this max are the active terms at the i-th output of input ζc,r .For example, if p = 2 and F (θ1, θ 2) expanded at (0 , 0) is 1 + θ1 − 12 θ22 , then the cases are 
+
+˜F (ζ0,r 1 , ζ 0,r 2 ) = ζ1,ˆr = ζ1,max( r1,2r22 ),
+
+ˆr = r1 > 2r22 : A = {(1 , 0) } = {θ1},
+
+ˆr = 2 r22 > r 1 : A = {(0 , 2) } = {θ22 },
+
+ˆr = r1 = 2 r22 : A = {(1 , 0) , (0 , 2) } = {θ1, θ 22 }.
+
+(8) The output ζˆc,ˆr is well-defined independent of the input representative c, and the expression for ˆri
+
+comes from the Gauss seminorm of Fk,i − Fk,i (c), proved in Corollary D.4. For convergent analytic maps, Ai is finite whenever ˆri > 0.Evaluation of eq. 7 can proceed stage by stage and is exact from c → ˆc. As Berkovich points however, this propagation through Γd0 
+
+> p
+
+, Γd1 
+
+> p
+
+, . . . can be lossy if a parameter reaches a stage along two paths; then, the composed ˆr is only an upper bound (Example C.5)— u − u should propagate as radius zero, but as independent stage inputs it does not. This is the dependency problem of interval arithmetic (Dawood and Megahed, 2023). Given the computed p-adic coefficients aI , taking logarithms in eq. 7 gives a tropical max-plus operation on log-radii. Propagation through this operation is classical: ReLU networks are tropical rational maps (Zhang et al., 2018), whose backward pass follows the attaining terms as Viterbi backtracking does (Viterbi, 1967), and Talbut and Monod (2025) minimize tropical location problems over R by steepest descent in the tropical norm. Merging stages can tighten the radius bound, at the cost of expanding larger analytic expressions. Finally, a per-example loss ℓ(ˆ y, y ) comparing an output ˆy ∈ QdK 
+
+> p
+
+with its target y must also be extended. The scalar distance ℓ(ˆ y, y ) = |ˆy − y|p has a canonical extension 12 darc on Γp (eq. 5; Theorem C.6). Substituting ζˆy, ˆr for the prediction and ζy, 0 for the reference gives what we call the 
+
+direct loss 
+
+ℓd(ζˆy, ˆr , y ) := 12 darc (ζˆy, ˆr , ζ y, 0) = max( |ˆy − y|p, ˆr) − ˆr
+
+2 , (9) a canonical continuous relaxation whose −ˆr/ 2 term makes it fall as the radius grows even while the maximum is constant (Figure 2). 
+
+# 4 Continuous Optimization 
+
+4.1 Gradient Descent 
+
+Continuous gradient descent in a metric space involves proceeding down the steepest descent direction in the metric tangent cone Tθ Γdp at a parameter state θ ∈ Γdp for a real-valued duration. This cone consists of velocities v := ( q, s), with per-coordinate directions qi ∈ Σθi Γp and speeds si ∈ R≥0.The available directions Σθi Γp at θi are up +, down − (on open edges), and down via 0, . . . , p − 1
+
+(at inner vertices). An available direction qi at θi = ζc,r has a unit-speed path γi,q i : [0 , δ i] → Γp:
+
+γi, +(h) := ζc,r +h, γi, −(h) := ζc,r −h, γi,ρ (h) := ζc+ρp n, r −h for ρ ∈ { 0, . . . , p − 1}, (10) where δi is the earliest h from which a unique geodesic is no longer determined, i.e., the next vertex: from an inner vertex, δi = r(p − 1) for γi, + and δi = r(1 − 1/p ) for each γi,ρ . The p downward paths at inner vertices represent commitment to the digit an = ρ (eq. 4), where r = p−n and c is taken with an = 0 ; a more formal treatment is in Definition C.7. Altogether, we can define a path γv (h) := ( γ1,q 1 (s1h), . . . , γ d,q d (sdh)) which starts at γv (0) = θ.Under our product metric (eq. 6), this path is unit-speed when ∥v∥2 := pP s2 
+
+> i
+
+= 1 . The one-sided directional derivative of L : Γ dp → R with respect to a velocity v ∈ Tθ Γdp is 
+
+Dv L(θ) := lim 
+
+> h↓0
+
+L(γv (h)) − L(θ)
+
+h . (11) 5r
+
+03−3
+
+2 · 3−3
+
+3−2
+
+5 
+
+> . . . 0012 3
+
+14  
+
+> . . . 0112 3
+
+y = 23  
+
+> . . . 0212 3
+
+LCA of 5, 14 , 23     
+
+> digits . . . 12 3fixed start ABCD
+
+s
+
+3−3
+
+2 · 3−3
+
+3−2       
+
+> 3−32·3−33−24·3−3
+
+distance travelled s
+
+|c − y|3
+
+ℓd = max( |c − y|3, r ) − r  
+
+> 2
+> start ABCD
+
+Figure 2: Left: one parameter learning y = 23 on Γ3 from ζ14 , 2·3−3 with learning rate 8 · 3−4 ;steps are clipped at vertices (Section 4.1). The line toward y = 23 represents infinitely many clipped updates, with radius tending to zero. Right: along that path, the center’s p-adic error |c − y|3 changes only when a digit is chosen, while the direct loss ℓd falls throughout. Write eqi for the unit velocity with si = 1 and sj = 0 for j̸ = i; only θi moves, and we call Deqi L
+
+the slope of L at θi in the direction qi. To find the steepest joint direction, we take a unit velocity that minimizes this derivative, then take a step of that size times a learning rate αt > 0:
+
+v∗ ∈ argmin ∥v∥2=1 Dv L(θt), θt+1 := γv∗
+
+ −αtDv∗ L(θt). (12) This is the metric space analogue of a Euclidean gradient update θt+1 = θt − αt∇L(θt). Figure 2 follows one parameter through such updates. We cap the step when the first coordinate reaches a vertex, where the tangent cone changes and slopes must be recomputed. This vertex clipping extends 
+
+γv∗ constantly outside its domain [0 , min i:si>0 δi/s i] (eq. 10). When all directional derivatives are nonnegative, eq. 12 therefore gives θt+1 = θt.Other conventions are possible. A retraction-based update (Boumal et al., 2019) specifies a continu-ation beyond the vertex. Spending the step’s remainder after recomputing slopes at the vertex is a heuristic integration of the metric gradient flow, and still misses slope changes within an edge. That flow can instead be discretized implicitly, minimizing L(θ′) + darc (θ′, θt)2/(2 τ ) over θ′ ∈ Γdp with time step τ (Mayer, 1998; Ambrosio et al., 2008; Jordan et al., 1998); our analytic extensions give directional derivatives directly, so we take explicit steps. The minimization in eq. 12 is not of this kind: it is over the tangent cone, where Dv L is piecewise linear in the speeds (Section 4.2). Subgradient methods on nonpositively curved spaces (Goodwin et al., 2026) assume geodesic convexity, which our regression loss lacks even for affine models (Example F.2). 
+
+Momentum in Euclidean space averages past gradients, mt = βm t−1 + (1 − β)∇L(θt) and steps along −mt in place of −∇ L(θt). On Γp a coordinate has one slope per available direction, the set of which changes at each vertex. For a single coordinate write eq for its unit velocity in direction q. We average De+ L(θt) and De− L(θt) over every update of the coordinate; at a vertex, where direction 
+
+− does not exist, we use the smallest child slope min ρ Deρ L(θt) in its place. The amount by which child ρ exceeds it, ∆t(ρ) = Deρ L(θt) − min ρ′ Deρ′ L(θt) ≥ 0, is averaged only over the updates made at that vertex. Write ut, d t for the upward and downward averages and ¯∆t(ρ) for the child’s average excess. The momentum estimates are mt(+) = ut, mt(−) = dt, and mt(ρ) = dt + ¯∆t(ρ).The speed st(q) = max(0 , −mt(q)) takes the place of −Dv∗ L in eq. 12. Set st(ρ) = 0 if the child’s directional derivative, averaged over updates at its vertex, is nonnegative. On an edge where 
+
+L is differentiable, De− L = −De+ L. If the incoming histories also satisfy dt−1 = −ut−1, the recurrences preserve dt = −ut and reduce to Euclidean momentum. 
+
+Adam divides speed by the root of a second-moment average. We keep one scalar second moment per parameter, so the division rescales every direction of a coordinate alike and cannot change which one is chosen, as separate scales would; Cho and Lee (2017) assign one adaptive rate per weight vector for the same reason. See Appendix G.1 for all averaging, second-moment, and bias correction equations. Both exten-sions are equivariant in distribution under factorwise tree isometries and coordinate permutations (Proposition C.9) and keeps unselected coordinates’ data fixed. 
+
+4.2 Approximation via Parameter Groups 
+
+At an inner vertex a parameter has p + 1 branch choices, so naive joint selection over d parameters enumerates up to (p + 1) d combinations. Two coordinates are coupled by an output when its 6contribution to Dv L cannot be written as a function of one plus a function of the other. When several terms attain the maximum in eq. 7, (|A i| > 1) , the rate in eq. 13 is a maximum over them and couples the input coordinates those terms involve, the j with Ij > 0 (Example E.2). Even a single active term can couple parameters. For example, θ1θ2 has only one term when expanded at centers (0 , 0) . From the Gauss points θ1 = θ2 = ζ0,1, moving either parameter alone down toward digit 1 leaves their product unchanged, whereas moving both moves the product down toward digit 1.At the child centers (1 , 1) , the expansion becomes (1 + u)(1 + v) = 1 + u + v + uv . The output radius is then max( r1, r 2): its derivative is zero when either parameter moves alone, but negative when both move down together. Hence, the joint radius derivative cannot in general be written as a sum of coordinate derivatives within a coupled group. 
+
+Two parameters are in the same coupled parameter group when a chain of couplings, over any outputs and in-batch examples, connects them. Each contribution then depends on one group only, so 
+
+Dv L = P 
+
+> G∈G
+
+ψG(vG), with vG the velocity restricted to G. Enumeration is linear in the number of groups G. An output whose contribution is locally constant, such as a logit with |ˆck|p > ˆrk (Section 6), contributes zero to Dv L. For affine models each term has one coordinate, so coupling comes only from ties, and the groups are read off the forward pass in linear time. The affine implementation can further split these groups when contributions cancel exactly (Appendices C and G). Enumeration can still be exponential per group, so each update proceeds as follows: 1. Select one coordinate per group uniformly among those awaiting a turn (§G.1). 2. On a common minibatch, compute each selected coordinate’s directional slopes. For gradient descent, choose a minimizing direction with speed max(0 , −μG), where μG is its least unit-direction slope. This suffices because derivatives add across groups (§C.1). 3. Move the selected coordinates together under the clipping rule. A stationary selection still counts as a turn. With fixed groups this is a random-permutation sweep (Lee and Wright, 2019), as in parallel coordinate descent (Liu et al., 2015); a single group gives ordinary coordinate descent. 
+
+4.3 Backpropagation 
+
+To choose a parameter direction we need its effect on the loss, which one can compute stagewise via backpropagation (Linnainmaa, 1976). Since directional derivatives add over examples, fix one and write L = ℓ ◦ F , with F = FK ◦ · · · ◦ F1 as in Section 3.2 and ℓ real-valued. Each stage maps the directions and speeds of its inputs to those of its results. An input radius at stage k moves at Dv rj = ±sj (+ up, − down or down via a digit). For each selected child direction, form the expansion and active terms in eq. 7 using the center cj +ρj pnj of that child (eq. 10; any representative gives the same result, Corollary D.1). Differentiating with these representatives fixed gives the rates 
+
+Dv ˆr; working backwards from the loss head (Proposition E.1), for k = K, . . . , 1:
+
+Dv
+
+ ℓ ◦ ˜FK ◦ · · · ◦ ˜Fk
+
+ = Dˆv
+
+ ℓ ◦ ˜FK ◦ · · · ◦ ˜Fk+1 
+
+, Dv ˆri = ˆ ri max 
+
+> I∈A i
+
+X
+
+> j
+
+Ij Dv rj
+
+rj
+
+, (13) with Ai the active terms and ˆri the output radius of eq. 7. For positive input radii, the radius-rate formula only applies when ˆri > 0; when ˆri = 0 , the radius derivative is zero. The resulting velocity 
+
+ˆv = (ˆ q, ˆs) has speeds ˆsi = |Dv ˆri|. A positive rate moves up, and a negative rate moves down toward Fk,i (c′), where c′ is c with the selected child centers substituted (Appendix E). When each 
+
+Ai has one term, eq. 13 is linear in the input rates, as in backpropagation through a linear layer; ties are treated in Section 4.2. The stage-by-stage extension is exact in every center and a bound in every radius (Section 3.2); the result equals Dv (ℓ ◦ ˜F ) when no parameter reaches a stage along two paths. Weighted over examples, these are the derivatives eq. 12 requires for the loss evaluated on the stagewise output. 
+
+Affine models. For affine models, the ordinary Jacobianapproximation F (c) + JF (c)( u − c)
+
+equals F , so the same disk extension and loss give the original directional derivatives for both linear regression and classification. At a vertex, each output scalar has a common child derivative and at most one exception, so accumulating these with the signed loss-derivative weights assembles the p
+
+child slopes in O(m + p) rather than O(mp ) work for m contributing outputs. We may view this as 7Table 1: Affine and two-layer regression under 3-adic L1 loss (mean absolute error), with training-example equivalents needed for recovery at depths 4 and 5. Entries are mean ± SD over five coefficient instances; NR means x/5 recovered. N/A: beam search always fixes digits from the coarsest downward. Bold results overlap SDs with the best.                                                                                               
+
+> Optimizer Centers initialized at zero Adverse start Two-layer target
+> Test L1loss (log 3)Samples /N Test L1loss (log 3)Samples /N Test L1loss (log 3)Samples /N
+> depth 4 depth 5 depth 4 depth 5 depth 4 depth 5 Beam (selected width) −5.26 ±0.01 27 ±036 ±0N/A −5.25 ±0.01 96 ±34 127 ±45
+> GD (approx.) −5.27 ±0.01 0 .8±0.1 1 .0±0.1−3.27 ±2.74 NR (3 /5) NR (3 /5) −5.26 ±0.02 1 .1±0.2 1 .5±0.2
+> + Momentum −5.27 ±0.01 0 .8±0.0 1 .0±0.1−5.27 ±0.01 2 .9±0.3 3 .1±0.3−5.27 ±0.01 3 .7±4.4 6 .7±6.9
+> + Adam −5.27 ±0.01 0 .8±0.1 1 .0±0.1−5.27 ±0.01 2 .7±0.1 2 .9±0.2−5.26 ±0.02 3 .0±2.5 4 .8±4.7
+
+“Jacobian descent”: select the gradient step using the loss composed with the Jacobian approximation. See Appendix F for the formulas and Appendix G.2 for the cost analysis. 
+
+# 5 p-adic Regression 
+
+We minimize mean p-adic error, or L1 loss, following Baker and Molla-Aliod (2022); Baker et al. (2025) and Zubarev (2025); exact minimization is NP-hard for p = 2 when the number of coefficients is part of the input (Baker, 2026). The L∞ loss instead minimizes worst-case error, as in Martins (2025). Squared L2 loss is also possible, but the usual least-squares justification does not carry over: the p-adic norm is not induced by an inner product, so its square gives neither a quadratic objective nor a closed-form solution and remains locally constant at nonzero residuals. For training, we use the 
+
+mean direct loss Ld, the continuous relaxation from eq. 9: 
+
+L1(θ) = 1
+
+N
+
+X
+
+> i
+
+|f (x(i); θ) − y(i)|p −→ Ld(θ) = 1
+
+N
+
+X
+
+> i
+
+ℓd(f (x(i); θ), y (i)). (14) 
+
+Experiments. We evaluate on a 3-dimensional linear regression task in Q3. For each seed, we draw θ∗ and each input vector x(i) uniformly from {0, . . . , 38 − 1}3 and generate targets as y(i) =
+
+θ∗⊤ x(i) + 3 5η(i). Let η(i) be a uniform integer in {1, . . . , 99 }, representing noise at depth five. We also train a two-layer model on four-input targets generated from f (x) = v1(x1 + w1x2)2 + v2(x3 +
+
+w2x4)2 with the same noise. Both gradient training and beam search use this four-coefficient model; all four gradient parameters start at the Gauss point (Appendix G.4). 512 train/dev/test examples are drawn, and training uses batches of 32. At the true coefficients the expected L1 loss is −5.26 on the 
+
+log 3 scale. We report L1 error using the representatives retained by training, with their radii set to zero ( L1 is not representative-invariant). We compare approximate gradient descent (GD), momentum, and Adam with Martins (2025)’s classifier beam search (their Algorithm 1), adapted to regression with widths five and ten and batch-32 scoring (Appendices G.3 and G.4); their own regression method, which is for L∞, is not run. For each coefficient instance, learning rates and beam widths are selected by work to first depth-five agreement on every independent validation observation of the same function (Appendix G.3). Training work counts repeated uses of examples: each gradient update or beam-candidate scoring on a batch of b
+
+examples contributes b/ 512 , regardless of how many coordinates move. Arithmetic costs are given in Appendix G.2. For affine regression, our gradient methods place every coefficient at the Gauss point ζ0,1, the disk of radius one around zero and the uninformed state of the tree; beam search starts with every coefficient at zero. We also test an adverse start: a digitwise local minimum, at which no change of any single digit lowers the training loss, lifted to disks of radius 3−8 so that radius growth can revisit coarser digits (Appendix G.4). 
+
+Results. See Table 1. Recovery through depth q means |cj − θ∗ 
+
+> j
+
+|p ≤ p−q for every coefficient j.With centers initialized at zero, beam search and the gradient descent methods all reach test losses close to the loss at the true coefficients. With batches of 32, the gradient methods reach depth 5 after processing 0.95–0.98 training-example equivalents on average, compared with 35.5 for beam search of width five. With the engineered adversarial start, gradient methods often (but not always) escaped the local minima. Here, plain GD (approx.) recovered on three of five seeds, while Momentum and Adam recovered on all five. 8For the two-layer network, recovery is over the coefficients of f as a quadratic form. In contrast, a bias-free linear control trained by GD on the same data at κ = 1 has test loss −0.49 ± 0.16 , against 
+
+−0.36 ± 0.19 for predicting zero. GD recovered on all five seeds in 1.45 ± 0.25 training-example equivalents, with test loss close to the loss at the true coefficients; Momentum and Adam also recovered all five. Beam search recovers all five with the selected widths; width five alone misses one (Appendix G.4). On the missed seed the target v1 is divisible by nine, so a candidate matching it has 
+
+v1 = 0 after two digits; its term v1(x1 + w1x2)2 is then zero whatever its w1, and nine candidates share one loss exactly. At the next digit these nine separate and take the nine lowest losses, with the one matching the target last of them, so width five keeps only the first five. 
+
+# 6 p-adic Classification 
+
+In Euclidean machine learning, a linear binary classifier assigns a label by testing whether f (x; w) = 
+
+w⊤x + b ≥ 0. Over Qp, the output p-adic values have no coherent ordering Section 2. Hence, Martins (2025) defined p-adic linear classifiers as |w⊤x + b|p ≤ 1—equivalently, vp(w⊤x + b) ≥ 0.Martins trained with beam search; a similar 2-adic threshold unit, trained by random search, appears in Khrennikov and Tirozzi (2000). We extend this to multiclass classification by defining softmax which we optimize with gradient descent in Γdp, resolving their Open Problem 6.1 (linear multiclass 
+
+p-adic classifiers) and addressing 6.2 (gradient-based optimization). 
+
+6.1 Logits, Softmax, and Loss 
+
+For C classes, stack affine maps into f (x) = W x + b ∈ QCp , where row k of W is w⊤ 
+
+> k
+
+and 
+
+fk(x; wk, b k) = w⊤ 
+
+> k
+
+x + bk. Generalizing Martins’ binary classifier, our goal at inference is to have the real-valued zk = vp(fk(x)) = − log p |fk(x)|p act as logit for a softmax on z = ( z1, . . . , z C ).During training, the map for class k extends to ˜fk(x; wk, b k) whose aggregate parameter state is in Γd/C p . Writing its output as ζˆck ,ˆrk , we take its logit to be the negative base-p logarithm of the radius of its LCA with zero, an upper bound on |u|p over the representatives u of the output (eq. 2): 
+
+zk = − log p max {| ˆck|p, ˆrk}. When |ˆck|p > ˆrk this is vp(ˆ ck), unchanged by the radius; else it is 
+
+− log p ˆrk. The direct loss (eq. 9) is a generalization of distance; in contrast, |fk(x)|p ≤ 1 is a condition on all representatives, which zk ≥ 0 guarantees all satisfy. Converting the valuation logits to natural-log units, applying softmax, and simplifying gives the class probabilities and cross-entropy loss per example i and in aggregate LCE :
+
+π(i) 
+
+> k
+
+=
+
+ max {| ˆc(i) 
+
+> k
+
+|p, ˆr(i) 
+
+> k
+
+}−1/T 
+
+P
+
+> k′
+
+ max {| ˆc(i) 
+
+> k′
+
+|p, ˆr(i) 
+
+> k′
+
+}−1/T , ℓ(i)CE = − ln π(i) 
+
+> y(i)
+
+, LCE = 1
+
+N
+
+X
+
+> i
+
+ℓ(i) 
+
+> CE
+
+(15) where T is softmax temperature, giving probabilities softmax((ln p)z(i)/T ). We use T = 1 through-out. The binary formulation appears in Section 6.2. For Tables 2 and 3, we extract p-adic parameters from the learned parameter states using the convention in Appendix G.3. For a finite p-adically separable training set and a classifier with independent output biases, Theorem H.1 constructs states with fixed separating centers, positive parameter radii, and any prescribed common output radius 
+
+ρ ∈ (0 , 1] . Every correct-class logit then exceeds every other by at least 1.
+
+6.2 Experiments Modulo Classification. For x mod pk, inputs with the same remainder share a base-p prefix. A closed-form affine solution follows by applying Martins (2025, §3.1, Proposition 2) to each residue class, but the task was not trained there. Our initialization selects the weight’s depth from the training labels but is identical for every class, so it predicts at chance; we test whether training finds the class biases that complete such a solution, under our cross-entropy objective with valuation logits; further setup in Appendices G.3 and G.5. In Table 2, matched-prime classifiers attain perfect test accuracy across five seeds, while mismatched primes, permuted codes, and Euclidean linear classifiers on raw scalar inputs remain near chance. These results show the importance of an encoding that linearly separates congruence classes, which for p-adics is prime-dependent; one-hot encodings do this (at the cost of dimension) and also fit. 9Table 2: Modulo classification test accuracy (mean ± SD over 5 seeds). All models use Adam (Euclidean, or ours for p-adic) with batch size 32.                                               
+
+> Representation / model prime Task: xmod 4 (acc.) Task: xmod 9 (acc.)
+> 2-adic (matched for mod 4) 1.000 ±0.000 0.111 ±0.000 3-adic (matched for mod 9) 0.250 ±0.000 1.000 ±0.000
+> 5-adic (mismatched control) 0.250 ±0.000 0.112 ±0.005
+> Matched with permuted codes 0.250 ±0.000 0.112 ±0.002
+> Euclidean raw scalar 0.245 ±0.010 0.110 ±0.002
+> Euclidean one-hot digits 1.000 ±0.000 1.000 ±0.000
+> Chance reference 1/41/9
+
+Table 3: Quillian benchmark test results, pooled across 28 binary properties within each split (mean 
+
+± SD over five random 80/20 splits). (full) means no batching. Bold marks the highest mean per metric within each model family. Italics are our higher-accuracy reproductions of Martins (2025); see Appendix G.6.                                                           
+
+> Representation, optimizer Pooled F1 Pooled AP Accuracy
+> 2-adic linear, beam search (W=10, depth 8, full) 0.875 ±0.084 0.826 ±0.111 0.981 ±0.012
+> 2-adic linear, beam search 0.845 ±0.082 0.804 ±0.106 0.976 ±0.011 2-adic linear, Adam (ours) 0.804 ±0.034 0.816 ±0.037 0.973 ±0.004
+> Permuted 2-adic linear, Adam (ours) 0.470 ±0.092 0.551 ±0.077 0.915 ±0.014
+> Euclidean MLP, Adam (full) 0.844 ±0.053 0.879 ±0.042 0.976 ±0.008
+> Always negative, all scores equal 0.000 ±0.000 0.080 ±0.004 0.920 ±0.004
+
+Quillian Semantic Network Benchmark. We evaluate on the 1,680-proposition Quillian Semantic Network (Quillian, 1968) as adapted by Martins (2025). We use Martins’s hand-designed Q2 entity codes, fixed before optimization, in which semantically close entities share long base-2 prefixes. Each of the 28 properties is an independent binary task with a sigmoid head; only 8.04% of labels are positive, so we report positive-class F1 and average precision (AP), pooled across properties within each test split, and accuracy for comparison with Martins. Each head uses an affine map of the three entity-code coordinates and four relation indicators; the active relation’s weight supplies the bias. Writing S = max {ˆr, |ˆc|p}, the two valuation logits z0 = 0 
+
+and z1 = − log p S give π1 = 1 /(1 + S1/T ) and binary cross-entropy at T = 1 . An attribute is predicted present when π1 ≥ 1/2, equivalently S ≤ 1, recovering Martins’s unit-threshold rule at zero radius. Beam search ranks and prunes candidates using training labels; we also use them to select an initial input coordinate and digit depth v. The selected coefficient starts at center p−v and the others at zero, fixing an initial representative among classifiers equivalent under multiplication by a scalar of p-adic norm one. All coefficients remain trainable (Appendix G.3). Table 3 compares our training procedure with beam search on Martins’s architecture and with their roughly three-times larger, two-layer Euclidean MLP (Appendix G.6). Martins (2025) also give hand-set weights that classify every proposition correctly, so test error here reflects learning from the training split, for every method. Gradient descent approaches both beam baselines in accuracy. As with modulo, the permuted control shows that giving Quillian data a 2-adic encoding that preserves its hierarchy provides a useful inductive bias for gradient descent. 
+
+# 7 Conclusion 
+
+The framework presented here trains affine models and one restricted two-layer model with p-adic parameters by approximate joint gradient descent, using exact derivatives. For affine models these derivatives can be accumulated sparsely (Appendix F). Though we describe the theory for arbitrary-depth models, the tradeoff between the radius bound versus the cost of collecting stages, and the ideal architecture and setup for deep models remain open questions. As suggested by Martins (2025, §6.4), we intend to develop adelic formulations of losses and descent, capturing the advantages of both real and p-adic norms. Over Berkovich spaces, this would be Arakelov geometry (Chambert-Loir, 2006). Convergence guarantees remain open. See Appendix A for our work’s limitations and use of AI. 10 Acknowledgements. We thank Michaël Sander, Jessica Hoffmann, Maxime Guigon, and the anonymous reviewers and area chair for their helpful feedback. We thank the AI co-mathematician team at Google DeepMind for providing model access and support. The first author thanks Clifton Cunningham for a guided reading of A Course on Arithmetic in 2014-15, and congratulates Jean-Pierre Serre on his 100th birthday. 
+
+# References 
+
+Sergio Albeverio, Andrei Khrennikov, and Brunello Tirozzi. p-adic dynamical systems and neural networks. 
+
+Mathematical models and methods in applied sciences , 9(09):1417–1437, 1999. Luigi Ambrosio, Nicola Gigli, and Giuseppe Savaré. Gradient Flows in Metric Spaces and in the Space of Probability Measures . Lectures in Mathematics ETH Zürich. Birkhäuser, second edition, 2008. Gregory Baker and Diego Molla-Aliod. Number theory meets linguistics: Modelling noun pluralisation across 1497 languages using 2-adic metrics. In Proceedings of the 2nd Conference of the Asia-Pacific Chapter of the Association for Computational Linguistics and the 12th International Joint Conference on Natural Language Processing (Volume 2: Short Papers) , pages 24–32, Online only, November 2022. Association for Computational Linguistics. URL https://aclanthology.org/2022.aacl-short.4 .Gregory Baker, Scott McCallum, and Dirk Pattinson. Linear regression in p-adic metric spaces. p-Adic Numbers, Ultrametric Analysis and Applications , 17(4):333–347, 2025. Gregory D. Baker. NP-hardness of p-adic linear regression. CoRR , abs/2602.13278, 2026. Matthew Baker and Robert S Rumely. Potential theory and dynamics on the Berkovich projective line . Number 159. American Mathematical Soc., 2010. Giuliano Basso and Hubert Sidler. Approximating spaces of Nagata dimension zero by weighted trees. Illinois Journal of Mathematics , 67(1):45–72, 2023. doi: 10.1215/00192082-10414720. Gary Bécigneul and Octavian-Eugen Ganea. Riemannian adaptive optimization methods. In International Conference on Learning Representations (ICLR) , 2019. Vladimir G Berkovich. Spectral theory and analytic geometry over non-Archimedean fields . Number 33. American Mathematical Soc., 1990. Siegfried Bosch, Ulrich Güntzer, and Reinhold Remmert. Non-archimedean analysis, volume 261 of grundlehren der mathematischen wissenschaften [fundamental principles of mathematical sciences], 1984. Nicolas Boumal, P.-A. Absil, and Coralia Cartis. Global rates of convergence for nonconvex optimization on manifolds. IMA Journal of Numerical Analysis , 39(1):1–33, 2019. doi: 10.1093/imanum/drx080. Stephen Boyd and Lieven Vandenberghe. Convex optimization . Cambridge University Press, 2004. Patrick Erik Bradley. On p-adic classification. p-Adic Numbers, Ultrametric Analysis and Applications , 1(4): 271–285, 2009. doi: 10.1134/S2070046609040013. Antoine Chambert-Loir. Mesures et équidistribution sur des espaces de berkovich. Journal für die reine und angewandte Mathematik (Crelle’s Journal) , 595:215–235, 2006. Ines Chami, Albert Gu, Vaggos Chatziafratis, and Christopher Ré. From trees to continuous embeddings and back: Hyperbolic hierarchical clustering. In Advances in Neural Information Processing Systems , volume 33, pages 15065–15076, 2020. Giovanni Chierchia and Benjamin Perret. Ultrametric fitting by gradient descent. In Advances in Neural Information Processing Systems , volume 32, pages 3181–3192, 2019. Minhyung Cho and Jaehyung Lee. Riemannian approach to batch normalization. In Advances in Neural Information Processing Systems , volume 30, 2017. Gheorghe Comanici, Eric Bieber, Mike Schaekermann, Ice Pasupat, Noveen Sachdeva, Inderjit Dhillon, Marcel Blistein, Ori Ram, Dan Zhang, Evan Rosen, et al. Gemini 2.5: Pushing the frontier with advanced reasoning, multimodality, long context, and next generation agentic capabilities. arXiv preprint arXiv:2507.06261 , 2025. Hend Dawood and Nefertiti Megahed. Automatic differentiation of uncertainties: an interval computational differentiation for first and higher derivatives with implementation. PeerJ Comput. Sci. , 9:e1301, 2023. 
+
+11 Branko Dragovich and Alexandra Dragovich. p-adic modelling of the genome and the genetic code. The Computer Journal , 53(4):432–442, 2010. doi: 10.1093/comjnl/bxm083. Ariel Goodwin, Adrian S. Lewis, Genaro López-Acedo, and Adriana Nicolae. Stochastic and incremental subgradient methods for convex optimization on Hadamard spaces. Mathematical Programming , 2026. doi: 10.1007/s10107-026-02334-4. Earlier version: A subgradient splitting algorithm for optimization on nonpositively curved metric spaces , arXiv:2412.06730 (2024). Fernando Q. Gouvêa. The p-adic Numbers: An Introduction . Springer, 2020. Hao Hua and Ludger Hovestadt. p-adic numbers encode complex networks. Scientific Reports , 11(1):17, 2021. doi: 10.1038/s41598-020-79507-4. URL https://doi.org/10.1038/s41598-020-79507-4 .Richard Jordan, David Kinderlehrer, and Felix Otto. The variational formulation of the Fokker–Planck equation. 
+
+SIAM Journal on Mathematical Analysis , 29(1):1–17, 1998. doi: 10.1137/S0036141096303359. Kiran S. Kedlaya. Counting points on hyperelliptic curves using Monsky–Washnitzer cohomology. Journal of the Ramanujan Mathematical Society , 16:323–338, 2001. Andrei Khrennikov and Brunello Tirozzi. Learning of p-adic neural networks. In Stochastic Processes, Physics and Geometry: New Interplays. II , volume 29 of CMS Conference Proceedings , pages 395–401. American Mathematical Society, 2000. Urs Lang, Maël Pavón, and Roger Züst. Metric stability of trees and tight spans. Archiv der Mathematik , 101: 91–100, 2013. doi: 10.1007/s00013-013-0535-y. Ching-Pei Lee and Stephen J. Wright. Random permutations fix a worst case for cyclic coordinate descent. IMA Journal of Numerical Analysis , 39(3):1246–1275, 2019. doi: 10.1093/imanum/dry040. A Yu Lemin. Isometric imbedding of isosceles (non-archimedean) spaces into euclidean ones. In Doklady Akademii Nauk , volume 285, pages 558–562. Russian Academy of Sciences, 1985. Seppo Linnainmaa. Taylor expansion of the accumulated rounding error. BIT , 16(2):146–160, 1976. doi: 10.1007/BF01931367. Ji Liu, Stephen J. Wright, Christopher Ré, Victor Bittorf, and Srikrishna Sridhar. An asynchronous parallel stochastic coordinate descent algorithm. Journal of Machine Learning Research , 16(10):285–322, 2015. URL 
+
+https://jmlr.org/papers/v16/liu15a.html .Rosario N. Mantegna. Hierarchical structure in financial markets. The European Physical Journal B , 11:193–197, 1999. doi: 10.1007/s100510050929. André FT Martins. Learning with the p-adics. arXiv preprint arXiv:2512.22692 , 2025. Uwe F. Mayer. Gradient flows on nonpositively curved metric spaces and harmonic maps. Communications in Analysis and Geometry , 6(2):199–253, 1998. Tomoki Mihara. p-adic character neural network. CoRR , abs/2603.29905, 2026a. Tomoki Mihara. p-adic linear regression for random sampling with digitwise noise. CoRR , abs/2604.13137, 2026b. Tomoki Mihara. p-adic polynomial regression detecting digitwise noise. p-Adic Numbers, Ultrametric Analysis and Applications , 18(1):33–47, 2026c. doi: 10.1134/S2070046626010036. Gnankan Landry Regis N’guessan. v-punns: van der put neural networks for transparent ultrametric representa-tion learning. CoRR , abs/2508.01010, 2025. Maximilian Nickel and Douwe Kiela. Poincaré embeddings for learning hierarchical representations. In 
+
+Advances in Neural Information Processing Systems , volume 30, 2017. Jérôme Poineau and Daniele Turchetti. Berkovich curves and schottky uniformization i: The berkovich affine line. In Arithmetic and Geometry over Local Fields: VIASM 2018 , pages 179–223. Springer, 2020. M. Ross Quillian. Semantic memory. In Marvin Minsky, editor, Semantic Information Processing , pages 227–270. MIT Press, Cambridge, MA, 1968. Bertrand Rémy, Amaury Thuillier, and Annette Werner. Bruhat-Tits buildings and analytic geometry. In 
+
+Berkovich spaces and applications , pages 141–202. Springer, 2014. 
+
+12 Takakazu Satoh. The canonical lift of an ordinary elliptic curve over a finite field and its point counting. Journal of the Ramanujan Mathematical Society , 15(4):247–270, 2000. Tao Sun, Penghang Yin, Dongsheng Li, Chun Huang, Lei Guan, and Hao Jiang. Non-ergodic convergence analysis of heavy-ball algorithms. Proceedings of the AAAI Conference on Artificial Intelligence , 2019. URL 
+
+https://ojs.aaai.org/index.php/AAAI/article/view/4435 .Roan Talbut and Anthea Monod. Tropical gradient descent. Journal of Global Optimization , 2025. doi: 10.1007/s10898-025-01533-1. John Tate. Rigid analytic spaces. Inventiones mathematicae , 12(4):257–289, 1971. Andrew J. Viterbi. Error bounds for convolutional codes and an asymptotically optimum decoding algorithm. 
+
+IEEE Transactions on Information Theory , 13(2):260–269, 1967. doi: 10.1109/TIT.1967.1054010. Fangchen Yu, Yanzhen Chen, Jiaxing Wei, Jianfeng Mao, Wenye Li, and Qiang Sun. UltraTWD: Optimizing ultrametric trees for tree-Wasserstein distance. In Proceedings of the 42nd International Conference on Machine Learning , volume 267 of Proceedings of Machine Learning Research , 2025. Liwen Zhang, Gregory Naitzat, and Lek-Heng Lim. Tropical geometry of deep neural networks. In International Conference on Machine Learning , pages 5824–5832. PMLR, 2018. Daniel Zheng, Ingrid von Glehn, Yori Zwols, Iuliya Beloshapka, Lars Buesing, Daniel M Roy, Martin Wattenberg, Bogdan Georgiev, Tatiana Schmidt, Andrew Cowie, et al. Ai co-mathematician: Accelerating mathematicians with agentic ai. arXiv preprint arXiv:2605.06651 , 2026. Alexander P Zubarev. p-adic polynomial regression as alternative to neural network for approximating p-adic functions of many variables. p-Adic Numbers, Ultrametric Analysis and Applications , 17(4):413–420, 2025. W. A. Zúñiga-Galindo, C. He, and B. A. Zambrano-Luna. p-adic statistical field theory and convolutional deep Boltzmann machines. Progress of Theoretical and Experimental Physics , 2023(6):063A01, 2023. doi: 10.1093/ptep/ptad061. Wilson A Zúñiga-Galindo. Deep neural networks: A formulation via non-archimedean analysis. arXiv preprint arXiv:2402.00094 , 2024. 
+
+# A Disclosures 
+
+Limitations. We do not yet present formal guarantees of convergence, and our nonlinear experi-ments cover only one two-layer architecture. Restricting participation to one coordinate per group can miss descent directions that require several coordinates in that group to move together. Exact center arithmetic (Appendix G.2) restricts Qp values to Z[1 /p ] up to a p-dependent precision. Our evaluation is small in scale. Larger p-adic experiments exist for exactly solved one-coefficient regression (Baker and Molla-Aliod, 2022) and for fitting fixed taxonomies (N’guessan, 2025); evaluating our optimizers at that scale is future work. 
+
+AI use. We used AI models, including Gemini 3.x (Comanici et al., 2025) and the AI co-mathematician (Zheng et al., 2026), in preparing this publication. We drove the research direction, conceptual foundations, exposition, and experiment design. AI drove the implementation, technical proofs, and formal presentation, which we revised. We accept responsibility for the contents of this work. 
+
+# B Comparison with p-adic Optimization Methods 
+
+How costs are counted. A directional derivative costs one pass through the model, as a loss evaluation does (Appendix E); Appendix G.2 gives the cost of a pass for our regression experiments, where the derivatives share the forward computation, so counting a separate pass for each gives upper bounds for coordinate and grouped GD. Entries are per update and do not say how many updates an optimizer needs. The methods below, except those in the last paragraph, optimize classical p-adic values or finite digit prefixes. Gradient descent permits positive-radius states in the Berkovich hull. 13 Table 4: Cost of choosing one update for p-adic optimizers, in evaluations of the loss or of one directional derivative on the examples used for that update. More details per method in Appendix B. 
+
+d: number of model parameters; E: p-adic digits searched per parameter; W : beam width; β > 0: the random walk’s weighting parameter. †Draws are uniform, so total work matches exhaustive search.                     
+
+> Method Update choice Cost
+> Zeroth-order, discrete: moves chosen by model evaluation at candidates
+> Exhaustive search every digit assignment pEd
+> Beam search (Martins, 2025) next digit of all parameters; keep best
+> WO(W p d)
+> Greedy search (Mihara, 2026c) best value per coefficient O(pE)
+> Random digit search (Khrennikov and Tirozzi, 2000) uniformly random digit vectors O(1)
+> Weighted random walk (Zubarev, 2025) loss-weighted random increments ≤eβexpected †
+> Simulated annealing (Mihara, 2026c) annealed coefficient replacement O(1)
+> First-order, continuous: moves chosen by local tangent information
+> Joint GD (ours) naive enumeration of branch tuples (p+ 1) dtuples at vertices GD (approx.) (ours) steepest direction of one coordinate per group
+> O(pd )
+> Coord. GD (ours) steepest direction of one coordinate O(p)
+
+Classifier beam search. Martins (2025)’s Algorithm 1 trains a binary linear classifier by searching the base-p digits of its weights. A node at depth δ represents the first δ digits of all d coefficients. At the next depth, every retained node is expanded into its pd possible next-digit vectors, inadmissible candidates are pruned using the positive-error constraint, and the W candidates with the fewest total mistakes are kept. Martins reports runtime O(W Enp d) when each candidate is evaluated on 
+
+n examples. Counting each candidate’s loss value as one evaluation, one depth costs O(W p d), the entry in Table 4. A finite beam can discard the prefix of the best later solution, so the procedure is an approximate, depth-limited prefix search rather than a local optimizer in the usual gradient sense. 
+
+Hamming-graph heuristics. Mihara (2026c) represents the polynomial coefficients in (Z/p E Z)d
+
+and optimizes a lexicographic vector that first counts errors in the earliest digit, then the next, and so on. A Hamming graph lets an update replace one coefficient residue while holding the others fixed: a greedy sweep tries all pE values for each coefficient, for dp E loss updates plus data and modular-arithmetic cost; hill climbing repeatedly proposes a coefficient and a replacement value; simulated annealing uses the same proposals but may accept a worsening move under its temperature schedule. 
+
+Random digit search. Khrennikov and Tirozzi (2000) train one 2-adic threshold unit, which outputs 
+
+0 when |w⊤x|2 ≤ 2−k and 1 otherwise, and minimize the fraction of wrong outputs. Weights are restricted to k binary digits, a grid of 2kd vectors. For each example they sample the grid uniformly until a vector gives the right output, then sample spheres of doubling 2-adic radius around it to collect more such vectors. They then sample from these sets and keep the vector that is right on the most sampled examples. Each draw costs one evaluation on one example, the O(1) entry of Table 4; when the grid is small they enumerate it instead. 
+
+Weighted random walk. Zubarev (2025) studies a Mahler-polynomial model with the arithmetic mean of p-adic residual distances. The update adds a whole-vector increment ξ whose conditional density relative to Haar measure on Zdp is proportional to exp {− β[L(w + ξ) − L(w)] }. Under the assumption that improving increments have positive Haar measure, an appropriate range of β gives strict expected one-step descent. Zubarev (2025) gives an update rule but no sampler. Since the loss is nonnegative, rejection sampling from Haar measure with acceptance probability exp( −βL (w + ξ)) ,in their notation, draws it exactly at one loss evaluation per proposal. Since the loss is at most one for data and parameters in Zp, the expected number of proposals per step is at most eβ . For fixed 
+
+β, the random-walk row of Table 4 therefore lists an expected cost independent of d, E, and p;their expected-descent result holds only for a range of β that depends on the current point. Each 14 proposal is a uniform draw from Zdp, so fixing E digits of every coefficient takes as many proposals in expectation as exhaustive search. 
+
+Methods that optimize real numbers. Real-parameter models appear in our experiments as the Euclidean rows of Tables 2 and 3; we do not claim that p-adic models outperform them, and the one-hot model also fits the modulo tasks. We do not run the following published methods. Zúñiga-Galindo (2024) trains real weights by ordinary gradient descent; the group’s implemented example trains real-valued weights on unlabeled MNIST by contrastive divergence and shows reconstructions (Zúñiga-Galindo et al., 2023). Adam–VAPO (N’guessan, 2025) runs Adam on one real latent per weight and rounds it to a base-p digit; its gradient is given for v-PuNN’s per-digit heads, which map a parent digit to a child digit in a fixed hierarchy, and its greedy variant compares a digit with its two neighbors modulo p. Hyperbolic embeddings (Nickel and Kiela, 2017) and ultrametric fitting (Chierchia and Perret, 2019) learn real coordinates or real edge weights for given data points and have no model f (x; θ) to train on our tasks. 
+
+# C Formal Geometric Definitions 
+
+A Euclidean parameter inherits its possible directions and unit speed from its ambient vector space. Gradient descent needs the corresponding data on the Berkovich hull. 
+
+The Berkovich affine line. A multiplicative seminorm on a ring A is a map | · | x : A → R≥0
+
+satisfying |0|x = 0 , |1|x = 1 , |f + g|x ≤ max {| f |x, |g|x}, and |f g |x = |f |x|g|x. The Berkovich affine line over K = Qp is 
+
+A1,an  
+
+> K
+
+= M(K[T ]) ,
+
+the set of all multiplicative seminorms on K[T ] whose restriction to constants is the given absolute value, |c|x = |c|p for c ∈ K. It carries the coarsest topology for which x 7 → | P |x is continuous for every P ∈ K[T ]. An ordinary point a ∈ K embeds by evaluation, |P |a := |P (a)|p.
+
+Definition C.1 (Disk points and representatives) . For a ∈ K and r > 0, the disk point ζa,r is the multiplicative seminorm NX
+
+> n=0
+
+cn(T − a)n
+
+> ζa,r
+
+:= max  
+
+> n
+
+|cn|p rn.
+
+We also write ζa, 0 = a for evaluation at the ordinary point a.
+
+Lemma C.2 (Representatives) . For r, s ≥ 0, ζa,r = ζb,s if and only if r = s and |a − b|p ≤ r.Proof. If the two seminorms are equal, evaluating T −a and T −b gives r = max {s, |a−b|p} and s =max {r, |a − b|p}; hence r = s and |a − b|p ≤ r. Conversely, if |a − b|p ≤ r, expanding a polynomial about either center and using the ultrametric inequality gives the same Gauss seminorm. 
+
+Proposition C.3 (The scalar hull and its arcs) . The hull Γp consists exactly of the points ζa,r with 
+
+a ∈ Qp and r ≥ 0. For x = ζa,r and y = ζb,s , set R = max {r, s, |a − b|p}. Their arc in the Berkovich affine line is 
+
+[x, y ] = {ζa,t : r ≤ t ≤ R} ∪ { ζb,t : s ≤ t ≤ R}.
+
+The two radius segments meet only at ζa,R = ζb,R .Proof. Fix a ∈ Qp. For each polynomial P (T ) = PNn=0 cn(T − a)n, the function 
+
+t 7 −→ | P |ζa,t = max  
+
+> 0≤n≤N
+
+|cn|ptn
+
+is continuous on [0 , ∞), with its value at zero interpreted as |P (a)|p. By the defining topology of the Berkovich line, t 7 → ζa,t is continuous. It is injective because evaluating T − a recovers t.For u ∈ [r, R ] and v ∈ [s, R ], Lemma C.2 gives ζa,u = ζb,v exactly when u = v ≥ | a − b|p. These bounds force u = v = R. Thus, unless x = y, the two segments concatenate to a continuous injective path from x to y. The Berkovich line is Hausdorff since polynomial evaluations separate its points, so this compact path is homeomorphic to a closed interval. By Poineau and Turchetti (2020, 15 Proposition I.6.12), the Berkovich line over Qp has a unique arc between any two distinct points. Our constructed path is therefore [x, y ]. When x = y, both segments are the same singleton. Taking r = s = 0 shows that every arc between ordinary p-adic points consists of points of the stated form. Conversely, given ζa,r , choose an integer n with pn ≥ r and put b = a + p−n. Since 
+
+|a − b|p = pn, the arc formula places ζa,r on [a, b ]. Taking the union of these arcs proves the asserted description of Γp.For p = 3 , ζ0,1 is the Gauss point, and ζ0,1 = ζ1,1 since |0 − 1|3 ≤ 1.The points of positive radius identify with the Bruhat–Tits tree of PGL 2(Qp), the p-adic counterpart of the hyperbolic plane (Rémy et al., 2014). However, this tree has its own metric, under which adding Qp as leaves makes its numbers infinitely distant. 
+
+Definition C.4 (Product states as seminorms) . A product state (ζc1,r 1 , . . . , ζ cd,r d ) defines a multiplica-tive seminorm on Qp[T1, . . . , T d]: writing f = P 
+
+> I
+
+aI (T − c)I , set |f | = max I |aI |p ri1 
+
+> 1
+
+· · · rid 
+
+> d
+
+—the several-variable Gauss seminorm, multiplicative by the Gauss lemma (Bosch et al., 1984). Product states are therefore points of the d-dimensional analytification, and the forward rule of Section 3.2 evaluates exactly this seminorm. 
+
+Example C.5 (Coordinate images do not determine the joint state) . Scalar coordinate states do not, in general, determine a point of the higher-dimensional analytification. For example, let ζ = ζ0,1, let 
+
+ξ be the product state (ζ, ζ ), and define |f |η := |f (T, T )|ζ for f ∈ Qp[T1, T 2]. Both points restrict to ζ on each coordinate, but 
+
+|T1 − T2|ξ = 1 , |T1 − T2|η = 0 .
+
+At η, the parameters satisfy T1 = T2 although both scalar radii equal one. The product state ξ has the same scalar restrictions but does not encode this relation. The metric darc of eq. 5 does not depend on the chosen center representatives (Lemma C.2). A metric space (Y, d Y ) is hyperconvex if every family of closed balls {BY (yi, r i)}i∈I with ri ≥ 0
+
+satisfies 
+
+dY (yi, y j ) ≤ ri + rj for all i, j ∈ I =⇒ \
+
+> i∈I
+
+BY (yi, r i)̸ = ∅.
+
+The tight span , or metric envelope , E(X) of a metric space X is a hyperconvex space containing an isometric copy of X, with no proper hyperconvex subspace containing that copy. It is also called the ordinary metric injective hull (Lang et al., 2013, Secs. 2–3). 
+
+Theorem C.6 (The p-adic metric envelope) . For the scalar hull Γp of Section 3.1, equipped with the metric darc of Equation 5, the map x 7 → ζx, 0 realizes (Γ p, 12 darc ) as the tight span, or metric envelope, of (Qp, d p). Thus 
+
+E(Qp, d p) ∼= (Γ p, 12 darc ),
+
+with a unique isometry identifying each ordinary p-adic point with its radius-zero disk point. Proof. Use the disk points of Definition C.1, with representatives identified by Lemma C.2. The arc description in Equation 3 and the length formula in Equation 5 make (Γ p, 12 darc ) an R-tree. Indeed, finitely many upward radius segments can be extended to a common height; they merge and never separate, forming a finite tree whose edge lengths are half the radius increments. Its distances agree with 12 darc , so all metric triangles are tripods. Equation 5 also gives 12 darc (ζx, 0, ζ y, 0) = dp(x, y ).It remains to prove completeness. Let CM be the closed ball of radius M ≥ 0 about ζ0,0 for 12 darc .By Equation 5, 
+
+ζx,r ∈ CM =⇒ max {| x|p, r } − r
+
+2 ≤ M =⇒ r ≤ 2M, |x|p ≤ 2M. 
+
+Consequently CM is contained in the image of the compact set 
+
+{x ∈ Qp : |x|p ≤ 2M } × [0 , 2M ]
+
+under q(x, r ) = ζx,r . The same metric formula gives 
+
+12 darc (q(x, r ), q (y, s )) ≤ dp(x, y ) + 12 |r − s|,
+
+16 so q is continuous. Hence CM , being a closed subset of that compact image, is compact. Every Cauchy sequence lies in some CM , and therefore converges in Γp.For a subset of a complete R-tree, the closure of the union of geodesics joining its points is its tight span (Basso and Sidler, 2023, Lem. 2.3). Apply this to the embedded Qp. By the definition of Γp in Section 3.1, this union is already all of Γp. The required identification follows, and uniqueness fixing the embedded Qp is the standard uniqueness of tight spans (Lang et al., 2013, Sec. 3). Descent selects among the directions leaving a point. 
+
+Definition C.7 (Directions and metric tangent cone) . For x ∈ Γp, let ΣxΓp := π0(Γ p \ { x}) be the set of incident tangent directions in Γp, where π0 denotes connected components. A direction is represented by a unit-speed geodesic germ γ : [0 , t 0) → Γp with γ(0) = x, which we identify with the ray it represents. At a point a ∈ K, this set has one member, γ(t) = ζa,t . At a vertex it has p + 1 
+
+members, the parent and the p child directions. Changing center or scale representatives may relabel the children but not the underlying ray; eq. 10 fixes them so that the label is a digit. The metric tangent cone TxΓp consists of velocities (q, s ) with q ∈ ΣxΓp and s ≥ 0, with all zero-speed pairs identified. Its metric is 
+
+dT
+
+ (q, s ), (q′, t ) =
+
+|s − t|, q = q′,s + t, q̸ = q′.
+
+Reparametrizing gives γcv (h) = γv (ch ) for c ≥ 0, so Dv L is positively homogeneous: Dcv L =
+
+c D v L. Hence eq. 12 may be evaluated at any positive multiple of v∗ with the time rescaled accordingly. 
+
+Coupled parameter groups for affine models. Fix the parameters and minibatch. Index the scalar components of the model’s output on the minibatch examples by a ∈ R . Write Fa(u) = 
+
+ba + P 
+
+> j
+
+aaj uj , combining repeated occurrences of each parameter exactly. For θj = ζcj ,r j , define 
+
+Ra = max  {R0
+
+> a
+
+} ∪ {| aaj |prj : j ∈ J a} , Aa = {j ∈ J a : |aaj |prj = Ra},
+
+where Ja indexes the nonzero coefficients and R0 
+
+> a
+
+is a fixed radius contribution, zero when absent. The active set Aa retains every tie, including parameters that will remain stationary during the update. Let za = φa(Fa(θ)) be the vector of real quantities computed from output a for use in the loss. Write 
+
+L = ℓ(( za)a∈R ), with ℓ differentiable at the current values, and suppose the directional derivatives of za exist. The chain rule gives 
+
+Dv L = X
+
+> a
+
+ca(v), ca(v) = ⟨∇ za ℓ, D v za⟩ .
+
+A parameter outside Aa has a radius contribution strictly below Ra. For sufficiently short motion with fixed finite speeds, that contribution remains below the maximum. At a parameter vertex, its center shift also has norm below Ra, so the output germ is unchanged. Thus Dv za, and hence ca(v),depends only on the velocities of parameters in Aa.In the affine implementation, collect identical functions to write Dv L = P 
+
+> h
+
+αhh(v). Functions are identical only if they agree for every allowed joint velocity, including every child direction at a vertex. For each αh̸ = 0 , group the parameters on which h depends, merging overlapping groups. Summing terms within each group gives the decomposition below. 
+
+C.1 Coordinate restriction 
+
+Fix the parameter state and minibatch. Suppose a partition G satisfies 
+
+Dv L = X
+
+> G∈G
+
+ψG(vG).
+
+Let V be the product of the coordinate velocity sets allowed by the parameter domain. Select one coordinate from each group, forming a set S, and put VS = {v ∈ V : si = 0 for i / ∈ S}.Write μG for the least slope over unit velocities supported on group G’s selected coordinate, a 17 minimum over its incident directions. For unit v ∈ V S , put wG = ∥vG∥2; homogeneity gives 
+
+Dv L = P 
+
+> G:wG>0
+
+wG ψG(vG/w G) ≥ ⟨ w, μ ⟩. If every μG ≥ 0, every such derivative is nonnega-tive, so eq. 12 requests non-positive time and no coordinate moves. Otherwise, Cauchy–Schwarz over {w ≥ 0, ∥w∥2 = 1 } gives the minimum at w⋆G ∝ max(0 , −μG), attained by choosing a minimizing direction for each selected coordinate with positive weight. These directions use the original coordinate derivatives, and a group with μG ≥ 0 receives zero speed. 
+
+Equivariance. Under an isometry, unit-speed paths and their directional derivatives are preserved, provided the objective is transformed accordingly. The following proposition concerns the unrestricted gradient rule. 
+
+Proposition C.8 (Isometric equivariance of gradient descent) . Let g be a surjective isometry of 
+
+(Γ dp, d arc ) and define Lg = L ◦ g−1. For every unit velocity v at x for which Dv L(x) exists, 
+
+Dg∗v Lg (gx ) = Dv L(x). Thus g preserves the minimizing directions and assigned speeds in Equation 12. Proof. The image under g of a unit-speed geodesic germ is again a unit-speed geodesic germ, and 
+
+Lg (gγ(t)) = L(γ(t)) . The difference quotients, minimizing directional derivatives, and assigned speeds therefore agree. For grouped descent, assume the transformation carries each group, each coordinate’s allowed directions, and its next vertices to their counterparts. Each coordinate retains whether it is awaiting a turn. Uniform selection among awaiting coordinates and among minimizing directions then gives corresponding velocities in distribution. Isometries preserve distances to the next vertices, so the same requested time gives the same clipping time. The scheduling rule updates the awaiting-turn flags identically in the two runs. An isometry acts on the optimizer state by mapping stored directions and carrying each coordinate’s scalar moments and update counter with that coordinate. We denote quantities for the transformed objective Lg = L ◦ g−1 by primes: x′
+
+> t
+
+, m′
+
+> t
+
+, v′
+
+> t
+
+, and s′
+
+> t
+
+.
+
+Proposition C.9 (Equivariance of Momentum and Adam) . The coordinate Momentum and Adam update formulas of Section 4.1 and appendix G.1 are equivariant in distribution under factorwise tree isometries and coordinate permutations, acting on the objective and optimizer state as above. Proof. Choose corresponding scheduled coordinates and tied directions in the two runs. Their uniform distributions are preserved by the isometry and coordinate permutation. Write gt(γ) and 
+
+g′
+
+> t
+
+(γ′) for the current directional derivatives of the coordinate loss in the two runs. An isometry maps the upward direction to the upward direction and the children of a vertex to the children of its image. Together with Proposition C.8, this gives 
+
+g′
+
+> t
+
+(g∗γ) = gt(γ),
+
+so the downward derivatives and the children’s excesses correspond. By induction on the updates, so do ut, dt, and the averages stored at corresponding vertices. Therefore m′
+
+> t
+
+(g∗γ) = mt(γ), and the condition for moving into a child holds for γ exactly when it holds for g∗γ. For Adam, the minimum current directional derivative, stored second moment, and update counter agree, so v′ 
+
+> t
+
+= vt and the bias corrections agree. Thus both methods satisfy 
+
+s′
+
+> t
+
+(g∗γ) = st(γ).
+
+Corresponding tie choices select corresponding paths with equal requested distances. Isometries preserve vertices and distances, so clipping gives x′ 
+
+> t+1
+
+= g(xt+1 ). The stored averages and counters continue to correspond after either a move or a stay. The result extends to grouped Momentum and Adam under the group, direction, and boundary conditions above. Select coordinates and tied directions in the original and transformed runs that map to each other under the transformation. The preceding proof applies to each selected coordinate, while unselected coordinates retain their state. With the same learning rate αt, equal speeds and distances to the next vertices give the same step size after clipping. For darc , this applies to translations, unit affine scalings, their factorwise product actions, and coordinate permutations. 18 D Evaluation and Extension on Product States 
+
+For analytic functions, we assume convergence of the centered series in the product Gauss seminorm: its weighted terms |aα|p
+
+Q 
+
+> j
+
+rαj 
+
+> j
+
+tend to zero as |α| → ∞ . Zero-radius coordinates are first specialized to their centers. In the notation of Section 3.2, the centered Taylor expansion is 
+
+Fk,i (z) = Fk,i (c) + X
+
+> |I|≥ 1
+
+aI
+
+> dk−1
+
+Y
+
+> j=1
+
+(zj − cj )Ij = Fk,i (c) + a1,..., 0(z1 − c1) + · · · . (16) The product Gauss seminorm of Definition C.4 is independent of the chosen center representatives: ap-ply Lemma C.2 in each coordinate. The weighted-maximum formula is symmetric in the coordinates, so the order in which they are evaluated does not matter. 
+
+Corollary D.1 (Representative invariance of tangent data) . Equivalent representatives give the same output state and the same loss derivative along each geometric ray. Proof. The preceding argument and Corollary D.4 give the same output state for equivalent rep-resentatives. The loss along a fixed geometric ray is therefore unchanged, as is its directional derivative. Changing representatives may relabel child directions. The centered expansion, including its active-term list, can change under recentering. 
+
+Remark D.2 (K-points are not dense) . In the closed unit disk over Qp, the Gauss value of T p − T
+
+at ζ0,1 is 1, whereas |ap − a|p ≤ p−1 for every a ∈ Zp. The K-points are therefore not dense in this disk, and the extension in Proposition D.3 is determined by the bounded algebra homomorphism rather than by any density argument. 
+
+Proposition D.3 (Functoriality of affinoid spectra) . Let K be a complete non-Archimedean field, let 
+
+A and B be K-affinoid algebras, and let φ : B → A be a bounded K-algebra homomorphism. Then 
+
+φ determines a unique morphism of K-affinoid analytic spaces 
+
+M(A) −→ M (B), x 7 −→  b 7 → | φ(b)|x
+
+.
+
+On K-rational points, this morphism agrees with the map represented by φ.Proof. For x ∈ M (A), the rule b 7 → | φ(b)|x is a bounded multiplicative seminorm on B that extends the norm on K, and hence defines a point of M(B). Functoriality of the Berkovich spectrum makes this map analytic. When x is evaluation at a K-rational point, the same formula is evaluation after the original affinoid map. Uniqueness follows because morphisms of affinoid spectra are contravariantly determined by their bounded algebra homomorphisms, not by density of K-points (Remark D.2). 
+
+Corollary D.4 (Pushforward of a product state) . Let x = ( ζcj ,r j )dj=1 and let f have centered expansion f (T ) = f (c) + P 
+
+> |α|≥ 1
+
+aα(T − c)α, with R = max |α|≥ 1 |aα|p
+
+Q 
+
+> j
+
+rαj 
+
+> j
+
+. The image of x
+
+under the morphism of Proposition D.3 induced by g 7 → g ◦ f is ζf (c),R ; that is, |g ◦ f |x = |g|f (c),R 
+
+for every polynomial g in one variable. For vector-valued f the statement applies to each output coordinate, which is the display eq. 7 that the forward evaluation computes output by output. Proof. Write h = f − f (c), so |h|x = R, and expand g(S) = P 
+
+> n≥0
+
+qn(S − f (c)) n, so that 
+
+g ◦ f = P 
+
+> n
+
+qnhn and |g|f (c),R = max n |qn|pRn =: M . If R = 0 , then |h|x = 0 , so every positive power of h has seminorm zero and both sides equal |q0|p. Now assume R > 0 and g̸ = 0 . The strong triangle inequality and |hn|x ≤ Rn give |g ◦ f |x ≤ M .For the reverse bound, call |t|p
+
+Q 
+
+> j
+
+rγj 
+
+> j
+
+the weight of a term t (T − c)γ ; | · | x is the largest weight among the terms of a collected expression. Order exponents lexicographically; this order is total, compatible with addition, and has 0 as least element. Let β be the largest exponent whose term in 
+
+h has weight R; then β̸ = 0 . Let n∗ be the largest n with |qn|pRn = M . In hn, the coefficient of 
+
+(T − c)n∗β is the sum of Q 
+
+> i
+
+aβi over n-tuples with P 
+
+> i
+
+βi = n∗β. Each summand has weight at most Rn, with equality only when every βi has weight R, hence βi ⪯ β and P 
+
+> i
+
+βi ⪯ nβ , with 19 equality only when every βi = β. For n = n∗ exactly one summand, an∗ 
+
+> β
+
+, has weight Rn∗
+
+. For 
+
+n < n ∗ none does, since nβ ≺ n∗β. For n > n ∗, |qn|pRn < M . So in P 
+
+> n
+
+qnhn the coefficient of (T − c)n∗β is one term of weight M plus terms of smaller weight, and therefore has weight M .Hence |g ◦ f |x ≥ M .For vector-valued f the coordinate images need not determine its full analytic image (Example C.5). 
+
+# E Automatic Differentiation on the p-adic Hull 
+
+For the chain rule in Section 4.3, write F = FK ◦ · · · ◦ F1 for the forward map at a fixed input, with 
+
+Fk : Xk−1 → Xk, Xk = Γ dk 
+
+> p
+
+, and loss head ℓ : XK → R. Only the parameters are extended to the hull; the input stays in Qmp . We assume that FK ◦ · · · ◦ F1 computes the forward map of Section 3.2 exactly. Intermediate outputs that depend on the same parameter cannot, in general, be replaced by independent coordinate disks: doing so can change subsequent evaluations (Example C.5). Write 
+
+x0 = θ and xk = Fk(xk−1). Equip each Xk with the product metric darc of Equation 6. When the output speed is positive, the tangent map Tk := Txk−1 Fk sends the input unit velocity vk−1 to 
+
+vk = Tk(vk−1). Each γvk is parametrized by product arclength and starts at xk. The one-sided metric speed of Fk along vk−1 is 
+
+λarc  
+
+> k
+
+(xk−1, vk−1) = lim 
+
+> t↓0
+
+darc 
+
+ Fk(γvk−1 (t)) , F k(xk−1)
+
+t .
+
+Let Hk = ℓ ◦ FK ◦ · · · ◦ Fk+1 be the loss remaining after Fk, with HK = ℓ and H0 = ℓ ◦ F .
+
+Proposition E.1 (Directional chain rule) . Fix an input velocity vk−1 with finite speed λarc  
+
+> k
+
+. If 
+
+λarc  
+
+> k
+
+> 0 and Dvk Hk exists and is finite, the backward identity Dvk−1 Hk−1 = λarc  
+
+> k
+
+Dvk Hk holds if and only if 
+
+Hk
+
+
+
+Fk(γvk−1 (h)) 
+
+
+
+− Hk
+
+ γvk (λarc  
+
+> k
+
+h) = o(h).
+
+When λarc  
+
+> k
+
+= 0 , the rule Dvk−1 Hk−1 = 0 holds if and only if 
+
+Hk
+
+
+
+Fk(γvk−1 (h)) 
+
+
+
+− Hk(xk) = o(h).
+
+These conditions say that the tangent approximation preserves the first-order change in the remaining loss. These loss estimates hold if Hk is locally Lipschitz near xk and, at positive speed, 
+
+darc 
+
+ Fk(γvk−1 (h)) , γvk (λarc  
+
+> k
+
+h) = o(h).
+
+Local Lipschitz continuity of the remaining maps and ℓ ensures that of Hk. Applying the identities at each step gives the backward recurrence in Section 4.3. 
+
+Proof. For positive speed, the directional derivative gives Hk(γvk (λarc  
+
+> k
+
+h)) − Hk(xk) =
+
+λarc  
+
+> k
+
+hD vk Hk + o(h). Using Hk−1 = Hk ◦ Fk, subtracting this expansion and dividing by h
+
+proves the first equivalence. The second equivalence is the definition of a zero directional derivative. For the sufficient check, a local Lipschitz constant Ck gives |Hk(u) − Hk(v)| ≤ Ckdarc (u, v ). At positive speed, applying this bound to the actual and approximating paths gives the first loss estimate. At zero speed, the speed definition gives darc (Fk(γvk−1 (h)) , x k) = o(h), so taking v = xk gives the second loss estimate. The remaining maps and ℓ form a finite composition, so their local Lipschitz bounds also give one for Hk.If all speeds are positive, start from gK (vK ) = DvK ℓ. The identities give gk−1(vk−1) =
+
+Dvk−1 Hk−1 by backward induction, ending at g0(v0) = Dv0 L. A zero-speed step supplies the derivative zero directly, and the same induction applies to the preceding steps. In the stage notation of Section 4.3, the resulting velocity ˆv = (ˆ q, ˆs) has speeds ˆsi = |Dv ˆri| and directions ˆqi: up if Dv ˆri > 0, and down if at an edge and Dv ˆri < 0, or (if at an inner vertex) down via digit aˆn of Fk,i (c′), where ˆri = p−ˆn and c′ is c with cj replaced by cj + ρj pnj in every coordinate moving down via a digit ρj .At an inner vertex, apply this derivative calculation to each incident input direction separately. For a velocity moving several coordinates, the rate is taken jointly (eq. 13). 20 Example E.2 (A tie couples the coordinates) . Take f (θ) = x1θ1 + x2θ2 with |x1|p = |x2|p = 1 and both parameters at radius r, so R = r and both monomials attain the maximum. Moving coordinate 1
+
+up alone gives ˙R = 1 , but moving it down alone gives ˙R = 0 , since the second monomial then attains the maximum. Moving both up at unit rate gives ˙R = 1 , not 2: the single-coordinate rates do not add. 
+
+# F Sparse Affine Backpropagation 
+
+Lemma F.1 (Direct loss along a tree germ) . Let T be an R-tree, let y ∈ T , and define ℓy (x) = 
+
+dT (x, y )/2. For a unit-speed incident germ γ at x,
+
+D+ 
+
+> γ
+
+ℓy (x) = 
+
+(− 12 , x̸ = y and γ points toward y, 
+
++ 12 , otherwise .
+
+At x = y, every nonconstant germ has derivative +1 /2.Proof. For sufficiently small t > 0, motion toward y shortens the unique path to y by t, while every other germ lengthens it by t.For an affine output whose term in θj strictly attains the output radius, the p children of θj map to the 
+
+p distinct children of the output, since multiplication by a unit permutes the residues; otherwise no child of θj moves the output. By Lemma F.1, at most one child per output then has a slope different from the rest. The classification losses depend on each output ζˆc, ˆr only through max {| ˆc|p, ˆr} =
+
+darc (ζˆc, ˆr , 0) /2 + ˆ r/ 2 (Section 6); the radius has the same derivative along every child, so the same holds with target 0.Output a therefore contributes 
+
+sa,γ = ba + ca1{γ = ρa}
+
+to the slope along child γ, where ρa is the child whose slope differs, and ca = 0 when output a
+
+contributes the same slope along every child. One pass over the m contributing outputs accumulates 
+
+B = P 
+
+> a
+
+ba and Cρ = P 
+
+> a:ρa=ρ
+
+ca; the child slopes are B + Cγ , for O(m + p) operations in place of O(mp ).
+
+Example F.2 (The affine direct loss need not be geodesically convex) . Take p = 3 , F (θ1, θ 2) = 
+
+θ1 + θ2, and target 1. The product path (ζ0,1/2+ t, ζ 0,1/2−t), |t| ≤ 1/12 , is a constant-speed geodesic contained in a product of open edges. Its output center is zero and its output radius is 1/2 + |t|. Hence its direct loss is 3/4 − | t|/2, which has a strict maximum at the midpoint. 
+
+# G Implementation and Experimental Details 
+
+G.1 Optimizer updates Momentum state. The upward and downward averages satisfy 
+
+ut = β u t−1 + (1 − β) De+ L(θt),dt = β d t−1 + (1 − β) min   
+
+> q̸=+
+
+Deq L(θt).
+
+Each coordinate stores ut and dt and, at every vertex it has visited, the average excess ¯∆t(ρ) and the average directional derivative along each child ρ. For a quantity x observed at some updates τ ≤ t of the coordinate, 
+
+¯xt = (1 − β nt )
+
+P 
+
+> τ
+
+β nt−nτ xτ
+
+P 
+
+> τ
+
+β nt−nτ ,
+
+where nt is its update counter; a child’s averages use only the updates at its vertex. Retaining each coordinate’s momentum between its selections follows the history convention in the cyclic coordinate heavy-ball update of Sun et al. (2019, eq. (23)). 21 Adam. The second moment and speeds along the incident directions are 
+
+vt = β2vt−1 + (1 − β2)  max(0 , − min  
+
+> q
+
+Deq L(θt)) 2,st(q) = max(0 , − ˆmt(q)) /(pˆvt + ε), s∗ 
+
+> t
+
+= max  
+
+> q
+
+st(q).
+
+On an edge where L is differentiable, the squared term in the vt update is (dL/dr )2. The child-selection condition of Section 4.1 also applies. The hats are the standard counter-based bias cor-rections, bmt = mt/(1 − β nt ) and bvt = vt/(1 − β nt 
+
+> 2
+
+), with nt counting successful updates of this parameter, including those with zero speed. 
+
+Ties. When several directions share the maximal speed, one is chosen uniformly. 
+
+Coordinate queueing. Initially, every coordinate is marked as awaiting a turn. Before each update, determine the groups from the current parameters and minibatch. Splitting or merging groups leaves each coordinate’s mark unchanged. Within each group, select uniformly among the coordinates awaiting a turn; if none await a turn, first mark every coordinate in that group as awaiting. Draw independently for different groups, and complete all selections before changing any parameter. After successfully computing an update, mark each selected coordinate as no longer awaiting a turn, even if it did not move. Leave all other marks unchanged. The random-permutation guarantee assumes fixed groups; under changing groups, the rule does not guarantee that every coordinate receives repeated turns. 
+
+G.2 Numerical implementation and cost Exact arithmetic and states. Every ordinary center, input, target, and internal p-adic constant used by a reported run lies in Z[1 /p ]. Centers are stored exactly as a signed mantissa times a power of p,with 19 significant digits in int32 for p = 3 (31 for p = 2 ; 13 for p = 5 ). A coordinate whose next digit would exceed this capacity stops descending; the coordinate can still move upward. The radius is stored as log p r, so vertices are integer-valued and clipping lands on them exactly. Disk scores are independent of the chosen center representative (Appendix D); the point reduction need not be. 
+
+Grouping cost. With R and Ja as in Appendix C, let M = |R| be the number of outputs across the minibatch, I = P 
+
+> a
+
+|J a| the number of nonzero collected coefficients summed over outputs, and 
+
+d the number of parameters. The bound below covers grouping after repeated coefficients have been combined and the outer loss derivatives computed. Assuming hash-table lookups take constant time on average, forming the active sets, collecting contributions, and combining overlapping groups require 
+
+O(M + I + d) + Zt
+
+expected work, with O(M + I + d) graph storage, where Zt denotes any additional work that the tests or comparisons require at update t. When the local tests have bounded cost, grouping takes expected linear time in these counts. Each bound counts arithmetic operations on numbers stored with a fixed number of digits. 
+
+Cost. Under the arithmetic and hash-table assumptions of Appendix G.2, scalar affine regression with d coefficients and a batch of b examples uses O(bd ) expected work for the forward computation and grouping, shared by all selected coordinates. With one coordinate selected per group, computing their child slopes separately gives an update cost of at most O(bd + bp |G| ). Sparse affine backprop-agation (Appendix F) reduces the slope computation for all optimizers to O(( b + p)|G| ), giving 
+
+O(bd + p|G| ) overall since |G| ≤ d. Scoring one beam candidate also costs O(bd ), so extending a beam of width W to C = W p d candidates costs O(Cbd ), plus O(C log C) for our full sort. For more general models, the costs of forward and backward propagation depend on how the model is computed and need not be linear in the number of parameters. 22 G.3 Experimental protocol Tuning and budgets. All three tree optimizers use α = κR ref (1 − 1/p ), with reference radius 1 for regression, 64 for Quillian, and the smallest ps ≥ m for modulo m. The multiplier κ is searched over 
+
+{0.01 , 0.1, 1, 10 , 100 } for regression and for classification Adam, and over {0.1, 1, 10 , 100 , 1000 } for classification GD and Momentum. Momentum uses decay 0.9; Adam uses 0.9, 0.999 , and ε = 10 −8.Every task trains at batch size 32, for 1,000 updates on regression and modulo and 2,000 on Quillian. Regression uses 512 examples in each of its training, validation, and independent test streams; modulo uses 2,160, 720, and 720. Quillian’s inner split holds 1,076 training and 268 validation propositions, and each selected configuration is trained again on the full 1,344-proposition training portion before its 336-proposition test portion is evaluated. 
+
+Selection and reporting. For the p-adic gradient methods, modulo selects the grid point with the highest mean validation accuracy over the specified splits, and Quillian selects one multiplier for the complete model, for each code assignment, by pooled validation average precision (Appendix G.6); in both, ties go to the smaller multiplier. Point results use the same selected fit. Regression selects the multiplier separately for each coefficient instance, optimizer, and initialization by the work to first satisfy max i | ˆf (x(i)val ) − y(i)val |3 ≤ 3−5 on all 512 validation examples. Exact ties go to the smaller multiplier; if no multiplier reaches this threshold, the same tie rule applies. Beam width is selected from five and ten by the most validation-recovered minibatch streams, then the least mean first-recovery work among them, then the smaller width. Learning rates and beam widths are tuned only on validation data. Coefficient recovery is reported for the selected fits; final test losses include all five instances, including nonrecoveries. Reported training work excludes the rate and width searches and validation monitoring. Tables report the mean and sample standard deviation over the reporting seeds. Regression validation uses 512 independent covariate and noise draws conditional on the same θ∗ as training. Rates are selected separately for each optimizer, initialization and batch size. The classification splits overlap, so some test observations enter shared rate selection through another split’s validation set. 
+
+Euclidean optimization. The Quillian MLP uses full-data Adam at Martins’s learning rate 0.1 for 1,000 updates. Euclidean modulo models use Adam with batch size 32 for 6,750 updates, totaling 216,000 sampled training examples per fit, with repetitions counted separately. Learning rates 
+
+{0.003 , 0.01 , 0.03 , 0.1, 0.3} are selected by five-seed validation accuracy. 
+
+Setup and initialization. For each candidate input coordinate and depth through the supplied maximum, initialization tests whether the positive training examples in each relation context occupy one residue class. Among compatible choices it minimizes the number of negative examples in those residue classes, then chooses the coarsest depth and the first coordinate in the fixed input ordering. At selected residue depth v, the chosen coefficient starts at ζp−v ,1 and the other coefficients at ζ0,p v . Quillian tests its three entity coordinates, grouped by relation, at depths zero through six. For modulo m with model prime q, the scalar input coordinate is tested at depths zero through the smallest integer D ≥ 0 satisfying qD ≥ m, separately for each class. Euclidean modulo models use LeCun-normal weights, zero biases and no weight decay. The Quillian MLP instead initializes its embedding, hidden and output weight matrices with independent zero-mean Gaussian entries of standard deviation 0.1, and its output biases at zero. The hidden layer’s bias is the weight of the constant input, so it is initialized like the other weights. Beam search uses the same training labels to rank and prune candidates, without this initialization (Appendix G.6). 
+
+Extracting p-adic parameters. For classification point evaluation we select c0 + pN from each positive-radius coefficient disk ζc,r , where N = −⌊ log p r⌋ and c0 retains only the base-p digits of c
+
+at exponents below N . A zero binary seminorm gives probability one for presence; for multiclass scores, probability is distributed equally among exact-zero scores when any occur. Ties among maximizing classes are broken by the fixed class ordering. 
+
+G.4 Regression Adverse initialization. Write coefficients in base 3 with the least significant digit last, as in Section 2. For the first seed the true coefficients are 
+
+θ∗ = ( . . . 002012020 3, . . . 022001202 3, . . . 011000122 3) = (1599 , 5879 , 2933) .
+
+23 Setting the last digit of the first coefficient to 1 and holding it fixed, strict best-improvement over the remaining 23 digit positions stops at 
+
+(. . . 022012021 3, . . . 022221201 3, . . . 011000102 3) = (5974 , 6526 , 2927) ,
+
+where all 48 single-digit changes weakly increase the exact training loss, the smallest increase being 
+
+1/2519424 . Datasets are redrawn until such a point exists; for this seed the first draw was rejected. The accepted dataset is also used for the zero-center runs, and its covariates and noise are reused in the two-layer task. 
+
+Two-layer target. We draw the target coefficients w1, w 2, v 1, v 2 uniformly from {0, . . . , 38 − 1},and draw the fourth input independently. Gradient training and beam search use f (x) = v1(x1 +
+
+w1x2)2 + v2(x3 + w2x4)2, with all four gradient parameters initialized at the Gauss point. Stagewise propagation is exact for this model because the two terms use disjoint parameter sets. To check recovery, we expand the learned and target functions and compare the coefficients of every x2 
+
+> i
+
+and 
+
+xixj , i < j .We also tested the ten-parameter model F (x) = P2 
+
+> k=1
+
+vk(P4 
+
+> j=1
+
+akj xj )2. Multiplying a hidden unit by λ̸ = 0 and dividing its output weight by λ2 leaves F unchanged. We initialized a11 , a 23 at 
+
+ζ1,3−9 , a13 , a 14 , a 21 , a 22 at ζ0,3−9 , and the remaining four parameters at the Gauss point, with all ten trainable. Replacing either the two states ζ1,3−9 or the four states ζ0,3−9 by Gauss points reached depth-five recovery on none of five seeds at κ ∈ { 1, 10 , 100 } within 1,000 GD updates. On the seed missed at width five, the target v1 is divisible by 9. After two digits, every candidate with v1 = 0 gives the same loss whatever digits w1 has, so nine tie exactly and the beam keeps five. At the third digit these nine take the nine lowest losses: they agree with the target modulo 27 in w2,
+
+v1 and v2, and differ only in w1, with the candidate matching the target ninth. Mean point L1 loss on the full data:                     
+
+> rank 12345678910
+> w1mod 27 24 615 0918 12 321 loss 0.02692 0.02711 0.02712 0.02751 0.02760 0.02765 0.03295 0.03296 0.03297 0.06045
+
+The tenth candidate is the first that differs from the target in v1 and v2. Full-data scoring fails on the same seed as minibatch scoring and costs sixteen times as much. 
+
+Regression beam search. We search depths v = 0 , . . . , 7, indexed by the exponent in r = p−v ,using mean point L1 loss, with all candidates at a depth sharing one batch. After scoring the complete depth, we retain the best distinct candidates up to the width, and the search returns the lowest-loss candidate at the last depth. We average recovery work and log 3 test loss over five minibatch runs per data seed before computing the five-seed mean and sample SD. 
+
+G.5 Modulo classification Learned modulo. We stratify by residue modulo 36 = 4 · 9 so that the same splits are balanced for both modulo tasks. For each seed, we randomly partition the integers 0, . . . , 3599 , assigning 60, 20 and 20 members of each residue class to training, validation and test, respectively. All methods in the modulo comparison share these splits. For the permuted-code control, a fixed random permutation reassigns the input integers while their labels remain unchanged. We repeat the initialization procedure above using the permuted training data. The Euclidean digit baseline concatenates one-hot encodings of the eight least significant base-p digits, with p = 2 for modulo 4 and p = 3 for modulo 9. Every compared method is tuned independently by the shared selection rule of Appendix G.3. At the selected multipliers, plain descent, Momentum, and Adam all reach test accuracy 1.000 on the matched tasks, whether evaluating the learned parameter states or the points chosen by the fixed extraction rule. 
+
+G.6 Quillian benchmark Euclidean MLP architecture. Figure 5 of Martins (2025) shows a learned six-dimensional em-bedding for each of the 15 entities. We concatenate that embedding with the four relation indicators 24 and a fixed 1, feed the resulting 11 inputs to 15 sigmoid hidden units, and use an affine map to 28 sigmoid outputs. Thus the conventional parameter count is 
+
+15 · 6 + (6 + 4 + 1) · 15 + (15 + 1) · 28 = 703 .
+
+Martins reports 690 parameters, but the count in the paper source adds 15, rather than 28, for the final-layer bias. The paper specifies Adam at learning rate 0.1, but not the batch size or epoch budget. Our reproduction uses the Adam protocol in Appendix G.3. Our five reported seeds vary both the random split and initialization; Martins instead holds one random split fixed across ten initializations. 
+
+Metrics. Within each test split, we pool the 336 propositions across all 28 properties and report positive-class F1, average precision (AP), and accuracy on the pooled counts, grouping equal scores at each threshold of the precision–recall curve. 
+
+Quillian permutation control. We randomly reassign complete three-dimensional code vectors among entities, keeping the code multiset, relation indicators and proposition labels fixed. We repeat the initialization procedure above using the permuted training data. 
+
+Quillian beam search. We use maximum depth 8 to cover the deepest levels of the encoded hierarchy. Beam width 10 gives zero training error on two of our five splits, as Martins (2025) observed on their single split. If the search reaches the depth limit or exhausts its admissible candidates before finding a classifier with zero training error, we return the candidate with the fewest training errors from its last nonempty beam. Across the five splits and 28 properties, 137 of 140 fits attain zero training error. The batch-32 beam variant uses the same width, depth limit, and splits, with a fresh uniform sample of up to 32 training propositions shared by all candidates at each depth. Admissible candidates, those with no error on a positive training example, are ranked by batch errors; a candidate with no batch error is then checked on the remaining training negatives, in rank order and including candidates beyond the beam cutoff, and the search stops at the first with no full-training error. This variant attains zero training error in 133 of 140 fits. 
+
+# H Logit Separation and Margins 
+
+Recall from Section 6 that the output for class k is ˆyk = ζˆck ,ˆrk , with logit 
+
+zk = − log p max {ˆrk, |ˆck|p}.
+
+Theorem H.1 (Logit margins at every radius) . Let X be a finite training set and let the class maps have the form fk(η, b ; x) = Gk(η; x) + bk, with independent additive biases bk. Suppose each 
+
+Gk(·; x), for x ∈ X, is analytic near parameter centers η0. Assume X is p-adically separable at centers (η0, b 0): every training example i of class c satisfies 
+
+|ˆc(i) 
+
+> c
+
+|p ≤ 1, |ˆc(i) 
+
+> k
+
+|p ≥ p for every k̸ = c. 
+
+Then for every ρ ∈ (0 , 1] there is a parameter state with these centers and all parameter radii positive at which every output on X has radius ρ, and every correct-class logit exceeds every incorrect-class logit by at least 1 on every training example. Proof of Theorem H.1. Fix ρ ∈ (0 , 1] and the separating centers. Each Gk(·; x(i)) has a centered power series that converges for sufficiently small positive parameter radii. As there are finitely many such series, we can choose positive radii sj small enough that all the expansions 
+
+Gk(η; x(i)) = Gk(η0; x(i)) + X
+
+> |α|≥ 1
+
+ak,i,α (η − η0)α
+
+converge in the product Gauss seminorm of Appendix D. The weighted coefficients |ak,i,α |p
+
+Q 
+
+> j
+
+sαj 
+
+> j
+
+,for |α| ≥ 1, are bounded by some M > 0. Choose 0 < t ≤ 1 with tM ≤ ρ and give coordinate ηj
+
+radius rj = ts j . By Corollary D.4, each Gk then has output radius 
+
+R(i) 
+
+> k
+
+= max  
+
+> |α|≥ 1
+
+|ak,i,α |p
+
+Y
+
+> j
+
+rαj 
+
+> j
+
+≤ tM ≤ ρ. 
+
+25 Give each bias bk radius ρ. Since Gk does not depend on bk, the centered bias term has coefficient 1
+
+and cannot cancel with any term of Gk. The Gauss formula therefore gives ˆr(i) 
+
+> k
+
+= max {R(i) 
+
+> k
+
+, ρ } = ρ.All parameter radii are positive, and the output centers are unchanged. Since ρ ≤ 1, the separation inequalities give z(i) 
+
+> c
+
+≥ 0 and z(i) 
+
+> k′
+
+≤ − 1 for every k′̸ = c. Thus z(i) 
+
+> c
+
+− z(i) 
+
+> k′
+
+≥ 1 on every training example. 26
