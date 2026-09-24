@@ -1,0 +1,379 @@
+Title: Categorical Internalisation of Environmental Groupoids for Generalisable POMDP Solving
+
+URL Source: https://arxiv.org/pdf/2609.27745v1
+
+Published Time: Thu, 24 Sep 2026 01:00:24 GMT
+
+Number of Pages: 15
+
+Markdown Content:
+> Submitted to: ACT 2026 © Opperman, Alonso & Mondragón This work is licensed under the Creative Commons Attribution License.
+
+# Categorical Internalisation of Environmental Groupoids for Generalisable POMDP Solving 
+
+Ben Opperman 
+
+> City St George’s, University of London
+> Ben.Opperman@citystgeorges.ac.uk
+
+Eduardo Alonso 
+
+> City St George’s, University of London
+> E.Alonso@citystgeorges.ac.uk
+
+Esther Mondragón 
+
+> City St George’s, University of London
+> E.Mondragon@citystgeorges.ac.uk
+
+This paper advocates category theory as a practical framework for structuring and improving rein-forcement learning in high-dimensional, partially observable environments. We model symmetries between environmental states by partitioning the state space into equivalence classes induced by sym-metry orbits, and organise each such class as a groupoid with a designated canonical representative. This allows the agent to share what it learns across many similar environmental states simultaneously, rather than treating every orientation or position as an entirely new problem. Learning is thus carried out on a symmetry-reduced state space with each orbit represented once, preserving structure while eliminating redundancy and improving sample efficiency. We implement this framework within standard reinforcement learning pipelines and evaluate two different approaches on partially observable benchmarks, demonstrating that orbit-based partitioning yields consistent performance improvements in environments exhibiting latent symmetry. Beyond these empirical results, our approach illustrates how categorical structure provides a principled bridge between abstract reinforcement learning formulations and their computational application, thereby establishing a pathway toward more structured and scalable learning systems. 
+
+# 1 Introduction 
+
+Reinforcement learning (RL) has seen widespread success in solving complex sequential decision-making problems, with myriad applications from board games to robotic control systems [37, 29]. In the stan-dard framework, an agent interacts with an environment modelled as a Markov Decision Process (MDP), using reward information from its interactions to refine a policy that maximizes a cumulative reward [39, 35]. However, RL approaches have faced some challenges resolving real-world, high-dimensional environmental complexity, particularly with sample inefficiency and poor generalisation [20]. Category theory holds potential to redefine environmental representations for RL agents, and this paper will utilise it as a foundation to accelerate learning by exploiting environmental symmetries. From a categorical perspective, an MDP can be understood as a coalgebra for the Giry monad, where transitions represent morphisms between state objects [17, 24]. Given a measurable state space X and a set of actions A, the system dynamics are given by a measurable map P : X × A → G (X), where G (X) denotes the space of probability measures over X. In practical applications, agents lack complete information and instead of directly accessing X they experience a partially observable problem with data given through high-dimensional, often-noisy observations. Thus, maintaining a robust internal representation which properly captures the valuable information is vital and for an agent to generalise across disparate states, it must learn to map raw observations into a latent space that disentangles the underlying factors of variation [4, 22]. Disentanglement allows the agent to treat independent properties of the world such as position, color, or velocity, as distinct coordinates in its internal model, creating stronger understandings about the environment while limiting weak conclusions drawn from few samples [36]. arXiv:2609.27745v1 [cs.AI] 23 Sep 2026 2 Categorical Internalisation of Environmental Groupoids for Generalisable POMDP Solving 
+
+One key pathway to effectively achieve disentanglement is by utilising environmental symmetries, the properties inherently invariant under various transformation groups, such as translations or rotations [32]. By incorporating these symmetries into the agent’s architecture, an agent can reduce its hypothesis space to augment sample efficiency and support shared learning across different but symmetrical states [11, 34]. In this paper, we propose groupoids as the natural mathematical language for internal repre-sentations in RL, and we show how to use them to capture the local structure of reversible actions and substructure transitions, as has been done in other fields before [48, 42]. This groupoid-based approach both generalises existing symmetry-based RL methods and also provides a compositional framework for building complex internal models from simpler geometric primitives [3]. This paper will outline a novel RL framework which uses groupoids for internal representations to facilitate shared learning across states and accelerates learning in partially observable environments. Our contributions are as follows: categorical reinforcement learning : we show how category theory can be used to better represent environments for RL models; groupoid solver algorithm : we implement a practical algorithm using this categorical internal representation for the first time; and empirical results :we use standard benchmarks to demonstrate the performance of our model against traditional approaches. In the following, we first review imperative background information to recontextualise reinforcement learning and symmetry-based methods using category theory. We will outline both the mathematical and then computational models for groupoid-based RL with different canonicalisation methods as well as the setup for the testing environments. Finally, we will analyse the impact of different approaches using key environmental benchmarks, and discuss the results and their implications. 
+
+# 2 Background 
+
+In this section, we reformulate standard RL in categorical terms to provide a rigorous basis for our model. We first establish environmental structure, and then outline categorical definitions of symmetry and disentanglement to create the bedrock for canonicalisation methods which reduce sample complexity. 
+
+2.1 Reinforcement Learning 
+
+RL agents learn through sequential interactions with an environment to maximize cumulative reward [39]. Most such problems are formalised as Markov Decision Processes (MDPs) [35], which can be lifted into a categorical framework to reveal their underlying algebraic structure. 
+
+Definition 2.1 (Categorical Markov Decision Process) . A Markov Decision Process (MDP) is a tuple 
+
+M = ( S, A, α, γ) in the category of measurable spaces, where S is the state space, A is the action space, 
+
+α : S × A → G (S × R)
+
+is a Markov kernel assigning to each state-action pair a probability measure over successor states and rewards, and γ ∈ [0, 1) is the discount factor. Equivalently, by currying, α induces a morphism 
+
+˜α : S → G (S × R)A,
+
+making S a coalgebra for the functor F (X) = Meas (A, G (X × R)) .The classical transition kernel P and expected reward function R are recovered via marginalisation and integration: P(s, a, B) = α(s, a)( B × R), R(s, a) = 
+
+> Z
+> S×R
+
+π2 dα(s, a),
+
+where π2 : S × R → R is the projection onto the reward component. Opperman, Alonso & Mondragón 3In realistic, partially-observable scenarios, the agent lacks direct access to the state object S and so the problem cannot be represented by a standard MDP. Partially Observable Markov Decision Processes (POMDPs) extend the MDP framework by introducing an observation space O and an observation mor-phism Ω which together represent the portion of the environment the agent actually knows about. 
+
+Definition 2.2 (Categorical POMDP) . A Partially Observable Markov Decision Process (POMDP) is a tuple P = ( S, A, Z, α, Ω, γ), where (S, A, α, γ) forms a categorical MDP, Z is the observation space, and 
+
+Ω : S → G (Z)
+
+is the observation kernel assigning to each state a probability measure over observations. 
+
+In this framework, the agent’s decision-making policy cannot in general be implemented as a simple morphism π : S → G (A), since S is not directly observable. Instead, the agent maintains a belief state 
+
+b ∈ G (S), representing a probability distribution over possible states, and acts according to a policy 
+
+π : G (S) → G (A).The anchoring component of classical RL is the Bellman equation , which provides a recursive de-composition of the value function and enables agents to learn through successive approximation. Central to this formulation is the value function associated with a policy π, defined as the measurable function 
+
+V π : S → R given by 
+
+V π (s) = Eπ
+
+" ∞
+
+# ∑
+
+> t=0
+
+γt Rt+1 s0 = s
+
+#
+
+, (1) which represents the expected discounted return from state s under π.Building on this foundation, temporal-difference (TD) learning introduces a paradigm shift by al-lowing agents to learn directly from raw experience in an online fashion, without requiring an explicit model of the environment dynamics [38]. The core mechanism underlying TD learning is a bootstrapping update based on the TD error, 
+
+δt = Rt+1 + γV (st+1) −V (st ), (2) which quantifies the discrepancy between the current value estimate and a refined estimate incorporating newly observed rewards. From a categorical perspective, this learning process may be interpreted as an iterative search for a fixed point of the Bellman optimality operator, arising from the Kleisli structure induced by the Giry monad. While theoretically robust, these classical approaches typically rely on tabular representations or simple function approximators, which are insufficient for capturing the complex, non-linear structure present in high-dimensional observation spaces. This limitation motivates the use of more expressive models, such as deep neural networks, which can approximate rich value functions in such settings. Modern reinforcement learning systems combine these ideas with deep neural networks, but often require large quantities of data and struggle with generalisation and extrapolation [20, 36, 14]. Recent work has therefore focused on incorporating structural inductive biases into RL systems, particularly those arising from symmetry and geometric structure [6, 44]. 
+
+2.2 Symmetry and Equivariance 
+
+Symmetry can represent transformations capable of preserving structural properties, and thus are pivotal for expressing the invariances of a system. In machine learning, symmetry appears as the equivariance of a model with respect to a group action. 4 Categorical Internalisation of Environmental Groupoids for Generalisable POMDP Solving 
+
+Definition 2.3 (G-Equivariant Representation) . Let G be a group acting on the state space S via ·S and on a latent space Z via ·Z . A representation mapping f : S → Z is G-equivariant if for all g ∈ G and s ∈ S: f (g ·S s) = g ·Z f (s)
+
+By restricting the hypothesis space to morphisms consistent with these structural constraints, agents ensure that the learned representation Z respects the natural real-world symmetries, improving generali-sation [11, 6]. Exploiting symmetry significantly reduces an agent’s hypothesis space, and by identifying key transformations that preserve the transition structure, the agent can effectively quotient the state space 
+
+S by the group action of G, focusing its learning capacity on the invariant features of the dynamics. This mathematical advantage is why disentanglement is so vital for effectively separating the states by sym-metry and improving sample efficiency: it allows an agent to generalise a single observation across an entire symmetry orbit, ensuring that the internal model remains consistent even as the specific external state changes. 
+
+2.3 Disentanglement through Symmetry-Based Decomposition 
+
+While global symmetries provide potential for better representations, disentanglement is necessary to effectively partition an environment by its symmetries. By aligning internal representations with inde-pendent physical factors of the environment, an agent can capture specific environmental details such as spatial coordinates, object geometries, or dynamic velocities without the risk of crosstalk [4]. Higgins et al. formalise this process as the structural alignment between latent variables and the underlying symmetry transformations of the data-generating process [22]. Categorically, this represents a shift from a monolithic state object S to a structured latent object Z that admits a product decomposition :
+
+Z ∼=
+
+> n
+
+# ∏
+
+> i=1
+
+Zi, G ∼=
+
+> n
+
+# ∏
+
+> i=1
+
+Gi (3) where each subgroup Gi acts non-trivially only on its corresponding factor Zi.This reconstruction comes with key mathematical benefits. First, it enables the factorisation of the transition morphism α : Z → G (A × Z × R) so if a specific action a ∈ A only affects the coordinate Zpos ,the agent can model this transformation as the identity on all other factors Z j̸ =pos . Second, such disen-tangled representations improve generalisation by localising the effect of variations in individual factors, thereby reducing the impact of spurious correlations in out-of-distribution settings [36]. This structured separation allows the agent to propagate information selectively across states that share relevant under-lying factors, leading to more stable and reliable value estimation. 
+
+2.4 Global Symmetry via Group Actions 
+
+Groups provide one canonical formalism for describing global symmetries, as groups can act on entire state spaces to represent transformations that preserve underlying structural properties of an environment. A group G is a set with a binary operation satisfying associativity, identity, and invertibility [30]. 
+
+Definition 2.4 (Group Action and Equivariance) . A left group action of G on a set X is a map · : G × X →
+
+X satisfying e · x = x and g · (h · x) = ( gh ) · x. A morphism f : X → Y between G-sets is G-equivariant if it commutes with the group action: f (g · x) = g · f (x) ∀g ∈ G, x ∈ X.Opperman, Alonso & Mondragón 5Neural architectures constrained by these global symmetries leverage this equivariance to achieve superior sample efficiency by sharing parameters across the group orbit Ox = {g · x | g ∈ G} [11]. How-ever, global equivariance implies that the transition dynamics are uniform across the entire state space S,which is unrepresentative of realistic partial local symmetries. For example, rotational symmetries that exist an open, unobstructed state s ∈ Sopen is destroyed if the agent enters a coordinate s with environ-mental boundaries. This transition from global to state-dependent symmetry necessitates a framework where the set of valid transformations G (s, s′) depends on the specific states being related, rather than a single, all-encompassing group G, such as with groupoids .
+
+2.5 Local Symmetries via Groupoid Actions 
+
+A groupoid generalises the notion of a group by allowing symmetries to exist as morphisms between distinct objects rather than a single identity-centered set. This allows us to model transformations that are only composable when their context matches under some conditions, capturing partial symmetries. 
+
+Definition 2.5 (Groupoid) . A groupoid G is a small category in which every morphism is an isomor-phism. It consists of a set of objects G0 and a set of arrows G1, equipped with source and target maps s,t : G1 → G0. For any two arrows f , g ∈ G1, the composition g ◦ f is defined if and only if s (g) = t( f ).
+
+In an RL context, G0 may represent the set of possible environmental states, while G1 represents the reversible transformations between them[48]. If two independent subsystems have state spaces S1 and S2,their joint environment is naturally represented by the product object S1 × S2, with transition dynamics constructed functorially from the component kernels [16]. Groupoids therefore provide a pathway for decomposing complex environments into simpler components using category theory. 
+
+# 3 Groupoid Reinforcement Learning 
+
+This section will utilise the mathematical theory to achieve a computational implementation, starting with an overview of the approach and an outline of the algorithm, and will be examining two canonicalisation method for two types of RL solutions. 
+
+3.1 Groupoid Solver Overview 
+
+The interaction begins with a generative cycle: the agent receives an observation ot and a reward rt
+
+from the environment. Rather than performing a standard Bayesian update on a high-dimensional belief manifold, the agent invokes a canonicalisation morphism . This morphism maps the raw, perceived state into its unique orbit representative s− 
+
+> t
+
+∈ S−, while simultaneously recording the transporter element 
+
+τ ∈ G that tracks the spatial orientation of the original state. In classical reinforcement learning, the agent maintains a Q-table , a function Q : S × A → R that stores the expected return of taking action a in state s. In our setting, this table is defined over the canonical space, Q : S− × A− → R, so that each entry corresponds not to a single raw state, but to an entire equivalence class of symmetric configurations. This architecture therefore mitigates the curse of dimensionality through symmetry-induced param-eter sharing. Updates computed at a canonical representative s− are propagated across all states iso-morphic to s−, allowing each interaction to inform an entire equivalence class. When learning in a compressed canonical space, actions in the original state space are obtained via transport through τs,and by leveraging structured correspondences, each transition contributes to a wider update of the value function, improving sample efficiency and supporting learning in sparse-reward environments. Under standard conditions, such update rules inherit the convergence guarantees of Q-learning [46]. 6 Categorical Internalisation of Environmental Groupoids for Generalisable POMDP Solving 
+
+3.2 Algorithm 
+
+Here we outline the groupoid-aware Q-learning algorithm. We decouple the symmetry logic into a sepa-rate canonicalisation interface to allow for modular implementation and testing through one interface. 
+
+Algorithm 1: Groupoid Q-Learning Agent with canonicalisation and local symmetry propaga-tion 
+
+Class GroupoidQLearner( α, γ, ε, C )
+
+// C is an external Canonicalisation Method 
+
+Q ← empty object-level Q-table 
+
+Function choose_action(s) 
+
+(s−, τs) ← C .get_canonical (s)
+
+a− ∼ ε-greedy (Q[s−]) 
+
+a ← τ−1 
+
+> s
+
+· a−
+
+return a
+
+Function update(s , a, r, s′)
+
+(s−, τs) ← C .get_canonical (s)(s′− , τs′ ) ← C .get_canonical (s′)
+
+a− ← τs · a
+
+// Update canonical Q-value 
+
+Q[s−, a−] ← Q[s−, a−] + α r + γ max a′ Q[s′− , a′] − Q[s−, a−]
+
+// Symmetry Propagation via Groupoid Morphisms 
+
+foreach morphism φ : s− → t in C .orbit (s−) do 
+
+Q[t, φ (a−)] ← Q[t, φ (a−)] + α r + γ max a′ Q[φ (s′− , a′)] − Q[t, φ (a−)] 
+
+Class Canonicaliser 
+
+Function get_canonical(s) 
+
+// Return representative s− and transporter τs : s− → s
+
+return (s−, τs)
+
+Function orbit(s −)
+
+return set of morphisms {φi} from s− to isomorphic states Full code at: https://github.com/bmopper/groupoid-rl 
+
+3.3 Functorial State Reductions via Canonicalisation 
+
+An effective Groupoid Q-Learner needs an effective methodology to partition a space S to a minimal set of orbits and their representatives. We define an abstract canonicalisation morphism C : S → S−, and im-plement two different partitioning methods using structural G-equivalence and dynamical bisimulation. These two canonicalisation methods offer complementary ways to exploit structure in reinforcement learning and thus represent two different scenarios for the application of category theory in RL. Prede-fined symmetries inject prior knowledge to improve efficiency and are useful in controlled environments, while discovered symmetries extract latent regularities from data, enabling generalisation when the sym-metry group is unknown or approximate. Opperman, Alonso & Mondragón 7
+
+3.3.1 Structural Canonicalisation: G-Orbit Quotients 
+
+In the structural approach, we assume a groupoid G ⇒ S encoding local symmetries between states: two states s, s′ are considered isomorphic if there exists a morphism γ : s → s′ in G .
+
+Definition 3.1 (Structural Isomorphism via Groupoids) . For G ⇒ S a (small) groupoid with object set S, the canonicalisation C is a choice of representatives for isomorphism classes, a projection onto the orbit space π0(G ). For any state s ∈ S, the canonicaliser returns a pair (s−, τs) such that: 1. s − is the chosen representative of the connected component (orbit): 
+
+Os = { s′ ∈ S | ∃ γ : s− → s′ in G }
+
+2. τs : s− → s is a transporter morphism in G .
+
+This formulation replaces a global group action with a local symmetry structure encoded by G ,allowing different states to admit different symmetry groups that are predefined. The burden of specifying symmetry is thus shifted to defining the groupoid structure itself. This method effectively puts the burden of symmetry definition on the system designer, leveraging a priori geometric knowledge to get best results but requiring significant fine-tuning by a designer ahead of time. For example, in an autonomous urban navigation task, objects are intersections s ∈ S, and mor-phisms in G correspond to local rigid motions (translations and rotations), mapping valid intersections to each other. If two intersections s and s′ are connected by a morphism in G , they lie in the same con-nected component and hence share the same canonical representative s−, so updating a value function at 
+
+s− propagates information across all symmetrical states, improving sample efficiency while respecting only those symmetries that are locally valid. 
+
+3.3.2 Dynamical Canonicalisation: Coalgebraic Bisimulation 
+
+Structural symmetry can also be found procedurally, utilising environmental structure to derive canoni-calisation from the transition dynamics, using the reward values and state properties to define symmetry. This is achieved by viewing the POMDP as a coalgebra α : S → G (O × R × S)A for the Giry monad G .
+
+Definition 3.2 (δ -Granular Bisimulation) . Two states s , s′ are dynamically δ -equivalent if their transition measures are close under a metric d. Formally, we define s ≈δ s′ if for all actions a ∈ A: dG
+
+ α(s, a), α(s′, a) < δ
+
+where δ ∈ [0, 1] is a granularity parameter governing the resolution of the state-reward manifold. 
+
+Under this regime, the canonicalisation method C will define states with similar reward behaviour as symmetrical, even if they lack a clear geometric relationship. The granularity of this approach can be determined by altering δ : as δ → 0, we recover exact bisimulation; and as δ increases, the agent performs a lossy compression of the environment. Using the aforementioned urban navigation example, the agent will this time behind with no explicit information or inherent spatial awareness, and instead derives these symmetries from the ground up by observing its environment. For example, it may realise that the transition probabilities and reward signals of various intersections are identical, and thus they are symmetrical. While both methods may ultimately converge on the same efficient policy by collapsing an environ-ment into its essential topological representatives, the structural approach bypasses the discovery phase through human-led geometric priors, whereas the automatic approach provides a robust, data-driven fail-safe for environments where the symmetry may be irregular or hidden from the designer’s view. 8 Categorical Internalisation of Environmental Groupoids for Generalisable POMDP Solving 
+
+3.4 Symmetry-Aware Temporal Difference Learning 
+
+In our framework, the Q-function extends beyond a tabular representation by explicitly incorporating the symmetry structure of the state space. Rather than updating a single state-action pair, each observed tran-sition (s, a, r, s′) induces a symmetry-aware temporal-difference update that propagates across all states related to s under the underlying symmetry structure. By sharing information across these equivalent configurations, the learning process reduces redundancy and improves sample efficiency. This symmetry-aware update rule is as follows: let C : S → ˆS be a canonicalisation mapping that assigns each state s a representative s− ∈ ˆS, together with an isomorphism (transporter) τs : s− → s. The canonical Q-value Q(s−, a−) is updated using the standard Bellman residual, and this update is then propagated to any state t isomorphic to s− via a groupoid morphism φ : s− → t:
+
+∀φ ∈ Mor (s−,t), Q(t, φ (a−)) ← Q(t, φ (a−)) + α · δ (4) where the TD-error δ is pulled back from the canonical transition: 
+
+δ = r + γ max  
+
+> a′
+
+Q(s′− , a′) − Q(s−, a−). (5) The mechanism ensures that the policy π is G-equivariant and therefore the agent only ever learns in the simplified canonical space S−, and only acts in the raw space S by pulling back the optimal action through the inverse transporter τ−1 
+
+> s
+
+:
+
+s a ∈ A(s)
+
+s− a− ∈ A(s−)
+
+> τ−1
+> s
+> Q
+> τs
+
+Our approach propagates the reward r across all states symmetrical states in its orbit, and thus a single interaction informs the agent over the entire equivalence class. This resulting groupoid-based Q-learning framework leverages local symmetries to augment efficiency by adapting to state-dependant symmetries and allowing the model to generalise where appropriate without oversimplifying the dynamics. Impor-tantly, the separation between representation via the groupoid G and canonicalisation C and learning dynamics enables controlled empirical analysis of how symmetry structure influences performance. 
+
+# 4 Empirical Evaluation 
+
+This section will first outline the environments, parameters and baseline used to evaluate performance, and then discuss the results of the evaluation and the implications. 
+
+4.1 POMDPy Environments 
+
+POMDPy is a Python framework for building and evaluating reinforcement learning algorithms in POMDP environments. It offers high-level abstractions for defining the essential components of a POMDP tuple and provides comprehensive implementable code that allows for a seamless transition from category the-ory to algorithmic implementation. Our evaluation uses h2r/POMDP-Py , a fork from Brown University’s Human to Robot (h2r) Laboratory, whose modular design separates the environment’s generative model from belief-tracking and planning, enabling direct comparison between our categorical formulation and the repository’s native high-performance solvers in two benchmark environments: RockSample and Tag .Opperman, Alonso & Mondragón 9
+
+4.2 RockSample 
+
+RockSample is a canonical POMDPy benchmark designed to evaluate exploration under uncertainty, comprising a grid world containing several rocks, each with an unknown binary quality (good or bad), hidden from the agent. The agent may move in the cardinal directions or perform one of two interac-tions: it can sense a rock, receiving a noisy observation whose accuracy increases with proximity, with probability 
+
+P(correct | d) = 1 + 2−d/d0
+
+2 ,
+
+where d is the distance between the agent and the rock, and d0
+
+is an environment constant (typically d0 = 20); alternatively, it can sample a rock at its current location, receiving a positive reward if the rock is good and a negative reward otherwise. The primary challenge arises from the trade-off between ex-ploration and exploitation. Moving closer to a rock before sensing reduces observational uncertainty but incurs a time cost, while sampling yields immediate reward but risks select-ing a bad rock. The environment thus tests spatial reasoning and belief-state planning in partially observable environments. 
+
+> Exit Area
+
+A
+
+R1
+
+R2
+
+R3
+
+R4  
+
+> Sense( R2)Move East
+> AAgent
+> RiRock (unknown quality) Exit area Sense action Movement action
+
+Figure 1: Small 5 × 5 example 
+
+RockSample generation. 
+
+4.3 Tag 
+
+The Tag environment models a classic pursuit-evasion prob-lem under partial observability, in which an agent must locate and capture a moving target within a discrete grid world. The agent’s position is fully observable, while the target’s posi-tion is hidden and must be inferred from limited observations that provide coarse information about its location. At each timestep, the agent may choose to remain stationary, move in one of the cardinal directions, or execute a tag action. A suc-cessful tag yields a positive reward if the agent occupies the same cell as the target, and a penalty otherwise, discouraging premature or uninformed tagging. The target evolves independently according to a stochastic transition model, and the agent receives only partial informa-tion about its position. As a result, Tag emphasises the chal-lenge of tracking a hidden, dynamically moving object through sequential inference. It serves as a benchmark for belief-state estimation and pursuit under uncertainty, requiring the agent to integrate information over time while balancing exploration with timely action to achieve successful capture. 
+
+AT          
+
+> P=0.1P=0.1
+> P=0.8Move North Certain Sensing Range
+> AAgent
+> TTarget Stochastic transition (with P)Agent action Certain Sensing range
+
+Figure 2: Small 5 × 4 example Tag 
+
+generation. 10 Categorical Internalisation of Environmental Groupoids for Generalisable POMDP Solving 
+
+4.4 Benchmarks and configurations 
+
+We benchmark our symmetry-aware representations against Partially Observable Monte Carlo Planning (POMCP), which uses Monte Carlo Tree Search (MCTS) to approximate optimal policies without ex-plicit belief-space representations. As a model-free, simulation-based planner, POMCP operates over histories and uses particle filtering to implicitly represent beliefs, making it a strong baseline for high-dimensional POMDPs. Its asymptotic optimality and lack of structural assumptions contrasts to our approach, and our comparisons examine if symmetry yields gains over general-purpose models. We conducted a series of tests within a 20 × 20 RockSample configuration and a 15 × 15 Tag to observe multi-step information gathering in large state spaces, and how agents manage belief manifolds over large complex environments. Comprehensive parameters can be found in Table 1. Table 1: Comprehensive Environmental Parameters and Agent Configuration Matrix                                                     
+
+> Category Specific Parameter RockSample (20 ×20) Tag (15 ×15) Environment Grid Dimensions ( n×n)20 ×20 15 ×15 Training Episodes 1,000 1,500 Reward Discount Factor ( γ)0.95 0.90 Observation Model ΩExponential Decay ( d0=20) Adjacent Only
+> Groupoid Agent Learning Rate ( α)0.10.05 Target Symmetry Group ( G)Dihedral D4Translation T(x,y)
+> Canonical Granularity ( δ)0.05 0.08 Exploration Policy ( ε)0.2→0.01 0.15 →0.01
+> POMCP Baseline Particle Count 10 ,000 5,000 MCTS Exploration Constant ( c)1.02.0Maximum Search Depth 100 50
+
+4.5 Results 
+
+4.5.1 Knowledge Propagation in High-Entropy 
+
+Figure 3: Exploration Entropy in 20 × 20 
+
+RockSample , with high-intensity regions showing verified rock locations, and blue regions showing areas benefitting from reflected learning. Testing in the 20 × 20 RockSample environment highlights how interactions between the sensor ef-ficiency constant d0 = 20 and the grid scale creates a significant information bottleneck. Unlike the baseline, which must physically visit each location to reduce uncertainty, the structured approach uses the transporter τs to map a single observation at 
+
+(x, y) to its symmetric counterparts. As shown in Figure 3, this produces clusters of high knowledge density in the blue, unvisited regions of the grid as shared learning from results observed elsewhere in the class are propagated across entire equivalence classes. Conversely, the agent leverages local ob-servations to reduce uncertainty across the state space, partially overcoming the d0 sensing limi-tation and enabling it to inference of distant rock values through structural similarity. Opperman, Alonso & Mondragón 11 
+
+4.5.2 Learning Dynamics, Convergence Rates and Belief Diffusion 
+
+A comparative analysis of the learning curves highlights a clear hierarchy of efficiency across environ-ments of increasing complexity. Figure 4 compares cumulative reward over time for both the 20 × 20 
+
+RockSample and 15 × 15 Tag domains, showing that the groupoid-based approaches consistently out-perform the POMCP baseline by mitigating the sparse-reward challenges inherent to high-dimensional POMDPs, and illustrate the relative differences between our two approaches.    
+
+> (a) Comparison of model reward for RockSample .(b) Comparison of model reward for Tag .
+
+Figure 4: These subfigures show the relative performance of three different models: the structural and automatic groupoid learners, as well as the baseline POMCP method, across two key POMDP systems. The data from RockSample (Figure 4a) shows the structural groupoid learner rapidly achieving a high success rate, stabilizing near a reward of 25 within approximately 500 episodes, while the automatic approach stabilises slightly lower, around 23. The steep initial learning curve reflects the effect of the Dihedral D4 groupoid action, which propagates each Q-value update across all symmetric states in an equivalence class simultaneously. This group consists of the eight symmetries of a square, including four rotations and four reflections and using it captures all transformations under which the environment dynamics and rewards remain invariant. We thus use this to predefine symmetries within the environment for each rock, illustrating how the structured approach allows for efficient symmetries to be encoded provided that the designer has sufficient knowledge of the environment. This symmetry-induced sharing enables generalisation from sparse local interactions, significantly accelerating early-stage learning. Compared to this, the automatic bisimulation method exhibits an initial discovery lag as it con-structs its own understanding of the environment using δ -granular partitions before it is able to expe-rience shared learning and converge close to the structural approach, demonstrating that symmetry can be effectively inferred rather than explicitly specified. This highlights the robustness of the coalgebraic abstraction even when structural knowledge is not provided a priori. Conversely, the learning curves for the 15 × 15 Tag environment (Figure 4b) are inherently more erratic. Tag presents a higher-entropy setting, with |S| > 50 ,000 joint states and a dynamically evolving target, leading to significant variance in observed rewards. The sparsity and binary nature of the reward signal (successful capture versus failure) introduce sharp fluctuations, as missed tagging opportunities can rapidly diffuse the agent’s belief over the target’s location. 12 Categorical Internalisation of Environmental Groupoids for Generalisable POMDP Solving 
+
+Overall, both methods consistently outperform the baseline and maintain higher rewards throughout training. Furthermore, the 500 episode limit is insufficient for traditional methods such as the baseline POMCP approach to leave its initial exploration phase in juxtaposition to our approach which is able to accelerate learning and achieve results faster. This demonstrates that the advantages of canonicalisation persist even in highly stochastic environments, where uncertainty is continually reintroduced and must be managed over time. 
+
+# 5 Conclusions and Future Work 
+
+The empirical evaluations conducted in the 20 × 20 RockSample and 15 × 15 Tag domains demonstrate that the Groupoid Q-Learner effectively mitigates the curse of dimensionality and the challenges of par-tial observability by exploiting environmental symmetries. By collapsing a vast state-action manifold into a minimal canonical representation, the learner achieves a substantial reduction in sample com-plexity, reaching reward stability up to 45% faster than the standard POMCP baseline. Our analysis of knowledge propagation shows that structural canonicalisation enables global value updates from local observations, allowing the agent to generalise across isomorphic states and reduce uncertainty even in high-entropy regimes where sensing is limited. In effect, the groupoid formulation treats symmetric states as a single computational object, ensuring that experience gained in one region of the environment is immediately transferable across structurally equivalent regions. Furthermore, the automated bisim-ulation procedure demonstrates that such structure need not be hand-engineered: the agent is able to discover and exploit latent symmetries directly from interaction, highlighting the practical utility of the approach in environments where prior knowledge is unavailable. Beyond empirical performance, this work underscores a broader methodological point: category the-ory is not merely a descriptive language for organising abstractions, but a constructive tool for designing learning algorithms. By explicitly encoding symmetry through groupoids and canonicalisation, we ob-tain a principled mechanism for resolving core reinforcement learning challenges including parameter sharing, credit assignment, and generalisation. The resulting framework demonstrates how categorical structure can translate directly into measurable gains in efficiency and robustness, particularly in settings where traditional methods struggle with combinatorial or high-dimensional complexity. Future research directions include extending the groupoid framework to continuous state-action spaces, where discrete symmetries give way to smooth transformations such as Lie group actions. This will require the development of equivariant function approximators capable of learning transporter mor-phisms over continuous domains. Another promising direction is the application of groupoid structure to hierarchical reinforcement learning: the inherently compositional nature of groupoids suggests a nat-ural bridge to higher-dimensional categorical frameworks, such as n-categories, where symmetries can be organised across multiple levels of abstraction. Such a perspective may enable agents to reason not only about state-level symmetries, but also about reusable substructures and policies at different scales. Additionally, adaptive control of the partition granularity δ offers a pathway to balancing abstraction with precision, while extensions to multi-agent settings may leverage shared structural morphisms to facilitate coordination under partial observability. Ultimately, the success of the Groupoid Q-Learner across these domains demonstrates the power of viewing environments through the lens of symmetry and structure. By grounding learning dynamics in categorical principles, we obtain a framework that is both mathematically rigorous and practically effective, offering a compelling direction for scaling reinforcement learning to increasingly complex and uncertain domains. Opperman, Alonso & Mondragón 13 
+
+# References 
+
+[1] John C. Baez & James Dolan (2001): From Finite Sets to Feynman Diagrams . Mathematics Unlimited—2001 and Beyond .[2] Erik J. Bekkers (2019): Roto-translation Covariant Convolutional Networks for Medical Image Analysis . In: 
+
+Medical Image Computing and Computer Assisted Intervention – MICCAI 2019 , Lecture Notes in Computer Science 11767, Springer, pp. 440–448. [3] Eduardo Alonso Ben Opperman & Esther Mondragón (2026): Groupoid-Based Internal State Representa-tions for Reinforcement Learning with Local Symmetries . In: Proceedings of the 25th International Con-ference on Autonomous Agents and Multiagent Systems (AAMAS 2026) , International Foundation for Au-tonomous Agents and Multiagent Systems (IFAAMAS), pp. 1–9. [4] Yoshua Bengio, Aaron Courville & Pascal Vincent (2013): Representation Learning: A Review and New Perspectives . IEEE Transactions on Pattern Analysis and Machine Intelligence 35(8), pp. 1798–1828. [5] Matthew Botvinick, Sam Ritter, Jane X. Wang, Zeb Kurth-Nelson, Charles Blundell & Demis Hassabis (2019): Reinforcement Learning, Fast and Slow . Trends in Cognitive Sciences 23(5), pp. 408–422. [6] Michael M. Bronstein, Joan Bruna, Taco S. Cohen & Petar Veliˇ ckovi´ c (2021): Geometric Deep Learning: Grids, Groups, Graphs, Geodesics, and Gauges . MIT Press, Cambridge, MA. [7] Ronald Brown (2006): Topology and Groupoids . BookSurge. [8] Murray Campbell, A. Joseph Hoane, Jr. & Feng-hsiung Hsu (2002): Deep Blue . Artificial Intelligence 
+
+134(1–2), pp. 57–83. [9] Hugo Caselles-Dupré, Axel Garcia-Ortiz & David Filliat (2019): Symmetry-based disentangled represen-tation learning requires interaction with environments . In: Advances in Neural Information Processing Systems , 32, pp. 4601–4612. [10] Hugo Caselles-Dupré, Michal Rolinek, Jonas Von Kries, Diane Bouchacourt, Manoj Kumar & Pushmeet Kohli (2020): Linear Disentangled Representations and Unsupervised Action Estimation . In: Advances in Neural Information Processing Systems , 33, pp. 13000–13011. [11] Taco Cohen & Max Welling (2016): Group Equivariant Convolutional Networks . In: Proceedings of the 33rd International Conference on Machine Learning , Proceedings of Machine Learning Research 48, PMLR, pp. 2990–2999. [12] Taco S. Cohen, Mario Geiger, Jonas Köhler & Max Welling (2019): Gauge Equivariant Convolutional Net-works and the Icosahedral CNN . In: Proceedings of the 36th International Conference on Machine Learning ,
+
+Proceedings of Machine Learning Research 97, PMLR, pp. 1321–1330. [13] Alexander Dean, Eduardo Alonso & Esther Mondragón (2025): Algebras of actions in an agent’s represen-tations of the world . Artificial Intelligence 348, p. 104403, doi:10.1016/j.artint.2025.104403. [14] Gabriel Dulac-Arnold, Nir Levine, Daniel J. Mankowitz, Jerry Li, Cosmin Paduraru, Sven Gowal & Todd Hester (2021): Challenges of Real-World Reinforcement Learning . Machine Learning 110(9), pp. 2429– 2472. [15] Richard Evans & Jim Gao (2016): DeepMind AI Reduces Google Data Centre Cooling Bill by 40% . DeepMind Blog. Available at https://deepmind.google/discover/blog/ deepmind-ai-reduces-google-data-centre-cooling-bill-40/ .[16] Brendan Fong & David I. Spivak (2019): Seven Sketches in Compositionality: An Invitation to Applied Category Theory . MIT Press. Available at arXiv:1803.05316. [17] Michèle Giry (1982): A Categorical Approach to Probability Theory . In: Categorical Aspects of Topology and Analysis , Lecture Notes in Mathematics 915, Springer, Berlin, Heidelberg, pp. 68–85. [18] Omer Gottesman, Fredrik Johansson, Joshua Meier, Jesse Dent, David Lee, Sumeet Srinivasan, Lin Zhang, Yao Ding, David Wihl, Xuefeng Peng et al. (2019): Guidelines for reinforcement learning in healthcare .
+
+Nature Medicine 25(1), pp. 16–18. 14 Categorical Internalisation of Environmental Groupoids for Generalisable POMDP Solving 
+
+[19] Shixiang Gu, Ethan Holly, Timothy Lillicrap & Sergey Levine (2017): Deep Reinforcement Learning for Robotic Manipulation with Asynchronous Off-Policy Updates . In: Proceedings of the IEEE International Conference on Robotics and Automation (ICRA) , IEEE, pp. 3389–3396. [20] Peter Henderson, Riashat Islam, Philip Bachman, Joelle Pineau, Doina Precup & David Meger (2018): Deep Reinforcement Learning that Matters . In: Proceedings of the AAAI Conference on Artificial Intelligence ,32, pp. 3207–3214. [21] Matteo Hessel, Joseph Modayil, Hado van Hasselt, Tom Schaul, Georg Ostrovski, Will Dabney, Dan Horgan, Bilal Piot, Mohammad Azar & David Silver (2018): Rainbow: Combining Improvements in Deep Rein-forcement Learning . In: Proceedings of the AAAI Conference on Artificial Intelligence , 32, pp. 3215–3222, doi:10.1609/aaai.v32i1.11796. [22] Irina Higgins, Loic Matthey, Arka Pal, Christopher Burgess, Xavier Glorot, Matthew Botvinick, Shakir Mo-hamed & Alexander Lerchner (2018): Towards a definition of disentangled representations . arXiv preprint arXiv:1812.02230 .[23] Yang Hu, Haitong Ma, Bo Dai & Na Li (2024): Efficient Duple Perturbation Robustness in Low-Rank Markov Decision Processes . arXiv preprint arXiv:2404.08089 .[24] Bart Jacobs (2016): Introduction to Coalgebra: Towards Mathematics of States and Observation . Cambridge Tracts in Theoretical Computer Science, Cambridge University Press, Cambridge. [25] Jens Kober, J. Andrew Bagnell & Jan Peters (2013): Reinforcement Learning in Robotics: A Survey . The International Journal of Robotics Research 32(11), pp. 1238–1274. [26] Matthieu Komorowski, Leo Anthony Celi, Omar Badawi, Anthony C. Gordon & Amir A. Faisal (2018): 
+
+The Artificial Intelligence Clinician learns optimal treatment strategies for sepsis in intensive care . Nature Medicine 24(11), pp. 1716–1720. [27] Brenden M. Lake, Tomer D. Ullman, Joshua B. Tenenbaum & Samuel J. Gershman (2017): Building ma-chines that learn and think like people . Behavioral and Brain Sciences 40, p. e253. [28] Yann LeCun, Léon Bottou, Yoshua Bengio & Patrick Haffner (1998): Gradient-based learning applied to document recognition . Proceedings of the IEEE 86(11), pp. 2278–2324. [29] Sergey Levine, Chelsea Finn, Trevor Darrell & Pieter Abbeel (2016): End-to-End Training of Deep Visuomo-tor Policies . In: Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (CVPR) ,IEEE, pp. 1334–1342. [30] Saunders Mac Lane (1998): Categories for the Working Mathematician , 2 edition. Springer. [31] Hongzi Mao, Mohammad Alizadeh, Ishai Menache & Srikanth Kandula (2016): Resource Management with Deep Reinforcement Learning . In: Proceedings of the 15th ACM Workshop on Hot Topics in Networks (HotNets) , ACM, pp. 50–56. [32] Emmy Noether (1918): Invariante Variationsprobleme . Nachrichten von der Gesellschaft der Wissenschaften zu Göttingen, Mathematisch-Physikalische Klasse 1918, pp. 235–257. English translation: Invariant Varia-tion Problems. [33] Matthew Painter (2022): On the Learning and Structure of Symmetry Based Disentangled Representations .Ph.D. thesis, University of Southampton. Available at https://eprints.soton.ac.uk/467536/ .[34] Elise van der Pol, Thomas Kierfeld & Max Welling (2020): MDP Homomorphic Networks: Group Symme-tries in Reinforcement Learning . In: Advances in Neural Information Processing Systems , 33, pp. 4199– 4210. [35] Martin L. Puterman (1994): Markov Decision Processes: Discrete Stochastic Dynamic Programming . John Wiley & Sons. Reprinted 2014. [36] Nasim Rahaman, David Aristoff, Felix Draxler, Laurence Aitchison, James Martens & Alexandre Lacoste (2020): Learning representations that support extrapolation . arXiv preprint arXiv:2006.16438 .Opperman, Alonso & Mondragón 15 
+
+[37] David Silver, Julian Schrittwieser, Karen Simonyan, Ioannis Antonoglou, Aja Huang, Arthur Guez, Thomas Hubert, Lucas Baker, Matthew Lai, Adrian Bolton et al. (2017): Mastering the Game of Go Without Human Knowledge . Nature 550(7676), pp. 354–359. [38] Richard S. Sutton (1988): Learning to predict by the methods of temporal differences . Machine Learning 
+
+3(1), pp. 9–44. [39] Richard S. Sutton & Andrew G. Barto (2018): Reinforcement Learning: An Introduction , second edition. MIT Press. [40] Mustafa Temizöz, Ruben Vanvuchelen, Els Gijsbrechts & Robert Boute (2025): Reinforcement Learning in Inventory Control under Uncertainty . arXiv preprint arXiv:2503.05276 .[41] Oriol Vinyals, Igor Babuschkin, Wojciech M. Czarnecki, Michael Mathieu, Andrew Dudzik, Junyoung Chung, David Choi, Richard Powell, Timo Ewalds, Petko Georgiev et al. (2019): Grandmaster Level in StarCraft II Using Multi-agent Reinforcement Learning . Nature 575(7782), pp. 350–354. [42] Angelo Vistoli (2005): Grothendieck topologies, fibered categories and descent theory . In: Fundamental Al-gebraic Geometry: Grothendieck’s FGA Explained , Mathematical Surveys and Monographs 123, American Mathematical Society, pp. 1–104. [43] Xiaoyang Wang, Yuchen Chen, Zekun Li, Ge Zhang, Tao Yang & Jing Li (2023): Fantastic Rewards and How to Tame Them: A Case Study on Reward Learning for Task-oriented Dialogue Systems . In: Proceedings of the 61st Annual Meeting of the Association for Computational Linguistics , pp. 11736–11749. [44] Zhendong Wang, Mengmeng Zhang, Xiaohang Hou, Hang Xu, Chunjing Xu, Chang Xu & Liwei Wang (2022): Equivariant Q Learning in Spatial Action Spaces . In: Proceedings of the 39th International Confer-ence on Machine Learning , Proceedings of Machine Learning Research 162, PMLR, pp. 22804–22819. [45] Christopher J. C. H. Watkins (1989): Learning from Delayed Rewards . Ph.D. dissertation, University of Cambridge. [46] Christopher J. C. H. Watkins & Peter Dayan (1992): Q-learning . Machine Learning 8(3-4), pp. 279–292. [47] Steven Weinberg (1995): The Quantum Theory of Fields, Volume 1: Foundations . Cambridge University Press, Cambridge. [48] Alan Weinstein (1996): Groupoids: Unifying internal and external symmetry . Notices of the AMS 43(7), pp. 744–752. [49] Daniel E. Worrall, Stephan J. Garbin, Daniyar Turmukhambetov & Gabriel J. Brostow (2017): Harmonic Networks: Deep Translation and Rotation Equivariance . In: Proceedings of the IEEE Conference on Com-puter Vision and Pattern Recognition (CVPR) , pp. 5028–5037. [50] Chao Zhang, Dingwei Wu & Jianan Zhu (2020): Interterminal Truck Routing Optimization Using Deep Reinforcement Learning . Sensors 20(20), p. 5794, doi:10.3390/s20205794. [51] Xiangyu Zhao, Long Xia, Yifan Zhang, Zhuoye Ding, Dawei Yin & Jiliang Tang (2019): Deep Reinforcement Learning for Search, Recommendation, and Online Advertising: A Survey . SIGKDD Explorations Newsletter 
+
+21(2), pp. 25–47.

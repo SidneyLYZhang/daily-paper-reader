@@ -1,0 +1,3696 @@
+Title: Riemannian Structure and Optimization for a Class of Low-Parametric Orthogonal Matrices
+
+URL Source: https://arxiv.org/pdf/2609.27982v1
+
+Published Time: Thu, 24 Sep 2026 01:18:08 GMT
+
+Number of Pages: 37
+
+Markdown Content:
+RIEMANNIAN STRUCTURE AND OPTIMIZATION FOR A CLASS OF LOW-PARAMETRIC ORTHOGONAL MATRICES 
+
+ALI ALIEV ∗ AND MAXIM RAKHUBA †
+
+Abstract. In this paper, we are concerned with matrices formed by block-diagonal factors in-terleaved with fixed permutations – a flexible family of structured matrices. This class has recently drawn interest in deep learning architectures for its balanced expressivity-efficiency trade-off, yet efficient computational strategies for working with it remain to be found. We approach this prob-lem through Riemannian geometry and examine under what conditions this class admits a smooth manifold structure. For the practically important case of orthogonal two-factor matrices, we derive the essential Riemannian tools and propose efficient algorithms for their implementation. The algo-rithms leverage automatic differentiation, support parameter sharing within each factor, and avoid explicit dense matrix construction. We test them within the Riemannian optimization framework on the best matrix approximation problem and for parameter-efficient fine-tuning of large language models. Beyond the two-factor setting, we study the geometric and matrix-theoretic properties of factorizations with a larger number of block-diagonal factors. 
+
+Key words. Riemannian optimization, structured orthogonal matrices, matrix factorizations, Riemannian geometry, parameter sharing 
+
+AMS subject classifications. 15A23, 68T07, 15B10, 53B20, 65K10 
+
+1. Introduction. Structured matrix approximations are essential in numerical linear algebra and large-scale computing. They provide a practical way to balance an operator’s expressiveness with its computational cost. Classical structures, such as Toeplitz [12], circulant [7], and Cauchy matrices [24], allow for nearly linear matrix-vector multiplications. There are more recent examples, including butterfly matrix factorizations [20, 3] that have a rich history, originally arising from the structure of fast unitary transforms like the Fast Fourier Transform (FFT) [25]. While well-established in numerical analysis, butterfly matrix factorizations have recently gained popularity in deep learning for model compression [5, 4]. A natural generalization of these butterfly-based and block-diagonal constructions is the Group-and-Shuffle (GS ) family [11]. This class unifies several previous approaches, such as Monarch matrices [4] and block-butterfly factorizations [5, 25], by parameterizing matrices as alternating sequences of block-diagonal factors and specific permutations. Euclidean optimization of GS -matrices ignores their geometry, which remains mainly unstudied despite empirical success (e.g., orthogonal fine-tuning [11]). In contrast, Riemannian optimization methods explicitly exploit the manifold geometry of the feasible set, offering a widely adopted framework for constrained problems [1]. This work utilizes a definition expressed in an alternative notation, introducing a minor formal distinction from the original work [11]. 
+
+Definition 1.1. A matrix A is said to be in the class Am(Pm−1, . . . , P 1) if it can be factorized as 
+
+A = BmPm−1Bm−1 . . . P 1B1,
+
+where: each Bi is a block-diagonal matrix with ki blocks of size b1 
+
+> i
+
+× b2 
+
+> i
+
+, each Pi
+
+is a fixed permutation matrix, and the dimensions are compatible according to the condition b1 
+
+> i
+
+· ki = b2 
+
+> i+1
+
+· ki+1 .
+
+> ∗
+
+HSE University (alievali0278@gmail.com). 
+
+> †
+
+HSE University. 1arXiv:2609.27982v1 [cs.LG] 23 Sep 2026 2 A. ALIEV, M. RAKHUBA 
+
+In what follows, we will simply write Am for brevity. Analogous sets Aorth  
+
+> m
+
+can be introduced by imposing the additional condition that the blocks in each Bi be or-thogonal. Similarly, we can define ASO  
+
+> m
+
+, A×
+
+> m
+
+, Aunit  
+
+> m
+
+, and ASU  
+
+> m
+
+corresponding to special orthogonal, invertible, unitary, and special unitary blocks in Bi, respectively. In this paper, we focus on the case m = 2 . This setting satisfies the structural property Aorth 2 = A2 ∩ O( N ) established in [11, Theorem 1], while also being empiri-cally successful in modern deep learning and computationally friendly (see [11, 2, 4]). Indeed, although near-linear complexity is desirable in many classical settings, rep-resentations used in deep learning often benefit from avoiding recursive structures and excessive sequential operations, especially because of backpropagation through long computational graphs. Moreover, modern GPUs are highly optimized for dense matrix multiplication, and the product of several moderately sized matrices can be more efficient than dozens of multiplications involving much smaller factors. This effect is likely to become even more pronounced as GPU architectures and matrix-multiplication kernels continue to improve. 
+
+1.1. Contributions. This paper provides a geometric and algorithmic analysis of the GS matrix family. Our main contributions are: 1. We show by explicit counterexamples that unconstrained block factorizations with rectangular or square blocks need not form smooth manifolds. 2. For GS -matrices with orthogonal blocks, whose smooth manifold structure was recently established, we derive practical first-order Riemannian optimiza-tion algorithms. 3. We propose to use automatic differentiation (AD) to compute the tangent space projection while naturally handling overlapping block supports, without materializing dense matrices. As an application of this technique, we consider an efficient Riemannian Gradient Descent (RGD) algorithm and apply it to a matrix approximation problem and fine-tuning of LLMs. 4. We further extend our framework to support parameter sharing. This enables additional compression and speedup by adapting our efficient automatic dif-ferentiation mechanism. 5. We study geodesics for the case m = 2 under additional assumptions on the blocks, and for m = 3 we establish a connection with the CS decomposition. 6. We prove that Aorth 3 = A3 ∩ O( N ), and we discuss hierarchical and higher-order factorizations. 
+
+1.2. Structure of the paper. The rest of the paper is organized as follows. Sec-tion 2 investigates the manifold properties of the GS family, presenting counterexam-ples for rectangular and general square blocks. Section 3 focuses on the orthogonal case: it derives the Riemannian geometry, details the retraction map in Section 3.4, and describes the tangent space projection in Section 3.1. Section 3.2 provides the efficient gradient computation via automatic differentiation, while Section 3.3 devel-ops the shared-parameter version of the projection and AD formulas. Finally, Sec-tion 4 presents numerical experiments that validate our framework. In the appendix, geodesics are studied under certain conditions on the blocks, along with the specific case m = 3 , for which interesting properties are revealed. Additionally, the invertible case is briefly discussed. 
+
+Related Work. Structured matrices with subquadratic matrix-vector multiplica-tion costs (such as sparse, low-rank, and fast transforms) are classic topics in numerical linear algebra [14]. Butterfly matrices [25] were originally used to describe fast algo-rithms like the FFT. Recently, they have been used to replace dense layers in neural networks [27, 5]. Monarch matrices [4] combine block-diagonal factors with permu-RIEMANNIAN OPTIMIZATION FOR GS ORTHOGONAL MATRICES 3tations, and the GS class [11] generalizes these ideas by allowing flexible block sizes and varying numbers of factors. Optimization over constrained spaces, such as orthogonal groups, can be car-ried out using manifold optimization techniques [1]. Matrix manifolds help preserve gradient norms and control Lipschitz constants [19, 28]. Recently, orthogonal param-eterizations have been applied to Parameter-Efficient Fine-Tuning (PEFT). While additive low-rank updates (like LoRA [15]) are popular, multiplicative orthogonal updates (like OFT [26] and BOFT [21]) have shown better results in preserving the pretrained structure of weight matrices. 
+
+2. Conditions for the Smooth Manifold Structure of GS -matrices. It is natural to assume that for each admissible block type, the structured parametrization of the GS family yields a smooth manifold. However, in this section, we show that this is not a given: without specific constraints, the general set Am fails to form a smooth manifold. We demonstrate this for m = 2 by relying on the following structural property of GS block multiplication. 
+
+Proposition 2.1 (Proposition 1 in [11]). Let A = B2P B 1 where the right factor 
+
+B1 consists of k1 blocks of size b1 × b1, the left factor B2 consists of k2 blocks of size 
+
+b2 × b2, and P is a permutation matrix with index map σ. Denote by {v⊤ 
+
+> i
+
+} the rows of the blocks of B1 and by {uj } the columns of the blocks of B2, both in consecutive order. Then A can be written as a block matrix with k2 × k1 blocks, where the block 
+
+Aα,β is given by 
+
+(2.1) Aα,β = X
+
+> ⌊σ(i)/b 2⌋=α
+> ⌊i/b 1⌋=β
+
+uσ(i)v⊤ 
+
+> i
+
+.
+
+(Zero-indexing is used for simplicity.) 
+
+We explicitly apply this to the Perfect Shuffle permutation P(b,k ) matrices [9]. 
+
+Definition 2.2. Let N = b · k. For a zero-based index i = r · b + s, with 0 ≤ r < k 
+
+and 0 ≤ s < b , define the perfect shuffle permutation by 
+
+σ(b,k )(r · b + s) = s · k + r. 
+
+Let P(b,k ) ∈ RN ×N be the corresponding permutation matrix, defined by P(b,k )ei =
+
+eσ(b,k )(i). The inverse permutation is P −1(b,k ) = P ⊤ 
+
+> (b,k )
+
+= P(k,b ).
+
+2.1. Arbitrary Rectangular and Square Blocks. We first show by an ex-plicit counterexample that allowing arbitrary rectangular and even arbitrary square blocks does not, in general, yield a smooth manifold. Set kL = kR = 2 . Let B1 consist of two 2×3 blocks with row vectors u1, u 2 ∈ R1×3
+
+(block 0) and v1, v 2 ∈ R1×3 (block 1). Let B2 consist of two 3 × 2 blocks with column vectors x1, x 2 ∈ R3×1 (block 0) and y1, y 2 ∈ R3×1 (block 1). Here, P is the 4 × 4 Perfect Shuffle P(2 ,2) . By its reshaping definition, it maps indices (0 , 1, 2, 3) to σ = (0 , 2, 1, 3) . Let us evaluate block A0,0 (k1 = 0 , k 2 = 0 ). The condition ⌊i/ 2⌋ = 0 restricts i ∈ { 0, 1}. The second condition ⌊σ(i)/2⌋ = 0 is satisfied only by i = 0 (since σ(0) = 0 , whereas σ(1) = 2 ). Thus, the sum in (2.1) collapses to a single term: A0,0 = uσ(0) v⊤ 
+
+> 0
+
+= x1u1. Applying this logic to all blocks yields exactly: (2.2) A =
+
+x1u1 x2v1
+
+y1u2 y2v2
+
+
+
+.4 A. ALIEV, M. RAKHUBA 
+
+Each of the four blocks is a single outer product. Since the parameter vectors are unconstrained, they can be arbitrary or zero, meaning both rank 1 and rank 0 are attainable. Thus, A is parameterized in the Cartesian product of four sets of 3 × 3
+
+matrices of rank ≤ 1.This rank collapse also occurs with square blocks. Let B1 have kR = 2 square 
+
+3 × 3 blocks with rows u1, u 2, u 3 and v1, v 2, v 3 ∈ R1×3. Let B2 have kL = 3 blocks of size 2 × 2 with columns x1, x 2, y1, y 2, and z1, z 2 ∈ R2×1.Here, P is the 6 × 6 Perfect Shuffle P(3 ,2) , which maps i ∈ { 0, . . . , 5} to σ(i) ∈{0, 2, 4, 1, 3, 5}. We evaluate the conditions ⌊σ(i)/2⌋ = k1 ∈ { 0, 1, 2} and ⌊i/ 3⌋ = k2 ∈{0, 1}. For example, for the block (k1, k 2) = (1 , 0) , the condition ⌊i/ 3⌋ = 0 implies 
+
+i ∈ { 0, 1, 2}. Their corresponding σ(i) are {0, 2, 4}. Among these, only σ(1) = 2 
+
+satisfies ⌊σ(i)/2⌋ = 1 . Thus, exactly i = 1 is selected, yielding A1,0 = u2v⊤ 
+
+> 1
+
+= y1u2.Evaluating all six (k1, k 2), we derive: (2.3) A =
+
+
+
+x1u1 x2v1
+
+y1u2 y2v2
+
+z1u3 z2v3
+
+ ∈ R6×6.
+
+Again, each of the six 2 × 3 blocks is a single outer product, has rank at most one. In both cases, A2 is a Cartesian product of bounded-rank sets. These sets fail to be smooth manifolds. A proof proceeds by contradiction, using the results of [23]; the details are left to the reader. Throughout the rest of this work, we consider only square blocks. 
+
+2.2. Unitary or Orthogonal blocks. For m = 2 orthogonal and unitary fac-tors give smooth embedded manifolds for every fixed permutation. This can be proved using Lie group action theory; details can be found in [2]. We briefly recall the argu-ment for orthogonal blocks. Let 
+
+B1 = O( n1) × · · · × O( nl1 ), B2 = O( m1) × · · · × O( ml2 )
+
+and set G = B2 × B 1. Note that G is a compact Lie group. Observe that the orthogonality condition ensures that the transpose operation preserves both the block-diagonal structure and orthogonality. This allows us to define a Lie group action as follows: 
+
+Φ : ( B2 × B 1) × M → M, Φ (( B2, B 1), x ) = g · x = B2xB ⊤ 
+
+> 1
+
+.
+
+Since the orbit of the action of a compact Lie group on a manifold (either GL N (R) or 
+
+O( N )) yields a closed embedded submanifold (see [10, Theorem 2.3] or [17, Corollary 21.6 & Problem 21-17]), we obtain the desired result. For m = 3 , there is considerable freedom in selecting block sizes and permutation matrices. Appendix A focuses on the case of Perfect Shuffle permutation matrices and relates it to the classical Cosine-Sine (CS) decomposition. Invertible blocks (instead of orthogonal) are also of interest; see Appendix D for a brief discussion. 
+
+3. Riemannian Optimization Framework for Orthogonal Blocks. We de-velop an efficient Riemannian optimization framework for GS -orthogonal matrices, including retraction, tangent projection, automatic differentiation (AD), and param-eter sharing. Recall that for minimizing an objective function f on a smooth man-ifold M, the Riemannian gradient is grad f (X) = P TX M(∇f (X)) , where PTX M is RIEMANNIAN OPTIMIZATION FOR GS ORTHOGONAL MATRICES 5the orthogonal projection onto the tangent space. Parameter updates are performed using a retraction — a smooth map R : T M → M satisfying RX (0 X ) = X and 
+
+DR X (0 X ) = id TX M (see [1, Definition 4.1.1]) — which ensures that the updated point remains on the manifold, e.g., Xk+1 = RXk (−τk grad f (Xk)) in the GD case. To avoid forming the full gradient, we use an AD trick: introducing an auxiliary func-tion on the tangent space and differentiating at zero yields the Riemannian gradient without dense matrix operations. 
+
+3.1. Projection onto the Tangent Space. While the smoothness of the man-ifold holds for any fixed permutation matrix, in the remainder of this paper we specifi-cally take P1 to be the perfect shuffle permutation P(b1,k 1) (unless the context indicates otherwise), due to its notable properties, that are particularly beneficial in the context of neural networks, as discussed in [11, 2, 4]. Moreover, such a permutation maximizes the manifold dimension for fixed block sizes satisfying k2 ≥ b1 [2, Appendix B]. We seek the projection onto the tangent space. For this purpose, we will employ the following property of such permutation matrices. 
+
+Lemma 3.1 ([4, 9]). Let P be the Perfect Shuffle permutation matrix of order 
+
+N = p · q. For any matrices U and W of sizes q × q and p × p, respectively, the following identity holds 
+
+P (U ⊗ W )P ⊤ = W ⊗ U. 
+
+Corollary 3.2. Let Q = diag( U1, . . . , U p) be a block diagonal matrix with blocks 
+
+Uk of size q × q. Consider the similarity transformation 
+
+M = P ⊤QP, 
+
+where P is the perfect shuffle matrix from Lemma 3.1. Then 
+
+M =
+
+
+
+D11 · · · D1q
+
+... . . . ...
+
+Dq1 · · · Dqq 
+
+ , Dij = diag( u(1)  
+
+> ij
+
+, u (2)  
+
+> ij
+
+, . . . , u (p) 
+
+> ij
+
+).
+
+Proof. Let Ekk denote the p × p matrix with 1 at the (k, k ) entry and zeros elsewhere. Note that P ⊤ is also a perfect shuffle permutation matrix. Applying Lemma 3.1 with P ⊤ in place of P yields P ⊤(U ⊗ W )P = W ⊗ U for any matrices 
+
+U, W of appropriate sizes. Using this, we obtain 
+
+M =
+
+> p
+
+X
+
+> k=1
+
+P ⊤(Ekk ⊗ Uk)P =
+
+> p
+
+X
+
+> k=1
+
+Uk ⊗ Ekk .
+
+The term Uk ⊗ Ekk is a q × q block matrix whose (i, j )-th block is u(k) 
+
+> ij
+
+Ekk . Summing over k, the (i, j )-th block of M becomes 
+
+Dij =
+
+> p
+
+X
+
+> k=1
+
+u(k) 
+
+> ij
+
+Ekk = diag( u(1)  
+
+> ij
+
+, u (2)  
+
+> ij
+
+, . . . , u (p) 
+
+> ij
+
+),
+
+which completes the proof. For projecting Euclidean gradients onto the tangent space TX Aorth 2 , we will use the standard fact (see, e.g., [1, Example 3.5.3]) that the tangent space to the orthogonal group is given by: 
+
+TU On = {Z = U Ω : Ω T = −Ω} = U Sskew (n),6 A. ALIEV, M. RAKHUBA 
+
+where Sskew (n) denotes the set of all skew-symmetric n × n matrices. We introduce the space of block-diagonal skew-symmetric matrices (associated with Bi), denoted so block (bi, k i). Similarly, let Pbdiag (bi,k i) denote the orthogonal projection operator that extracts the ki block-diagonal components of size bi × bi
+
+from an arbitrary matrix, setting all off-block-diagonal entries to zero. Now let Ci be a block-diagonal skew-symmetric matrix. Then the tangent vectors to Bi are precisely the matrices BiCi. For convenience, define Ωi = BiCiB⊤ 
+
+> i
+
+⇐⇒ 
+
+BiCi = Ω iBi. Note that Ωi is also block-diagonal with skew-symmetric blocks ( Ω⊤ 
+
+> i
+
+=(BiCiB⊤ 
+
+> i
+
+)⊤ = Bi(−Ci)B⊤ 
+
+> i
+
+= −Ωi). Given a Euclidean gradient Z, the projection is found by solving 
+
+ΠX (Z) = argmin  
+
+> ξ∈TXGS
+
+∥Z − ξ∥2
+
+> F
+
+= argmin 
+
+> C1,C 2
+
+∥Z − (B2C2P1B1 + B2P1B1C1)∥2
+
+> F
+
+= argmin 
+
+> C1,C 2
+
+∥B⊤ 
+
+> 2
+
+ZB ⊤ 
+
+> 1
+
+− (C2P1 + P1Ω1)∥2
+
+> F
+
+= argmin 
+
+> C1,C 2
+
+∥ eZ − (C2 + P1Ω1P ⊤
+
+> 1
+
+| {z }
+
+> bΩ1
+
+)∥2 
+
+> F
+
+, where eZ := B⊤ 
+
+> 2
+
+ZB ⊤ 
+
+> 1
+
+P ⊤ 
+
+> 1
+
+.
+
+Using the decomposition eZ = sym( eZ) + skew( eZ), the objective simplifies: 
+
+∥ eZ − (bΩ1 + C2)∥2 
+
+> F
+
+= ∥ sym( eZ) + skew( eZ) − (bΩ1 + C2)∥2
+
+> F
+
+= ∥ sym( eZ)∥2 
+
+> F
+
++ ∥ skew( eZ) − (bΩ1 + C2)∥2 
+
+> F
+
+,
+
+since symmetric and skew-symmetric matrices are orthogonal with respect to the Frobenius inner product, and both bΩ1 and C2 are skew-symmetric. Consequently, it suffices to solve 
+
+min 
+
+> C2∈so block (b2,k 2)Ω1∈so block (b1,k 1)
+
+bZ −
+
+
+
+C2 + bΩ1
+
+ 2
+
+> F
+
+, bZ := skew( eZ).
+
+Let us partition bZ into blocks according to the splitting of B2. Since Ω1 is block-diagonal with skew-symmetric blocks, by choosing P1 as a Perfect Shuffle matrix and using Lemma 3.1, we obtain that P1Ω1P ⊤ 
+
+> 1
+
+is a block matrix with blocks of size k1 × k1
+
+(there are b1 × b1 such blocks in total), where each block is diagonal. Moreover, skew-symmetry implies that the diagonal blocks on the main diagonal have zero entries, meaning the diagonal blocks are identically zero matrices. This allows us to rewrite our minimization task as follows: (3.1) 
+
+min 
+
+> C2,Ω1
+
+bZ(11) − C(1) 2 . . . bZ(1 k2)
+
+... . . . ...
+
+bZ(k21) . . . bZ(k2k2) − C(k2)2
+
+ −
+
+
+
+0 bΩ(12) 1 . . . bΩ(1 b1)1
+
+... 0 . . . ...... ... . . . ...
+
+bΩ(b11) 1 . . . . . . 0
+
+
+
+> 2
+> F
+
+,
+
+where bΩ(αβ )1 = diag 
+
+
+
+ω(αβ )1 , . . . , ω (αβ )
+
+> k1
+
+
+
+, ω(βα ) 
+
+> i
+
+= −ω(αβ ) 
+
+> i
+
+. The matrices C2 and Ω1
+
+are skew-symmetric. We showed earlier: 
+
+Ω⊤ 
+
+> 1
+
+= −Ω1 ⇐⇒ (P1Ω1P ⊤ 
+
+> 1
+
+)⊤ = P1Ω⊤ 
+
+> 1
+
+P ⊤ 
+
+> 1
+
+= −P1Ω1P ⊤ 
+
+> 1
+
+.RIEMANNIAN OPTIMIZATION FOR GS ORTHOGONAL MATRICES 7Thus, the minimization with respect to skew-symmetric matrices (C2, Ω1) is equivalent to the minimization with respect to skew-symmetric matrices (C2, bΩ1) under the skew-symmetry constraints. The structure of the solution depends on the relationship between the block count k1 and the block size b2.
+
+Case 1: Disjoint Supports ( k1 ≥ b2). In this case the matrix bΩ1 does not affect the diagonal blocks, and the matrix C2 does not affect the off-diagonal blocks; therefore, we can independently optimize first the diagonal blocks. More formally 
+
+∥ bZ − (C2 + bΩ1)∥2 
+
+> F
+
+= ∥ bZ∥2 
+
+> F
+
+− 2⟨ bZ, C 2 + bΩ1⟩ + ∥C2 + bΩ1∥2
+
+> F
+
+= ∥ bZ∥2 
+
+> F
+
+− 2⟨ bZ, C 2⟩ − 2⟨ bZ, bΩ1⟩ +
+
+
+
+∥C2∥2 
+
+> F
+
++ ∥bΩ1∥2 
+
+> F
+
++ 2 ⟨C2, bΩ1⟩
+
+
+
+.
+
+A crucial observation is that the subspaces of the parameters are orthogonal, i.e., 
+
+⟨C2, bΩ1⟩ = 0 . Indeed, C2 is strictly block-diagonal with blocks of size b2. Under the dimension constraint k1 ≥ b2 (which is equivalent to k2 ≥ b1), the matrix bΩ1 has zero entries in the off-diagonal positions of the k2 × k2 blocks. The only possible overlap of non-zero patterns is on the main diagonal, but since both matrices are skew-symmetric, their diagonals are strictly zero. Thus, the matrices have disjoint supports, implying: 
+
+⟨C2, bΩ1⟩ = X
+
+> i,j
+
+(C2)ij (bΩ1)ij = 0 .
+
+The optimization problem therefore decouples into two independent sub-problems (by completing the squares for each variable): 
+
+∥ bZ − (C2 + bΩ1)∥2 
+
+> F
+
+=
+
+
+
+∥C2∥2 
+
+> F
+
+− 2⟨ bZ, C 2⟩
+
+
+
++
+
+
+
+∥bΩ1∥2 
+
+> F
+
+− 2⟨ bZ, bΩ1⟩
+
+
+
++ ∥ bZ∥2
+
+> F
+
+= ∥ bZ − C2∥2 
+
+> F
+
++ ∥ bZ − bΩ1∥2 
+
+> F
+
+− ∥ bZ∥2 
+
+> F
+
+.
+
+We can rewrite the optimal points in a slightly different form. For C2, we simply project bZ onto the subspace of block-diagonal matrices with block size b2:
+
+C2 = Pbdiag (b2,k 2)( bZ).
+
+To find Ω1, we consider the term ∥ bZ − P1Ω1P ⊤ 
+
+> 1
+
+∥2 
+
+> F
+
+. Exploiting the invariance of the Frobenius norm under orthogonal transformations, we apply the similarity transformation defined by P ⊤ 
+
+> 1
+
+(·)P1:
+
+∥ bZ − P1Ω1P ⊤ 
+
+> 1
+
+∥2 
+
+> F
+
+= ∥P ⊤ 
+
+> 1
+
+bZP 1 − P ⊤ 
+
+> 1
+
+(P1Ω1P ⊤ 
+
+> 1
+
+)P1∥2 
+
+> F
+
+= ∥P ⊤ 
+
+> 1
+
+bZP 1 − Ω1∥2 
+
+> F
+
+.
+
+Since Ω1 is required to be block-diagonal with block size b1, the solution is given explicitly by projecting the permuted matrix: 
+
+Ω1 = Pbdiag (b1,k 1)
+
+
+
+P ⊤ 
+
+> 1
+
+bZP 1
+
+
+
+.
+
+Observe that in [2], the same condition that yields the disjoint support case is exactly the one that maximizes the orbit dimension and minimizes (more precisely, nullifies) the dimension of the stabilizer. Moreover, [2] uses this condition to provide some empirical justification for finding geodesics in the space of GS matrices with blocks from the special orthogonal group. In Appendix B, we present a rigorous argument for this approach. 8 A. ALIEV, M. RAKHUBA 
+
+Case 2: Overlapping Supports ( k1 < b 2). In the case where k1 < b 2, the structural supports of the parametric matrices C2 and bΩ1 := P1Ω1P ⊤ 
+
+> 1
+
+overlap. To properly project the gradient bZ onto the tangent space, we solve the minimization problem (3.1) index-wise based on the respective supports. Let SC be the set of matrix indices (i, j ) where C2 can be non-zero, and let SΩ be the support of bΩ1. The explicit set of overlapping indices is given by their intersection: 
+
+Soverlap = SC ∩ S Ω.The optimization task decouples per index (i, j ). For indices (i, j ) in the set 
+
+SΩ but not in SC , the parameter (C2)ij is forced to zero, so the solution is simply 
+
+(bΩ1)ij = bZij . For indices (i, j ) in the set SC but not in SΩ, the parameter (bΩ1)ij is forced to zero, so the solution is (C2)ij = bZij . For overlapping indices where both parameters are free, we face the underdetermined equation (C2)ij + ( bΩ1)ij = bZij .Among the parameter pairs representing this same orthogonal projection, we select the pair of minimum product Frobenius norm: 
+
+min  
+
+> c,ω
+
+(c2 + ω2) subject to c + ω = bZij ,
+
+which yields the symmetric solution (C2)ij = ( bΩ1)ij = 12 bZij .
+
+Lemma 3.3. Let P1 be the Perfect Shuffle permutation corresponding to the fac-torization N = k1 · b1 = k2 · b2. Assuming 0-based indexing for the rows and columns, the set of non-diagonal overlapping indices where both C2 and bΩ1 can be non-zero is explicitly given by: 
+
+Soverlap =
+
+n
+
+(i, j ) ∈ { 0, . . . , N − 1}2 i̸ = j, ⌊i/b 2⌋ = ⌊j/b 2⌋, and i ≡ j (mod k1)
+
+o
+
+.
+
+Proof. The first condition, ⌊i/b 2⌋ = ⌊j/b 2⌋, follows directly from the definition of 
+
+C2, which is strictly block-diagonal with block size b2.For the second condition, we apply Corollary 3.2. Recall that Ω1 is block-diagonal with k1 blocks of size b1. The similarity transformation bΩ1 = P1Ω1P ⊤ 
+
+> 1
+
+rearranges these dense blocks. According to Corollary 3.2, the resulting matrix bΩ1 consists of blocks that are strictly diagonal. Geometrically, this implies that non-zero entries of 
+
+bΩ1 occur only when the row and column indices correspond to the same offset within the shuffled block structure. For the Perfect Shuffle defined on N = k1 · b1, this structural invariant translates algebraically to the congruence i ≡ j (mod k1).Note that if k1 ≥ b2, the conditions |i − j| ≤ b2 − 1 (from the first constraint) and i ≡ j (mod k1) (from the second) can only be satisfied simultaneously if i = j.Since we require i̸ = j for skew-symmetric matrices, Soverlap is empty, aligning with the disjoint support case. When k1 < b 2, the intersection is non-empty and consists precisely of indices bounded by the block size b2 and separated by a stride of k1.
+
+3.2. Riemannian Gradient via Automatic Differentiation. As shown, for example in [22], the Riemannian gradient on fixed-rank matrix or tensor-train man-ifolds can be computed efficiently using Automatic Differentiation (AD) without ex-plicitly forming the full Euclidean gradient or manually implementing the projection operators. The core idea is to define an auxiliary function on the tangent space pa-rameters and differentiate it. This leads to a black-box implementation compatible with automatic differentiation packages, thereby making Riemannian AD readily ap-plicable to deep learning tasks. Let us show that we can apply this approach efficiently in our context. RIEMANNIAN OPTIMIZATION FOR GS ORTHOGONAL MATRICES 9
+
+Case k1 ≥ b2. We formally derive the gradient of the auxiliary function g(Ω 1, C 2).Let ∇f (X) denote the Euclidean gradient of f at X, defined such that the differential is df = ⟨∇ f (X), dX⟩, where ⟨A, B ⟩ = tr( A⊤B).Consider the auxiliary function g(Ω 1, C 2) = f (X +ξ(Ω 1, C 2)) . The tangent vector parameterized by the skew-symmetric block-diagonal matrices is: 
+
+ξ(Ω 1, C 2) = B2C2P1B1 + B2P1Ω1B1.
+
+This decomposition forms an isometry from the parameter space to the tangent space, i.e., ∥ξ∥2 
+
+> F
+
+= ∥Ω1∥2 
+
+> F
+
++ ∥C2∥2 
+
+> F
+
+. The cross-term vanishes because tr( C⊤ 
+
+> 2
+
+P1Ω1P ⊤ 
+
+> 1
+
+) = 0 ,as established in Section 3.1. To find the partial gradients evaluated at zero, we take the differential of ξ with respect to the parameters C2 and Ω1:
+
+dξ = B2dC2P1B1 + B2P1dΩ 1B1.
+
+Substituting this into the differential of the objective function yields: (3.2) dg = ⟨∇ f (X), B 2dC2P1B1⟩ + ⟨∇ f (X), B 2P1dΩ 1B1⟩.
+
+By the definition of the gradient, dg = ⟨∇ C2 g, dC2⟩ + ⟨∇ Ω1 g, dΩ 1⟩. We isolate dC2
+
+and dΩ 1 using the adjoint property of the Frobenius inner product ( ⟨A, BCD ⟩ =
+
+⟨B⊤AD ⊤, C ⟩). For the first term in (3.2): 
+
+⟨∇ f (X), B 2dC2P1B1⟩ = ⟨B⊤ 
+
+> 2
+
+∇f (X)B⊤ 
+
+> 1
+
+P ⊤ 
+
+> 1
+
+, dC2⟩.
+
+Thus, ∇C2 g(0 , 0) = B⊤ 
+
+> 2
+
+∇f (X)B⊤ 
+
+> 1
+
+P ⊤ 
+
+> 1
+
+. For the second term in (3.2): 
+
+⟨∇ f (X), B 2P1dΩ 1B1⟩ = ⟨P ⊤ 
+
+> 1
+
+B⊤ 
+
+> 2
+
+∇f (X)B⊤ 
+
+> 1
+
+, dΩ 1⟩.
+
+Thus, ∇Ω1 g(0 , 0) = P ⊤ 
+
+> 1
+
+B⊤ 
+
+> 2
+
+∇f (X)B⊤ 
+
+> 1
+
+.Notice the direct relationship between these partial gradients and the auxiliary matrix eZ := B⊤ 
+
+> 2
+
+∇f (X)B⊤ 
+
+> 1
+
+P ⊤ 
+
+> 1
+
+derived in the projection step. We immediately have: 
+
+∇C2 g(0 , 0) = eZ, and ∇Ω1 g(0 , 0) = P ⊤
+
+> 1
+
+ B⊤ 
+
+> 2
+
+∇f (X)B⊤ 
+
+> 1
+
+P ⊤
+
+> 1
+
+| {z }
+
+> eZ
+
+P1 = P ⊤ 
+
+> 1
+
+eZP 1.
+
+To obtain the final Riemannian gradient directions on the parameter spaces, we apply the skew-symmetric block-diagonal projection. To project onto the tan-gent space, we need to find Pbdiag (b2,k 2)( bZ), which, in terms of the gradient of the auxiliary function, means Pbdiag (b2,k 2)(skew( ∇C2 g(0 , 0))) , and we need to find Ω1 =
+
+Pbdiag (b1,k 1)
+
+
+
+P ⊤ 
+
+> 1
+
+bZP 1
+
+
+
+. To rewrite the final expression in terms of the auxiliary func-tion, we note that for an arbitrary matrix A, there exist two equivalent forms for the skew-symmetric projection. The first variant computes the projection directly 
+
+Ωmanual = P ⊤ 
+
+> 1
+
+skew( A)P1 = P ⊤
+
+> 1
+
+ A − A⊤
+
+2
+
+
+
+P1 = 12
+
+ P ⊤ 
+
+> 1
+
+AP 1 − P ⊤ 
+
+> 1
+
+A⊤P1
+
+ .
+
+The second variant first performs the similarity transformation G = P ⊤ 
+
+> 1
+
+AP 1 and then applies the skew operator 
+
+ΩAD = skew( G) = G − G⊤
+
+2 .10 A. ALIEV, M. RAKHUBA 
+
+Substituting the expression for G confirms their equality 
+
+ΩAD = 12
+
+ (P ⊤ 
+
+> 1
+
+AP 1) − (P ⊤ 
+
+> 1
+
+AP 1)⊤ = 12
+
+ P ⊤ 
+
+> 1
+
+AP 1 − P ⊤ 
+
+> 1
+
+A⊤P1
+
+ = Ω manual .
+
+Note also that 
+
+Pbdiag (bi,k i) (skew( A)) = Pbdiag (bi,k i)
+
+ A − AT
+
+2
+
+
+
+= Pbdiag (bi,k i)(A) − P bdiag (bi,k i)(AT )2= skew  Pbdiag (bi,k i)(A) .
+
+This confirms that computing the Euclidean gradient of the AD auxiliary function and simply projecting it block-wise recovers the exact Riemannian gradient. 
+
+Case k1 < b 2. We have found that all elements behave as in the case k1 ≥ b2,except for those in the overlap between bΩ1 and C2. For these overlapping elements, a simple division by two is required. Since the set of overlapping elements is predetermined (i.e., deterministic), we can reuse the AD trick as before — without constructing full matrices, which ensures efficiency. The necessary step is to compute the indices of the overlapping elements and halve their values, thereby obtaining the correct projection onto the tangent space. To correct this efficiently without constructing full matrices, we use the precomputed mask M from Lemma 3.3. The Riemannian gradient updates are modified as follows: 
+
+˙C2 ← ˙C2 − 12 M ⊙ ˙C2, ˙Ω1 ← ˙Ω1 − 12 (P ⊤ 
+
+> 1
+
+M P 1) ⊙ ˙Ω1.
+
+This operation is an element-wise multiplication by a sparse tensor, which is compu-tationally inexpensive. 
+
+3.3. Sharing. In many computational architectures, including deep learning models, it is highly desirable to impose a parameter-sharing constraint to reduce the number of parameters. In our case, this requires multiple blocks within the fac-tors B1 or B2 to be identical. Let us formally define this constraint and derive the corresponding Riemannian projection. Let u1 ≤ k1 and u2 ≤ k2 be the number of unique blocks for the right and left factors, respectively. We define surjective mapping functions τ1 : {1, . . . , k 1} → {1, . . . , u 1} and τ2 : {1, . . . , k 2} → { 1, . . . , u 2}, which map the block index in the full matrix to the index of the unique parameter. The manifold of GS -matrices with sharing is a submanifold of the original space, where the factors B1 and B2 are constrained such that B(i)1 = B(j)1 if τ1(i) = τ1(j) (and similarly for B2). Consequently, the tangent vectors must satisfy the same structural constraints. The tangent parameters Ω1 and C2 are now constructed from sets of unique parameters {eΩ(p)}u1 
+
+> p=1
+
+and { eC(q)}u2
+
+> q=1
+
+Ω(i)1 = eΩ(τ1(i)) , C(j)2 = eC(τ2(j)) .
+
+Remark 1. In our sharing method, blocks may be identical across left and right matrices, but a single block cannot be shared between both B1 and B2.
+
+Smoothness of the manifold can be established analogously to the case without shar-ing. Retraction also does not require significant modifications: it acts blockwise, and its proof is analogous to the case without the sharing mechanism. RIEMANNIAN OPTIMIZATION FOR GS ORTHOGONAL MATRICES 11 
+
+3.3.1. Projection with Sharing Constraints. We project a Euclidean gradi-ent Z onto the tangent space with parameter sharing, optimizing over unique param-eters { eC(q)} and {eΩ(p)}
+
+min  
+
+> {eC},{eΩ}
+
+bZ −
+
+
+
+Cfull ({ eC}) + bΩfull ({eΩ})
+
+ 2
+
+> F
+
+,
+
+where bZ := skew( B⊤ 
+
+> 2
+
+ZB ⊤ 
+
+> 1
+
+P ⊤ 
+
+> 1
+
+) was derived in the previous section. Assuming the dimension constraint k1 ≥ b2 holds, the subspaces of C and bΩ remain orthogonal (disjoint support of non-zero elements), allowing us to decouple the minimization problem into 
+
+> k2
+
+X
+
+> j=1
+
+bZjj − C(j) 
+
+> full
+> 2
+> F
+
++
+
+> k1
+
+X
+
+> i=1
+
+Gii − Ω(i) 
+
+> full
+> 2
+> F
+
+,
+
+where G = P ⊤ 
+
+> 1
+
+bZP 1, and bZjj denote the diagonal blocks of bZ. Substituting the sharing constraints, the first term (for C) becomes 
+
+> k2
+
+X
+
+> j=1
+
+bZjj − eC(τ2(j)) 2 
+
+> F
+
+=
+
+> u2
+
+X
+
+> q=1
+
+X
+
+> j∈J q
+
+bZjj − eC(q) 2 
+
+> F
+
+,
+
+where Jq = {j | τ2(j) = q} is the set of block indices sharing the q-th parameter. Minimizing this quadratic form with respect to the unique parameter eC(q) yields the arithmetic mean of the corresponding blocks of the gradient bZ
+
+eC(q) = 1
+
+|J q |
+
+X
+
+> j∈J q
+
+bZjj .
+
+Similarly, for the unique parameters of Ω
+
+eΩ(p) = 1
+
+|I p|
+
+X
+
+> i∈I p
+
+Gii , where Ip = {i | τ1(i) = p}.
+
+3.3.2. AD Implementation for Shared Parameters. Now let us adapt AD for shared parameters. We treat the optimization with shared parameters as a com-position of two functions: first, a sharing map that sends the unique parameters eC, eΩ
+
+to the full block-diagonal matrices Cfull , Ωfull ; second, the objective F (Cfull , Ωfull ) = 
+
+f (X + ξ(Cfull , Ωfull )) . The auxiliary function is then defined as 
+
+g( eC, eΩ) = F (Cfull ( eC), Ωfull ( eΩ)) .
+
+Applying the multivariable chain rule to find the gradient for a unique eC(q):
+
+∇ eC(q) g =
+
+> k2
+
+X
+
+> j=1
+
+∂F ∂C (j)
+
+> full
+
+· ∂C (j)
+
+> full
+
+∂ eC(q) .
+
+The partial derivative ∂C (j)  
+
+> full
+> ∂eC(q)
+
+is the identity matrix I if block j is a copy of parameter q
+
+(i.e., j ∈ J q ), and zero otherwise. The term ∂F ∂C (j)
+
+> full
+
+denotes the gradient of the objective 12 A. ALIEV, M. RAKHUBA 
+
+with respect to the j-th block of the full matrix, treated as an independent variable. In Section 3.1, we proved that for independent blocks, this gradient is the diagonal block of the matrix eZ = B⊤ 
+
+> 2
+
+(∇X f )B⊤ 
+
+> 1
+
+P ⊤ 
+
+> 1
+
+. Consequently, ∂F ∂C (j)
+
+> full
+
+= eZjj . Substituting these into the sum (3.3) ∇ eC(q) g = X
+
+> j∈J q
+
+eZjj .
+
+Similarly, for a unique parameter eΩ(p), we apply the chain rule. Recall that the gradient of the objective with respect to a block of the inner factor Ω(i) 
+
+> full
+
+is given by the diagonal block of the rotated matrix G = P ⊤ 
+
+> 1
+
+eZP 1. Specifically, ∂F ∂Ω(i)
+
+> full
+
+= Gii .Summing over all instances sharing the parameter p:
+
+∇eΩ(p) g = X
+
+> i∈I p
+
+∂F ∂Ω(i)
+
+> full
+
+= X
+
+> i∈I p
+
+Gii .
+
+We now reconcile the AD result (sum of gradients) with the analytic projection (average of gradients). The AD engine computes the dense gradient sum P eZjj . To obtain the Riemannian gradient ˙eC(q)
+
+, we apply the skew-symmetric projection (which is a linear operator) 
+
+˙eC(q)
+
+= skew  ∇ eC(q) g = skew 
+
+ X
+
+> j∈J q
+
+eZjj 
+
+ = X
+
+> j∈J q
+
+skew( eZjj ).
+
+Since bZjj = skew( eZjj ), we have ˙eC(q) 
+
+> AD
+
+= P
+
+> j∈J q
+
+bZjj . Comparing this with the an-alytic solution, which is the arithmetic mean eC(q) 
+
+> analytic
+
+= 1 
+
+> |J q|
+
+P
+
+> j∈J q
+
+bZjj , we obtain 
+
+˙eC(q) 
+
+> AD
+
+= |J q |· eC(q)
+
+> analytic
+
+. Similarly, we obtain the following equation ˙eΩ(p) 
+
+> AD
+
+= |I p|· eΩ(p)
+
+> analytic
+
+.
+
+Therefore, with parameter sharing, AD returns sums over all tied copies. The Rie-mannian gradient is obtained by dividing each shared block gradient by its multiplic-ity. 
+
+Remark 2. With parameter sharing and overlapping supports ( k1 < b 2), AD requires a minor correction. It sums gradients over shared instances; for indices in the overlap set Soverlap , projection halves the gradient. However, for arbitrary sharing patterns the element-wise 1/2 mask is no longer providing minimal norm solution. In such cases, extracting the exact overlap compo-nents requires solving a small, precomputable least-squares problem 
+
+min  
+
+> {eC},{eΩ}
+
+X
+
+> (i,j )∈S overlap
+
+bZij − eC(τ2(i)) − eΩ(τ1(j)) 2
+
+> F
+
+.
+
+3.4. Retraction. In this subsection, we show that the block-wise retraction functions as a valid retraction onto the manifold Aorth 2 .Let X = B2P1B1 ∈ A orth 2 , and let ξ ∈ TX Aorth 2 be a tangent vector. By taking derivatives of the parameterized mapping Φ( B2, B 1) = B2P1B1, any tangent vector can be expressed as ξ = η2P1B1 + B2P1η1, where ηi ∈ TBi Bi are tangent vectors to the block-diagonal orthogonal factors. RIEMANNIAN OPTIMIZATION FOR GS ORTHOGONAL MATRICES 13 Let Retr Bi (ηi) be a standard retraction onto Bi, applied block-wise. We define the retraction γX (ξ, t ) onto the manifold Aorth 2 along the tangent direction ξ as follows: 
+
+γX (ξ, t ) := γX (ξ(η1, η 2), t ) = Φ (Retr B2 (tη 2), Retr B1 (tη 1)) =  B2 + tη 2 + O(t2) P1
+
+ B1 + tη 1 + O(t2)
+
+= B2P1B1 + t(η2P1B1 + B2P1η1) + O(t2)= X + tξ + O(t2).
+
+By definition, γX (ξ, 0) = X and ddt γX (ξ, t ) t=0 = ξ. To establish that this is a retraction, it remains to verify that γX (ξ, t ) is a well-defined and smooth function of 
+
+ξ. For this, it remains to ensure that the resulting matrix is independent of the choice of factor tangent vectors representing ξ.When k1 ≥ b2, the pair of vectors (η2, η 1) representing a given ξ is unique (and smooth). This follows from the preservation of vector norms (see Appendix B), which ensures injectivity; surjectivity then follows since the tangent spaces have the same di-mension (see [2, Appendix B]). Hence, the constructed map serves as a valid retraction [1, Definition 4.1.1]. Alternatively, one can interpret this as follows: since the block-wise retractions provide a first-order (or higher, if applicable) approximation to the corresponding blockwise exponential maps (geodesics), and Φ is a local isometry (see Appendix B) and smooth, the composition Φ(Retr B2 (tη 2), Retr B1 (tη 1)) approximates the exponential map (geodesics) on Aorth 2 . Consequently, Φ(Retr B2 (tη 2), Retr B1 (tη 1)) 
+
+is indeed a retraction. 
+
+Remark 3. Note that since Ω1 = B1C1B⊤ 
+
+> 1
+
+and the retractions we use (expo-nential, Cayley, polar) are analytic and satisfy f (B⊤ΩB) = B⊤f (Ω) B for any or-thogonal B, the update Bnew  
+
+> 1
+
+= Retr(Ω 1) · Bold  
+
+> 1
+
+is exactly equivalent to the standard right-translation update Bnew  
+
+> 1
+
+= Bold  
+
+> 1
+
+· Retr( C1). We work directly with Ω1 to avoid the extra matrix multiplications needed to recover C1 at every step. 
+
+For the case k1 < b 2, the construction suffers from an ambiguity. The significance of our prior choice of the minimum-norm solution becomes apparent at this stage: it ensures uniqueness of the resulting map Φ(Retr B2 (tη 2), Retr B1 (tη 1)) . Indeed, recall that ξ = B2C2P1B1 + B2P1B1C1 = Ω 2B2P1B1 + B2P1B1C1 = Ω 2X + XC 1. Now define LX : so block (b2, k 2) × so block (b1, k 1) −→ TX Aorth  
+
+> 2
+
+, L X (Ω 2, C 1) = Ω 2X + XC 1
+
+and observe that the minimum-norm problem 
+
+min  
+
+> LX(Ω 2,C 1)= ξ
+
+ ∥Ω2∥2 
+
+> F
+
++ ∥C1∥2
+
+> F
+
+
+
+has a nonempty feasible set and a strictly convex objective, so its minimizer (Ω ∗
+
+> 2
+
+, C ∗ 
+
+> 1
+
+) = 
+
+L† 
+
+> X
+
+ξ is uniquely determined by (X, ξ ). For the blockwise retractions considered in remark 3, orthogonal equivariance gives 
+
+Retr B2 (tΩ∗
+
+> 2
+
+B2) = Retr I (tΩ∗
+
+> 2
+
+)B2, Retr B1 (tB 1C∗ 
+
+> 1
+
+) = B1 Retr I (tC ∗ 
+
+> 1
+
+).
+
+Therefore, for any factorization X = B2P1B1,
+
+Φ(Retr B2 (tη ∗ 
+
+> 2
+
+), Retr B1 (tη ∗ 
+
+> 1
+
+)) = Retr I (tΩ∗
+
+> 2
+
+) X Retr I (tC ∗ 
+
+> 1
+
+).
+
+Moreover, LX is surjective onto TX Aorth 2 . Hence L† 
+
+> X
+
+= L∗ 
+
+> X
+
+(LX L∗ 
+
+> X
+
+)−1 depends smoothly on X, because LX does and LX L∗ 
+
+> X
+
+remains invertible, and therefore γX (ξ, t )14 A. ALIEV, M. RAKHUBA 
+
+is smooth in (X, ξ, t ). The resulting matrix is also independent of the particular fac-torization of X and hence the retraction 
+
+γX (ξ, t ) = Φ(Retr B2 (tη ∗ 
+
+> 2
+
+), Retr B1 (tη ∗ 
+
+> 1
+
+)) 
+
+is well-defined as a function of ξ alone (given fixed X). 
+
+3.5. Complexity Analysis. We analyze the computational and storage com-plexity of the proposed Riemannian optimization framework. Let Cf denote the arith-metic complexity of evaluating the objective function f (A) using the block-diagonal factors B1 and B2. For each factor i ∈ { 1, 2}, let ki be the number of blocks of size 
+
+bi × bi (such that kibi = N ), and let ui ≤ ki be the number of unique blocks under the parameter sharing constraint. 
+
+Proposition 3.4. The total arithmetic complexity for a single Riemannian opti-mization step is 
+
+Ctime = O  Cf + N (b1 + b2) + u1b31 + u2b32
+
+ .
+
+Proof. A single optimization step consists of three main stages: computing the Euclidean gradients, projecting them onto the tangent space, and applying the re-traction. Note that both computing the Euclidean gradients and using automatic dif-ferentiation require O(Cf ) operations (see [29, Section 18.9].) Second, projecting onto the tangent space further requires extracting the block-diagonal part, taking the skew-symmetric components, and applying the overlap correction mask from the AD results (permutation matrix multiplications may also be involved, but they cost 
+
+O(N )). Since these are element-wise operations bounded by the number of non-zero entries in the block-diagonal matrices, the cost is proportional to k1b21 + k2b22 =
+
+N (b1 + b2). Thus, the tangent space projection requires O(N (b1 + b2)) operations. Finally, the optimizer must map the tangent vectors back to the manifold. We compute block-wise retraction for the ui unique blocks. Retracting a block of size 
+
+bi × bi costs O(b3 
+
+> i
+
+). Hence, the retraction step costs O(u1b31 + u2b32). Summing the gradient computation cost and the manifold overhead gives the stated bound. 
+
+Proposition 3.5. Let Sf be the complexity required to evaluate f (A) (including intermediate activations). The total memory footprint of the optimizer is Cspace =
+
+O(Sf +u1b21 +u2b22). The initialization of the overlap mask requires O(N ·max( b1, b 2)) 
+
+integer operations and incurs a negligible O(b22) storage overhead. Proof. The manifold degrees of freedom require storing only the ui unique blocks of size bi × bi. This requires O(u1b21 + u2b22) storage to the memory footprint. Fur-thermore, the tangent space projection mask M (derived in Lemma 3.3) is evaluated exactly once prior to training. Constructing it involves verifying the congruence i ≡ j
+
+(mod k1) strictly within the local b2 ×b2 block neighborhoods. By evaluating this con-dition for the N diagonal elements within a bounding radius of max( b1, b 2), the mask generation is limited to O(N · max( b1, b 2)) fast integer modulo operations. Because the mask repeats across blocks, the resulting constant Boolean tensor is stored com-pactly with a size bounded by O(b22), adding almost zero persistent memory overhead during the iterative training process. 
+
+3.6. Fixed Boundary Permutations. In practical applications, the GS struc-ture often includes fixed permutation matrices at the input and output boundaries (3.4) A = Pout (BmPm−1 . . . B 1) Pin ,RIEMANNIAN OPTIMIZATION FOR GS ORTHOGONAL MATRICES 15 where Pin and Pout are constant (non-trainable) permutation matrices. For instance, one may initialize Pin = I, all block-diagonal factors Bi = I, and set Pout = P ⊤
+
+> 1
+
+(the inner permutation). With this choice the overall transformation A starts as the identity, providing a natural initialization for neural network training. Notice that this also enables us to learn the Kronecker product U ⊗ V , where U and V are fully shared across the corresponding block-diagonal factor blocks, using Lemma 3.1. Since permutations are orthogonal matrices, the mapping Ψ( X) = Pout XP in de-fines an isometry of the ambient Euclidean space with respect to the Frobenius metric. Consequently, the Riemannian optimization framework requires only minimal adjust-ments: 1. It is straightforward to show that the retraction remains blockwise. 2. Computational Cost: Applying a fixed permutation only requires reindexing the entries and has complexity linear in the size of the input tensor. 3. Let Gfull = ∇Af be the Euclidean gradient of the objective with respect to the full matrix A. By definition of the Frobenius inner product, the gradient 
+
+Gcore = ∇X f satisfies: 
+
+⟨Gfull , dA⟩ = tr  G⊤
+
+> full
+
+Pout dXP in 
+
+ .
+
+Using the cyclic property of the trace and the orthogonality of permutation matrices, we obtain: 
+
+tr  Pin G⊤
+
+> full
+
+Pout dX = ⟨P ⊤
+
+> out
+
+Gfull P ⊤ 
+
+> in
+
+, dX⟩.
+
+Therefore, the exact Euclidean gradient with respect to the core matrix X is simply: 
+
+Gcore = P ⊤
+
+> out
+
+Gfull P ⊤ 
+
+> in
+
+.
+
+Computationally, this implies that we only need to apply inverse permutations (memory reordering, O(M N ) complexity) to the incoming gradient before passing it to our Riemannian optimization logic. 4. By the same reasoning, the Riemannian gradient should be left-multiplied by 
+
+P ⊤ 
+
+> out
+
+and right-multiplied by P ⊤ 
+
+> in
+
+.
+
+3.7. Vector transport. Many optimizers (e.g., SGD with momentum) require accumulating gradient information over time, which necessitates transporting vectors from the tangent space at the current point to the tangent space at the next point. For embedded submanifolds of a Euclidean space, the orthogonal projection of a tangent vector from the tangent space of one point onto the tangent space of another serves as a natural and rigorously justified vector transport (see [1, Section 8.1.3]). We now need to compute the orthogonal projection of a tangent vector efficiently, without forming the full matrices. In what follows, we rely on the following lemma, which is a direct consequence of block matrix multiplication rules; we omit its proof for brevity. 
+
+Lemma 3.6. If a matrix A is strictly block-diagonal with ki blocks of size bi × bi,then for any compatible matrix B,
+
+Pbdiag( bi,k i)(A · B) = A · P bdiag( bi,k i)(B),
+
+and analogously 
+
+Pbdiag( bi,k i)(B · A) = Pbdiag( bi,k i)(B) · A. 16 A. ALIEV, M. RAKHUBA 
+
+According to Section 3.1, to project any ambient vector Z onto TXk+1 Aorth 2 , we first compute the auxiliary matrix eZ = eB⊤ 
+
+> 2
+
+Z eB⊤ 
+
+> 1
+
+P ⊤ 
+
+> 1
+
+, extract the corresponding block diagonals from it (and from its permuted counterpart), and then apply the skew-symmetric projection along with the overlap mask (if needed). For a tangent momentum vector Z = B2C2P1B1 + B2P1Ω1B1 ∈ TXk Aorth 2 , we substitute it into the projection formula: 
+
+eZ = eB⊤ 
+
+> 2
+
+(B2C2P1B1 + B2P1Ω1B1) eB⊤ 
+
+> 1
+
+P ⊤ 
+
+> 1
+
+.
+
+By introducing the block-diagonal transition matrices W2 = eB⊤ 
+
+> 2
+
+B2 and W1 = B1 eB⊤ 
+
+> 1
+
+,the expression simplifies to: 
+
+eZ = W2C2P1W1P ⊤ 
+
+> 1
+
++ W2P1Ω1W1P ⊤ 
+
+> 1
+
+.
+
+Notice that the parameters of the transported vector, denoted as eC2 and eΩ1, are obtained by projecting eZ and P ⊤ 
+
+> 1
+
+eZP 1, respectively. Since the transition matrices Wi
+
+and the generators C2, Ω1 are strictly block-diagonal, we can apply Lemma 3.6 to factor them outside the projection operators. To simplify the notation, we introduce two structure-preserving index permuta-tion operators: 
+
+Π1→2(M ) := Pbdiag( b2,k 2)(P1M P ⊤ 
+
+> 1
+
+), Π2→1(K) := Pbdiag( b1,k 1)(P ⊤ 
+
+> 1
+
+KP 1).
+
+Using Lemma 3.6 to extract the block-diagonal components bC2 and bΩ1, the projection perfectly decouples into block-wise multiplications: 
+
+bC2 = Pbdiag( b2,k 2)( eZ) = W2C2Π1→2(W1) + W2Π1→2(Ω 1W1),
+
+bΩ1 = Pbdiag( b1,k 1)(P ⊤ 
+
+> 1
+
+eZP 1) = Π 2→1(W2C2)W1 + Π 2→1(W2)Ω 1W1.
+
+Note that the projection involves block-diagonal matrix multiplication, which is ef-ficiently performed blockwise. For Π1→2(M ) and Π2→1(K), under the assumption 
+
+k1 ≥ b2 we may simply apply Corollary 3.2, which explicitly reveals that the resulting block-diagonal matrices are strictly diagonal. They are constructed exclusively from the permuted diagonal entries of the original matrices: 
+
+Π1→2(M ) = P1 diag( M )P ⊤ 
+
+> 1
+
+and Π2→1(K) = P ⊤ 
+
+> 1
+
+diag( K)P1,
+
+where diag( ·) is the operator that sets all off-diagonal elements to zero. Finally, the valid transported tangent vector parameters are recovered by enforcing skew-symmetry: eC2 = skew( bC2) and eΩ1 = skew( bΩ1). In the overlap scenario, an extra mask would be required. Note that after a retraction step we have eB1 = SΩB1 and eB2 = B2SC . The transition matrices introduced in the projection therefore analytically simplify to 
+
+W1 = B1 eB⊤ 
+
+> 1
+
+= B1(SΩB1)⊤ = S⊤ 
+
+> Ω
+
+and W2 = eB⊤ 
+
+> 2
+
+B2 = ( B2SC )⊤B2 = S⊤ 
+
+> C
+
+. The opera-tors Π1→2 and Π2→1 act only on block-diagonal matrices, hence the whole transport reduces to a sequence of block-diagonal multiplications. Consequently, the arithmetic cost is O(u1b31 + u2b32), while the temporary memory overhead remains O(u1b21 + u2b22)
+
+numbers. The Riemannian framework for the orthogonal case generalizes to several other compact Lie groups, requiring only minor adjustments; we provide a brief discussion in Appendix E. RIEMANNIAN OPTIMIZATION FOR GS ORTHOGONAL MATRICES 17 0 5 10 15 20 25                              
+
+> Optimization Steps
+> 10 6
+> 10 5
+> 10 4
+> 10 3
+> 10 2
+> 10 1
+> 10 0
+> A A F/ A F
+> Relative Error vs Iterations
+> Cayley + Adam (LR=0.05) Cayley + SGD (LR=0.1) Riemannian SGD (LR=0.5)
+> 0.00 0.02 0.04 0.06 0.08 0.10 0.12
+> Wall-clock Time (Seconds)
+> 10 6
+> 10 5
+> 10 4
+> 10 3
+> 10 2
+> 10 1
+> 10 0
+> A A F/ A F
+> Relative Error vs Time
+> 0510 15 20 25
+> Optimization Steps
+> 10 6
+> 10 5
+> 10 4
+> 10 3
+> 10 2
+> 10 1
+> 10 0
+> 10 1
+> 10 2
+> Gradient / tangent norm
+> Gradient Norm
+
+Fig. 1 . Performance on the GS -target Procrustes problem (non-overlap, bi = ki = 32 ). Left: loss versus iterations; center: loss versus time (seconds); right: comparison of the Euclidean gradient norm (Cayley baseline) and the norm of the projected Riemannian gradient (our RGD). 0 5 10 15 20 25            
+
+> Optimization Steps
+> 1.225 × 10 0
+> 1.25 × 10 0
+> 1.275 × 10 0
+> 1.3 × 10 0
+> 1.325 × 10 0
+> 1.35 × 10 0
+> 1.375 × 10 0
+> 1.4 × 10 0
+> 1.425 × 10 0
+> A A F/ A F
+> Relative Error vs Iterations
+> Cayley + Adam (LR=0.05) Cayley + SGD (LR=0.5) Riemannian SGD (LR=1)
+> 0.00 0.02 0.04 0.06 0.08 0.10 0.12
+> Wall-clock Time (Seconds)
+> 1.225 × 10 0
+> 1.25 × 10 0
+> 1.275 × 10 0
+> 1.3 × 10 0
+> 1.325 × 10 0
+> 1.35 × 10 0
+> 1.375 × 10 0
+> 1.4 × 10 0
+> 1.425 × 10 0
+> A A F/ A F
+> Relative Error vs Time
+> 0510 15 20 25
+> Optimization Steps
+> 10 1
+> Gradient / tangent norm
+> Gradient Norm
+
+Fig. 2 . Performance on the arbitrary (non-GS ) target (non-overlap, bi = ki = 32 ). Left: loss versus iterations; center: loss versus time (seconds); right: comparison of the Euclidean gradient norm (Cayley baseline) and the norm of the projected Riemannian gradient (our RGD). 
+
+4. Experiments. To validate our theoretical results, we conducted several nu-merical experiments within our proposed training framework. For convenience, we implemented a PyTorch library that supports Riemannian gradient descent with the following features: various retractions (exponential, Cayley, polar) — all of which are valid retractions (see [1, Example 4.1.2]); overlap correction (if needed); as well as orthogonal blocks and complex-valued cases. The library is available at https: //github.com/alialiev78/torchgs. 
+
+4.1. Synthetic tasks. First, we investigated model learning on synthetic tasks. We solve a GS Procrustes problem: find the nearest GS -orthogonal matrix to a given target, considering both the case where the target itself is a GS matrix and the case where it is an arbitrary (non-GS ) matrix. The baseline uses a Cayley parametriza-tion with Euclidean optimization (Adam/SGD), while our method uses Riemannian gradient descent on the manifold. For a fair comparison, each block in the baseline is constructed via the Cayley transform to ensure orthogonality, and the same grid is applied uniformly across all methods. The results for the GS -target case are presented in Figure 1, and for the arbitrary target case in Figure 2. Our method achieves comparable or better accuracy than the Cayley transform baseline. We also conducted experiments with parameter sharing, overlap, and the complex case. The results and conclusions are qualitatively similar; for brevity, we omit them here, but they are available in the file gs_testing.ipynb in our GitHub repository. 
+
+4.2. Performance in Large-Scale Fine-Tuning. To evaluate our manifold framework on large-scale tasks, we integrate GS -orthogonal matrices into pre-trained architectures. For a frozen pre-trained linear layer W , we replace it with Winjected =
+
+AW , where A = P ⊤
+
+1 B2P1B1 is our GS -adapter. Additionally, to allow flexible scaling, we multiply the output by a learnable diagonal matrix S: Wnew = SW injected . To isolate the effect of S, we use the same AdamW optimizer, learning rate (fixed 10 −418 A. ALIEV, M. RAKHUBA 
+
+in all cases), schedule, and weight decay for S in both Euclidean and Riemannian setups. The GS parts are trained identically, except that we add regularization to the Cayley transform in the Euclidean case, which is not needed in the Riemannian one since the manifold constraint already enforces stability. We fine-tune RoBERTa on the GLUE benchmark using small block sizes bi = 8 
+
+(and ki = 96 ) and compare against Euclidean baselines. Our overall setup follows the approach of [21, 11]; further implementation details are available in those references or in our code repository. We used polar retraction (employing five Newton-Schulz iterations instead of exact computation). For SGD, we search over the learning rate grid {1 × 10 −3, 5 × 10 −3, 1 × 10 −2, 5 × 10 −2, 8 × 10 −2, 1 × 10 −1} with momentum 
+
+β = 0 .9. For the AdamW optimizer, we search over {1 × 10 −4, 5 × 10 −4, 8 × 10 −4, 1 ×
+
+10 −3, 2×10 −3, 5×10 −3}, with β = 0 .95 and keep the default PyTorch hyperparameters 
+
+β1 = 0 .9, β 2 = 0 .999 , ϵ = 10 −8. The results are reported in Table 1. Riemannian SGD outperforms Euclidean SGD in both performance and stability, though it may not quite reach Adam-level results.                                            
+
+> Table 1
+> Results on the GLUE benchmark with RoBERTa-base. Pearson correlation is reported for STS-B, Matthew’s correlation for CoLA, and accuracy for the other tasks. # Params denotes the number of trainable parameters. Best results are in bold.
+> Method # Params MNLI SST-2 CoLA QQP QNLI RTE MRPC STS-B ALL
+> GSOFT b=8 (SGD with momentum) 1.38M 86.42 93.46 51.76 86.01 87.31 81.23 89.71 89.09 83.12 GSOFT b=8 (AdamW) 1.38M 86.77 94.72 63.83 90.10 92.35 79.42 90.44 90.70 86.04
+> Riemannian SGD b=8 (with momentum) 1.38M 86.58 94.38 61.67 89.02 91.98 75.45 89.22 90.52 84.85
+
+Note that the runtime gap between Euclidean and Riemannian optimization is further reduced here: since vector-Jacobian products through frozen parameters dom-inate the computation, the overhead of manifold-constrained updates becomes small. In our experiments, across all tasks, Riemannian methods show a moderate average overhead of 5-7% relative to Euclidean baselines. For the smaller RoBERTa tasks, we conducted additional experiments using Rie-mannian SGD, exploring a broader range of configurations and block sizes. The detailed experimental settings and corresponding results are reported in Table 2. 
+
+5. Conclusion. We have studied the geometric properties of GS matrices. For the case of orthogonal blocks, we present a robust framework for Riemannian opti-mization on GS -manifolds. We enable efficient gradient computations via automatic differentiation. The complexity analysis confirms that this structured approach in-curs limited overhead compared to standard training. Furthermore, we have obtained certain results for higher-order factorizations. Future work includes extending to higher-order optimizers to outperform AdamW, handling different block constraints, and a more detailed investigation of factorizations with more than two block-diagonal factors. 
+
+Appendix A. GS decomposition with orthogonal blocks for m = 3 .
+
+In this section of the appendix, we analyze the expressivity of the set Aorth  
+
+> 3
+
+,focusing on the special case involving Perfect Shuffle matrices. First, we show that, for arbitrary permutation matrices P2 and P1 (and the block sizes in Bi are allowed to differ), A3 ∩O( N ) = Aorth 3 . To proceed, we need the following lemma, which allows us to absorb the permutation matrices into the Bi.
+
+Lemma A.1. Let {1, . . . , N } = Fkα=1 Jα be a partition, nα = |Jα|, and 
+
+D = diag( λ1In1 , . . . , λ kInk ), λα̸ = λβ for α̸ = β. RIEMANNIAN OPTIMIZATION FOR GS ORTHOGONAL MATRICES 19 
+
+Table 2 
+
+All configurations use N = b1k1 = b2k2 = 768 . # Unique params denotes the number of independent trainable parameters after parameter sharing, whereas # Full GS params denotes the number of parameters in the corresponding GS representation before sharing. RoBERTa-base con-tains approximately 125M parameters in total. Best results per column are in bold , second best are underlined. 
+
+Method # Unique GS 
+
+params # Full GS 
+
+params CoLA MRPC RTE STS-B Avg. 
+
+Standard (no sharing) 
+
+b1=8 , k 1=96 , b 2=8 , k 2=96 1.38M 1.38M 61.67 89.22 75.45 90.52 79.22 
+
+b1=16 , k 1=48 , b 2=32 , k 2=24 2.85M 2.85M 61.40 90.20 77.26 90.75 79.90 
+
+b1=24 , k 1=32 , b 2=24 , k 2=32 2.85M 2.85M 60.57 89.22 76.90 90.68 79.34 
+
+b1=32 , k 1=24 , b 2=32 , k 2=24 3.59M 3.59M 65.56 90.20 81.95 91.04 82.19 
+
+b1=48 , k 1=16 , b 2=24 , k 2=32 3.96M 3.96M 62.66 91.42 79.42 90.79 81.07 
+
+Share B1
+
+b1=8 , k 1=96 , b 2=8 , k 2=96 1.01M 1.38M 61.07 89.22 75.45 90.10 78.96 
+
+b1=16 , k 1=48 , b 2=32 , k 2=24 2.13M 2.85M 61.85 90.93 76.90 90.59 80.07 
+
+b1=24 , k 1=32 , b 2=24 , k 2=32 1.78M 2.85M 60.41 89.71 77.26 90.58 79.49 
+
+b1=32 , k 1=24 , b 2=32 , k 2=24 2.17M 3.59M 62.57 90.44 78.34 90.64 80.50 
+
+b1=48 , k 1=16 , b 2=24 , k 2=32 1.88M 3.96M 62.91 89.95 80.51 90.71 81.02 
+
+Share B2
+
+b1=8 , k 1=96 , b 2=8 , k 2=96 1.01M 1.38M 63.07 89.46 77.26 90.18 79.99 
+
+b1=16 , k 1=48 , b 2=32 , k 2=24 1.44M 2.85M 63.77 89.46 77.26 90.57 80.27 
+
+b1=24 , k 1=32 , b 2=24 , k 2=32 1.78M 2.85M 62.61 89.46 77.98 90.40 80.11 
+
+b1=32 , k 1=24 , b 2=32 , k 2=24 2.17M 3.59M 62.83 89.95 78.34 90.81 80.48 
+
+b1=48 , k 1=16 , b 2=24 , k 2=32 2.89M 3.96M 62.88 89.95 79.06 91.09 80.75 
+
+Share both B1 and B2
+
+b1=8 , k 1=96 , b 2=8 , k 2=96 0.65M 1.38M 49.66 80.64 66.06 87.80 71.04 
+
+b1=16 , k 1=48 , b 2=32 , k 2=24 0.72M 2.85M 60.34 87.50 76.17 90.42 78.61 
+
+b1=24 , k 1=32 , b 2=24 , k 2=32 0.71M 2.85M 58.59 87.50 75.45 90.47 78.00 
+
+b1=32 , k 1=24 , b 2=32 , k 2=24 0.76M 3.59M 61.10 88.73 78.70 90.78 79.83 
+
+b1=48 , k 1=16 , b 2=24 , k 2=32 0.81M 3.96M 59.50 88.73 77.26 90.66 79.04 
+
+Then XD = DX ⇐⇒ X is block-diagonal with respect to this partition. Proof. Write X = ( Xαβ ) in blocks of sizes nα × nβ . Since D is block-diagonal with scalar blocks, 
+
+(XD )αβ = λβ Xαβ , (DX )αβ = λαXαβ .
+
+Thus XD = DX ⇐⇒ (λα − λβ )Xαβ = 0 for all α, β . For α̸ = β we have λα̸ = λβ ,hence Xαβ = 0 . The converse is also immediate: (λαI)Xαα = λαXαα = Xαα (λαI).Using the standard QR factorization of a matrix, one can extract a permutation matrix from the orthogonal factor. We need to obtain a modified factorization with respect to a block-diagonal partitioning. 
+
+Corollary A.2. Let B be the set of block-diagonal invertible matrices with re-spect to the partition above, and let P a permutation matrix. Then for every B ∈ B 
+
+there exist U ∈ B ∩ O( N ) and an invertible upper-triangular R such that BP = U P R .Similarly, there exist U ∈ B ∩ O( N ) and an invertible upper-triangular R such that 
+
+P B = RP U. 
+
+Proof. Choose D as in Lemma A.1. Since B ∈ B , we have BD = DB . Apply the ordinary QR factorization to BP : BP = V R with V ∈ O( N ) and R invertible and upper triangular. Put bD := P ⊤DP ; the conjugation by a permutation matrix acts on a diagonal matrix by permuting its diagonal entries, and therefore bD is diagonal as well. From BD = DB ,
+
+D(BP ) = B(DP ) = BP (P ⊤DP ) = ( BP ) bD, 20 A. ALIEV, M. RAKHUBA 
+
+hence DV R = V R bD and V ⊤DV = R bDR −1. The left-hand side is symmetric, the right-hand side is upper triangular, so both are diagonal. Since R, bD, R −1 are upper triangular, 
+
+diag( R bDR −1) = diag( bD),
+
+so R bDR −1 = bD and V ⊤DV = bD. Set U := V P ⊤. Then U ∈ O( N ) and 
+
+U ⊤DU = P V ⊤DV P ⊤ = P bDP ⊤ = D, 
+
+so DU = U D and, by Lemma A.1, U ∈ B . Finally V = U P , hence BP = U P R .Now we prove an analogous statement for the RQ decomposition. Apply the ordinary RQ factorization to P B : P B = RV with V ∈ O( N ) and R invertible and upper triangular. Put bD := P DP ⊤. From BD = DB , we obtain (P B )D = bD(P B ),
+
+hence RV D = bDRV and V DV ⊤ = R−1 bDR . Again the left side is symmetric and the right side upper triangular, so R−1 bDR = bD and V DV ⊤ = bD. Set U := P ⊤V . Then 
+
+U ∈ O( N ) and U DU ⊤ = P ⊤V DV ⊤P = D, so U D = DU and hence U ∈ B . Finally 
+
+V = P U , hence P B = RP U .
+
+Proposition A.3. Let P1, P 2 be arbitrary fixed permutation matrices and let Bi
+
+denote the sets of block-diagonal matrices with the prescribed square block sizes (the block sizes in Bi can be different). Then A3 ∩ O( N ) = Aorth 3 .Proof. The inclusion Aorth 3 ⊆ A 3 ∩ O( N ) is trivial. We want to prove the reverse inclusion, i.e., for any permutation matrices P1 and P2, if Q = B3P2B2P1B1 ∈ A 3 ∩
+
+O( N ), then Q admits a decomposition of the form Q = U3P2U2P1U1, where each 
+
+Ui ∈ B orth  
+
+> i
+
+is block-diagonal with orthogonal diagonal blocks. To construct such a decomposition, we apply modified QR and RQ factorizations. Observe that A3 ∩O( N ) = Ainv 3 ∩O( N ). Indeed, if a block were non-invertible, the determinant of the whole matrix – being ±1 times the product of the block determi-nants – would be 0, contradicting orthogonality. Apply the QR part of Corollary A.2 to B3P2 and the RQ part to P1B1. This gives 
+
+B3P2 = U3P2R3, P1B1 = R1P1U1,
+
+with U3 ∈ B 3 ∩ O( N ), U1 ∈ B 1 ∩ O( N ) and R3, R 1 invertible upper triangular. Substituting, 
+
+Q = U3P2
+
+ R3B2R1
+
+ P1U1.
+
+Set U2 := R3B2R1. Since 
+
+U2 = P ⊤ 
+
+> 2
+
+U ⊤ 
+
+> 3
+
+Q U ⊤ 
+
+> 1
+
+P ⊤
+
+> 1
+
+is a product of orthogonal matrices, U2 ∈ O( N ).Moreover, upper-triangular matrices are block upper triangular with respect to any partition into consecutive blocks, in particular with respect to the partition defin-ing B2. Since the class of block upper-triangular matrices is closed under multipli-cation, U2 = R3B2R1 is block upper triangular with respect to B2. Its inverse is therefore also block upper triangular, while U −12 = U ⊤ 
+
+> 2
+
+is block lower triangular; hence U −12 , and therefore U2, is block diagonal. Consequently U2 ∈ B 2 ∩ O( N ), and 
+
+Q = U3P2U2P1U1 ∈ A orth 3 .
+
+We now turn to the important particular case of the decomposition with m = 3 .Let p, q ≥ 2 be integers and define N = pq . Consider the GS factorization with m = 3 RIEMANNIAN OPTIMIZATION FOR GS ORTHOGONAL MATRICES 21 factors, where P1 = P and P2 = P ⊤ for a Perfect Shuffle matrix P , and let all blocks be orthogonal. Specifically, (A.1) M = B3P ⊤B2P B 1,
+
+with B1 and B3 block-diagonal matrices comprising q orthogonal blocks of size p × p:
+
+B1 =
+
+
+
+V1
+
+. . .
+
+Vq
+
+ , B3 =
+
+
+
+W1
+
+. . .
+
+Wq
+
+ ,
+
+with Vi, W i ∈ O( p).The middle factor B2 is a block-diagonal matrix consisting of p orthogonal blocks of size q × q:
+
+B2 =
+
+
+
+U1
+
+. . .
+
+Up
+
+ , Uk ∈ O( q).
+
+Denote the entries of the k-th block by Uk = ( u(k) 
+
+> ij
+
+)qi,j =1 . The matrix P is the Perfect Shuffle permutation. To evaluate the explicit form of M , we first compute the central conjugate term 
+
+M ′ = P ⊤B2P . Applying Corollary 3.2, the similarity transformation by the Perfect Shuffle matrix rearranges the entries of B2 into a q × q grid of blocks, where each block is a p × p diagonal matrix: 
+
+M ′ =
+
+
+
+D11 D12 . . . D1q
+
+D21 D22 . . . D2q
+
+... ... . . . ...
+
+Dq1 Dq2 . . . Dqq 
+
+ , where Dij = diag 
+
+
+
+u(1)  
+
+> ij
+
+, u (2)  
+
+> ij
+
+, . . . , u (p)
+
+> ij
+
+
+
+.
+
+Next, we multiply the three factors M = B3M ′B1:(A.2) M =
+
+
+
+W1D11 V1 W1D12 V2 . . . W1D1q Vq
+
+W2D21 V1 W2D22 V2 . . . W2D2q Vq
+
+... ... . . . ...
+
+Wq Dq1V1 Wq Dq2V2 . . . Wq Dqq Vq
+
+ .
+
+This explicit block structure provides immediate insight into the set’s expressivity. Consider the specific case where q = 2 (for any p ≥ 2). The matrices Uk ∈ SO(2) can be parameterized by: 
+
+Uk =
+
+cos θk − sin θk
+
+sin θk cos θk
+
+
+
+.
+
+Consequently, the diagonal matrices become D11 = D22 = diag(cos θ1, . . . , cos θp) := 
+
+C and D21 = −D12 = diag(sin θ1, . . . , sin θp) := S. Substituting this into M yields: 
+
+M =
+
+W1 00 W2
+
+  C −SS C
+
+  V1 00 V2
+
+
+
+.
+
+This is exactly the classical Cosine-Sine (CS) decomposition [9, Theorem 2.5.3], which guarantees that any orthogonal matrix Q ∈ O(2 p) can be factorized as above. Con-sequently, for q = 2 , the GS factorization yields a smooth manifold, and we have 
+
+Aorth  
+
+> 3
+
+= A3 ∩ O( N ) = O( N ).22 A. ALIEV, M. RAKHUBA 
+
+Remark 4. However, for p > 1 and q > 2, Aorth  
+
+> 3
+
+is a proper subset of O( N ).Indeed, the dimension of its parameter space is q · p(p−1) 2 + q · p(p−1) 2 + p · q(q−1) 2 =
+
+qp (p − 1) + pq (q−1) 2 , and the dimension of its image cannot exceed that of its domain. Given that dim O( N ) = pq (pq −1) 2 , the dimensional deficiency is 
+
+∆ = dim O( N ) − max dim Aorth  
+
+> 3
+
+= pq (pq − 1) − 2qp (p − 1) − pq (q − 1) 2= pq (pq − 1 − 2( p − 1) − (q − 1)) 2 = pq 
+
+2 (p − 1)( q − 2) .
+
+Because ∆ > 0 for q > 2, the m = 3 decomposition lacks the degrees of freedom required to span the full orthogonal group. 
+
+We now wish to prove that the decomposition (A.1) does not always admit a manifold structure. There is, however, an important clarification: we are speaking about the induced topology, because an artificial manifold topology can always be imposed on any continuum-sized set. Indeed, one can choose a bijection from A3 ∩
+
+O( N ) = Aorth  
+
+> 3
+
+to Rs; this allows any topology on Rs to be transferred to Aorth  
+
+> 3
+
+(by declaring a subset open iff its image in Rs is open). The same obstruction arises not only for the topological manifold structure, but also for the smooth manifold structure. Thus, the issue of nonexistence of a (smooth) manifold structure only arises when the topology is required to be the one induced from the ambient space – namely, the subspace topology inherited from O( N ) with its standard Euclidean topology (equivalently, the topology inherited from RN 2
+
+). In this induced topology (see [17, page 601]), a subset U ⊆ A orth  
+
+> 3
+
+is open if and only if there exists an open subset V ⊆ RN 2
+
+such that U = V ∩ A orth  
+
+> 3
+
+. For simplicity, we restrict to the case 
+
+p = 2 and q ≥ 3 with q mod 4 ∈ { 2, 3}, in which we will show that Aorth  
+
+> 3
+
+fails to be a manifold under the topology induced from RN 2
+
+. To do so, we need to show that the definition from [17, Chapter 1, pages 2-3] fails for Aorth  
+
+> 3
+
+. To disprove the manifold property, it suffices to find a point M0 ∈ A orth 3 that admits no open neighborhood homeomorphic to an open subset of any Euclidean space. Choose Q0 = ( qij ) ∈ SO( q)
+
+with qij ̸ = 0 for all i, j (such a matrix exists for every q ≥ 3, for instance, one may take 
+
+Q0 = etΩ, where Ω ∈ so (q) has no zero off-diagonal entries and t > 0 is sufficiently small), and set 
+
+M0 = P ⊤
+
+Q0 00 Q0
+
+
+
+P ∈ A orth  
+
+> 3
+
+.
+
+Thus, using corollary 3.2, we obtain (M0)ij = qij I2. Now by definition X ∈Aorth  
+
+> 3
+
+∩ Bε(M0) ⇐⇒ X has the form (A.2) and ∥X − M0∥F < ε . After squaring and applying a block decomposition, we obtain the equivalent condition (A.3) 
+
+> q
+
+X
+
+> i,j =1
+
+Wi
+
+˜aij 00 ˜˜bij 
+
+!
+
+Vj − qij I2
+
+> 2
+> F
+
+< ε 2,
+
+where Wi, V j ∈ O(2) , and A = (˜ aij ) ∈ O( q), B = ( ˜˜bij ) ∈ O( q) are the two q × q
+
+diagonal blocks of the middle factor. The remainder of the proof is rather technical and consists of finding a parametrization that allows us to solve the inequality. We will absorb reflections into the middle factors. The following elementary lemma shows that the resulting row and column sign changes preserve orthogonality. RIEMANNIAN OPTIMIZATION FOR GS ORTHOGONAL MATRICES 23 
+
+Lemma A.4. Let C = ( cij ) ∈ O( q), and let ρi, κ j ∈ {± 1}. If 
+
+ecij = ρiκj cij ,
+
+then eC = ( ecij ) ∈ O( q).Proof. Let Dρ = diag( ρ1, . . . , ρ q ) and Dκ = diag( κ1, . . . , κ q ). Then eC = DρCD κ,
+
+and hence eC⊤ eC = D⊤ 
+
+> κ
+
+C⊤D⊤ 
+
+> ρ
+
+DρCD κ = DκC⊤CD κ = Iq .
+
+We now proceed to disproving the existence of a manifold structure. Let 
+
+R(θ) = 
+
+cos θ − sin θ
+
+sin θ cos θ
+
+
+
+, F =
+
+1 00 −1
+
+
+
+, F 2 = I2.
+
+Note that, due to the periodicity of trigonometric functions, the parametrization of SO(2) by angles is not unique; we will choose convenient representatives later. The main role of the matrix F is to absorb the negative determinant. Indeed, it is easy to show that left or right multiplication by F is a diffeomorphism. Also define 
+
+τi, δ j ∈ { 1, 2}; then we can write Wi = R(˜ αi)F τi and Vj = F δj R( ˜βj ). We define 
+
+˜bij = ( −1) τi+δj ˜˜bij . Note that, by lemma A.4, the matrix ˜B = ( ˜bij ) is also orthogonal, hence (A.3) can be rewritten in the following form: 
+
+> q
+
+X
+
+> i,j =1
+
+˜aij 00 ˜bij 
+
+
+
+− qij R(−˜αi)R(− ˜βj )
+
+> 2
+> F
+
+< ε 2,
+
+Introduce ˜θij = ˜ αi + ˜βj and observe that ˜θij − ˜θi1 − ˜θ1j + ˜θ11 = 0 . Since rotations commute, R(−˜αi)R(− ˜βj ) = R(−˜θij ). Hence the inequality (A.3) becomes (A.4) 
+
+> q
+
+X
+
+> i,j =1
+
+h
+
+(˜ aij − qij cos ˜θij )2 + ( ˜bij − qij cos ˜θij )2 + 2 q2 
+
+> ij
+
+sin 2 ˜θij 
+
+i
+
+< ε 2.
+
+Note that from (A.4) we also deduce that 2q2 
+
+> ij
+
+sin 2 ˜θij < ε 2 and use it to choose convenient representatives of the angles. Since qij ̸ = 0 , sin 2 ˜θij → 0 for every i, j if 
+
+ε → 0. Hence, for sufficiently small ε there exists a unique nij ∈ Z such that 
+
+˜θij = πn ij + θij , |θij | < π
+
+4 .
+
+Using ˜θij − ˜θi1 − ˜θ1j + ˜θ11 = 0 , we obtain 
+
+π (nij − ni1 − n1j + n11 ) + θij − θi1 − θ1j + θ11 = 0 .
+
+The second term has absolute value strictly smaller than π, whereas the first term is an integer multiple of π. Hence 
+
+nij = ni1 + n1j − n11 
+
+| {z }
+
+> ∆j
+
+.
+
+We now choose new representatives of the angles: 
+
+αi = ˜ αi − πn i1, βj = ˜βj − π∆j , aij = ( −1) nij ˜aij , bij = ( −1) nij ˜bij .24 A. ALIEV, M. RAKHUBA 
+
+Then 
+
+αi + βj = ˜θij − πn ij = θij =⇒ | αi + βj | < π/ 4.
+
+Moreover, 
+
+R(αi) = ( −1) ni1 R(˜ αi), R(βj ) = ( −1) ∆j R( ˜βj ).
+
+Since nij = ni1 + ∆ j , we have (−1) nij = ( −1) ni1 (−1) ∆j . Moreover, 
+
+R(˜ αi)
+
+˜aij 00 ˜bij 
+
+
+
+R( ˜βj ) = ( −1) ni1+nij +∆ j R(αi)
+
+aij 00 bij 
+
+
+
+R(βj )= R(αi)
+
+aij 00 bij 
+
+
+
+R(βj ),
+
+because ni1 + nij + ∆ j = 2 ni1 + 2∆ j . It remains to verify that the new middle factors remain orthogonal. Let 
+
+Dn := diag (( −1) n11 , . . . , (−1) nq1 ) , D∆ := diag  (−1) ∆1 , . . . , (−1) ∆q  .
+
+Since nij = ni1 + ∆ j , the new matrices A = ( aij ), B = ( bij ) satisfy A = Dn eAD ∆, B =
+
+Dn eBD ∆, where eA = (˜ aij ) and eB = ( ˜bij ). Hence Lemma A.4 implies that A, B ∈ O( q).
+
+Consequently, (A.4) can now be written as (A.5) 
+
+ε2 >
+
+> q
+
+X
+
+> i,j =1
+
+Wi
+
+˜aij 00 ˜˜bij 
+
+!
+
+Vj − qij I2
+
+> 2
+> F
+
+=
+
+> q
+
+X
+
+> i,j =1
+
+R(˜ αi)
+
+˜aij 00 ˜bij 
+
+
+
+R( ˜βj ) − qij I2
+
+> 2
+> F
+
+=
+
+> q
+
+X
+
+> i,j =1
+
+aij 00 bij 
+
+
+
+− qij R(−θij )
+
+> 2
+> F
+
+=
+
+> q
+
+X
+
+> i,j =1
+
+(aij − qij cos θij )2 + ( bij − qij cos θij )2 + 2 q2 
+
+> ij
+
+sin 2 θij 
+
+
+
+with |θij | < π/ 4. Observe that from (A.5) we deduce that |aij − qij cos θij | < ε, |bij −
+
+qij cos θij | < ε, and 2q2 
+
+> ij
+
+sin 2 θij < ε 2. The latter inequality implies θij → 0 as ε → 0.Hence aij → qij , b ij → qij . Indeed, since sin 2 θij = 1 − cos 2 θij ≥ 1 − cos θij :
+
+|aij − qij | ≤ | aij − qij cos θij | + |qij | | 1 − cos θij | < ε + |qij | ε2
+
+2q2
+
+> ij
+
+and the right-hand side tends to zero as ε → 0. The argument for bij is identical. Since 
+
+Q0 ∈ SO( q) and A, B lie in an ε-neighbourhood of Q0, for sufficiently small ε we may assume that A and B also belong to SO( q). Expanding (A.5), using orthogonality of matrices ( P 
+
+> i,j
+
+a2 
+
+> ij
+
+= q, P 
+
+> i,j
+
+b2 
+
+> ij
+
+= q, P 
+
+> i,j
+
+q2 
+
+> ij
+
+= q), we obtain 
+
+∥M − M0∥2 
+
+> F
+
+=
+
+> q
+
+X
+
+> i,j =1
+
+a2 
+
+> ij
+
++ b2 
+
+> ij
+
++ 2 q2 
+
+> ij
+
+− 2qij (aij + bij ) cos θij 
+
+
+
+= 4 q − 2
+
+> q
+
+X
+
+> i,j =1
+
+qij (aij + bij ) cos θij .
+
+From this expression, the origin of the contradiction becomes clear: the inequality depends on the sum of the angles θij and the only remaining step is to rigorously establish the connection with matrices of bounded rank. Let d := dim so (q) = q(q−1) 2 .RIEMANNIAN OPTIMIZATION FOR GS ORTHOGONAL MATRICES 25 By the standard local property of the exponential map for Lie groups [17, Propo-sition 20.8(f)] or [10, Proposition 2.3], and since left multiplication by Q0 is a diffeo-morphism, it follows that for a sufficiently small neighborhood of Q0 there exists a diffeomorphism (namely, the composition of the exponential map with left translation by Q0)
+
+ψ : U ⊂ so (q) −→ V ⊂ SO( q), ψ(H) := Q0eH ,
+
+from a neighborhood of 0 onto a neighborhood of Q0. Consequently, if A and B
+
+are sufficiently close to Q0, there exist unique small elements ˜c, ˜z ∈ so (q) such that 
+
+A = ψ(˜ c) and B = ψ(˜ z). Applying the symmetric change of variables, we define small elements c := (˜ c + ˜ z)/2 and z := (˜ c − ˜z)/2 in so (q), which satisfy A = ψ(c + z)
+
+and B = ψ(c − z). In particular, z = 0 ⇐⇒ A = B, and interchanging A and B
+
+corresponds exactly to z 7 → − z. Indeed, since ψ is a diffeomorphism, A = ψ(c + z)
+
+and B = ψ(c − z), we have A = B ⇐⇒ c + z = c − z, i.e. z = 0 . Since A = ψ(c + z)
+
+and B = ψ(c − z), swapping A and B gives ψ(c − z) and ψ(c + z), which is exactly the same as replacing z by −z.We now rewrite the outer angular parameters. Set ℓi := αi + β1, i = 1 , . . . , q, 
+
+and r1 := 0 , r j := βj − β1, j = 2 , . . . , q. Then αi = ℓi − β1, β j = rj + β1, and 
+
+θij = αi + βj = ℓi + rj .
+
+Thus 2q − 1 combinations of angles are described by (ℓ1, . . . , ℓ q , r 2, . . . , r q ), while 
+
+β1 is the only remaining free angular parameter, which we want to isolate. Note that in the new variables 
+
+Mij = R(ℓi)
+
+
+
+R(−β1)
+
+aij 00 bij 
+
+
+
+R(β1)
+
+
+
+R(rj ).
+
+Using 
+
+aij 00 bij 
+
+
+
+= aij +bij  
+
+> 2
+
+I2 + aij −bij  
+
+> 2
+
+F , we obtain 
+
+R(−β1)
+
+aij 00 bij 
+
+
+
+R(β1) = aij + bij 
+
+2 I2 + aij − bij 
+
+2 R(−β1)F R (β1)
+
+| {z }
+
+> T
+
+,
+
+Note that T =
+
+ cos β1 sin β1    
+
+> −sin β1cos β1
+
+  cos β1 − sin β1     
+
+> −sin β1−cos β1
+
+
+
+=
+
+ cos 2 β1−sin 2 β1 −2 cos β1 sin β1      
+
+> −2 sin β1cos β1sin 2β1−cos 2β1
+
+
+
+.
+
+Using u := 
+
+ cos(2 β1)
+
+− sin(2 β1)
+
+
+
+∈ S1 we rewrite T as T (u) = 
+
+u1 u2
+
+u2 −u1
+
+
+
+, and therefore (A.6) Mij = R(ℓi)
+
+ aij + bij 
+
+2 I2 + aij − bij 
+
+2 T (u)
+
+
+
+R(rj ).
+
+The representation (A.6) separates the part independent of the remaining angle β1
+
+from the part on which this angle acts. In particular, the first term depends only on A + B, whereas the second term couples the difference A − B with a single point 
+
+u ∈ S1. When A = B, the dependence on u disappears completely. Fix a linear diffeomorphism (and isomorphism) so (q) ≃ Rd, d = q(q−1) 2 . Choose 
+
+η > 0 sufficiently small so that Bd 
+
+> 2η
+
+(0) ⊂ U . Then every A, B sufficiently close to Q0
+
+can be written uniquely as A = ψ(c + z), B = ψ(c − z), with c, z ∈ Rd, ∥c∥, ∥z∥ < η .Consider the compact parameter space 
+
+K = [ −η, η ]2q−1 × Bη (0) × Bη (0) × S1,26 A. ALIEV, M. RAKHUBA 
+
+where the first factor contains (ℓ1, . . . , ℓ q , r 2, . . . , r q ), the next two factors correspond to c, z ∈ Rd and the last factor corresponds to u ∈ S1. The map f : K → A orth 3 is the parametrization defined by (A.6), i.e. f (ℓ, r, c, z, u ) := M, M ij = R(ℓi)
+
+h aij +bij  
+
+> 2
+
+I2 +  
+
+> aij −bij
+> 2
+
+T (u)
+
+i
+
+R(rj ), where (aij ) = ψ(c + z) and (bij ) = ψ(c − z). Introduce 
+
+g : K → R2q−1+ d × R2×d, g(ℓ, r, c, z, u ) := ( ℓ, r, c, uz ⊤).
+
+We will use the following standard facts from topology [17, Lemma A.52(b), The-orem A.31]: a continuous surjection from a compact space onto a Hausdorff space is a quotient map; and if two quotient maps have the same fibres, then the in-duced map between their images is a homeomorphism. Since u ∈ S1, we have 
+
+rank( uz ⊤) ≤ 1, so the image of the last component lies in the determinantal cone 
+
+C2,d = {Z ∈ R2×d : rank Z ≤ 1}. Using the coincidence of fibres, we will show that the resulting space is locally homeomorphic to a set that is not homeomorphic to Euclidean space. We claim that f and g have the same fibres, i.e. 
+
+f (p) = f (p′) ⇐⇒ g(p) = g(p′), p, p ′ ∈ K. 
+
+Indeed, ∥Mij −qij I2∥2 
+
+> F
+
+< ε 2 and continuity of the determinant give det Mij → q2 
+
+> ij
+
+;hence for small ε each Mij is invertible. Also we have 
+
+q−1 
+
+> ij
+
+Mij = R(ℓi + rj ) Sij , Sij := R(−rj )
+
+ aij + bij 
+
+2qij 
+
+I2 + aij − bij 
+
+2qij 
+
+T (u)
+
+
+
+R(rj ).
+
+Since aij , b ij → qij ̸ = 0 , for small ε we have aij /q ij > 0, bij /q ij > 0. Hence, Sij is symmetric positive definite. This is the polar decomposition, so R(ℓi + rj ) is uniquely determined by Mij . Since |ℓi+rj | < π/ 4, the angle ℓi+rj is unique, i.e. ℓi+rj = ℓ′
+
+> i
+
++r′ 
+
+> j
+
+.Combined with r1 = r′ 
+
+> 1
+
+= 0 , this yields ℓ = ℓ′ and r = r′ whenever f (p) = f (p′). It remains to consider the pairs (c, uz ⊤) and (c′, u ′z′⊤ ).Cancelling the outer rotations gives, for all i, j ,  
+
+> aij +bij
+> 2
+
+I2 + aij −bij  
+
+> 2
+
+T (u) = a′  
+
+> ij +b′
+> ij
+> 2
+
+I2 + a′  
+
+> ij −b′
+> ij
+> 2
+
+T (u′).
+
+Taking traces (using tr T (u) = 0 ) gives aij + bij = a′ 
+
+> ij
+
++ b′ 
+
+> ij
+
+, i.e. A + B = A′ + B′;subtracting the scalar parts yields (A.7) (aij − bij ) T (u) = ( a′ 
+
+> ij
+
+− b′ 
+
+> ij
+
+) T (u′).
+
+If A = B, then (a′ 
+
+> ij
+
+−b′ 
+
+> ij
+
+)T (u′) = 0 and since T (u′)̸ = 0 for all u, we have A′ = B′.If A = B and A′ = B′, then z = z′ = 0 , and injectivity of ψ gives c = c′. Therefore 
+
+uz ⊤ = u′z′⊤ = 0 , so g(p) = g(p′).Assume A̸ = B and choose (i0, j 0) with ∆i0j0̸ = 0 , where ∆ij := aij − bij and 
+
+∆′ 
+
+> ij
+
+:= a′ 
+
+> ij
+
+− b′ 
+
+> ij
+
+. Then (A.7) gives T (u′) = λT (u) with λ = ∆i0j0 /∆′ 
+
+> i0j0
+
+, and taking determinants, 
+
+−1 = det T (u′) = λ2 det T (u) = −λ2,
+
+so λ = ±1. Injectivity of u 7 → T (u) and T (u′) = ±T (u) gives u′ = ±u; substituting back into (A.7) yields ∆ij = ±∆′ 
+
+> ij
+
+, i.e. ∆′ = ±∆. With A + B = A′ + B′, this forces either (A′, B ′) = ( A, B ) or (A′, B ′) = ( B, A ). If (A′, B ′) = ( A, B ), then 
+
+ψ(c′ + z′) = ψ(c + z) and ψ(c′ − z′) = ψ(c − z), and since ψ is a diffeomorphism, we conclude that c′ + z′ = c + z and c′ − z′ = c − z, so c′ = c, z′ = z. If (A′, B ′) = ( B, A ),RIEMANNIAN OPTIMIZATION FOR GS ORTHOGONAL MATRICES 27 then ψ(c′ + z′) = ψ(c − z) and ψ(c′ − z′) = ψ(c + z), hence c′ + z′ = c − z and 
+
+c′ − z′ = c + z, so c′ = c, z′ = −z. In the second case u′z′⊤ = ( −u)( −z)⊤ = uz ⊤, so 
+
+g(p) = g(p′) holds in both cases. Conversely, suppose g(p) = g(p′). Then, by definition of g, the first three com-ponents coincide, i.e. ℓ = ℓ′, r = r′, c = c′, and uz ⊤ = u′z′⊤ . From c = c′ we have A = ψ(c + z), A′ = ψ(c + z′), B = ψ(c − z), B′ = ψ(c − z′). If z = 0 , then 
+
+u′z′⊤ = uz ⊤ = 0 . Since u′ ∈ S1, this forces z′ = 0 . Hence A′ = ψ(c) = A and 
+
+B′ = ψ(c) = B, so a′ 
+
+> ij
+
+= aij and b′ 
+
+> ij
+
+= bij . In the block formula (A.6) the coefficient 
+
+aij − bij vanishes (since A = B), so the term T (u) drops out and Mij is independent of u. Therefore M ′ 
+
+> ij
+
+= Mij regardless of the values of u, u ′, and f (p) = f (p′).If z̸ = 0 , then choosing an index k with zk̸ = 0 and comparing the k-th columns gives zku = z′
+
+> k
+
+u′. Taking norms yields z′ 
+
+> k
+
+= ±zk, hence u′ = ±u and z′ = ±z with the same sign, i.e. either (u′, z ′) = ( u, z ) or (u′, z ′) = ( −u, −z). In the first case A′ = A,
+
+B′ = B, T (u′) = T (u), so M ′ = M . In the second case z′ = −z, hence A′ = B,
+
+B′ = A, and T (u′) = −T (u); then 
+
+a′ 
+
+> ij
+
++ b′
+
+> ij
+
+2 = bij + aij 
+
+2 , a′ 
+
+> ij
+
+− b′
+
+> ij
+
+2 T (u′) = bij − aij 
+
+2 (−T (u)) = aij − bij 
+
+2 T (u),
+
+so again M ′ 
+
+> ij
+
+= Mij . Thus f (p) = f (p′). Hence the fibres of f and g coincide. Since K is compact, f and g are continuous, and f (K) and g(K) are Hausdorff, both f : K → f (K) and g : K → g(K) are quotient maps [17, Lemma A.52(b)]. Since their fibres coincide, [17, Theorem A.31] yields a unique homeomorphism h : f (K) →
+
+g(K) satisfying h(f (p)) = g(p) for every p ∈ K. To pass from these compact models to actual neighborhoods, it remains to check that M0 and 0 are interior points relative to the corresponding spaces. As shown earlier, when M → M0, we have A, B → Q0
+
+and θij → 0. Hence ℓi = θi1 → 0, r j = θ1j − θ11 → 0. Since ψ−1 is continuous and 
+
+ψ−1(Q0) = 0 , the convergences A → Q0 and B → Q0 imply c + z = ψ−1(A) → 0
+
+and c − z = ψ−1(B) → 0, hence c, z → 0. Consequently, for sufficiently small ε > 0,every M ∈ A orth 3 ∩ Bε(M0) admits a normalized representation M = f (ℓ, r, c, z, u )
+
+with |ℓi|, |rj | < η, ∥c∥, ∥z∥ < η. No additional restriction is needed for u, since u ∈ S1
+
+by construction and the entire sphere S1 is included in the last factor of K. Hence 
+
+Aorth 3 ∩ Bε(M0) ⊂ f (K). The left-hand side is an open neighborhood of M0 in the subspace topology of Aorth 3 (by definition); thus M0 is an interior point of f (K) relative to Aorth 3 . To obtain the corresponding statement for g(K), observe that 
+
+uz ⊤ : u ∈ S1, ∥z∥ ≤ η = C2,d ∩ B2dη (0) .
+
+Indeed, ∥uz ⊤∥F =
+
+qP2
+
+> i=1
+
+Pdj=1 (uizj )2 =
+
+rP2 
+
+> i=1
+
+u2
+
+> i
+
+  Pdj=1 z2
+
+> j
+
+
+
+= ∥u∥ ∥ z∥ =
+
+∥z∥, while every nonzero matrix Z ∈ C 2,d can be written as Z = uz ⊤ with u ∈
+
+S1. Therefore g(K) = [ −η, η ]2q−1 × Bdη (0) ×
+
+
+
+C2,d ∩ B2dη (0) 
+
+
+
+. In particular, W := (−η, η )2q−1 × Bdη (0) ×  C2,d ∩ B2dη (0)  is an open neighborhood of 0 in Y := Re × C 2,d ,and W ⊂ g(K).Finally, choose p0 = (0 , 0, 0, 0, u 0) ∈ K with arbitrary u0 ∈ S1. Then f (p0) = M0
+
+and g(p0) = 0 , so h(M0) = 0 . Let U0 := Aorth 3 ∩ Bε(M0). Since U0 ⊂ f (K), the set 
+
+h(U0) is open in g(K) and contains 0. Hence W0 := h(U0)∩W is an open neighborhood of 0 in Y : h(U0) being open in g(K) means h(U0) = O ∩ g(K) for some open O ⊂ Y ,so W0 = O ∩ W is open in Y , and it contains 0 because 0 ∈ h(U0) ∩ W. Its preimage 
+
+U := h−1(W0) is open in f (K) and contained in the open set U0; hence it is open 28 A. ALIEV, M. RAKHUBA 
+
+in Aorth 3 , and the restriction h|U : U −→ W0 is a homeomorphism. Consequently 
+
+(Aorth 3 , M 0) is locally homeomorphic to (Re × C 2,d , 0) , with e = 2 q − 1 + d, d = q(q−1) 2 ,and C2,d = {Z ∈ R2×d : rank Z ≤ 1}. Since being a topological manifold at a point is a local property and 
+
+(Aorth 3 , M 0) ∼=loc (Re × C 2,d , (0 , 0)) ,
+
+it is enough to study sufficiently small open neighborhoods of (0 , 0) in Re × C 2,d . For simplicity, we consider the case when d is odd (equivalently, q mod 4 ∈ { 2, 3}), and we conclude the absence of an induced manifold structure by the following lemma. 
+
+Lemma A.5. Let d ≥ 3 be odd, e ≥ 0, and C2,d := {Z ∈ R2×d : rank Z ≤ 1}.Then Re × C 2,d is not a topological manifold at (0 , 0) .Proof. Suppose, to the contrary, that Re × C 2,d is a topological manifold at (0 , 0) .Then there exists an open coordinate neighborhood U ∋ (0 , 0) homeomorphic to an open subset of some Euclidean space. For sufficiently small δ, ρ > 0,
+
+Beδ (0) × Vρ ⊂ U, Vρ := C2,d ∩ B2dρ (0) .
+
+Note that Vρ \ { 0} = C2,d ∩  B2dρ (0) \ { 0} is also open (as an open set with the closed point {0} removed). Hence Beδ (0) × (Vρ \ { 0}) ⊂ U is itself homeomorphic to an open subset of a Euclidean space and is therefore orientable. Now put Ld := C2,d ∩ S2d−1. Since C2,d is a cone, radial coordinates give a homeomorphism 
+
+Vρ \ { 0} ∼= (0 , ρ ) × Ld, Z 7 −→ 
+
+
+
+∥Z∥F , Z
+
+∥Z∥F
+
+
+
+,
+
+with inverse (r, Y ) 7 → rY . Moreover, define the continuous map Φ : S1 × Sd−1 → Ld,
+
+(u, v ) 7 → uv ⊤. We now prove that it is surjective. Let Z ∈ Ld, then rank Z = 1 
+
+and ∥Z∥F = 1 . Since Z has rank one, there exist nonzero vectors a ∈ R2 and 
+
+b ∈ Rd such that Z = ab ⊤. Consider u = a 
+
+> ∥a∥
+
+∈ S1, v = b 
+
+> ∥b∥
+
+∈ Sd−1. Because 
+
+∥Z∥F = ∥ab ⊤∥F = ∥a∥ ∥ b∥ = 1 , we obtain uv ⊤ = ab ⊤ 
+
+> ∥a∥ ∥ b∥
+
+= Z. Thus Φ is surjective. Let 
+
+π : S1 × Sd−1 →  S1 × Sd−1 / ∼, π(u, v ) = [ u, v ],
+
+where (u, v ) ∼ (−u, −v). Since Φ( −u, −v) = ( −u)( −v)⊤ = uv ⊤ = Φ( u, v ), the map 
+
+Φ is constant on the fibres of π. Hence, by the universal property of the quotient topology [17, Theorem A.30], there exists a unique continuous map 
+
+Φ :  S1 × Sd−1 / ∼ −→ Ld
+
+such that Φ = Φ ◦ π; explicitly, Φ([ u, v ]) = uv ⊤. The map Φ is surjective because Φ is surjective. To prove injectivity, suppose that uv ⊤ = u′v′⊤ . Multiplying on the right by v gives u(v⊤v) = u′(v′⊤ v). Since v ∈ Sd−1, v⊤v = ∥v∥2 = 1 , so u = ( v′⊤ v)u′.Taking norms and using ∥u∥ = ∥u′∥ = 1 yields 1 = |v′⊤ v|. By Cauchy-Schwarz, 
+
+|v′⊤ v| ≤ ∥ v′∥ ∥ v∥ = 1 , and equality holds iff v′ and v are linearly dependent. Since both are unit vectors, this means v′ = ±v: indeed, linear dependence gives v′ = λv ,and taking norms yields 1 = ∥v′∥ = |λ| ∥ v∥ = |λ|, so λ = ±1. Hence v′⊤ v = ±1, and from u = ( v′⊤ v)u′ we get u = ±u′ with the same sign. Therefore (u′, v ′) = ( u, v ) or 
+
+(u′, v ′) = ( −u, −v), proving that Φ on the quotient is injective. Since S1 × Sd−1 is compact, its quotient  S1 × Sd−1 / ∼ is compact, while 
+
+Ld ⊂ R2×d is Hausdorff. Therefore Φ is a homeomorphism by [17, Lemma A.52(d)]. RIEMANNIAN OPTIMIZATION FOR GS ORTHOGONAL MATRICES 29 Consequently, Ld is homeomorphic to the quotient  S1 × Sd−1 / (( u, v ) ∼ (−u, −v)) .This quotient, along with much more general objects, is studied in [6]; in his notation, it is P(1 ,d −1) . By [6, Corollary 3.8], P¯n is orientable if and only if |¯n| + r is even. Here 
+
+¯n = (1 , d − 1) , so |¯n| = d and r = 2 ; since d is odd, Ld is nonorientable. Therefore 
+
+Beδ (0) × (Vρ \ { 0}) ∼= Beδ (0) × (0 , ρ ) × Ld
+
+is nonorientable [13, Section 3.3, Exercise 5]. This contradicts the fact that it is ho-meomorphic to an open subset of Euclidean space, since it possesses an orientation [17, Proposition 15.11] and orientation is a homeomorphism invariant [13, Theorem 3.26 & Section 2.1, page 108]. Hence Re × C 2,d is not a topological manifold at (0 , 0) .To summarize the argument, we combine two local descriptions of the same neigh-bourhood of M0. We have already proved that there exist neighborhoods U0 of M0
+
+and W0 of (0 , 0) such that U0 ∼= W0 ⊂ Re × C 2,d . Suppose, for contradiction, that 
+
+Aorth 3 is a manifold at M0. Then there is another neighbourhood U1 homeomorphic to an open subset of Rs. Replacing U0 by U0 ∩ U1, both descriptions apply simultane-ously. The image of this intersection in Re ×C 2,d contains Beδ (0) ×Vρ for small δ, ρ > 0.After deleting the zero matrix, we obtain Beδ (0) × (Vρ \ { 0}) ∼= Beδ (0) × (0 , ρ ) × Ld. For odd d, Ld ∼= P(1 ,d −1) is nonorientable, so this open set is nonorientable. Its preimage in Aorth 3 is an open subset of U1, hence homeomorphic to an open subset of Rs, which is orientable. Contradiction. Thus Aorth 3 is not a topological manifold at M0.
+
+Appendix B. Geodesics in GS -orthogonal matrices for k1 ≥ b2 and m = 2 .
+
+The fact that Φ is a covering map for ASO  
+
+> m
+
+under the condition k1 ≥ b2 is established in [2, Theorem 3 and Appendix B]. We now prove that Φ is a local isometry with respect to the standard product metric on G = B2 × B 1 (where Bi = [SO( bi)] ki ) and the ambient Frobenius metric on Aorth 2 . Using this fact, we prove that the geodesics on the manifold of GS -orthogonal matrices are projections of geodesics of the group 
+
+G, where the geodesics decompose into blockwise geodesics and are explicitly known. For this, we need the following proposition and definitions. 
+
+Definition B.1 (pages 330-331 in [17], Proposition, Definition 1.106 in [8]). Let 
+
+F : M → N be a smooth map and g a Riemannian metric on N . The pullback metric 
+
+F ∗g on M is defined by (F ∗g)p(v, w ) = gF (p)(d Fp(v), dFp(w)) , p ∈ M, v, w ∈ TpM. 
+
+Definition B.2 (Definition 2.5 in [8], page 24 in [18] or Definition 1.4.5 in [16]). 
+
+A smooth map F : ( M, g M ) → (N, g N ) between Riemannian manifolds is a local isometry if for every p ∈ M the differential dFp : TpM → TF (p)N is a linear isometry, i.e., F ∗gN = gM .
+
+Definition B.3 (Definition 1.83 in [8] or page 106 in [17]). Let M and ˜M be two manifolds. A map p : ˜M → M is a smooth covering map if: 
+
+• p is smooth and surjective, 
+
+• for every point x ∈ M , there exists a neighborhood U of x in M such that 
+
+p−1(U ) is a disjoint union S 
+
+> i∈I
+
+Ui of open subsets of ˜M , and for each i ∈ I,the restriction p : Ui → U is a diffeomorphism. 
+
+Definition B.4 (Definition 2.17 in [8] or page 27 in [18]). Let (M, g ) and ( ˜M , h )
+
+be two Riemannian manifolds. A map p : ˜M → M is a Riemannian covering map if it is a smooth covering map and a local isometry. 
+
+Proposition B.5 (Proposition 2.81 in [8] or Lemma 11.6 in [18]). Let p :(N, h ) → (M, g ) be a Riemannian covering map. The geodesics of (M, g ) are the 30 A. ALIEV, M. RAKHUBA 
+
+projections of the geodesics of (N, h ), and the geodesics of (N, h ) are the liftings of those of (M, g ).
+
+For Bi = [SO( bi)] ki , we endow each SO( bi) with the standard bi-invariant metric induced by the Frobenius inner product ⟨X, Y ⟩ = tr( X⊤Y ). The product Riemannian metric on the Lie group G = B2 × B 1 is given by the direct sum of these metrics. For any two tangent vectors X = ( B2C2, B 1C1) and Y = ( B2D2, B 1D1) at a point 
+
+(B2, B 1) ∈ G, the metric is explicitly given by: (B.1) g(B2,B 1)(X, Y ) = 
+
+> k2
+
+X
+
+> i=1
+
+tr 
+
+
+
+(C(i)2 )⊤D(i)2
+
+
+
++
+
+> k1
+
+X
+
+> j=1
+
+tr 
+
+
+
+(C(j)1 )⊤D(j)1
+
+
+
+.
+
+For this metric, we show that the group action Φ (( B2, B 1), x ) = B2xB ⊤ 
+
+> 1
+
+is a Rie-mannian covering map. By Proposition B.5, this allows us to obtain the geodesics of GS -orthogonal matrices as projections of block-wise geodesics in G. As shown in [2, Appendix B], under the condition k1 ≥ b2, the map Φ is a smooth covering map, which guarantees the existence of a unique Riemannian metric on G making Φ
+
+a Riemannian covering map. Below, we rigorously prove that the standard product Frobenius metric (B.1) is precisely this unique metric, thereby establishing that Φ is a local isometry. 
+
+Proposition B.6. Assume k1 ≥ b2. Then the map Φ : G → A orth 2 , Φ( B2, B 1) = 
+
+B2P1B⊤ 
+
+> 1
+
+, is a local isometry, where G = B2 × B 1 is endowed with the product of the standard Frobenius metrics, and Aorth 2 inherits the ambient Frobenius metric. Proof. It suffices to verify the equality of norms at each point, since the equality of the metrics follows by polarization: 
+
+gN (d Fp(v), dFp(w)) = 14
+
+ ∥dFp(v) + d Fp(w)∥2 
+
+> gN
+
+− ∥ dFp(v) − dFp(w)∥2
+
+> gN
+
+
+
+= 14
+
+ ∥dFp(v + w)∥2 
+
+> gN
+
+− ∥ dFp(v − w)∥2
+
+> gN
+
+
+
+= 14
+
+ ∥v + w∥2 
+
+> gM
+
+− ∥ v − w∥2
+
+> gM
+
+ = gM (v, w ).
+
+Let (B2, B 1) ∈ G and take a tangent vector X = ( B2C2, B 1C1) ∈ T(B2,B 1)G, where 
+
+C2 ∈ so block (b2, k 2) and C1 ∈ so block (b1, k 1) are block-diagonal skew-symmetric ma-trices. Define Ω2 := B2C2B⊤ 
+
+> 2
+
+and Ω1 := B1C1B⊤ 
+
+> 1
+
+. The differential of Φ acts as 
+
+dΦ (B2,B 1)(B2C2, B 1C1) = ( B2C2)P1B⊤ 
+
+> 1
+
++ B2P1(B1C1)⊤. Since (B1C1)⊤ = −C1B⊤ 
+
+> 1
+
+,and C1B⊤ 
+
+> 1
+
+= B⊤ 
+
+> 1
+
+Ω1 (because C1 = B⊤ 
+
+> 1
+
+Ω1B1), we obtain dΦ( X) = B2C2P1B⊤ 
+
+> 1
+
+−
+
+B2P1C1B⊤ 
+
+> 1
+
+. Now compute the squared Frobenius norm. Left and right multiplication by orthogonal matrices are isometries, hence 
+
+∥dΦ( X)∥2 
+
+> F
+
+= ∥B⊤ 
+
+> 2
+
+dΦ( X)B1P ⊤ 
+
+> 1
+
+∥2 
+
+> F
+
+= ∥C2 − P1C1P ⊤ 
+
+> 1
+
+∥2 
+
+> F
+
+= ∥C2∥2 
+
+> F
+
++ ∥C1∥2 
+
+> F
+
+.
+
+The last equality follows by reasoning analogous to that in Section 3.1. Also, 
+
+∥X∥2 
+
+> G
+
+= ∥B2C2∥2 
+
+> F
+
++ ∥B1C1∥2 
+
+> F
+
+=
+
+> k2
+
+X
+
+> i=1
+
+∥C(i)2 ∥2 
+
+> F
+
++
+
+> k1
+
+X
+
+> j=1
+
+∥C(j)1 ∥2 
+
+> F
+
+= ∥C2∥2 
+
+> F
+
++ ∥C1∥2 
+
+> F
+
+.
+
+Thus ∥dΦ( X)∥2 
+
+> F
+
+= ∥X∥2 
+
+> G
+
+for every tangent vector X. Polarizing this identity yields 
+
+Φ∗g = h, i.e., Φ is a local isometry. RIEMANNIAN OPTIMIZATION FOR GS ORTHOGONAL MATRICES 31 
+
+Corollary B.7. Being a local isometry — and, even more strongly, a Riemann-ian covering map — is a powerful condition. From it follow the preservation of curve lengths (see [17, Exercise 13.24]), the invariance of the curvature tensor (see [18, Lemma 7.2]), and other analogous statements. 
+
+We also give a simpler proof that Φ is a Riemannian covering map, using similar statements but a more direct argument that avoids dependence on [2]. 
+
+Definition B.8 (Definition 2.101 in [8], page 108 in [18] or Definition 1.7.1 in [16]). A Riemannian manifold (M, g ) is said to be geodesically complete if every geodesic can be extended to a geodesic defined on all of R.
+
+Theorem B.9 (Hopf-Rinow (see Theorem 6.13 in [18], Theorem 2.103 & Corol-lary 2.105 in [8] or Theorem 1.7.1 in [16])). A connected Riemannian manifold is geodesically complete if and only if it is complete as a metric space. 
+
+Proposition B.10 (Lemma 11.6 in [18] or Proposition 2.106 in [8]). Let p :(M, g ) → (N, h ) be a local isometry. If (M, g ) is geodesically complete, then p is a Riemannian covering map and (N, h ) is also geodesically complete. 
+
+Since the group G is complete as a metric space (as a Cartesian product of com-plete (compact) spaces) and is connected, Theorem B.9 implies that G is geodesically complete (see Definition B.8). Moreover, the group action Φ is a local isometry by Proposition B.6. Consequently, by Proposition B.10, the projections of geodesics of 
+
+G are geodesics in the orbit, i.e., in the manifold of GS -orthogonal matrices. It re-mains to show that the artificial transposition (introduced to ensure a well-defined Lie group action) has no actual effect. Given matrices L1P R 1 = L1P (R⊤ 
+
+> 1
+
+)⊤ and 
+
+L2P R 2 = L2P (R⊤ 
+
+> 2
+
+)⊤, an extra transposition is required after connecting R⊤ 
+
+> 1
+
+and 
+
+R⊤ 
+
+> 2
+
+. As shown in [2, Proposition 10], this is equivalent to simply connecting the blocks. 
+
+Remark 5. The inclusion of fixed orthogonal boundary matrices (i.e., permuta-tions Pin and Pout ) yields a global isometry eΦ( B2, B 1) = Pout B2P1B⊤ 
+
+> 1
+
+Pin . Conse-quently, by the same reasoning, when k1 ≥ b2 the geodesics in this space are also obtained from blockwise geodesics. 
+
+Appendix C. Hierarchical and Higher-order GS -Decompositions. 
+
+Suppose that each block V inside a block-diagonal factor Bi is itself parameterized as a smaller GS matrix (with the same m for every block). For example, for m = 2 we might write V = eB2 eP eB1. Substituting such expansions back into every block of the global matrix algebraically flattens the nested structure into a standard, higher-order 
+
+GS decomposition of increased depth m. The inner permutations eP systematically assemble into global block-permutation matrices, which are themselves permutation matrices. However, note that if each eP is a Perfect Shuffle matrix, the resulting global permutation is a block-perfect shuffle, which globally is not a standard perfect shuffle matrix, while the inner block-diagonal matrices concatenate into global block-diagonal factors. This flattening principle is particularly interesting when applied to the m = 3 
+
+CS-decomposition from Appendix A ( q = 2 ). If we recursively decompose the outer 
+
+N/ 2 × N/ 2 blocks (provided N is a multiple of 4) using the same m = 3 pattern, we have several options: we may apply this decomposition only to B3, only to B1, or to both. Observe that at each step we obtain several new decompositions of the orthog-onal group; however, as demonstrated in Remark 4, no excess degrees of freedom are added. Specifically, for a matrix of size N = 2 kp, the choice of which block-diagonal 32 A. ALIEV, M. RAKHUBA 
+
+factors to recursively decompose determines different decompositions. When N = 2 k,we can descend all the way down to base blocks of size 2 × 2, yielding an alternation of block-diagonal matrices (with 2 × 2 blocks) and permutation matrices that pos-sess a block-perfect shuffle structure. These decompositions are memory-heavy and impractical for learning orthogonal matrices, but they resemble Givens matrices and may find applications in other domains. Now we demonstrate Aorth 
+
+> m
+
+̸ = Am ∩ O( N ) for factorizations with m = 4 factors. Specifically, for m = 4 , we construct a matrix Q ∈ A 4 ∩ O( N ) that does not belong to Aorth 4 . We consider the minimal case: N = 6 , with m = 4 factors. Each factor consists of three blocks of size 2 × 2. We fix the permutation matrix between every layer to be the standard Perfect Shuffle P = P(2 ,3) .We will construct a counterexample in a partially explicit way. By definition, 
+
+Q ∈ A orth 4 admits a factorization Q = U4P U 3P U 2P U 1, where Ui ∈ [O(2)] 3. Observe that by isolating the two inner layers, we have: 
+
+
+
+(U ⊤ 
+
+> 4
+
+)11 Q11 (U ⊤ 
+
+> 1
+
+)11 (U ⊤ 
+
+> 4
+
+)11 Q12 (U ⊤ 
+
+> 1
+
+)22 (U ⊤ 
+
+> 4
+
+)11 Q13 (U ⊤ 
+
+> 1
+
+)33 
+
+(U ⊤ 
+
+> 4
+
+)22 Q21 (U ⊤ 
+
+> 1
+
+)11 (U ⊤ 
+
+> 4
+
+)22 Q22 (U ⊤ 
+
+> 1
+
+)22 (U ⊤ 
+
+> 4
+
+)22 Q23 (U ⊤ 
+
+> 1
+
+)33 
+
+(U ⊤ 
+
+> 4
+
+)33 Q31 (U ⊤ 
+
+> 1
+
+)11 (U ⊤ 
+
+> 4
+
+)33 Q32 (U ⊤ 
+
+> 1
+
+)22 (U ⊤ 
+
+> 4
+
+)33 Q33 (U ⊤ 
+
+> 1
+
+)33 
+
+ = P U 3P U 2P =: V. 
+
+Because the diagonal blocks (U ⊤ 
+
+> 4
+
+)ii and (U ⊤ 
+
+> 1
+
+)jj are orthogonal matrices, we use the conjugation relation Qij = U (i)4 Vij U (j)1 . This two-sided orthogonal equivalence will be our main tool. Because each 2 × 2 orthogonal block is expressed via sines and cosines, the blocks are quite strongly related. Making this precise is somewhat technical; the details are given below. We now explicitly compute the 2 × 2 blocks of the core matrix V = P U 3P U 2P ,where U3 = diag( W1, W 2, W 3), U 2 = diag( Y1, Y 2, Y 3) with Wi, Y i ∈ O(2) . We param-etrize 2 × 2 orthogonal blocks as follows 
+
+Wi =
+
+ai bi
+
+ci di
+
+
+
+, Yi =
+
+ei fi
+
+gi hi
+
+
+
+, for i ∈ { 1, 2, 3}.
+
+Note that |ai| = |di|, |bi| = |ci|, |ei| = |hi|, |fi| = |gi|, |ai|2 + |bi|2 = 1 , |ei|2 + |fi|2 = 1 
+
+(these identities follow directly from the orthogonality of the 2 × 2 blocks). For P = P(2 ,3) , the corresponding zero-based index map is σ = (0 , 3, 1, 4, 2, 5) .
+
+Using this permutation, the two matrices entering the product V = ( P U 3P )( U2P )
+
+are 
+
+P U 3P =
+
+
+
+a1 0 b1 0 0 00 b2 0 0 a2 00 0 0 a3 0 b3
+
+c1 0 d1 0 0 00 d2 0 0 c2 00 0 0 c3 0 d3
+
+
+
+, U2P =
+
+
+
+e1 0 f1 0 0 0
+
+g1 0 h1 0 0 00 f2 0 0 e2 00 h2 0 0 g2 00 0 0 e3 0 f3
+
+0 0 0 g3 0 h3
+
+
+
+.
+
+Therefore, (C.1) V = P U 3P U 2P =
+
+
+
+a1e1 b1f2 a1f1 0 b1e2 0
+
+b2g1 0 b2h1 a2e3 0 a2f3
+
+0 a3h2 0 b3g3 a3g2 b3h3
+
+c1e1 d1f2 c1f1 0 d1e2 0
+
+d2g1 0 d2h1 c2e3 0 c2f3
+
+0 c3h2 0 d3g3 c3g2 d3h3
+
+
+
+.RIEMANNIAN OPTIMIZATION FOR GS ORTHOGONAL MATRICES 33 Only three 2 × 2 blocks of V are needed: (C.2) V13 =
+
+b1e2 00 a2f3
+
+
+
+, V22 =
+
+ 0 b3g3
+
+c1f1 0
+
+
+
+, V31 =
+
+d2g1 00 c3h2
+
+
+
+.
+
+Since Qij = U (i)4 Vij U (j)1 and the outer blocks are orthogonal, Qij Q⊤ 
+
+> ij
+
+and Vij V ⊤
+
+> ij
+
+are orthogonally similar. We will use this observation to derive a contradiction from these three blocks alone. We now want to construct Q ∈ A 4 ∩ O(6) , in other words, we impose QQ ⊤ =
+
+B4CB 1B⊤ 
+
+> 1
+
+C⊤B⊤ 
+
+> 4
+
+= I6, which is equivalent to CB 1B⊤ 
+
+> 1
+
+C⊤ = B−14 B−⊤  
+
+> 4
+
+. Introducing 
+
+H := B1B⊤ 
+
+> 1
+
+and G := B−14 B−⊤  
+
+> 4
+
+(so that B1 = H1/2 and B4 = G−1/2), we can reformulate the problem as finding positive definite block-diagonal matrices H and 
+
+G satisfying CHC ⊤ = G. In fact, such matrices are found by solving systems of equations (and inequalities); the solutions constitute an entire family. For the sake of brevity, we present only a single example of such matrices. Let A(s) := 
+
+1 11 s
+
+
+
+and set B2 = diag ( A(−3) , A (−1/3) , A (1 /3)) and B3 =diag ( A(1 /3) , A (−1/3) , A (−3)) . Then substituting into (C.1), we obtain 
+
+C := P B 3P B 2P =
+
+
+
+1 1 1 0 1 01 0 −3 1 0 10 − 13 0 1 1 13
+
+1 13 1 0 13 0
+
+− 13 0 1 1 0 10 − 13 0 −3 1 −1
+
+
+
+.
+
+Define 
+
+H1 =
+
+ 74 −3
+
+−3 21 4
+
+
+
+, H2 =
+
+ 14131312
+
+
+
+, H3 =
+
+ 34 −1
+
+−1 32
+
+
+
+,
+
+and H := diag( H1, H 2, H 3). Hi are positive definite, and 
+
+CHC ⊤ = G := diag( G1, G 2, G 3),
+
+where 
+
+G1 =
+
+ 2 − 83
+
+− 83 4
+
+
+
+, G2 =
+
+ 43898923
+
+
+
+, G3 =
+
+ 28 9 − 16 3
+
+− 16 328 3
+
+
+
+.G is also positive definite and invertible. Set B1 := H1/2, B 4 := G−1/2, Q := B4CB 1.
+
+It remains to show Q / ∈ A orth 4 . Note that C13 = I2, C 22 =
+
+0 11 0
+
+
+
+, C 31 = − 13 I2. Since 
+
+Qij = G−1/2 
+
+> i
+
+Cij H1/2 
+
+> j
+
+,
+
+Q13 Q⊤ 
+
+> 13
+
+= Q22 Q⊤ 
+
+> 22
+
+= 38 I2, Q31 Q⊤ 
+
+> 31
+
+= 116 I2.
+
+Now assume Q = U4P U 3P U 2P U 1 with Ui ∈ [O(2)] 3, and set V := P U 3P U 2P .Since Qij = U (i)4 Vij U (j)1 , we have Qij Q⊤ 
+
+> ij
+
+= U (i)4 Vij V ⊤ 
+
+> ij
+
+(U (i)4 )⊤ = const ∗I2, i.e. 
+
+V13 V ⊤ 
+
+> 13
+
+= V22 V ⊤ 
+
+> 22
+
+= 38 I2, V 31 V ⊤ 
+
+> 31
+
+= 116 I2. Using (C.2), we obtain 
+
+|b1e2| = |b3g3| = |a2f3| = |c1f1| =
+
+r 38 , |c3h2| = |d2g1| = 14 .34 A. ALIEV, M. RAKHUBA 
+
+But orthogonality of W3, Y 2 gives |b3| = |c3|, |e2| = |h2|, while |b1|, |g3| ≤ 1. Hence we obtain a contradiction 
+
+38 = |b1e2| | b3g3| = |b1| | e2| | b3| | g3| = |b1| | h2| | c3| | g3| = |b1g3| | c3h2| ≤ 14 ,
+
+Therefore Q / ∈ A orth 4 , i.e. Aorth 4̸ = A4 ∩ O(6) . For conciseness, the explicit matrix multiplications are omitted; verification of the claimed properties can be found in the file gs_testing.ipynb .We now demonstrate how a decomposition consisting of m matrices can be ex-tended to one consisting of m + 1 matrices while preserving the same properties. Although this construction is somewhat artificial, it demonstrates that different vari-ants may occur in higher-order decompositions. Let Pm := Π 12 =
+
+ 0 Ip 0
+
+Ip 0 00 0 IN −2p
+
+̸ = IN (with N = pq ) be the permutation matrix interchanging the first two block coordinates. Define an (m + 1) -factor family by setting Pm = Π 12 and requiring the new factor Bm+1 to have the same block structure as Bm. Then Am+1 = Π 12 Am, Aorth  
+
+> m+1
+
+= Π 12 Aorth  
+
+> m
+
+. Moreover, Aorth  
+
+> m+1
+
+is a manifold if and only if Aorth  
+
+> m
+
+has the same property. We now prove this claim. Let Bm = diag  A(1) , A (2) , . . . , A (q) be an arbitrary ad-missible leftmost factor. Conjugation by Π12 simply interchanges its first two blocks. Indeed, on the first two block coordinates, 
+
+ 0 Ip
+
+Ip 0
+
+  A(1) 00 A(2) 
+
+  0 Ip
+
+Ip 0
+
+
+
+=
+
+A(2) 00 A(1) 
+
+
+
+,
+
+whereas all remaining blocks are unchanged. Hence 
+
+Π⊤
+
+> 12
+
+BmΠ12 = diag  A(2) , A (1) , A (3) , . . . , A (q) , which has exactly the same block struc-ture as Bm. Now consider an arbitrary matrix in the extended family Am+1 =
+
+Bm+1 Π12 BmPm−1 · · · P1B1. B m+1 Π12 Bm = Π 12 
+
+ Π⊤
+
+> 12
+
+Bm+1 Π12 
+
+ Bm since Π212 = IN .Both matrices inside the parentheses and Bm are block diagonal with the same p × p
+
+block structure. Their product therefore has the same structure. Denoting this prod-uct by eBm, we obtain 
+
+Am+1 = Π 12 eBmPm−1 · · · P1B1 ∈ Π12 Am.
+
+Thus Am+1 ⊆ Π12 Am. Conversely, for every A = BmPm−1 · · · P1B1 ∈ A m, we may choose Bm+1 = IN . Then Π12 A = Bm+1 Π12 BmPm−1 · · · P1B1 ∈ A m+1 . Hence 
+
+Am+1 = Π 12 Am.
+
+Exactly the same argument applies to orthogonal factors. Indeed, if Bm+1 and 
+
+Bm are block-diagonal orthogonal matrices, then  Π⊤
+
+> 12
+
+Bm+1 Π12 
+
+ Bm is again block-diagonal and orthogonal. Therefore Aorth  
+
+> m+1
+
+= Π 12 Aorth  
+
+> m
+
+. Since Π12 is orthogonal, 
+
+Π12 A ∈ O( N ) ⇐⇒ A ∈ O( N ), and consequently Am+1 ∩ O( N ) = Π 12 (Am ∩ O( N )) .
+
+Together with Aorth  
+
+> m+1
+
+= Π 12 Aorth  
+
+> m
+
+, this proves the claimed equivalence. Finally, left multiplication M 7 −→ Π12 M is a linear isometry of RN ×N , since 
+
+∥Π12 M − Π12 M0∥F = ∥M − M0∥F .
+
+Hence it is an ambient diffeomorphism mapping Aorth  
+
+> m
+
+onto Aorth  
+
+> m+1
+
+and Am ∩O( N )
+
+onto Am+1 ∩ O( N ). Therefore their local topological and smooth structures are identical. 
+
+Corollary C.1. For every m ≥ 4, there exist decompositions with Aorth  
+
+> m
+
+= Am ∩
+
+O( N ), and others where the equality fails. The same flexibility holds for the manifold structure of Aorth  
+
+> m
+
+and Am ∩ O( N ).RIEMANNIAN OPTIMIZATION FOR GS ORTHOGONAL MATRICES 35 
+
+Remark 6. Given m, permutation matrices and block sizes, the proof or disproof of topological properties, the sufficiency of orthogonal blocks and related questions – becomes cumbersome. It is unclear whether there is a way to simplify the arguments. 
+
+Remark 7. We note that we have repeatedly relied on the fact that the matrix 
+
+P ⊤(·)P (where P is a Perfect Shuffle permutation) possesses a block structure with diagonal blocks. This property, however, is not exclusive to the Perfect Shuffle: for instance, one may first shuffle the elements between the blocks and then apply the Perfect Shuffle. Furthermore, the CS decomposition (and hence the hierarchical GS 
+
+decompositions) also holds in the unitary case, and Proposition A.3, the counterexam-ples, and so on, extend naturally to some other permutation matrices and/or unitary blocks. 
+
+Appendix D. Invertible blocks. Following the orthogonal-block case [2], we can define a group action that yields an immersed submanifold (see Problem 21-17 in [17]), which is not necessarily embedded. Although it may still be embeddable, our tools only guarantee an immersion. This means that the topology induced on the set may differ from that of GL( N ); nevertheless, it remains a submanifold. Also observe that the set P ⊤ 
+
+> 1
+
+diag( λ1, . . . , λ N )P1 = diag( λπ(1) , . . . , λ π(N )) is contained in B× 
+
+> 2
+
+. This implies that the dimension of Stab G(P1) is at least N . Hence, under the condition 
+
+k1 ≥ b2, the perfect shuffle matrix also maximizes the dimension of the decomposition set in the case of invertible blocks. This means that for m = 2 we can also run RGD as in the orthogonal-block case, but such an extension lies beyond the scope of this paper. 
+
+Appendix E. Generalization to Other Compact Matrix Groups. 
+
+The Riemannian framework extends naturally to some other compact Lie groups with only minor modifications. For SO( b), the tangent space and gradient projection are identical to the orthogonal case O( b); the determinant +1 is preserved by sev-eral retractions provided the initial point lies in SO( b). For the unitary group U( b),the Riemannian metric uses the real part of the Frobenius inner product, and the orthogonal projection replaces skew-symmetric matrices with skew-Hermitian ones: 
+
+skew( A) = 12 (A − A∗). Note that in U( b), an overlap is always present, the U( b)
+
+case uses the same algorithmic structure; these modifications are straightforward and do not alter the method’s core efficiency or structural design. Mathematical and implementation details are available in the library’s source code.                           
+
+> REFERENCES [1] P.-A. Absil, R. Mahony, and R. Sepulchre ,Optimization Algorithms on Matrix Manifolds ,Princeton University Press, Princeton, NJ, 2008, https://doi.org/10.1515/ 9781400830244. [2] A. Aliev, K. Garifullin, N. Yudin, V. Soboleva, A. Molozhavenko, I. Oseledets, A. Alanov, and M. Rakhuba ,OrthoFuse: Training-free Riemannian fusion of orthogo-nal style-concept adapters for diffusion models , in Proceedings of the IEEE/CVF Confer-ence on Computer Vision and Pattern Recognition (CVPR), 2026. [3] E. Cand` es, L. Demanet, and L. Ying ,A Fast Butterfly Algorithm for the Computation of Fourier Integral Operators , Multiscale Modeling & Simulation, 7 (2009), pp. 1727–1750, https://doi.org/10.1137/080734339. [4] T. Dao, B. Chen, N. Sohoni, A. Desai, M. Poli, J. Grogan, A. Liu, A. Rao, A. Rudra, and C. R´ e,Monarch: Expressive Structured Matrices for Efficient and Accurate Train-ing , in Proceedings of the 39th International Conference on Machine Learning (ICML), vol. 162 of Proceedings of Machine Learning Research, PMLR, 2022, pp. 4690–4721, https://proceedings.mlr.press/v162/dao22a.html.
+
+36 A. ALIEV, M. RAKHUBA [5] T. Dao, A. Gu, M. Eichhorn, A. Rudra, and C. R´ e, Learning Fast Algorithms for Linear Transforms Using Butterfly Factorizations , in Proceedings of the 36th International Conference on Machine Learning (ICML), vol. 97 of Proceedings of Machine Learning Research, PMLR, 2019, pp. 1517–1527, https://proceedings.mlr.press/v97/dao19a.html. [6] D. M. Davis , Projective product spaces , Journal of Topology, 3 (2010), pp. 265–279, https: //arxiv.org/abs/0908.0525v2. [7] P. J. Davis , Circulant Matrices , Pure and Applied Mathematics, John Wiley and Sons, 1979. [8] S. Gallot, D. Hulin, and J. Lafontaine , Riemannian Geometry , Springer, 3rd ed., 2004, https://doi.org/10.1007/978-3-642-18855-8. [9] G. H. Golub and C. F. Van Loan , Matrix Computations , The Johns Hopkins University Press, Baltimore, 4th ed., 2013. [10] V. V. Gorbatsevich, A. L. Onishchik, and E. B. Vinberg , Lie Groups and Lie Alge-bras I: Foundations of Lie Theory. Lie Transformation Groups , vol. 20 of Encyclopaedia of Mathematical Sciences, Springer-Verlag, Berlin, Heidelberg, 1993, https://doi.org/10. 1007/978-3-642-57999-8. [11] M. Gorbunov, N. Yudin, V. Soboleva, A. Alanov, A. Naumov, and M. Rakhuba ,
+
+Group and Shuffle: Efficient Structured Orthogonal Parametrization , in Proceedings of the 38th Annual Conference on Neural Information Processing Systems (NeurIPS), Vancouver, Canada, Dec. 2024, https://doi.org/10.52202/079017-2195. [12] R. M. Gray , Toeplitz and Circulant matrices: A Review , Foundations and Trends in Com-munications and Information Theory, 2 (2006), pp. 155–239, https://doi.org/10.1561/ 0100000006. [13] A. Hatcher , Algebraic Topology , Cambridge University Press, Cambridge, 2002. 2015 reprint-ing. [14] N. J. Higham , Accuracy and Stability of Numerical Algorithms , SIAM, 2nd ed., 2002, https: //doi.org/10.1137/1.9780898718027. [15] E. J. Hu, Y. Shen, P. Wallis, Z. Allen-Zhu, Y. Li, S. Wang, L. Wang, and W. Chen ,
+
+LoRA: Low-Rank Adaptation of Large Language Models , in International Conference on Learning Representations (ICLR), 2022, https://openreview.net/forum?id=nZeVKeeFYf9. [16] J. Jost , Riemannian Geometry and Geometric Analysis , Universitext, Springer, 7th ed., 2017, https://doi.org/10.1007/978-3-319-61860-9. [17] J. M. Lee , Introduction to Smooth Manifolds , vol. 218 of Graduate Texts in Mathematics, Springer, 2nd ed., 2012, https://doi.org/10.1007/978-1-4419-9982-5. [18] J. M. Lee , Introduction to Riemannian Manifolds , vol. 176 of Graduate Texts in Mathematics, Springer, 2nd ed., 2018, https://doi.org/10.1007/978-3-319-91755-9. [19] Q. Li, S. Haque, C. Anil, J. Lucas, R. Grosse, and J. Jacobsen , Preventing Gradient Attenuation in Lipschitz Constrained Convolutional Networks , in Advances in Neural Infor-mation Processing Systems (NeurIPS), vol. 32, 2019, pp. 15390–15402, https://proceedings. neurips.cc/paper/2019/hash/1ce3e6e3f452828e23a0c94572bef9d9-Abstract.html. [20] Y. Li, H. Yang, E. R. Martin, K. L. Ho, and L. Ying , Butterfly Factorization , Multiscale Modeling & Simulation, 13 (2015), pp. 714–732, https://doi.org/10.1137/15M1007173. [21] W. Liu, Z. Qiu, Y. Feng, Y. Xiu, Y. Xue, L. Yu, H. Feng, Z. Liu, J. Heo, S. Peng, Y. Wen, M. J. Black, A. Weller, and B. Sch ¨ olkopf , Parameter-Efficient Or-thogonal Finetuning via Butterfly Factorization , in International Conference on Learning Representations (ICLR), 2024, https://openreview.net/forum?id=7NzgkEdGyr. [22] A. Novikov, M. Rakhuba, and I. Oseledets , Automatic differentiation for Riemannian optimization on low-rank matrix and tensor-train manifolds , SIAM Journal on Scientific Computing, 44 (2022), https://doi.org/10.1137/20M1356774. [23] G. Olikier, P. Mlinari´ c, P.-A. Absil, and A. Uschmajew , The Tangent Cone to the Real Determinantal Variety: Various Expressions and a Proof , Set-Valued and Variational Analysis, 34 (2026), https://doi.org/10.1007/s11228-026-00796-4. Article 8. [24] V. Y. Pan , Structured Matrices and Polynomials: Unified Superfast Algorithms , Birkh¨ auser Boston, Boston, MA, 2001, https://doi.org/10.1007/978-1-4612-0129-8. [25] D. S. Parker , Random Butterfly Transformations with Applications in Computational Linear Algebra , Tech. Report CSD-950023, UCLA, 1995. [26] Z. Qiu, W. Liu, H. Feng, Y. Xue, Y. Feng, Z. Liu, D. Zhang, A. Weller, and B. Sch ¨ olkopf , Controlling Text-to-Image Diffusion by Orthogonal Finetuning , in Ad-vances in Neural Information Processing Systems (NeurIPS), vol. 36, 2023, pp. 79320– 79362. [27] V. Sindhwani, T. Sainath, and S. Kumar , Structured Transforms for Small-Footprint Deep Learning , in Advances in Neural Information Processing Systems (NIPS), vol. 28, 2015, pp. 3088–3096, https://proceedings.neurips.cc/paper/2015/hash/ RIEMANNIAN OPTIMIZATION FOR GS ORTHOGONAL MATRICES 37 
+
+851300ee84c2b80ed40f51ed26d866fc-Abstract.html. [28] S. Singla and S. Feizi , Skew Orthogonal Convolutions , in Proceedings of the 38th Interna-tional Conference on Machine Learning (ICML), vol. 139 of Proceedings of Machine Learn-ing Research, PMLR, 2021, pp. 9756–9766, https://proceedings.mlr.press/v139/singla21a. html. [29] E. E. Tyrtyshnikov , A Brief Introduction to Numerical Analysis , Birkh¨ auser Boston, 1 ed., 1997, https://doi.org/10.1007/978-0-8176-8136-4.
