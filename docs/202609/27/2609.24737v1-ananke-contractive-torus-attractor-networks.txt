@@ -1,0 +1,697 @@
+Title: Ananke: Contractive Torus Attractor Networks
+
+URL Source: https://arxiv.org/pdf/2609.24737v1
+
+Published Time: Tue, 22 Sep 2026 02:52:26 GMT
+
+Number of Pages: 17
+
+Markdown Content:
+# Ananke: Contractive Torus Attractor Networks 
+
+## Zhongping Ji 
+
+Abstract 
+
+We introduce Ananke, a representation-learning framework that scaffolds latent representations onto a structured product-torus prior, and its flagship visual backbone realization, Contractive Torus Attractor Networks (CTAN). By factorizing high-dimensional latent spaces into an orthogonal direct sum of two-dimensional phase planes ( É𝐾 𝑘 =1 R2), Ananke coordinates feature updates via a decoupled dual-phase continuous flow: skew-symmetric Hamiltonian transport moves features tangentially along energy level sets to preserve semantic phase invariants, while signed gradient dissipation contracts transverse perturbations normally toward target invariant manifolds. For circular potential families with frozen parameters, logarithmic radial feedback yields the Exact Log-Symplectic Flow (ELSF), an analytical closed-form mapping with exact exponential decay of log-radius error that evaluates in a single forward pass without numerical integration. We establish local input-to-state bounds for level-set deviations and log-radius errors, and characterize the normal hyperbolicity and persistence of the ideal product torus under bounded perturbations. We further formulate the architecture through Lie–Trotter operator splitting, unifying spatial depthwise diffusion with local manifold contraction, and analyze both exact trigonometric flows and hardware-friendly symplectic dual-shear variants. Across natural image benchmarks (CIFAR-100) and clinically challenging endoscopy datasets (Kvasir-v2), CTAN demonstrates exceptional parameter efficiency: an ultra-compact hierarchical model with merely 0.27M parameters achieves 90.52% accuracy on Kvasir-v2, outperforming 25M+ baselines (ResNet-50, DenseNet-161) by nearly two orders of magnitude in capacity, while scaled variants attain 80.32% top-1 accuracy on CIFAR-100. 
+
+# 1 Introduction 
+
+Convolutional networks, residual networks, and vision transformers provide effective visual representations by cascading discrete spatial and channel transformations [1, 2, 3]. Complementary to static discrete layers, continuous-depth models interpret network depth as physical evolution time governed by ordinary differential equations (ODEs) [4]. However, designing continuous dynamical backbones for robust representation learning faces a fundamental dilemma: purely conservative (Hamiltonian or symplectic) flows preserve volume and energy but lack dissipative attraction to filter noise [5, 6], whereas globally contractive dynamics universally drive all feature trajectories toward a single trivial equilibrium, obliterating inter-class semantic separability. We resolve this tension by introducing Ananke 1, a representation-learning framework based on orthogonal symplectic-gradient geometric flows. Rather than presuming that arbitrary data manifolds are globally homeomorphic to a monolithic shape, Ananke adopts a Product-Torus Scaffolding Prior : in analogy to harmonic analysis where orthogonal circular functions serve as a universal basis to decompose signals, we factorize the latent space into an orthogonal direct sum of canonical two-dimensional phase planes ( É𝐾 𝑘 =1 R2, where 𝐷 = 2𝐾 ). Each constituent circle acts as an elementary geometric scaffold, naturally decoupling feature dynamics into transverse gradient dissipation (filtering noise along the radial amplitude) and tangential Hamiltonian transport (encoding semantic variation along the phase). To adapt this canonical base to complex, multimodal distributions, a lightweight spatial context generator dynamically modulates local geometric parameters, effectively tailoring the scaffold to the specific data context. For isotropic circular potentials, we derive the Exact Log-Symplectic Flow (ELSF) . Under scale-invariant logarithmic feedback, the transverse coordinate 𝑧 = log (𝑟 /𝑅 ) linearizes identically into pure exponential decay ¤𝑧 = −𝛽𝑧 .This admits an exact, closed-form mapping that evaluates in a single forward pass with zero numerical truncation error, bypassing iterative ODE solvers and step-size stability constraints. Furthermore, we explicitly characterize radial-dependent angular transport (twist dynamics), integrating it in closed form to map transverse deviations into bounded phase offsets.  
+
+> 1Named after Ananke in Plato’s Republic , our framework echoes the Spindle of Necessity through contraction toward structured invariant manifolds.
+
+1arXiv:2609.24737v1 [cs.CV] 21 Sep 2026 To scale this formulation into an empirical visual backbone, we introduce Contractive Torus Attractor Networks (CTAN) . CTAN embodies an operator-split realization of continuous reaction–diffusion systems, alternating spatial depthwise convolution (diffusion) with exact closed-form manifold contraction (reaction). The principal contributions of this work are: 1. Product-Torus Geometric Scaffolding: We introduce an orthogonal direct-sum factorization that scaffolds high-dimensional latent spaces into canonical 2D phase planes, establishing a principled, data-adaptive coordinate framework for decoupled radial regulation and phase transport. 2. Closed-Form Exact Log-Symplectic Flow (ELSF): We derive an exact, single-pass closed-form operator for circular geometries under logarithmic feedback, providing an analytical solution that incorporates radial-dependent twist dynamics without numerical overshooting. 3. Theoretical Grounding via Contraction and Normal Hyperbolicity: We establish local input-to-state stability (ISS) bounds for transverse level-set errors and circular log-radii, and prove the normal hyperbolicity and conditional persistence of the uncoupled product torus under bounded perturbations. 4. Operator-Split Vision Architecture and Empirical Validation: We construct hierarchical CTAN backbones integrating spatial diffusion with local geometric reaction across pure and residual topologies. On CIFAR-100 and Kvasir-v2, CTAN demonstrates state-of-the-art parameter efficiency, matching or exceeding heavyweight 25M+ convolutional and transformer baselines with up to 87 × fewer parameters. 
+
+# 2 Related Work 
+
+Visual and geometric representations. Modern visual backbones predominantly evolve through modular heuristics: deep residual networks stabilize optimization via identity shortcuts [1], vision transformers capture long-range token relationships via self-attention [2], and modernized ConvNets leverage large-kernel depthwise convolutions [3, 7]. Recently, geometric representation learning has explored algebraic structures, such as Clifford algebras and multivector products [8, 9, 10], and complex-valued neural networks that preserve amplitude–phase relationships [11]. The classical manifold hypothesis posits that high-dimensional sensory data concentrate near lower-dimensional submanifolds [12]. Ananke operationalizes this hypothesis by imposing an explicit product-torus prior, providing structured geometric scaffolding with provable transverse attraction and exact local solvability. 
+
+Continuous physical dynamics and operator splitting. Interpreting deep architectures as continuous dynamical systems has spurred the development of Neural ODEs [4], Hamiltonian Neural Networks [5], and Symplectic Networks [6]. In spatial modeling, PDE-Net connects learned convolutional filters to partial differential operators [13]. Operator splitting techniques, such as Lie–Trotter and Strang splitting, are classical foundations for separating spatial diffusion from local reaction kinetics in computational physics [14]. CTAN bridges these paradigms by structuring vision blocks into an operator-split reaction–diffusion pipeline: spatial depthwise convolution acts as spatial smoothing, while the closed-form ELSF executes exact local manifold contraction. 
+
+Contraction theory and invariant manifolds. Contraction analysis investigates the convergence between trajectories using matrix logarithmic norms and one-sided Lipschitz conditions [15, 16]. Unlike unconstrained global contraction, which collapses all representations to a single equilibrium, Ananke establishes transverse semicontraction: it enforces exponential contraction along the normal bundle to extinguish off-manifold perturbations, while preserving tangential Hamiltonian transport to sustain semantic discrimination. Furthermore, by framing the product torus within Normally Hyperbolic Invariant Manifold (NHIM) theory [17], we characterize the conditional persistence of the underlying attractor geometry under smooth coupling perturbations. 
+
+# 3 Methodology 
+
+## 3.1 Paired states and regular level sets 
+
+Let 𝑋 ∈ R𝐵 ×𝐷 ×𝐻 𝑠 ×𝑊 𝑠 denote a visual feature tensor with even channel count 𝐷 = 2𝐾 . Here, the orthogonal direct sum serves as a canonical geometric scaffold: rather than constraining the global data distribution to a rigid topology, 2x1
+
+y1
+
+C1
+
+p1
+
+p2
+
+p3
+
+(a) C1 ⊂ R2
+
+x2
+
+y2
+
+C2
+
+q1
+
+q2
+
+q3
+
+(b) C2 ⊂ R2
+
+# ×
+
+∼=
+
+z1
+
+z2
+
+z3
+
+(c) C1 × C 2 ∼= T2Figure 1: Geometric state decomposition and invariant toroidal attractor dynamics in 4D latent space. (a, b) A latent feature vector is orthogonally factored into independent 2D phase planes ( 𝑥 = 𝑥 1 ⊕ 𝑥 2 ∈ R2 ⊕ R2). In each plane, signed gradient dissipation contracts perturbed states ( 𝑝 𝑖 , 𝑞 𝑖 ) normally toward an invariant target circle ( C1, C2), while skew-symmetric Hamiltonian transport sustains continuous phase rotation. (c) The Cartesian product C1 × C 2 defines an invariant 2-torus T2 ⊂ R4 (depicted via its canonical embedding in R3). Composite feature trajectories 𝑧 𝑖 = ( 𝑝 𝑖 , 𝑞 𝑖 ) are asymptotically contracted from ambient space onto the compact toroidal surface, along which persistent phase orbits encode semantic invariants without representation collapse. 
+
+each 2D phase plane provides an elementary coordinate frame where amplitude deviations and semantic phase can be regulated independently. Across the spatial lattice, these local fibers are conditioned on the input feature context, adapting the scaffold to the underlying data geometry. At each spatial coordinate 𝑖 , the local latent state vector 𝑥 𝑖 ∈ R𝐷 
+
+is factored into an orthogonal direct sum of 𝐾 independent two-dimensional phase planes: 
+
+𝑥 𝑖 =
+
+> 𝐾
+
+Ê
+
+> 𝑘 =1
+
+𝑥 𝑖,𝑘 , 𝑥 𝑖,𝑘 ∈ R2. (1) Within each 2D phase subspace, representations evolve under a conditional reaction flow: 
+
+¤𝑥 𝑖,𝑘 = 𝐹 𝑖,𝑘 (𝑥 𝑖,𝑘 ; 𝜂 𝑖,𝑘 ), M𝜂 =
+
+Ö
+
+> 𝑖,𝑘
+
+{𝑥 𝑖,𝑘 : 𝐻 𝑖,𝑘 (𝑥 𝑖,𝑘 ; 𝜂 𝑖,𝑘 ) = 0}. (2) The parameter collection 𝜂 is computed once at the block input and held frozen during the reaction step, ensuring decoupled, parallel planar flows without cross-dimensional interference. As visualized in Figure 1 for a 4D latent subspace ( 𝐷 = 4, 𝐾 = 2), states in each independent phase plane spiral smoothly toward their respective invariant circular attractors C𝑘 ⊂ R2 under signed dissipation, while their Cartesian product scaffolds representations onto a compact, non-chaotic invariant 2-torus T2 ⊂ R4.For an arbitrary constituent pair (omitting spatial and channel indices for brevity), let 𝐻 ∈ 𝐶 2 (Ω) on an open domain 
+
+Ω ⊂ R2, and let 𝑔 ∈ 𝐶 1 (𝐼 ) be a regulatory feedback function satisfying 𝑔 (0) = 0 and 𝑢𝑔 (𝑢 ) > 0 for all nonzero 𝑢 ∈ 𝐼 .With tangential velocity 𝛼 ∈ R and dissipation rate 𝛽 > 0, we define the continuous-time symplectic-gradient vector field: 
+
+𝐹 (𝑥 ) = 𝛼𝐽 ∇𝐻 (𝑥 )
+
+| {z }
+
+> Symplectic Tangential Flow
+
+− 𝛽𝑔 (𝐻 (𝑥 ))∇ 𝐻 (𝑥 )
+
+| {z }
+
+> Signed Gradient Dissipation
+
+, 𝐽 =
+
+0 −11 0
+
+
+
+. (3) Here 𝐽 is the canonical skew-symmetric symplectic matrix satisfying 𝐽 ⊤ = −𝐽 = 𝐽 −1 and 𝐽 2 = −𝐼 2. When 0 is a regular value ( ∇𝐻 ≠ 0 on M = 𝐻 −1 (0)), M defines a smooth, regular one-dimensional invariant submanifold. 
+
+Proposition 1 (Level-set dissipation and invariance) . Along any trajectory of (3) , the transverse Lyapunov function 
+
+𝑉 𝐻 (𝑥 ) = 12 𝐻 (𝑥 )2 satisfies: 
+
+¤𝑉 𝐻 = ⟨∇ 𝑉 𝐻 (𝑥 ), 𝐹 (𝑥 )⟩ = −𝛽𝐻 (𝑥 )𝑔 (𝐻 (𝑥 ))∥∇ 𝐻 (𝑥 )∥ 2 ≤ 0. (4) 
+
+Furthermore, ¤𝑉 𝐻 = 0 if and only if 𝑥 ∈ M or ∇𝐻 (𝑥 ) = 0. Because ⟨∇ 𝐻, 𝐽 ∇𝐻 ⟩ ≡ 0, the Hamiltonian component makes identically zero contribution to ¤𝑉 𝐻 , leaving pure tangential transport along M and rendering the regular target level set M forward invariant. 
+
+3The proof and sufficient local attraction conditions are detailed in Appendix A. 
+
+## 3.2 Branch A: exact circular reaction flow 
+
+When the energy function is parameterized as an isotropic circular potential centered at 𝑐 ∈ R2 with target radius 𝑅 > 0: 
+
+𝐻 (𝑥 ) = 12 (∥ 𝑥 − 𝑐 ∥2 − 𝑅 2), 𝑟 = ∥𝑥 − 𝑐 ∥ > 0, 𝑔 (𝐻 ) = log (𝑟 /𝑅 ) = 12 log 
+
+
+
+1 + 2𝐻 𝑅 2
+
+
+
+, (5) defined on Ω = R2 \ { 𝑐 }. In polar coordinates 𝑥 − 𝑐 = 𝑟 (cos 𝜃, sin 𝜃 )⊤, the radial dynamics satisfy the Gompertzian relaxation ODE: 
+
+¤𝑟 = −𝛽𝑟 log (𝑟 /𝑅 ), ¤𝑧 = −𝛽𝑧, 𝑧 = log (𝑟 /𝑅 ). (6) Introducing the logarithmic transverse coordinate 𝑧 (𝑡 ), the nonlinear radial dynamics linearize identically into pure exponential decay, yielding an exact Lyapunov dissipation rate ¤𝑉 𝑧 = −2𝛽𝑉 𝑧 for 𝑉 𝑧 = 𝑧 2/2. 
+
+Context modulation and asynchronous twist dynamics. To enrich tangential expressiveness, the base angular frequency is modulated by local spatial context, while an optional Arnold twist term couples angular velocity to the transverse radial deviation: 
+
+𝛼 eff = 𝛼 0 (1 + 0.5 tanh 𝑝 𝛼 ), ¤𝜃 = 𝛼 eff + 𝑎𝑧 (𝑡 ), (7) where 𝛼 0 is the channel-base frequency, 𝑝 𝛼 is predicted from neighboring context, and 𝑎 = 𝛼 twist ∈ R governs the vortex twist rate. 
+
+Theorem 1 (Exact frozen circular flow operator) . Fix parameters 𝑐, 𝑅, 𝛽, 𝛼 eff , 𝑎 with 𝑅, 𝛽 > 0, and initial state 𝑥 0 ≠ 𝑐 .For any finite horizon 𝑡 ≥ 0, define: 
+
+𝑞 = 𝑒 −𝛽𝑡 , 𝑧 0 = log (∥ 𝑥 0 − 𝑐 ∥/ 𝑅 ), (8) 
+
+𝑟 (𝑡 ) = 𝑅𝑒 𝑞𝑧 0 , 𝜗 (𝑡 ) = 𝛼 eff 𝑡 + 𝑎 𝛽 (1 − 𝑞 )𝑧 0. (9) 
+
+The unique analytical solution of the coupled system (6) –(7) is given by: 
+
+Φ𝑡 (𝑥 0) = 𝑐 + 𝜌 (𝑟 0, 𝑅, 𝑡 ) R 𝜗 (𝑡 ) (𝑥 0 − 𝑐 ), (10) 
+
+where 𝜌 = (𝑅 /∥ 𝑥 0 − 𝑐 ∥) 1−𝑞 is the radial contraction factor, and R𝜗 ∈ SO (2) is the canonical planar rotation matrix: 
+
+R𝜗 =
+
+cos 𝜗 − sin 𝜗 
+
+sin 𝜗 cos 𝜗 
+
+
+
+. (11) 
+
+The target circle ∥𝑥 − 𝑐 ∥ = 𝑅 is strictly invariant, with 𝑧 (𝑡 ) = 𝑞𝑧 0. For finite 𝑡 , Φ𝑡 defines a smooth diffeomorphism of the punctured plane R2 \ { 𝑐 }.
+
+The analytical integration proof and complex-valued representation are provided in Appendix B. Crucially, (10) evaluates in a single forward pass with zero numerical integration error, eliminating step-size stability constraints. 
+
+Exact flow and hardware-friendly algebraic variants Theorem 1 provides the metrically exact solution R𝜗 ∈ SO (2)
+
+along the circular invariant manifold. For resource-constrained edge hardware lacking dedicated Special Function Units (SFUs) for trigonometric transcendentals, one can substitute rational Cayley transforms or area-preserving dual-shear approximations (detailed in Appendix E). Throughout this paper, our primary architecture and all reported benchmarks strictly deploy the exact analytical trigonometric flow R𝜗 .
+
+## 3.3 Branch B: regular learned level sets 
+
+Beyond circular geometries, Ananke accommodates expressive learned energy functions integrated via differentiable numerical schemes. To guarantee well-behaved invariant sets, we parameterize 𝐻 (𝑥 ) through constrained function 4Figure 2: Topological transitions and multi-attractor dynamics of the Sum-of-Squares (SOS) algebraic potential. By modulating the Gram matrix and energy offset ( 𝑅 2 = 1.0, 0.60 , 0.50 , 0.50 across panels (a)–(d)), the zero-level set M = {𝑥 : 𝐻 SOS (𝑥 ) = 0} (black contours) undergoes Morse-type topological bifurcations, transitioning through configurations indexed by the 0-th Betti number 
+
+𝑏 0 (M) ∈ { 1, 2, 3, 4}. Feature trajectories (colored curves) originating from diverse initial states are contracted via transverse gradient dissipation onto locally attracting closed components and transported along tangential Hamiltonian orbits, enabling multimodal clustering within a single 2D phase subspace. 
+
+classes: ICNN Potential: 𝐻 cvx (𝑥 ) = 𝑤 ⊤ Softplus ( 𝐴𝑥 + 𝑏 ) + 𝜆  
+
+> 2
+
+∥𝑥 ∥2 − ℎ0, 𝑤 ≥ 0, 𝜆 ≥ 𝜆 min > 0, (12) SOS Potential: 𝐻 SOS (𝑥 ) = 𝑝 (𝑥 )⊤ 𝑀 𝑝 (𝑥 ) − 𝑅 2, 𝑝 (𝑥 ) = (𝑥 21, 𝑥 22, 𝑥 1𝑥 2, 𝑥 1, 𝑥 2)⊤, 𝑀 = 𝑊 ⊤𝑊 + 𝛿𝐼 5, 𝛿 > 0.
+
+(13) The strictly positive quadratic terms ( 𝜆𝐼 and 𝛿𝐼 5) enforce radial coercivity (lim ∥ 𝑥 ∥→∞ 𝐻 (𝑥 ) = +∞ ), while choosing 
+
+ℎ0 strictly above the potential minimum ensures that the zero level set is compact, nonempty, and regular. The quartic SOS algebraic potential exhibits rich Morse-type topological bifurcations: as illustrated in Figure 2, modulating the algebraic parameters allows the zero-level set to dynamically split into multiple disjoint, locally attracting closed components ( 𝑏 0 (M) ∈ { 1, 2, 3, 4}), naturally realizing multimodal clustering within a single 2D subspace. To prevent numerical overshooting under discrete integration, we deploy the Algebraic Soft-Clipper (ISRU): 
+
+𝑔 (𝐻 ) = 𝜅 1 𝐻 √︁ 
+
+1 + ( 𝜅 2 𝐻 )2 , lim  
+
+> 𝐻 →±∞
+
+𝑔 (𝐻 ) = ± 𝜅 1
+
+𝜅 2
+
+, (14) which bounds far-field velocity while sustaining non-vanishing polynomial backpropagation gradients. Complete gradient formulations and stability analyses are detailed in Appendix F. 
+
+# 4 Theoretical Guarantees and Their Scope 
+
+## 4.1 Local energy-error stability 
+
+Theorem 2 (Local input-to-state bound for level-set error) . Consider the perturbed flow ¤𝑥 = 𝐹 (𝑥 ) + 𝑤 (𝑡 ) with vector field (3) , and let 𝑈 ⊂ Ω be a compact neighborhood of the regular target manifold M. Suppose the trajectory remains in 𝑈 on [0, 𝑇 ] and define: 
+
+𝑐 𝑈 = inf   
+
+> 𝑥 ∈𝑈
+
+𝛽 𝑔 (𝐻 (𝑥 )) 
+
+𝐻 (𝑥 ) ∥∇ 𝐻 (𝑥 )∥ 2 > 0, 𝐿 𝑈 = sup  
+
+> 𝑥 ∈𝑈
+
+∥∇ 𝐻 (𝑥 )∥ < ∞, (15) 
+
+where the ratio at 𝐻 = 0 is defined continuously as 𝑔 ′ (0) > 0. Then for any essentially bounded perturbation 𝑤 , the transverse error 𝑒 (𝑡 ) = 𝐻 (𝑥 (𝑡 )) satisfies: 
+
+|𝐻 (𝑥 (𝑡 ))| ≤ 𝑒 −𝑐 𝑈 𝑡 |𝐻 (𝑥 (0))| + 𝐿 𝑈 
+
+𝑐 𝑈 
+
+(1 − 𝑒 −𝑐 𝑈 𝑡 )∥ 𝑤 ∥∞,[0,𝑡 ] , ∀𝑡 ∈ [ 0, 𝑇 ]. (16) 5Theorem 2 establishes an explicit local input-to-state stability (ISS) certificate that mathematically embodies transverse semicontraction: along the normal bundle, transverse perturbations decay exponentially at rate 𝑐 𝑈 toward an asymptotic error bound proportional to ∥𝑤 ∥∞, while tangential Hamiltonian transport remains strictly conservative (⟨∇ 𝐻, 𝐽 ∇𝐻 ⟩ ≡ 0). This guarantees that off-manifold noise is systematically attenuated without collapsing tangential semantic discrimination. The proof is provided in Appendix A. 
+
+## 4.2 Sharp input bound for circular log-radius error 
+
+Theorem 3 (Log-radius error with additive input) . For the frozen circular flow under additive input 𝑤 , suppose the radial trajectory satisfies 𝑟 (𝑡 ) ≥ 𝑟 min > 0 on [0, 𝑇 ]. Then the logarithmic error 𝑧 (𝑡 ) = log (𝑟 (𝑡 )/ 𝑅 ) satisfies: 
+
+|𝑧 (𝑡 )| ≤ 𝑒 −𝛽𝑡 |𝑧 (0)| + 1 − 𝑒 −𝛽𝑡 
+
+𝛽𝑟 min 
+
+∥𝑤 ∥∞,[0,𝑡 ] , 0 ≤ 𝑡 ≤ 𝑇 . (17) 
+
+Furthermore, for fixed bounds 0 < 𝑟 min < 𝑅 < 𝑟 max , the compact annulus A = {𝑥 : 𝑟 min ≤ ∥ 𝑥 − 𝑐 ∥ ≤ 𝑟 max } is strictly forward invariant under the input bound: 
+
+∥𝑤 ∥∞ ≤ min {𝛽𝑟 min log (𝑅 /𝑟 min ), 𝛽𝑟 max log (𝑟 max /𝑅 )} . (18) Condition (18) guarantees that the restorative velocity strictly dominates the maximum disturbance at both the inner and outer boundaries, ensuring that representations remain confined within an active annular domain. The proof is detailed in Appendix C. 
+
+## 4.3 Normal hyperbolicity of the ideal product torus 
+
+Theorem 4 (Conditional persistence of the frozen product torus) . Consider 𝐾 independent circular flows with fixed centers 𝑐 𝑘 , radii 𝑅 𝑘 > 0, and contraction rates 𝛽 𝑘 > 0. Their Cartesian product M0 = Î𝐾 𝑘 =1 {∥ 𝑥 𝑘 − 𝑐 𝑘 ∥ = 𝑅 𝑘 } ≃ T𝐾 
+
+is a compact Normally Hyperbolic Invariant Manifold (NHIM). There exists a fixed tubular neighborhood 𝑉 of M0 and a threshold 𝜀 0 > 0 such that every 𝐶 2 vector field 𝐹 𝜀 on 𝑉 satisfying ∥𝐹 𝜀 − 𝐹 0 ∥𝐶 1 (𝑉 ) < 𝜀 0 admits a nearby invariant manifold M𝜀 that is 𝐶 1-diffeomorphic to T𝐾 .
+
+Theorem 4 establishes that the unperturbed stable normal contraction rate 𝛽 min = min 𝑘 𝛽 𝑘 > 0 strictly dominates the neutral tangent spectrum. By Fenichel’s persistence theorem [17], the underlying toroidal topology persists stably under sufficiently small smooth inter-channel couplings. Appendix D constructs the invariant splitting in isochron coordinates. 
+
+# 5 Algorithmic Realization 
+
+## 5.1 Operator-split reaction–diffusion pipeline 
+
+We model visual feature evolution across space and channels via a continuous reaction–diffusion system: 
+
+𝜕 𝑋 𝜕𝑡 = D∇ 2 𝑋 
+
+| {z }
+
+> Spatial Diffusion
+
++ 𝐹 local (𝑋 )
+
+| {z }
+
+> Local Manifold Reaction
+
+. (19) Applying Lie–Trotter operator splitting over time interval Δ𝑡 , the continuous PDE decomposes into two sequential stages: 1. Diffusion Step: Multi-scale spatial depthwise convolution S performs local spatial feature smoothing, modeling the heat-diffusion step e𝑋 = exp (Δ𝑡 D∇ 2) 𝑋 𝑙 .2. Reaction Step: The single-pass closed-form ELSF operator executes local manifold contraction, advancing features along the target level sets: 𝑋 𝑙 +1 = Ψ Δ𝑡 , 𝜂 ( e𝑋 ).This operator splitting justifies the elimination of explicit inter-patch ODE coupling terms while preserving the single-pass closed-form solvability of local geometric flows. 65.2 The context-conditioned torus field 
+
+To allow representations to adapt to multimodal distributions, geometric parameters are predicted dynamically from input features via a lightweight context generator: 𝜂 = G( 𝑋 ) = (𝑐, 𝑅, 𝛽, 𝛼 eff , 𝑎 ). For a fixed input 𝑋 , parameters are evaluated once and held frozen during the reaction step. Across the spatial grid 𝑉 = {1, . . . , 𝑁 }, the joint invariant manifold forms an adaptive fiber bundle: 
+
+Mfield =
+
+> 𝑁
+
+Ö
+
+> 𝑖 =1
+
+T𝑖 (𝜂 𝑖 ) ≃ T𝑁 𝐾 . (20) This context conditioning allows the network to dynamically steer local manifold centers and radii to conform to complex semantic boundaries. 
+
+## 5.3 Multi-scale hierarchy and block variants 
+
+As illustrated in Figure 3, CTAN is structured into a multi-stage pyramidal backbone: an initial strided stem maps RGB inputs into 𝐾 1 = 𝐷 1/2 orthogonal phase planes, progressive stages execute intra-stage reaction–diffusion cascades, strided downsampling transitions between scales, and a global pooling head produces class logits. Stem + Proj.                            
+
+> stride 2 ·64 →32
+> CTANBlock
+> ×3
+> STAGE 1
+> CTANBlock
+> ×4
+> STAGE 2
+> CTANBlock
+> ×5
+> STAGE 3
+> s = 2
+> Downsample
+> s = 2
+> Downsample
+> Classification Head
+> GAP →LayerNorm →Linear Output
+> Input
+> H×W×3
+> H/ 2×W/ 2×32 H/ 4×W/ 4×64 H/ 8×W/ 8×96
+
+CTANet_Hier · Pyramid Architecture   
+
+> Three stages with progressively reduced spatial resolution Default patch size: 2 ·Spatial labels assume H and W are divisible by 8
+
+Figure 3: The three-stage compact CTAN hierarchy: a stride-two stem, stages of depths (3, 4, 5) and channel widths (32 , 64 , 96 ),strided transitions, and a pooled classification head. Downsampling changes the state space and does not represent a diffeomorphism between the associated tori. 
+
+To cater to distinct computational constraints, we provide two block topologies: 
+
+CTAN-Pure: 𝑥 sp = S( Norm (𝑥 𝑙 )) , 𝑥 𝑙 +1 = Ψ 𝑡 𝑙 , 𝜂 𝑙 (𝑥 sp ), (21) 
+
+CTAN-Res: 𝑥 sp = S( 𝑥 𝑙 ), 𝑢 𝑙 = 𝑊 in Norm (𝑥 sp ),𝑥 𝑙 +1 = 𝑥 𝑙 + DropPath  𝛾 𝑙 ⊙ 𝑊 out Ψ𝑡 𝑙 , 𝜂 𝑙 (𝑢 𝑙 ) . (22) In CTAN-Res , the pointwise projections 𝑊 in , 𝑊 out ∈ R𝐷 ×𝐷 serve as learnable coordinate adapters. Rather than restricting the phase planes to fixed channel pairs (2𝑘 −1, 2𝑘 ), 𝑊 in allows the network to learn optimal linear combinations of features as conjugate pairs. Furthermore, while the internal operator Ψ acts on canonical circles, the composition 
+
+𝑊 out ◦ Ψ ◦𝑊 in flexibly rotates and scales this geometry into oblique ellipsoidal attractors aligned with feature correlations. This gives CTAN-Res greater capacity on complex datasets (Table 3) while preserving the closed-form efficiency of the underlying flow. 
+
+# 6 Experiments 
+
+We evaluate the representation capacity, parameter efficiency, and architectural scaling of CTAN across natural images (CIFAR-100) and clinically demanding endoscopy benchmarks (Kvasir-v2). All models are trained from scratch under standardized optimization protocols. Experimental configurations and dataset details are summarized below. 76.1 Natural image classification: CIFAR-100 
+
+CIFAR-100 comprises 50,000 training and 10,000 test images across 100 fine-grained categories at 32 × 32 resolution [18]. To rigorously examine the interplay between geometric flows and spatial organization, we instantiate two architectural paradigms across two parameter scales: 
+
+• Isotropic Models (CTAN-Iso): A 12-layer uniform backbone maintaining constant spatial resolution and channel width throughout depth: 
+
+– CTAN-Iso-1: Width dim = 128 ( 𝐾 = 64 two-dimensional phase planes), comprising 0.97M parameters; 
+
+– CTAN-Iso-2: Width dim = 160 ( 𝐾 = 80 two-dimensional phase planes), comprising 1.49M parameters. 
+
+• Hierarchical Models (CTAN-Hier): A 3-stage pyramidal hierarchy with patch_size=1 (preserving spatial resolution in early stages) and progressive downsampling between stages: 
+
+– CTAN-Hier-1: stage_depths=(3, 4, 5), stage_dims=(96, 128, 160), with shared rotation, yielding 0.91M parameters; 
+
+– CTAN-Hier-2: stage_depths=(3, 6, 9), stage_dims=(96, 144, 192), with shared rotation, scaling to 1.89M parameters. 
+
+– CTAN-Hier-3: stage_depths=(3, 6, 9), stage_dims=(96, 144, 192), with context-conditioned rotation, scaling to 2.13M parameters. All models are trained from scratch without external pretraining and evaluated against widely adopted lightweight CNNs, deep residual baselines, and state-of-the-art geometric architectures under matched training conditions.                                  
+
+> Table 1: Top-1 classification accuracy on CIFAR-100 at 32 ×32 resolution without external pretraining. Best overall result is highlighted in bold; best sub-1M lightweight result is underlined.
+> Architecture Parameters Top-1 accuracy
+> MobileNetV2 [19] 2.3M 70.90% ShuffleNetV2 1.5 ×[20] 2.6M 75.95% ResNet-18 [1] 11.2M 76.75% ResNet-50 [1] 23.7M 79.14% CliffordNet-1 [8] 1.4M 77.82% CliffordNet-2 [8] 2.6M 79.05%
+> CTAN-Iso-1 (Ours) 0.97M 77.65%
+> CTAN-Iso-2 (Ours) 1.49M 78.06%
+> CTAN-Hier-1 (Ours) 0.91M 78.41% CTAN-Hier-2 (Ours) 1.89M 79.88%
+> CTAN-Hier-3 (Ours) 2.13M 80.32%
+
+As reported in Table 1, CTAN backbones consistently establish superior parameter efficiency: 
+
+• Outperforming Heavyweight ResNets with > 11 × Compression: CTAN-Hier-3 attains 80.32% top-1 accuracy with merely 2.13M parameters, outperforming the massive ResNet-50 baseline (79.14%, 23.7M parameters) by +1.18% while utilizing 11 .1× fewer parameters. Furthermore, CTAN-Hier-2 (1.89M) surpasses ResNet-50 by +0.74% with a 12 .5× reduction in parameter footprint. 
+
+• Hierarchical Multi-Scale Advantage: Comparing matched parameter scales, CTAN-Hier-1 (0.91M, 78.41%) surpasses CTAN-Iso-1 (0.97M, 77.65%) by +0.76%. Progressively coarse-graining spatial resolution while expanding phase-plane channels (96 → 128 → 160) allows early stages to filter high-frequency noise while reserving deep toroidal dimensions for abstract semantics. 
+
+• Dominance over Classic and Geometric Baselines: CTAN-Hier-1 outperforms classic lightweight CNNs by substantial margins (+7.51% over MobileNetV2, +2.46% over ShuffleNetV2 1.5 ×) and surpasses the geometric algebra model CliffordNet-1 (1.4M, 77.82%) by +0.59% with 35% fewer parameters. 86.2 Gastrointestinal endoscopy: Kvasir-v2 
+
+Kvasir-v2 is a clinically demanding endoscopic dataset containing 8,000 images across eight pathological and anatomical classes [21, 22]. Endoscopic imagery presents severe physical artifacts, including intense specular reflections, fluid bubbles, and non-uniform illumination. We evaluate two ultra-compact configurations trained from scratch at 224 × 224 resolution: CTAN-Nano (0.27M parameters) and CTAN-Tiny (1.12M parameters).                               
+
+> Table 2: Diagnostic classification performance on Kvasir-v2 at 224 ×224 resolution trained from scratch. MCC denotes Matthews correlation coefficient.
+> Architecture Parameters Accuracy MCC
+> ResNet-50 [1] 23.5M 88.50% 0.8689 DenseNet-161 [23] 26.5M 89.08% 0.8756 ViT-Small [2] 21.7M 75.50% 0.7209 ConvNeXt-Tiny [3] 27.8M 77.83% 0.7471 EfficientViT [24] 6.58M 82.83% 0.8041 CAN-Nano [8] 0.36M 90.33% 0.8902
+> CTAN-Nano 0.27M 90.52% 0.8943
+> CTAN-Tiny 1.12M 91.41% 0.9019
+
+The diagnostic results in Table 2 highlight the strength of contractive geometric priors: 
+
+• Extreme Parameter Efficiency ( 87 × Reduction): CTAN-Nano attains 90.52% accuracy and 0.8943 MCC with merely 0.27M parameters, surpassing ResNet-50 (+2.02% Acc) and DenseNet-161 (+1.44% Acc) while using less than 1.2% of their parameters. 
+
+• Resistance to Overfitting from Scratch: Modern high-capacity backbones such as ViT-Small (75.50%) and ConvNeXt-Tiny (77.83%) severely degrade when trained from scratch on 8,000 endoscopic images due to overfitting on specular glare. In contrast, CTAN’s transverse gradient dissipation systematically contracts off-manifold high-frequency noise into stable tubular neighborhoods, enabling compact capacity to focus exclusively on diagnostic tissue pathology. 
+
+• Scalability: Scaling to CTAN-Tiny (1.12M) yields monotonic gains (+0.89% Acc, 0.9019 MCC), establishing that the contractive torus formulation scales predictably across channel and depth tiers. 
+
+## 6.3 Block-topology ablation 
+
+Table 3 compares the pure flow composition (CTAN-Pure) against the residual-augmented topology (CTAN-Res) under matched stage depths and widths. CTAN-Pure-1 reduces parameter footprint by 48.4% (0.47M vs. 0.91M) while retaining a competitive 75.49% accuracy on CIFAR-100. Furthermore, enabling context-conditioned dynamic rotation (Pure-2) lifts accuracy to 76.83% (+1.34%). This confirms that CTAN-Pure provides an ultra-minimalist inductive filter ideal for resource-constrained edge and medical deployments, whereas CTAN-Res provides the expressive coordinate freedom necessary for scaling to fine-grained visual categories.                            
+
+> Table 3: CIFAR-100 block-topology comparison under fixed stage depths (3,4,5)and dimensions (96 ,128 ,160 ).
+> Variant Block Topology Rotation Mode Parameters Accuracy
+> CTAN-Pure-1 Pure Flow Composition Shared 𝛼 00.47M 75.49%
+> CTAN-Pure-2 Pure Flow Composition Dynamic 𝛼 (𝜉 )0.81M 76.83%
+> CTAN-Res-1 Residual-Augmented Shared 𝛼 00.91M 78.41%
+
+## 6.4 Dynamical mechanics and phase realizations 
+
+To isolate the individual contributions of normal dissipation, tangential transport, and discrete phase operators, Table 4 presents a systematic ablation on the CTAN-Hier-1 backbone. The empirical findings confirm our theoretical principles across four key dimensions: 9Table 4: Mechanics ablation on CTAN-Hier-1 on CIFAR-100. Isolating the contributions of normal logarithmic dissipation, tangential phase transport, and their coupled dynamics.                                          
+
+> ID Update Mode Radial Dissipation Tangential Phase Phase Velocity Accuracy
+> ANo evolution ( 𝑡 =0) None None —73.39% BHard radial projection ( 𝑡 → ∞ )Hard None —74.85% CTangential only None Trigonometric Shared 𝛼 078.35% DRadial only Soft log-decay None —78.75% ETangential only None Trigonometric Dynamic 𝛼 (𝜉 )79.35% FFull ELSF (Coupled) Soft log-decay Trigonometric Dynamic 𝛼 (𝜉 )79.92%
+
+1. Necessity of Active Geometric Flows: Setting 𝑡 = 0 (Row A) deactivates the geometric reaction flow, causing performance to plummet to 73.39% (a severe −6.67% degradation relative to full flow). This confirms that continuous geometric dynamics constitute the core computational engine rather than cosmetic regularizers. 2. Soft Contraction vs. Hard Projection: Enforcing an infinitely rigid projection onto the manifold (Row B, 
+
+𝑡 → ∞ , 74.85%) severely underperforms continuous soft log-decay (Row D, 78.75%) by −3.90%. This validates our tubular neighborhood analysis in Section 4: hard projection eliminates radial backpropagation gradients (𝜕𝑟 final /𝜕𝑟 0 ≡ 0) and discards sample-wise confidence, whereas finite-time soft contraction preserves an active tubular neighborhood 𝑈 𝜀 that maintains smooth gradient flow. 3. Context-Adaptive Phase Routing: Dynamic context-conditioned angular velocity (Row E, 79.35%) outperforms static shared frequency (Row C, 78.35%) by +1.0%, demonstrating that spatially heterogeneous phase velocities prevent phase-locking and enhance class margin separation. 4. Synergy of Coupled Radial-Tangential Dynamics: Coupling transverse logarithmic dissipation with tangential phase transport (Row F, 79.92%) achieves the peak performance, surpassing both pure radial contraction (Row D, 78.75%) and pure tangential rotation (Row E, 79.35%). This empirical synergy directly validates our core theoretical premise: transverse gradient dissipation purges high-frequency off-manifold noise, while tangential Hamiltonian transport preserves semantic discrimination. Neither component is redundant, and their orthogonal interplay is essential for learning robust, high-density representations. 
+
+# 7 Discussion and Limitations 
+
+The product-torus scaffolding prior provides a structured geometric inductive bias by decomposing high-dimensional representations into orthogonal radial-phase coordinates. This formulation guarantees exact local solvability and provable transverse stability while allowing spatial context networks to adaptively sculpt representation geometries. 
+
+Limitations. While CTAN demonstrates compelling parameter efficiency and mathematical tractability, several operational boundaries remain to be explored: 1. Fixed Pairing Topology: The current implementation factors channels into fixed coordinate pairs (𝑥 2𝑘 −1, 𝑥 2𝑘 ).Exploring data-dependent, dynamic symplectic pairings 𝐽 (𝑋 ) presents a promising avenue for multi-channel correlation modeling. 2. Evaluation at Scale: While validated extensively on CIFAR-100 and Kvasir-v2, scaling to web-scale pretraining (e.g., ImageNet-1K) and dense pixel-level prediction (e.g., semantic segmentation) represents an ongoing engineering milestone. 3. General Learned Attractors: Branch B (ICNN and SOS polynomials) accommodates multimodal cluster topolo-gies but requires differentiable numerical solvers, reintroducing step-size considerations during backpropagation. 
+
+# 8 Conclusion 
+
+In this work, we presented Ananke and its visual realization CTAN , a continuous-time representation learning framework grounded in a product-torus scaffolding prior. By decoupling feature updates into normal gradient dissipation and tangential Hamiltonian transport, CTAN preserves semantic phase invariants while strictly contracting off-manifold 10 disturbances. For circular potentials, the Exact Log-Symplectic Flow (ELSF) provides an exact analytical mapping that evaluates in a single pass with zero truncation error. Framing the backbone through Lie–Trotter operator splitting seamlessly unifies spatial diffusion with local manifold contraction. Empirical evaluations on natural image and clinical endoscopy benchmarks demonstrate that CTAN establishes state-of-the-art parameter efficiency, confirming that structured, context-adaptive torus scaffolding provides a powerful and mathematically transparent foundation for next-generation visual backbones. 
+
+# References 
+
+[1] Kaiming He, Xiangyu Zhang, Shaoqing Ren, and Jian Sun. Deep residual learning for image recognition. In IEEE Conference on Computer Vision and Pattern Recognition (CVPR) , pages 770–778, 2016. [2] Alexey Dosovitskiy, Lucas Beyer, Alexander Kolesnikov, Dirk Weissenborn, Xiaohua Zhai, Thomas Unterthiner, Mostafa Dehghani, Matthias Minderer, Georg Heigold, Sylvain Gelly, Jakob Uszkoreit, and Neil Houlsby. An image is worth 16x16 words: Transformers for image recognition at scale. In International Conference on Learning Representations (ICLR) , 2021. [3] Zhuang Liu, Hanzi Mao, Chao-Yuan Wu, Christoph Feichtenhofer, Trevor Darrell, and Saining Xie. A convnet for the 2020s. In IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) , pages 11976–11986, 2022. [4] Ricky T. Q. Chen, Yulia Rubanova, Jesse Bettencourt, and David Duvenaud. Neural ordinary differential equations. In Advances in Neural Information Processing Systems (NeurIPS) , volume 31, pages 6571–6583, 2018. [5] Samuel Greydanus, Misko Dzamba, and Jason Yosinski. Hamiltonian neural networks. In Advances in Neural Information Processing Systems (NeurIPS) , volume 32, pages 15379–15389, 2019. [6] Yaofeng Desmond Zhong, Biswadip Dey, and Amit Chakraborty. Symplectic ode-net: Learning hamiltonian dynamics with control. In International Conference on Learning Representations (ICLR) , 2020. [7] Ilya O. Tolstikhin, Neil Houlsby, Alexander Kolesnikov, Lucas Beyer, Xiaohua Zhai, Thomas Unterthiner, Jessica Yung, Andreas Steiner, Daniel Keysers, Jakob Uszkoreit, Mario Lucic, and Alexey Dosovitskiy. Mlp-mixer: An all-mlp architecture for vision. In Advances in Neural Information Processing Systems (NeurIPS) , volume 34, pages 24261–24272, 2021. [8] Zhongping Ji. Cliffordnet: All you need is geometric algebra. arXiv preprint arXiv:2601.06793 , 2026. [9] Johannes Brandstetter, Rianne van den Berg, Max Welling, and Jayesh K. Gupta. Clifford neural layers for pde modeling. In International Conference on Learning Representations (ICLR) , 2023. [10] David Ruhe, Jayesh K. Gupta, Steven de Keninck, Max Welling, and Johannes Brandstetter. Geometric clifford algebra networks. In International Conference on Machine Learning (ICML) , pages 29306–29337, 2023. [11] Chiheb Trabelsi, Olexa Bilaniuk, Ying Zhang, Dmitriy Serdyuk, Sandeep Subramanian, João Felipe Santos, Soroush Mehri, Negar Rostamzadeh, Yoshua Bengio, and Christopher J. Pal. Deep complex networks. In 
+
+International Conference on Learning Representations (ICLR) , 2018. [12] Charles Fefferman, Sanjoy Mitter, and Hariharan Narayanan. Testing the manifold hypothesis. Journal of the American Mathematical Society , 29(4):983–1049, 2016. [13] Zichao Long, Yiping Lu, XianZhong Ma, and Bin Dong. Pde-net: Learning pdes from data. In International Conference on Machine Learning (ICML) , pages 3208–3216, 2018. [14] Gilbert Strang. On the construction and comparison of difference schemes. SIAM Journal on Numerical Analysis ,5(3):506–517, 1968. [15] Winfried Lohmiller and Jean-Jacques E. Slotine. On contraction analysis for non-linear systems. Automatica ,34(6):683–696, 1998. 11 [16] Francesco Bullo. Contraction Theory for Dynamical Systems . Kindle Direct Publishing, 1.3 edition, 2026. [17] Neil Fenichel. Persistence and smoothness of invariant manifolds for flows. Indiana University Mathematics Journal , 21(3):193–226, 1971. [18] Alex Krizhevsky. Learning multiple layers of features from tiny images. Technical report, University of Toronto, 2009. [19] Mark Sandler, Andrew Howard, Menglong Zhu, Andrey Zhmoginov, and Liang-Chieh Chen. Mobilenetv2: Inverted residuals and linear bottlenecks. In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (CVPR) , pages 4510–4520, 2018. [20] Ningning Ma, Xiangyu Zhang, Hai-Tao Zheng, and Jian Sun. Shufflenet v2: Practical guidelines for efficient cnn architecture design. In Proceedings of the European Conference on Computer Vision (ECCV) , pages 116–131, 2018. [21] Konstantin Pogorelov, Kristin Ranheim Randel, Carsten Griwodz, Sigrun Losada Eskeland, Thomas de Lange, Dag Johansen, Concetto Spampinato, Duc-Tien Dang-Nguyen, Mathias Lux, Peter Thelin Schmidt, Michael Riegler, and Pål Halvorsen. Kvasir: A multi-class image dataset for computer aided gastrointestinal disease detection. In 
+
+Proceedings of the 8th ACM on Multimedia Systems Conference , pages 164–169, 2017. [22] Simula Research Laboratory. Kvasir dataset, version 2. Dataset resource, 2017. https://datasets.simula. no/kvasir/ .[23] Gao Huang, Zhuang Liu, Laurens van der Maaten, and Kilian Q. Weinberger. Densely connected convolutional networks. In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (CVPR) , pages 4700–4708, 2017. [24] Xinyu Liu, Houwen Peng, Ningxin Zheng, Yuqing Yang, Han Hu, and Yixuan Yuan. Efficientvit: Memory efficient vision transformer with cascaded group attention. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) , 2023. [25] Brandon Amos, Lei Xu, and J. Zico Kolter. Input convex neural networks. In Proceedings of the 34th International Conference on Machine Learning , volume 70 of Proceedings of Machine Learning Research , pages 146–155. PMLR, 2017. [26] Andrew B. Duncan, Grigorios A. Pavliotis, and Konstantinos C. Zygalakis. Nonreversible langevin samplers: Splitting schemes, analysis and implementation. arXiv preprint arXiv:1701.04247 , 2017. 12 A Level-Set Dissipation and Local Error Bounds 
+
+## A.1 Proof of Proposition 1 
+
+Since 𝐽 ⊤ = −𝐽 , 𝑣 ⊤ 𝐽𝑣 = 0 for every real vector 𝑣 . Therefore 
+
+𝑑 𝑑𝑡 𝐻 (𝑥 (𝑡 )) = ∇𝐻 ⊤ (𝛼𝐽 ∇𝐻 − 𝛽𝑔 (𝐻 )∇ 𝐻 ) = −𝛽𝑔 (𝐻 )∥∇ 𝐻 ∥2. (A.1) Multiplication by 𝐻 gives (4). Its equality set is the union of 𝐻 −1 (0) and the critical set of 𝐻 . On a regular zero level the vector field is tangent, and uniqueness of the flow gives invariance for the duration of its existence. When the regular zero level is compact, the restricted smooth vector field is complete. 
+
+## A.2 Proof of Theorem 2 
+
+Let 𝑒 (𝑡 ) = 𝐻 (𝑥 (𝑡 )) . With input, 
+
+¤𝑒 = −𝛽𝑔 (𝑒 )∥∇ 𝐻 ∥2 + ∇ 𝐻 ⊤𝑤. (A.2) At 𝑒 ≠ 0, multiplication by sign (𝑒 ), followed by the definitions of 𝑐 𝑈 , 𝐿 𝑈 , gives 
+
+𝑑 𝑑𝑡 |𝑒 | ≤ − 𝑐 𝑈 |𝑒 | + 𝐿 𝑈 ∥𝑤 (𝑡 )∥ . (A.3) The corresponding upper derivative inequality also holds at zero (or almost everywhere for measurable inputs). Integrating the scalar comparison equation gives the stronger convolution form 
+
+|𝑒 (𝑡 )| ≤ 𝑒 −𝑐 𝑈 𝑡 |𝑒 (0)| + 𝐿 𝑈 
+
+∫ 𝑡 
+
+> 0
+
+𝑒 −𝑐 𝑈 (𝑡 − 𝜏 ) ∥𝑤 (𝜏 )∥ 𝑑𝜏, (A.4) from which (16) follows. 
+
+## A.3 When positive local constants exist 
+
+Suppose M is compact and regular and 𝑔 ′ (0) > 0. By continuity, there exists a sufficiently small compact tubular neighborhood 𝑈 on which ∥∇ 𝐻 ∥ ≥ 𝑚 > 0 and 𝑔 (𝐻 )/ 𝐻 ≥ 𝜇 > 0, ensuring 𝑐 𝑈 ≥ 𝛽𝜇𝑚 2 > 0. An upper gradient bound 
+
+𝐿 𝑈 < ∞ exists by compactness. Furthermore, on this tubular neighborhood, the energy error |𝐻 (𝑥 )| is comparable up to fixed positive constants to the geometric distance dist (𝑥, M) , thereby translating the energy ISS bound into a direct distance-to-set stability certificate. 
+
+# B Exact Circular Flow, Phase Coordinates, and Derivatives 
+
+## B.1 Proof of Theorem 1 
+
+For 𝑟 > 0, division of the radial equation by 𝑟 gives ¤𝑧 = −𝛽𝑧 , hence 𝑧 (𝑡 ) = 𝑒 −𝛽𝑡 𝑧 0 and 𝑟 (𝑡 ) = 𝑅𝑒 𝑞𝑧 0 . Integrating the angular equation gives 
+
+𝜃 (𝑡 ) − 𝜃 0 = 𝛼 eff 𝑡 + 𝑎𝑧 0
+
+∫ 𝑡 
+
+> 0
+
+𝑒 −𝛽 𝜏 𝑑𝜏 = 𝛼 eff 𝑡 + 𝑎 𝛽 (1 − 𝑞 )𝑧 0. (B.1) Reconstruction in Cartesian coordinates yields (10). The radius remains strictly positive for every finite time. The (𝑧, 𝜃 )
+
+update, with angle understood modulo 2 𝜋 , is invertible: 
+
+𝑧 0 = 𝑧 (𝑡 )/ 𝑞, 𝜃 0 = 𝜃 (𝑡 ) − 𝛼 eff 𝑡 − 𝑎 𝛽 (1 − 𝑞 )𝑧 0. (B.2) It is smooth on the punctured plane. At 𝑧 0 = 0 the radius remains 𝑅 , proving invariance. The same formulas apply componentwise to the fixed, decoupled product flow. 13 B.2 Phase dynamics and isochron coordinates 
+
+For two trajectories governed by (6)–(7) with shared parameters, the angular deviation evolves as Δ𝜃 (𝑡 ) = Δ 𝜃 0 + 𝑎 𝛽 (1 −
+
+𝑞 )Δ𝑧 0. To decouple the twist-induced radial coupling, we define the isochron phase coordinate: 
+
+𝜓 = 𝜃 + 𝑎 𝛽 𝑧 (mod 2 𝜋 ). (B.3) Differentiating yields ¤𝜓 = ¤𝜃 + 𝑎 𝛽 ¤𝑧 = (𝛼 eff + 𝑎𝑧 ) − 𝑎𝑧 = 𝛼 eff . Consequently, the coupled vortex dynamics linearize into a rigid translation in 𝜓 -coordinates, preserving isochron phase differences Δ𝜓 (𝑡 ) ≡ Δ𝜓 0 across time. 
+
+## B.3 Complex notation and local product topology 
+
+Using a complex relative state 𝑢 = (𝑥 (1) − 𝑐 (1) ) + i(𝑥 (2) − 𝑐 (2) ), distinct from the real log-error 𝑧 , the exact ODE is 
+
+¤𝑢 = [− 𝛽 log (| 𝑢 |/ 𝑅 ) + i{𝛼 eff + 𝑎 log (| 𝑢 |/ 𝑅 )}] 𝑢. (B.4) Fixed-parameter reaction is equivariant under a constant rotation of 𝑢 . This is a 𝑈 (1) action and does not establish invariance of the classifier to phase changes or local gauge equivariance of spatial convolutions. For fixed positive radii, 𝜄 (𝜃 )𝑘 = 𝑐 𝑘 + 𝑅 𝑘 (cos 𝜃 𝑘 , sin 𝜃 𝑘 ) smoothly embeds T𝐾 in R2𝐾 . On 𝑈 𝛿 =
+
+{max 𝑘 | log (𝑟 𝑘 /𝑅 𝑘 )| < 𝛿 }, the deformation 
+
+(𝑟 𝑘 , 𝜃 𝑘 ) ↦ −→ ( 𝑅 𝑘 exp [( 1 − 𝑠 ) log (𝑟 𝑘 /𝑅 𝑘 )] , 𝜃 𝑘 ), 0 ≤ 𝑠 ≤ 1, (B.5) retracts 𝑈 𝛿 onto the product torus. This is a topological fact about a fixed neighborhood, not a claim that arbitrary feature distributions or network layers preserve its fundamental group. For equal radii 𝑅 𝑘 = 𝑅 and zero centers, the torus lies on the sphere of radius 𝑅 √𝐾 ; its codimension within that sphere is 𝐾 − 1, so it is a hypersurface only when 𝐾 = 2. 
+
+# C Proof of the Circular Input Bound 
+
+Additive input changes the radial and log-radius equations to 
+
+¤𝑟 = −𝛽𝑟 log (𝑟 /𝑅 ) + 𝑒 ⊤ 
+
+> 𝑟
+
+𝑤, ¤𝑧 = −𝛽𝑧 + 𝑒 ⊤ 
+
+> 𝑟
+
+𝑤 𝑟 . (C.1) If 𝑟 ≥ 𝑟 min , integration yields 
+
+𝑧 (𝑡 ) = 𝑒 −𝛽𝑡 𝑧 (0) + 
+
+∫ 𝑡 
+
+> 0
+
+𝑒 −𝛽 (𝑡 − 𝜏 ) 𝑒 𝑟 (𝜏 )⊤𝑤 (𝜏 )
+
+𝑟 (𝜏 ) 𝑑𝜏. (C.2) Taking absolute values proves (17). At the inner boundary 𝑟 = 𝑟 min , the unperturbed outward radial speed is 
+
+𝛽𝑟 min log (𝑅 /𝑟 min ); at the outer boundary the inward speed has magnitude 𝛽𝑟 max log (𝑟 max /𝑅 ). Condition (18) prevents an input from pushing either boundary outward from the closed annulus, proving forward invariance. Smoothness on this compact annulus and bounded measurable input give continued existence there. 
+
+# D Invariant Splitting and Conditional Persistence 
+
+## D.1 Proof of Theorem 4 
+
+For the fixed product flow, let 𝑧 𝑘 = log (𝑟 𝑘 /𝑅 𝑘 ) and 𝜓 𝑘 = 𝜃 𝑘 + ( 𝑎 𝑘 /𝛽 𝑘 )𝑧 𝑘 . In these coordinates, 
+
+¤𝑧 𝑘 = −𝛽 𝑘 𝑧 𝑘 , ¤𝜓 𝑘 = 𝛼 eff ,𝑘 . (D.1) The torus is 𝑧 = 0. The tangent bundle splits into the tangent directions 𝛿𝑧 = 0 and an invariant stable complement 
+
+𝛿𝜓 = 0. In (𝑧 𝑘 , 𝜃 𝑘 ) coordinates the latter is spanned by (1, −𝑎 𝑘 /𝛽 𝑘 ), rather than by the geometric radial direction when 
+
+𝑎 𝑘 ≠ 0. Under the time-𝑡 flow, stable variations contract by 𝑒 −𝛽 𝑘 𝑡 while tangent variations are unchanged in the adapted norm. This gives normal domination with rate 𝛽 min > 0. 14 The torus is compact and lies away from all centers. The ideal vector field is smooth on a neighborhood of it. Persistence of normally hyperbolic invariant manifolds [17] therefore gives a nearby normally attracting invariant manifold under sufficiently small 𝐶 1 perturbations of the vector field, for the 𝐶 2 perturbed vector fields specified in Theorem 4. All norms and smallness conditions are taken on a fixed neighborhood of the ideal torus. Theorem 4 characterizes the structural stability of the underlying continuous reaction dynamics. In practical network implementations, this continuous invariant manifold serves as a robust geometric inductive prior, while surrounding discrete operations (e.g., spatial mixing and residual projections) provide the necessary representation capacity for downstream visual tasks. 
+
+# E Hardware-Friendly Algebraic Phase Approximations 
+
+While the canonical trigonometric operator R𝜗 in Theorem 1 provides the metrically exact solution, evaluating transcendental functions (cos , sin) utilizes GPU Special Function Units (SFUs). For resource-constrained edge hardware lacking dedicated SFU pipelines, this appendix characterizes two algebraic alternatives: the rational Cayley transform and the symplectic dual-shear operator. 
+
+## E.1 Rational Cayley transform 
+
+The Cayley map parameterizes planar rotations via Weierstrass half-angle rational arithmetic ( 𝑢 = 𝜗 /2): 
+
+𝐶 (𝜗 ) = 11 + 𝑢 2
+
+1 − 𝑢 2 −2𝑢 
+
+2𝑢 1 − 𝑢 2
+
+
+
+. (E.1) Because (1 − 𝑢 2)2 + ( 2𝑢 )2 ≡ ( 1 + 𝑢 2)2, 𝐶 (𝜗 ) strictly preserves the Euclidean norm ( ∥𝐶 (𝜗 )𝑥 ∥ ≡ ∥ 𝑥 ∥) in exact arithmetic, bypassing all SFU calls. The trigonometric half-angle identity reveals that 𝐶 (𝜗 ) = R𝜙 ( 𝜗 ) with effective rotation angle 𝜙 (𝜗 ) = 2 arctan (𝜗 /2).Taylor expansion yields: 
+
+𝜙 (𝜗 ) = 2 arctan (𝜗 /2) = 𝜗 − 𝜗 3
+
+12 + O( 𝜗 5). (E.2) Thus, Cayley rotation induces a cubic phase distortion Δ𝜃 = O( 𝜗 3) relative to the linear physical horizon. In neural networks where angular velocities are learned, this acts as a smooth alternative parameterization of SO (2) rather than a strict numerical integration error. 
+
+## E.2 Symplectic dual-shear operator 
+
+The dual-shear operator 𝑀 (𝑠 ) is formulated as the composition of two parabolic nilpotent shears ( 𝑠 = 𝜗 ): 
+
+𝑀 (𝑠 ) =
+
+1 −𝑠 
+
+0 1
+
+  1 0
+
+𝑠 1
+
+
+
+=
+
+1 − 𝑠 2 −𝑠 𝑠 1
+
+
+
+. (E.3) In hardware execution, 𝑀 (𝑠 )𝑥 evaluates via two in-place Fused Multiply-Add (FMA) steps without transcendental operations: 
+
+𝑦 mid = 𝑦 0 + 𝑠 · 𝑥 0, 𝑥 ′ = 𝑥 0 − 𝑠 · 𝑦 mid , 𝑦 ′ = 𝑦 mid . (E.4) 
+
+Area conservation and elliptic invariants. Because det 𝑀 (𝑠 ) = (1 − 𝑠 2)( 1) − (− 𝑠 )( 𝑠 ) ≡ 1, dual-shear is strictly area-preserving ( 𝑀 (𝑠 ) ∈ Sp (2, R)). Defining the metric matrix 𝑄 𝑠 =
+
+ 1 𝑠 /2 
+
+> 𝑠 /21
+
+
+
+, direct multiplication confirms: 
+
+𝑀 (𝑠 )⊤𝑄 𝑠 𝑀 (𝑠 ) = 𝑄 𝑠 . (E.5) The eigenvalues of 𝑄 𝑠 are 1 ± 𝑠 /2, so 𝑄 𝑠 is positive-definite for |𝑠 | < 2. Thus, 𝑀 (𝑠 ) preserves the positive-definite quadratic form: b𝐻 𝑠 (𝑢 1, 𝑢 2) = 12 𝑢 ⊤𝑄 𝑠 𝑢 = 12 (𝑢 21 + 𝑢 22) + 𝑠  
+
+> 2
+
+𝑢 1𝑢 2, (E.6) which defines concentric ellipses tilted at 45 ◦. For |𝑠 | < 2, tr (𝑀 (𝑠 )) = 2 − 𝑠 2 ∈ (− 2, 2), ensuring that its eigenvalues lie strictly on the unit circle ( |𝜆 | ≡ 1). 15 Infinitesimal generator. For 0 < |𝑠 | < 2, setting 𝜙 = arccos (1 − 𝑠 2/2) ∈ ( 0, 𝜋 ), the matrix admits the real representation 𝑀 (𝑠 ) = cos 𝜙 𝐼 + 𝑠𝐽𝑄 𝑠 . Its principal matrix logarithm is: log 𝑀 (𝑠 ) = 𝜙𝑠 
+
+sin 𝜙 𝐽𝑄 𝑠 = 𝑠𝐽 − 𝑠 2
+
+2 diag (1, −1) + O( 𝑠 3). (E.7) This reveals that 𝑀 (𝑠 ) is the finite flow of a canonical rotation 𝑠𝐽 perturbed by a second-order hyperbolic squeeze 
+
+− 𝑠 2 
+
+> 2
+
+diag (1, −1). While dual-shear induces a slight radial oscillation relative to a perfect circle, its pure FMA execution makes it an attractive algebraic surrogate for latency-critical deployments. 
+
+# F Learned Potentials and Numerical Integration 
+
+## F.1 A convex potential with a regular compact level set 
+
+Let 𝑓 (𝑥 ) = 𝑤 ⊤ Softplus ( 𝐴𝑥 + 𝑏 ) + 𝜆 ∥𝑥 ∥2/2 with the constraints of (12). If 𝜎 denotes the logistic function and 
+
+𝑣 = 𝐴𝑥 + 𝑏 , then 
+
+∇ 𝑓 (𝑥 ) = 𝐴 ⊤ (𝑤 ⊙ 𝜎 (𝑣 )) + 𝜆𝑥, (F.1) 
+
+∇2 𝑓 (𝑥 ) = 𝐴 ⊤ diag (𝑤 ⊙ 𝜎 (𝑣 ) ⊙ ( 1 − 𝜎 (𝑣 ))) 𝐴 + 𝜆𝐼 ⪰ 𝜆 min 𝐼. (F.2) Hence 𝑓 is strongly convex and coercive, with a unique minimizer. If ℎ0 > min 𝑓 , the level 𝑓 = ℎ0 is nonempty, compact, and contains no critical point. These are sufficient conditions for the regularity assumed in the local theory. The input-convex construction follows the parameter-constraint principle of ICNNs [25]. 
+
+## F.2 Derivatives of the SOS family 
+
+For (13), 
+
+𝑝 (𝑥 )⊤ 𝑀 𝑝 (𝑥 ) ≥ 𝛿 ∥ 𝑝 (𝑥 )∥ 2 ≥ 𝛿 (𝑥 41 + 𝑥 42) ≥ 𝛿  
+
+> 2
+
+∥𝑥 ∥4, (F.3) so the potential is coercive. With zero-based components 𝑞 𝑗 of 𝑞 = 𝑀 𝑝 (𝑥 ), the gradient is 
+
+∇𝐻 SOS (𝑥 ) = 2
+
+2𝑞 0𝑥 1 + 𝑞 2𝑥 2 + 𝑞 3
+
+2𝑞 1𝑥 2 + 𝑞 2𝑥 1 + 𝑞 4
+
+
+
+. (F.4) 
+
+## F.3 Feedback saturation and solver stability 
+
+For the algebraic feedback, 
+
+𝑔 (𝐻 ) = 𝜅 1 𝐻 √︁ 
+
+1 + ( 𝜅 2 𝐻 )2 , 𝑔 ′ (𝐻 ) = 𝜅 1
+
+[1 + ( 𝜅 2 𝐻 )2]3/2 , lim  
+
+> 𝐻 →±∞
+
+𝑔 (𝐻 ) = ± 𝜅 1
+
+𝜅 2
+
+. (F.5) Its derivative decays algebraically and still tends to zero. The slope and saturation amplitude depend jointly on these coefficients; an explicitly reparameterized form 𝑔 (𝐻 ) = 𝑎𝐻 /√︁ 1 + ( 𝑎𝐻 /𝑏 )2 has slope 𝑎 and saturation magnitude 𝑏 .Neither form bounds the complete vector field because 
+
+∥𝐹 (𝑥 )∥ =√︁ 𝛼 2 + 𝛽 2𝑔 (𝐻 (𝑥 )) 2 ∥∇ 𝐻 (𝑥 )∥ . (F.6) 
+
+# G Theoretical Extensions and Future Directions 
+
+## G.1 Intrinsic phase distances and Riemannian metric heads 
+
+For a fixed product torus with radii 𝑅 𝑘 , the induced flat Riemannian metric gives: 
+
+𝑑 (𝜃, 𝜃 𝑐 ) =
+
+" 𝐾 ∑︁ 
+
+> 𝑘 =1
+
+𝑅 2 
+
+> 𝑘
+
+atan2  sin (𝜃 𝑘 − 𝜃 𝑐,𝑘 ), cos (𝜃 𝑘 − 𝜃 𝑐,𝑘 )2
+
+#1/2
+
+, (G.1) providing a natural geodesic loss for classifying semantic phases on the quotient group T𝐾 ≃ R𝐾 /2𝜋 Z𝐾 .16 G.2 Multimodal phase locking via Kuramoto dynamics 
+
+An auxiliary modality (e.g., text prompt) can supply conditioning context. For a phase model ¤𝜃 vis = 𝛼 vis +𝜅 sin (𝜃 text −𝜃 vis )
+
+with ¤𝜃 text = 𝛼 text and coupling 𝜅 > 0, the phase difference 𝛿 = 𝜃 vis − 𝜃 text obeys ¤𝛿 = Δ 𝛼 − 𝜅 sin 𝛿 . Stable frequency locking is certified when |Δ𝛼 | < 𝜅 , providing a physical foundation for cross-modal alignment. 
+
+## G.3 Complex and Kähler geometry connections 
+
+Identifying R2𝐾 ≃ C𝐾 with canonical complex structure 𝐽 ↔ i allows unifying conservative transport and dissipative contraction via Wirtinger derivatives of a single real-valued potential 𝐾 (𝑧, ¯𝑧 ):
+
+𝑑𝑧 𝑘 
+
+𝑑𝑡 = i𝛼 𝜕𝐾 𝜕 ¯𝑧 𝑘 
+
+− 𝛽𝑔 (𝐻 ) 𝜕𝐾 𝜕 ¯𝑧 𝑘 
+
+. (G.2) Exploring dynamically generated period matrices into the Siegel modular variety presents a rich mathematical frontier for complex manifold representation learning. 
+
+## G.4 Stochastic extensions and generative Langevin dynamics 
+
+Augmenting the deterministic flow with Brownian diffusion 𝜎 𝑑𝐵 𝑡 transforms the system into an Itô SDE: 𝑑𝑋 =
+
+𝐹 (𝑋 ) 𝑑𝑡 + 𝜎 𝑑𝐵 𝑡 . Defining the potential 𝑈 (𝑥 ) = 𝛽 ∫ 𝐻 ( 𝑥 ) 
+
+> 0
+
+𝑔 (𝑠 ) 𝑑𝑠 and divergence-free drift 𝑏 (𝑥 ) = 𝛼𝐽 ∇𝐻 (𝑥 ) yields 
+
+∇ · 𝑏 = 0 and 𝑏 · ∇ 𝑈 = 0. The stationary Fokker–Planck equation admits the exact Gibbs invariant density: 
+
+𝑝 ∗ (𝑥 ) = 𝑍 −1𝑒 −2𝑈 ( 𝑥 )/ 𝜎 2
+
+. (G.3) This establishes a theoretical bridge connecting contractive torus attractors with nonreversible Langevin samplers [26] and continuous-time generative flow matching. 17
