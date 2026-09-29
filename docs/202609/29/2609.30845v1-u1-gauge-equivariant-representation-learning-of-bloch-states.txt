@@ -1,0 +1,447 @@
+Title: U(1) Gauge-Equivariant Representation Learning of Bloch States
+
+URL Source: https://arxiv.org/pdf/2609.30845v1
+
+Published Time: Mon, 28 Sep 2026 00:46:59 GMT
+
+Number of Pages: 16
+
+Markdown Content:
+# U(1) Gauge-Equivariant Representation Learning of Bloch States 
+
+Chengyan Zhang, 1 Xian Xu, 1 Bowen Hou, 2 and Diana Y. Qiu 2, ∗
+
+> 1
+
+Department of Applied Physics, Yale University, New Haven, CT, 06511, USA 
+
+> 2
+
+Department of Materials Sciences, Yale University, New Haven, CT 06511, USA 
+
+(Dated: September 28, 2026) Representation learning, or featurization, of mean-field Bloch states provides an important route for incorporating electronic information into machine-learning models of first-principles condensed-phase systems. A challenge in representing Bloch states is the gauge redundancy of each state. In this work, we propose to address this issue by explicitly incorporating gauge equivariance in the machine-learning framework. We develop a U (1)-equivariant autoencoder that compresses the plane-wave-basis Bloch states obtained from density functional theory into a low-dimensional latent representation. We achieve an average overlap of 0.970 between original wavefunctions and the re-constructions from a 64-dimensional latent space using a dataset of two-dimensional insulators. We further show that U (1) equivariance endows the latent space with physically meaningful structures, including smoothness and topological information. Finally, we present a proof-of-principle applica-tion in which the latent representations are used to predict the off-diagonal elements of the GW self energy matrix, and demonstrate the importance of enforcing gauge equivariance in the prediction. 
+
+I. INTRODUCTION 
+
+Machine learning has been widely adopted in the mod-eling of first-principles systems. Models using atomic fea-tures, such as chemical species and crystal structures, have achieved substantial success in applications includ-ing interatomic potentials [1–3], prediction of physical properties [4, 5], and acceleration of electronic structure calculations [6–8]. By contrast, the use of electronic fea-tures in machine learning remains comparatively less ex-plored. Recently, there has been growing interest in using fea-tures extracted from single-particle mean-field (MF) elec-tronic structure as inputs to machine-learning models, particularly for excited-state or post-MF targets [9–17]. MF methods, such as Hartree-Fock theory [18–20] and Kohn-Sham Density Functional Theory (DFT) [21, 22] are computationally efficient while encoding rich infor-mation about the electronic structure. For example, the MF eigenvalues provide quantities such as the MF band structure, Fermi level, and density of states, while the MF eigen wavefunctions encode information including orbital and bonding character [23], Berry phases [24, 25], and topological properties [26]. In addition, the MF states provide a standard starting point for ab initio many-body perturbation theory calculations of many excited-state properties and correlated electronic structures, includ-ing the GW approximation [27, 28], the Bethe-Salpeter equation (BSE) [29–33], and coupled-cluster theory [34]. These considerations make MF electronic states natu-ral input features for machine learning models targeting post-MF and other complicated electronic properties. A central challenge in using MF electronic informa-tion as machine learning input is the featurization of the MF wavefunctions. The raw wavefunction ψ(r) belongs  
+
+> ∗diana.qiu@yale.edu
+
+to a high-dimensional functional Hilbert space, and a compact representation is required. Several featurization strategies have recently been proposed. In molecular sys-tems, representations based on atomic-orbital basis are commonly used, including MF electronic matrix [9, 10], MF Green’s function features [11, 12], and molecular or-bital coefficients [13]. In periodic systems, the MF wave-functions form Bloch states ψnk(r) = eik·r unk(r) with band index n, momentum k, and a cell-periodic function 
+
+unk(r). Some different representations have also been explored in this setting, including operator and density of states features [14, 15], as well as the direct represen-tation learning of individual Bloch states [16, 17]. Representation learning provides a direct and flexible route to the featurization of MF wavefunctions, indepen-dent of human biases, and has recently been used to learn the long-range many-body correlations in materials at the GW and BSE levels [16, 17]. In this approach, the periodic part unk(r) of a MF Bloch state under the plane-wave basis, or its representation in real space, is treated as a high-dimensional vector on a grid. An encoding neu-ral network consisting of an encoder (enc) and a decoder (dec) is then trained to compress each Bloch state into a low-dimensional latent vector and reconstruct the origi-nal wavefunction such that 
+
+znk = enc( unk
+
+(r)), (1) ˜unk(r) = dec( znk), (2) where znk and ˜ unk denote the latent vector and recon-structed wavefunction, respectively. The encoder and de-coder networks are optimized in an unsupervised manner so that ˜ unk(r) approximates unk(r), thus forcing znk
+
+to encode essential information contained in the original wavefunction. The latent vectors znk are then used as input features to downstream prediction models: 
+
+O = F ({znk, E nk}) (3) for some target O, where, in principle, all the latent vec-tors znk and MF energies Enk across the whole Bril-arXiv:2609.30845v1 [physics.comp-ph] 25 Sep 2026 2          
+
+> FIG. 1. Neural network architecture of U(1)-autoencoder and a proof-of-principle prediction network. (a) Overall structure of the autoencoder. The encoder is depicted in green, and the decoder is in blue. Both the encoder and decoder contain multiple compression blocks or upsampling blocks reducing or increasing spatial dimensions. (b) Residual convolution block used in the architecture. (c) A simple multilayer perceptron architecture used to predict matrix elements from individual latent vectors. Two latent vectors are first assembled into combined features before going through a multilayer perceptron, where all operations are made U(1)-equivariant.
+
+louin zone within an energy window of interest should be included in the input. This approach has several ad-vantages. It is fully data-driven and automated, retains most of the information of each Bloch state, and pro-duces a fixed-dimensional structured vector representa-tion readily used in sophisticated downstream prediction architectures, including transformers [17]. However, a key obstacle to representation learning of individual Bloch states is the gauge redundancy. In the absence of degeneracy, each Bloch state contains an ar-bitrary U (1) gauge freedom: 
+
+unk(r) 7 → eiθ nk unk(r), (4) and the gauge resulting from numerical eigensolvers is generally uncontrolled. Consequently, previous work fo-cused on learning representations from the MF wave-function amplitudes |ψnk(r)| only, discarding all phase information and thereby limiting predictions to gauge-invariant quantities, such as energies [16, 17]. An alter-native strategy, recently used in unsupervised learning of fractional Chern insulators, is to explicitly fix the Bloch-state gauge prior to representation learning [35]. Here, we propose an alternative approach to solve the gauge redun-dancy challenge in representation learning [Eq. (1)-(2)], while retaining the full complex wavefunction, by incor-porating U (1)-equivariance into the neural network archi-tecture. Specifically, we develop a U (1)-equivariant au-toencoder (AE) for the representation learning of Bloch states, and demonstrate that enforcing U (1) equivariance yields latent representations with physically meaningful structures, including Berry curvature and band topol-ogy. Interestingly, we find that a non-equivariant au-toencoder can also learn an approximate gauge struc-ture, providing insight into how gauge equivariance can emerge implicitly from training data. Finally, we show that retaining phase information enables the prediction of complex gauge-covariant quantities, which we demon-strate through the downstream prediction of off-diagonal matrix elements of the GW self energy as a proof-of-principle. The remainder of this paper is organized as follows. In Sec. II we formulate the U (1) equivariance condition and construct the corresponding equivariant autoencoder. In Sec. III we discuss the physically meaningful properties of the latent representation space. In Sec. IV we present a proof-of-principle demonstration of the role of phase information and gauge equivariance in predicting gauge-sensitive quantities. Finally, in Sec. V we discuss the relation of the present study to the broader context of gauge equivariance, and point out limitations and future directions.   
+
+> II. U(1) -EQUIVARIANT AUTOENCODER (AE)
+
+We consider a machine-learning task approximating a map from a set of mean-field Bloch states to a cer-tain output quantity. Under a gauge transformation, the target map transforms consistently. This gauge struc-ture can thus be explicitly incorporated into the ma-3chine learning model as an equivariant constraint. As indicated by Eq. (1)-(3), the machine learning model consists of two stages: a representation learning stage and a downstream prediction stage. Gauge equivari-ance takes two different forms in the two stages. Let 
+
+znk = encoder (unk(r)) ∈ Cd, where d is the latent rep-resentation dimension. Throughout this work, we neglect degeneracies and consider only the U (1) gauge transfor-mation in Eq. (4). Because the encoder and decoder act on each Bloch state independently, the equivariant con-dition for representation learning (Eq. (1)-(2)) is a global equivariance: enc (eiθ u(r)) = ρz (eiθ ) · enc (u(r)), (5) dec (ρz (eiθ ) z) = eiθ dec( z), (6) where ρz is a representation of U (1) in the latent space 
+
+Cd. By contrast, the downstream prediction model (Eq. (3)) should in principle take all the relevant Bloch states as input, each of which has a U (1) redundancy. Its equiv-ariance is therefore a local gauge equivariance: 
+
+F ({ρz (eiθ nk ) znk, E nk}) = ρO ({eiθ nk }) · F ({znk, E nk}),
+
+(7) where ρO is a representation of the gauge group consist-ing of all gauge transformations. The representation ρO is determined by the target out-put O, while ρz should be chosen so that the condition Eq. (7) can be realized relatively easily. For a physi-cal observable O, such as the GW quasiparticle energies and the exciton energies, ρO = 1 is the trivial repre-sentation, as observables are gauge-independent. In this case, ρz can be chosen to contain a trivial representation of U (1), and the corresponding gauge-invariant subspace can be used as the input of the prediction model F , so that the equivariance condition (7) is satisfied trivially. On the other hand, ρO is nontrivial if the target O is an operator matrix expressed in the Bloch-state basis, such as the self energy matrix 〈mk|Σ|nk〉: under the gauge transformation in Eq. (4), each element acquires a phase exp[ i(θnk − θmk)]. For these targets, it is natural to choose the latent space action of the gauge transfor-mation ρz as the defining representation ρz (eiθ ) = eiθ .In this work, we focus primarily on the case where ρO
+
+is nontrivial and ρz is the defining representation. This choice is motivated by two considerations. First, previ-ous work has achieved high accuracy in the prediction of real gauge-invariant physical observables using only amplitude information of the Bloch states [16, 17], and we expect phase information to be more important in complex targets that transform nontrivially under gauge transformations. Second, linear transformations are au-tomatically equivariant under the defining representation as W zeiθ = eiθ W z for an arbitrary matrix W . Con-sequently, the equivariance conditions in representation learning Eq. (5)-(6) can be realized without requiring a highly sophisticated network architecture. Motivated by these considerations, we develop a U (1)-equivariant AE in which the latent space transforms ac-             
+
+> 32 48 64 80
+> complex latent dimension d
+> 0.2 0.4 0.6 0.8 1.0
+> |⟨ uorig  | urecon ⟩|
+> Linear mean
+> U(1) AE median non-U(1) AE
+> FIG. 2. Overlap between original and reconstructed wave-functions |〈 uorig |urecon 〉| on the test dataset at different la-tent dimensions. The thickness of the shaded regions shows the distribution of overlaps. The dot and the dash show the mean and median, respectively. For each dimension, the three columns from left to right are the linear AE, U(1) AE and non-U(1) AE. The latent space of the non-U(1) AE is real, in which two real dimensions are counted as one complex di-mension.
+
+cording to the defining representation of U (1), ρz (eiθ ) = 
+
+eiθ . The architecture consists of an encoder and a de-coder, and is illustrated in Fig. 1(a)(b). The periodic parts of the Bloch functions, u(r), are first represented on a fixed-size real-space grid containing N1, N2 and N3
+
+points along the three crystal axes. The encoder con-tains L compression layers, each consisting of a residual convolution block [36, 37] with circular padding followed by an antialiased pooling block. These layers compress the N1 × N2 × N3 spatial dimensions of the wavefunc-tions, while creating a channel feature dimension. Adense linear layer then maps the feature maps into a fixed-dimensional latent vector z ∈ Cd. The decoder mirrors the encoder and reconstructs the N1 × N2 × N3
+
+spatial dimensions. In this architecture, all linear, pool-ing, upsampling and normalization layers are inherently 
+
+U (1)-equivariant under the defining representation. To ensure that all nonlinear activation functions a are also 
+
+U (1) equivariant, we choose the form 
+
+a(x) = σ(|x|) x
+
+|x| + ǫ , x ∈ C (8) for all activations, where σ is an arbitrary non-linear scalar function and ǫ is a small positive number for reg-ularization. Further details of the neural network archi-tecture are provided in appendix A 1. The model will be trained in an unsupervised manner by minimizing the mean-squared reconstruction error over Nwfn wavefunc-tions: 
+
+L = 1
+
+Nwfn N1N2N3
+
+> Nwfn
+
+∑
+
+> mN1N2N3
+
+∑
+
+> i
+
+∣∣um(ri) − ˜um(ri)∣∣2, (9) 4where ˜ u(ri) = dec[enc (u(ri))]. We use the squared re-construction error rather than an overlap-based loss so that the reconstruction and latent representation retain the gauge of the original wavefunction. We emphasize that the use of a fixed-size real-space grid is a convenient implementation choice rather than an inherent limitation to our framework. This is based on two considerations. First, the size of the grid can be made sufficiently dense so that most of the charge is included in the representation. Second, if the input grid size is allowed to vary, the dense linear layers can be replaced by appropriate pooling and upsampling blocks to yield a similar output. Another two AE architectures are also considered for comparison. The first is a linear AE, which is a special case of the U (1)-equivariant AE in Fig. 1(a). Its encoder and decoder each consist of only one dense linear layer: enc( u) = W u and dec( z) = W †z. At the global min-imum trained under mean squared loss, the linear AE learns the same subspace as a principal component anal-ysis (PCA) [38]. The second architecture is a nonlinear, non-equivariant AE that ignores the U (1) symmetry and the complex structure of wavefunctions. In this archi-tecture, each complex dimension is treated as two real dimensions, and the neural network only consists of real-valued layers. See appendix A 1 for additional details. These two additional architectures are used to isolate the effects of nonlinearity and gauge equivariance. Following Refs. [16, 17], we test the AE using a dataset of 2-dimensional insulators, and the architecture can be straightforwardly generalized to 3 dimensions. Because 2-dimensional materials do not have translational sym-metry along the out-of-plane crystal axis, we treat the 
+
+N3 grid points along this direction as a channel dimen-sion, and use 2-dimensional convolution blocks to com-press the N1 × N2 in-plane spatial dimensions. The mod-els are trained on the DFT wavefunctions of 800 materi-als whose structures are sampled from the C2DB dataset [39, 40], with a train-validation split of 0.85:0.15. We generate the wavefunctions using Quantum ESPRESSO [41, 42]. For each material, 10 bands and a 5 × 5 × 1 k-point grid are taken, with wavefunctions represented on a 24 × 24 × 40 real-space grid. An additional set of 34 materials is reserved as the test set. Further details of dataset generation are provided in appendix B. Fig. 2 shows the overlap between the original and re-constructed wavefunctions in the test dataset. The U (1)-equivariant AE achieves an average overlap of 0 .970 with 64 complex latent dimensions and 0 .976 with 80 dimen-sions. We take the latent dimension to be 64 through the rest of the paper. We compare the three architectures of AE: the linear AE, the nonlinear U (1)-equivariant AE and the nonlinear non-equivariant AE. The linear AE exhibits substantially larger reconstruction errors than the nonlinear AEs, indicating the importance of nonlin-earity in compact information encoding and accurate re-construction. Linear compression schemes are fundamen-tally limited by the dimension of the subspace spanned by the vectors in the dataset. They are thus particularly useful when the vectors of interest are mostly linearly de-pendent, or equivalently have a low-rank structure [43]. On the other hand, nonlinear schemes do not have this limitation and have the potential to achieve a higher com-pression rate and reconstruction quality in a more diverse dataset, such as the wavefunction dataset considered in this paper. By contrast, the U (1)-equivariant and non-equivariant AE have similar reconstruction quality, in-dicating that enforcing U (1) equivariance does not im-prove reconstruction by itself, despite other advantages shown below, and also suggesting that the AE is capable of learning U (1) symmetry in reconstruction even when equivariance is not enforced.  
+
+> III. PROPERTIES OF THE LATENT REPRESENTATION
+
+In this section, we examine the physically meaningful structures of the latent space induced by the U (1) equiv-ariance. We emphasize that these properties follow from the general U (1) equivariance and the smoothness of neu-ral networks, and are not specific to the particular AE architecture introduced above.  
+
+> A. Equivariance and Smoothness
+
+The complex latent vectors znk ∈ Cd produced by the U (1)-equivariant AE are gauge equivariant by con-struction. Under a U (1) gauge transform unk(r) 7 →
+
+eiθ nk unk(r), the corresponding latent vector transforms by the same phase znk 7 → eiθ nk znk. The gauge can there-fore be manipulated directly in the latent space in the same manner as that of the original wavefunction, facili-tating gauge-consistent downstream applications. For ex-ample, the latent density matrix znkz† 
+
+> nk
+
+is gauge invari-ant and eliminates the uncontrolled gauge adopted by the eigensolver, thereby revealing the smooth variation of the encoded states across the reciprocal space. As an illus-tration, Fig. 3 shows the PCA visualization of the latent density matrices obtained from a 64-dimensional com-plex latent space for the highest valence band of mono-layer MoS 2 along a high-symmetry path in the reciprocal space. The latent density matrices vary smoothly along the path, consistent with the smooth variation of the un-derlying physical states. To further test the smoothness of latent representa-tion, we remove half of the points on the path in Fig. 3, and use the remaining points to interpolate the re-moved points using linear interpolation under parallel-transport gauge. The interpolated points are shown with thick edges in Fig. 3, and their colors show the overlap of the wavefunction decoded from the latent vectors and the actual DFT wavefunctions on the path. The interpolated vectors exhibit a similar reconstruction overlap to those directly encoded latent vectors, thus demonstrating that 5
+
+FIG. 3. The 3-dimensional (a) and 2-dimensional (b) prin-cipal component analysis (PCA) visualization of the 64-dimensional latent density matrices corresponding to a path of wavefunctions in the highest valence band of monolayer MoS 2.The points with thin edges are directly encoded from wave-functions, and the bold points are interpolated from neigh-boring points. The color of each point shows the overlap of the wavefunction reconstructed from the point and the actual wavefunction on the path. 
+
+the encoder preserves the smooth structure of the path. The smoothness of the AE suggests its ability to infer the representations of previously unseen wavefunctions, and thus indicates the potential of such encoder-decoder-based representation for wavefunction generation. The two Γ points at the ends of the path do not coin-cide in the latent path of Fig. 3 because they are related by an umklapp transformation. The AE encodes the lattice-periodic part unk(r) of Bloch states rather than 
+
+FIG. 4. U (1) gauge transformation ρθ (z) in the real 128-dimensional non-equivariant latent space. The transforma-tion fits well to a sinusoidal form ˜ ρθ (z) = a(z)[cos θ − 1] + 
+
+b(z) sin θ + z. (a) Relative error between actual gauge-transformed vector ρθ (z) and the sinusoidal fit ˜ ρθ (z) as a function of θ, i.e., |ρθ (z) − ˜ρθ(z)| / |z|, at a typical z. The ra-dial axis shows the relative error, while the angular coordinate shows θ. (b) Parity plot of a linear fit to the z-dependence of the sinusoidal coefficients a(z) and b(z). The horizontal axis shows the actual coefficients a, b at each z extracted from si-nusoidal fit, while the vertical axis shows the linear regression values of a, b with respect to z.
+
+the full Bloch function ψnk(r) = eik·runk(r). This is be-cause Bloch functions at neighboring k points are orthog-onal, and encoding the full Bloch functions would there-fore obscure the local relationship between neighboring points in the reciprocal space. Under a reciprocal-lattice translation, or umklapp transformation, k 7 → k + G,where G is a reciprocal lattice vector, the full Bloch function remains invariant ψnk+G(r) = ψnk(r), but the 6lattice-periodic part undergoes a non-trivial linear trans-formation 
+
+unk+G(r) = e−iG·runk(r). (10) This relation requires a position-dependent phase rather than a global U (1) phase, and thus unk(r) and unk+G(r)are generally encoded to different latent vectors by the present AE. Enforcing equivariance under reciprocal-lattice translations requires additional architectural con-straints and is left for future work. In practice, we can always restrict reciprocal space sampling to a fixed funda-mental region, such as the first Brillouin zone or a par-allelepiped reciprocal cell, and some additional bound-ary matching or periodicization procedures can be used if boundary continuity is important in the downstream application. For comparison, we also study the action of gauge transformation in the real latent space produced by the non-U (1)-equivariant AE. For a non-U (1)-equivariant real latent vector z = enc( u) ∈ R2d, the gauge transfor-mation of the input, u 7 → ue iθ , induces a general latent space map parameterized by phase angle θ ∈ [0 , 2π): 
+
+ρθ (z) = enc( eiθ u). (11) If the latent space transformed as a defining represen-tation of U (1), the gauge action would have the linear form 
+
+ρθ(z) = z cos θ + Lz sin θ, (12) where L is a linear operator with L2 = −1. We find that, despite the absence of explicit equiv-ariance constraints, the dependence of the actual gauge action on θ is well approximated by a sinusoidal form similar to Eq. (12): 
+
+ρθ (z) ≈ a(z) cos θ + b(z) sin θ − a(z) + z, (13) where the offset enforces ρθ=0 (z) = z, i.e., the vector is itself without gauge transformation. We sample θ at 32 values uniformly distributed in [0 , 2π) and fit the sinu-soidal form in Eq. (13) with respect to θ for 8,500 latent vectors of 128 dimensions encoded from the test dataset used in Fig. 2. The resulting fit has a median r2 = 0 .9989. Fig. 4(a) shows the relative deviation between the di-rectly computed ρθ(z) and the sinusoidal fit in θ ∈ [0 , 2π)for a representative latent vector z corresponding to the highest valence band of MoS 2 at a randomly selected k-point. This example has r2 = 0 .9988, close to median quality. The emergence of a sinusoidal structure with respect to θ may result from the arbitrary gauge from the eigensolver, which acts as an implicit data augmen-tation during training. The residual shortcut structure in the non-U (1) architecture may also contribute to this structure (see appendix A 1). However, the sinusoidal dependence of ρθ (z) on θ does not imply that the non-equivariant latent space carries a linear representation of the U (1) space, as the coeffi-cients a(z) and b(z) can have nonlinear dependence on z.Fig. 4(b) shows the parity plot for the linear regressions of a(z) and b(z) against z. An affine fit gives a simi-lar behavior. While a(z) is approximately linear, with 
+
+r2 = 0 .996 in the linear regression, b(z) exhibits stronger deviations from linearity, indicating that the gauge action 
+
+ρθ(z) has a nontrivial dependence on the latent vector z.The asymmetry between a and b is likely due to the initial condition ρθ=0 (z) = z. Consequently, the gauge action in the non-equivariant latent space, ρθ(z), cannot be determined a priori in a simple closed form, making it difficult to respect the gauge symmetry in downstream applications.  
+
+> B. Topology
+
+The gauge structure of wavefunctions across the Bril-louin zone is closely related to band topology. Due to 
+
+U (1) equivariance of the AE, we expect the latent vec-tor to also contain information about the band topology. Two quantities are used to examine this correspondence. First, the Berry curvature [24, 44] at momentum k is the normalized Berry phase accumulated around an in-finitesimal loop enclosing k. It quantifies the local geo-metric twisting of the Bloch states. Second, the Brillouin-zone integral of Berry curvature yields the Chern number [45], which characterizes the global topological twisting of Bloch states of the band. One way to identify the Chern number is through the winding of hybrid Wan-nier centers [46]. For a 2-dimensional reciprocal space with fractional coordinates ( k1, k 2), consider the loop ob-tained by traversing k1 from 0 to 1 at a fixed k2. The Berry phase accumulated on the loop is a function of k2,denoted by θ(k2). It is proportional to the hybrid Wan-nier center [46]. The winding number of θ(k2) modulo 2 π
+
+as k2 varies from 0 to 1 is equal to the Chern number of the band. We calculate the Berry curvature and Berry phase winding using a discrete formalism [25, 47] for both the wavefunctions unk(r) and latent vectors znk. Details of the calculation are provided in appendix C 1. We find that the latent vectors inherit the single-band topological properties of the original wavefunctions. Fig. 5(a) shows the dimensionless discrete Berry curva-ture of the original wavefunction unk(r) and the corre-sponding 64-dimensional latent vectors znk of the high-est valence band of monolayer MoS 2 in a parallelogram reciprocal cell. The latent-space Berry curvature quali-tatively resembles the curvature of the wavefunctions, re-producing features around the center and the edges of the 
+
+K/K ′ valleys, although quantitative differences remain, with the latent Berry curvature being more intense at the K/K ′ valleys. The quantitative difference between the Berry curvature of latent vectors and wavefunctions is provided in Fig. 7 of Appendix C 2. The agreement between wavefunction and latent-space Berry curvature indicates that the latent vectors retain information about 7                   
+
+> FIG. 5. Topological properties of the wavefunctions unkand latent vectors znk.(a) Berry curvature of the unkand znkof the top valence band of monolayer MoS 2in the parallelogram region. Linear scale is used for points with absolute values no greater than 0.06, while log scale is used for those above 0.06. (b) Berry phase or wannier center winding of unkand znkof the highest valence band of monolayer MoS 2.(c)(d) Berry curvature and Berry phase winding of a Haldane model built from graphene Wannier functions.
+
+local geometric winding of Bloch states. Fig. 5(b) shows the Berry phase winding of the wavefunction and latent vectors of the same band. Both exhibit zero net wind-ing, consistent with a zero Chern number. As a fur-ther demonstration, we consider a topologically nontriv-ial Chern band of a Haldane model [48] constructed from graphene Wannier functions, as shown in Fig. 5(c)(d). Additional details of constructing the haldane model are provided in appendix C 3. A Chern number 1 can be identified from the winding of both the wavefunction and the latent vector. These results indicate that the equiv-ariant latent representation captures information of both local twisting structure in Berry curvature and the global twisting topology in a single band. A limitation to the topology of latent vectors arises from the lack of exact umklapp relations, as discussed in section III A. In Fig. 5, the wavefunctions at the bound-aries k1 = 1 and k2 = 1 are explicitly obtained from a re-ciprocal lattice translation of the wavefunctions at k1 = 0 and k2 = 0, and the latent vectors at these boundaries are directly encoded from corresponding wavefunctions. Because exact umklapp equivariance is not enforced, the latent vectors on opposite boundaries do not have an ex-act linear relation. Consequently, the Berry curvature of the latent vectors is only approximately periodic with respect to the reciprocal lattice vectors, and the latent space winding number in Fig. 5(c)(d) is close to, but not exactly by construction, an integer. Nevertheless, the latent vectors contain sufficient information to correctly identify the band Chern number as an integer, and to give a qualitative description of the band Berry curvature. In-deed, summing the discrete latent Berry curvature and dividing by 2 π yields -0.0068 for MoS 2 and 1.0018 for the Haldane model, with deviations of only 10 −3-10 −2 from the exact values of 0 and 1. The similarity between the topological properties de-8
+
+FIG. 6. Training Curve of different latent vectors and multi-layer perceptrons (MLPs) on the validation set. Latent vec-tors from different autoencoders (AEs) are shown in different colors, and different MLPs are marked as different linestyles. The main panel is a comparison of the AE encoding only the modulus of wavefunctions (black) and other AEs also encod-ing the phase information, including the U (1) AE (blue), the non-U (1) AE (orange) and the linear AE (green). The inset is a zoomed-in comparison of different AEs retaining phase information combined with either the U (1) MLP (solid lines) or non-U (1) MLP (dotted lines). The versions with phase in-formation are run with three different random seeds. 
+
+rived from znk and those from unk(r) is a direct conse-quence of U (1) equivariance and the local smoothness of the AE. Consider the normalized overlap of neighboring wavefunctions 
+
+Mμ(k) = 〈uk|uk+ ˆμ∆k〉|〈 uk|uk+ ˆμ∆k〉| ≡ exp (iθ μ(k)), (14) where μ is a direction in the Brillouin zone and ∆ k is some small displacement. The band index is suppressed here because only a single band is considered. The quan-tity Mμ(k) is directly related to the Berry connection [25] and is a fundamental quantity in the discrete com-putation of topological properties. For sufficiently small 
+
+|∆k|, the overlap of neighboring wavefunctions is close to 1, i.e., |〈 uk|uk+ ˆμ∆k〉| ≈ 1. Thus, after removing the rel-ative phase, 〈uk|e−iθ μ(k)uk+ ˆ μ∆k〉 ≈ 1, implying that the numerical values of the two wavefunctions are close, so that uk(r) ≈ e−iθ μ(k)uk+ˆ μ∆k(r). If the encoder (enc) is smooth, these nearby inputs are mapped to nearby latent vectors. We therefore write 
+
+〈enc( uk)|enc( e−iθ μ (k)uk+ ˆ μ∆k)〉|〈 enc( uk)|enc( e−iθ μ (k)uk+ ˆ μ∆k)〉| = eiδ (k), (15) where δ(k) denotes the phase error introduced by en-coding. Using the U (1) equivariance of the encoder, the link variable of latent vectors zk = enc( uk) and 
+
+zk+ ˆ μ∆k = enc( uk+ ˆ μ∆k) becomes ˜Mμ(k) = 〈zk|zk+ ˆμ∆k〉|〈 zk|zk+ ˆμ∆k〉| ≡ exp [i(θμ(k) + δ(k))] . (16) When the encoder is smooth enough such that δ(k) is small, wavefunctions and latent vectors have similar link variables Mμ(k) ≈ ˜Mμ(k) and thus similar topological properties. The larger discrepancies near the K/K ′ val-leys (Appendix Fig. 7(a)) suggest that the encoder is less smooth for wavefunctions around these regions. The ex-act cause of this behavior is related to dataset sampling and training dynamics, and is difficult to analyze exactly. In addition, the Berry curvature may have a larger rela-tive deviation than the Berry phase, as also observed in Fig. 5. This is because the Berry curvature corresponds to a derivative-like quantity of the link variable, and the difference of the phase θ(k) at neighboring points can be much smaller than the individual link phase. Small phase errors in the encoding can thus produce large relative er-rors in the local Berry curvature. 
+
+IV. PREDICTION USING LATENT REPRESENTATIONS 
+
+As a proof-of-principle demonstration of the impor-tance of phase information and U (1)-equivariance in downstream prediction using the latent representation, we train a simple multilayer perceptron (MLP) to pre-dict the off-diagonal elements of the G0W0 Generalized Plasmon-Pole (GPP) model self-energy matrix [27] of two-dimensional materials: Σmn (k) ≡
+
+〈
+
+mk
+
+∣∣∣∣
+
+Σ( EDF T mk ) + Σ( EDF T nk )2
+
+∣∣∣∣ nk
+
+〉
+
+, (17) where EDF T mk and EDF T nk are the DFT energies of state 
+
+|mk〉 and |nk〉. The structure in Eq. (17) makes the re-sulting operator Hermitian, which is important in quasi-particle self-consistent GW theory [49, 50]. Additional details about generating the GW data are provided in appendix B. A U (1)-equivariant MLP is constructed to respect the gauge equivariance of the off-diagonal matrix elements. A schematic of the architecture is shown in Fig. 1(c). The model takes two latent vectors zmk and znk, and constructs an equivariant coupled feature vector through the coupling layer 
+
+fmn k =
+
+> P
+
+∑
+
+> p=1
+
+Apz∗ 
+
+> mk
+
+⊙ Bpznk, (18) where Ap and Bp are trainable weight matrices and ⊙
+
+denotes elementwise multiplication. The coupled feature 
+
+fmn k subsequently goes through an ordinary MLP with complex weights and equivariant nonlinearities (8). Such 9an architecture guarantees the correct gauge equivari-ance of off-diagonal matrix elements of Σ mn (k). In ad-dition, the weight matrices in the MLP are conditioned on additional scalar inputs consisting of the DFT ener-gies, the momentum, and lattice structure including the two in-plane lattice constants and the angle of the two lattice basis vectors. For comparison, we also construct a non-U (1) equivariant MLP where all complex-valued layers are replaced with real-valued counterparts, and equivariant nonlinearities are replaced with conventional nonlinearities. Additional details of the MLP architec-ture are provided in appendix A 2. We emphasize that this simple 2-state MLP is not a quantitatively complete model able to accurately predict the self-energy matrix Σmn (k), as Σ mn (k) in principle depends on the full set of mean-field states {| nk〉, E nk}, and an accurate prediction model should thus accept all relevant states as input. The present MLP architecture is used as a proof-of-principle model to isolate the roles of phase information and gauge equivariance. Fig. 6 shows the training curve of the MLPs on the validation set for different latent vectors and MLPs. The latent vectors produced by 4 different AEs are compared and depicted by different colors: an AE encoding only the modulus |unk| (modulus AE, black), a nonlinear U (1)-equivariant AE ( U (1) AE, blue), a nonlinear non-U (1) equivariant AE (non-U (1) AE, orange), and a linear AE (linear AE, green). The equivariant and non-equivariant MLPs are compared for these latent vectors, indicated by solid and dotted lines, respectively. The MLPs are trained on a dataset consisting of 613,200 matrix ele-ments from 438 2-dimensional materials with hexagonal symmetry, with a train-validation split of 0 .9 : 0 .1 across the randomly shuffled matrix elements. The dataset is reduced compared with the wavefunction dataset in sec-tion II due to the high computational cost of generat-ing self energy matrix data. For controlled comparison, the sizes of models are kept as approximately the same. All AEs use approximately 5.0M real parameters and 64 complex dimensions or 128 real dimensions, including the modulus-only AE. All MLPs use approximately 155k real parameters. The results demonstrate that both phase information and gauge equivariance are important to the prediction of gauge-sensitive quantities such as Σ mn (k). Though all model variants have some level of overfitting (see ap-pendix D), likely due to the non-completeness of inputs, there are clear distinctions between different representa-tions and prediction architectures. The main panel of Fig. 6 compares modulus-only representation and other representations with phase information. The validation loss of the modulus-only version increases as training pro-ceeds, and is much larger than those of the other mod-els, suggesting severe overfitting. The inset of Fig. 6 is a zoomed-in comparison among the versions retaining phase information. Models that neglect U (1) equivari-ance in either the AE or the downstream MLP perform worse than the fully equivariant models. It indicates that respecting gauge equivariance in both the representation learning and the prediction stage improves the learning of gauge-sensitive matrix elements. Two observations in Fig. 6 differ from our initial ex-pectations. First, the linear AE yields better down-stream MLP prediction performance than the full non-linear U (1)-equivariant AE, despite having significantly worse reconstruction quality, as shown in Fig. 2. One possible explanation is that the nonlinear AE encodes the wavefunction information into a more complicated latent space that cannot be effectively decoded by the simple MLP used here. Second, the combination of the U (1)-equivariant AE with the non-equivariant MLP performs worse than the fully non-equivariant combina-tion. A possible reason is an architectural mismatch: the 
+
+U (1)-equivariant AE fully respects the gauge and com-plex structure of wavefunctions, which is completely ig-nored in the non-U (1) MLP, and thus the downstream non-equivariant MLP may fail to utilize the information in the equivariant latent representation. These two ob-servations both suggest that representation learning and downstream prediction architectures should be designed jointly in future studies.  
+
+> V. DISCUSSION
+
+Gauge equivariance has been previously investigated in several areas of machine learning. It has been studied in the context of local coordinate transformations [51, 52], and has been widely utilized in machine learning meth-ods for lattice gauge theories, including normalizing flows [53], neural-network quantum states [54] and general pre-dictive models [55]. In condensed matter applications, a gauge-equivariant neural network has also been used to predict multiband Chern numbers from the Wilson loop [56]. Here, we address a distinct problem: the represen-tation learning of individual Bloch states, where the arbi-trary U (1) phase of each state constitutes a redundancy that must be handled if the full complex wavefunction is to be retained. Our results show that this gauge struc-ture can be built directly into a compact latent represen-tation and subsequently propagated into gauge-sensitive downstream models. Intriguingly, we find that the non-U (1)-equivariant AE reconstructs the wavefunctions as accurately as the equivariant AE, and also develops an approximate gauge structure in the non-equivariant latent space. One pos-sible explanation is that the gauge symmetry reduces to a global U (1) symmetry in the AE, which may be eas-ier for the model to learn from the implicit data aug-mentation induced by the random gauge adopted by the eigen solver. This result highlights an important dis-tinction between reconstruction accuracy and the trans-formation properties of the learned representation. Al-though explicit U (1) equivariance is not required for re-construction, enforcing it gives the latent vectors an ex-act and known gauge transformation law. This structure 10 can then be directly incorporated into downstream mod-els of gauge-sensitive quantities, as demonstrated by the self-energy matrix element prediction. The equivariant representation additionally retains geometric information about the underlying Bloch states, allowing for the cal-culation of Berry curvature and Chern number directly from the latent vectors. We note that the downstream prediction considered here is intended as a proof-of-principle test of whether the learned representations can be used to predict a quantity that transforms nontrivially under the gauge freedom of the input Bloch states. The deliberately restricted model therefore isolates the role of phase information and the correct U (1) transformation law, rather than serving as a quantitative surrogate for GW . Extending this construc-tion to a many-state architecture would be required for quantitative prediction of the full self-energy matrix. The present study encodes each Bloch state indepen-dently. Explicitly incorporating relationships between different crystal momenta and different bands is an im-portant direction for future studies. First, spatial sym-metry is not incorporated in our current architecture. It could be incorporated by combining U (1) equivari-ance with space-group equivariance, so that wavefunc-tions at symmetry-equivalent points can be mapped to related latent vectors. Second, as is discussed in section III A, umklapp relations are not explicitly enforced in our present approach, so latent vectors at k and k + G do not have explicit relations by construction. Third, when degeneracy is important, the relevant gauge freedom is generally a multiband U (N ) symmetry for N bands, rather than U (1). Extending the current representation-learning framework to enforce umklapp equivariance and multiband U (N ) symmetry will require additional neural network architectural structure. To conclude, we introduce gauge equivariance into ma-chine learning models that use electronic features learned from individual Bloch states. We show that U (1) equiv-ariance endows the latent representation with physically meaningful properties including an exact and explicit gauge transformation law, smooth variation in recipro-cal space, and information about band topology. Impor-tantly, these properties are obtained without a signifi-cant change in reconstruction accuracy relative to a non-equivariant autoencoder, demonstrating that reconstruc-tion fidelity alone does not determine the physical struc-ture of the latent representation. We further demonstrate that retaining the phase information of the wavefunc-tions and respecting gauge equivariance are important in the prediction of gauge-sensitive objects, as illustrated by the prediction of off-diagonal GW self-energy matrix elements. This work provides a route for incorporat-ing phase-sensitive electronic-structure information con-tained in electronic states into machine-learning repre-sentations while preserving their underlying gauge struc-ture, enabling their use in models of operators, geometric quantities, and many-body properties beyond scalar ob-servables.  
+
+> VI. ACKNOWLEDGMENT
+
+This work was primarily supported by the U.S. De-partment of Energy, Office of Science, Basic Energy Sciences Condensed Matter Theory Program Award No. DE-SC0026655. Development of the Berke-leyGW code was supported by Center for Computational Study of Excited-State Phenomena in Energy Materials (C2SEPEM) at the Lawrence Berkeley National Labo-ratory, funded by the U.S. Department of Energy, Of-fice of Science, Basic Energy Sciences, Materials Sciences and Engineering Division, under Contract No. DE-C02-05CH11231. The calculations used resources of the Na-tional Energy Research Scientific Computing (NERSC), a DOE Office of Science User Facility operated under contract no. DE-AC02-05CH11231 under award num-bers BES-ERCAP-0031507 and BES-ERCAP-0027380. An award of computer time was provided by the U.S. De-partment of Energy’s (DOE) Innovative and Novel Com-putational Impact on Theory and Experiment (INCITE) Program. This research used supporting resources at the Argonne and the Oak Ridge Leadership Computing Fa-cilities. The Argonne Leadership Computing Facility at Argonne National Laboratory is supported by the Office of Science of the U.S. DOE under Contract No. DE-AC02-06CH11357 . The Oak Ridge Leadership Com-puting Facility at the Oak Ridge National Laboratory is supported by the Office of Science of the U.S. DOE under Contract No. DE-AC05-00OR22725.  
+
+> Appendix A: Details of Neural Network Architecture and Training 1. Autoencoder
+
+We use 2-dimensional complex convolution as build-ing blocks of the 2-dimensional autoencoder (AE) archi-tecture. Let x ∈ CC×H×W be the input tensor, with components xcij , where c = 0 , . . . , C − 1 is the channel dimension, and i = 0 , . . . , H − 1, j = 0 , . . . , W − 1 are the spatial dimensions. Let conv be a convolution with output dimension C′, padding p on all four edges, kernel size k and stride s. The output conv( x) is in CC′×H′ ×W ′
+
+,where 
+
+H′ =
+
+⌊ H + 2 p − ks + 1 
+
+⌋
+
+, W ′ =
+
+⌊ W + 2 p − ks + 1 
+
+⌋
+
+.
+
+(A1) The components of the outputs are conv( x)c′ i′ j′ =
+
+> C−1
+
+∑
+
+> c=0
+> k−1
+
+∑
+
+> m=0
+> k−1
+
+∑
+
+> n=0
+
+Kc′c mn xc, i ′ s+m−p, j ′ s+n−p
+
+(A2) where K ∈ CC′×C×k×k is the trainable kernel. The autoencoder consists of an encoder and a de-coder. As input to the encoder, the wavefunctions of 2-dimensional materials are represented on a grid as 11            
+
+> TABLE I. Hyperparameters of the U(1) Autoencoder Hyperparameter values Number of compression / upsampling layers 5Output channel dimensions of each compression layer 120, 144, 144, 96, 48 Stride of each pooling layer (stride 1 means no pooling) 2, 2, 2, 1, 1 Kernel size of each compression layer 3, 3, 3, 3, 3 Group size in group norm 8hidden dimension of MLP in nonlinearity 16 Denominator regularization ǫ10 −5
+
+u ∈ CN3×(N1×N2) with components ukij , for N1, N 2, N 3
+
+grid points along the three crystal axes. The input is normalized so that each pixel is on the order of 1: 1
+
+N1N2N3
+
+> N1N2N3
+
+∑
+
+> kij
+
+|ukij |2 = 1 (A3) The out-of-plane direction N3 is treated as a channel in-dex. The input u first undergoes L compression blocks and is transformed to u(L) ∈ CC×N ′  
+
+> 1×N′
+> 2
+
+with smaller spatial dimension N ′ 
+
+> 1
+
+and N ′
+
+> 2
+
+. Each compression block contains a residual convolution (Fig. 1(b)) and an anti-aliased pooling. The residual convolution changes the channel dimension while keeping the spatial dimension. All convolutions with kernel size k are chosen to have stride 1 and padding ( k − 1) /2. Circular padding is used to respect the periodicity of the wavefunctions. Complex group norm [37] is used in the residual block. To achieve 
+
+U (1) equivariance, the affine transform in the group norm is calculated as ˜x = γx + b μ
+
+|μ| + ǫ , (A4) where μ is the mean of the group, ǫ is a small positive number for regularization and γ ∈ R, b ∈ C are trainable parameters. The nonlinearity used in the residual block is an element-wise complex function 
+
+a(x) = MLP( |x|) x
+
+|x| + ǫ , x ∈ C (A5) where MLP is a real 2-layer small multilayer perceptron with softplus activation. The pooling layer is also a con-volution. Its kernel is trivial with respect to the channel dimension Kc′cmn ∝ δcc ′ , and is a Gaussian distribution along the spatial dimension to suppress high-frequency signals. A stride greater than 1 is used in pooling layers for downsampling. After the compression layers, a dense linear layer is used to compress u(L) ∈ CC×N ′  
+
+> 1×N′
+> 2
+
+to Cd,where d is the latent dimension, after which the latent vector is normalized as 1
+
+d
+
+> d
+
+∑
+
+> i=1
+
+|zi|2 = 1 . (A6) In the decoder, a dense linear layer is first used to map 
+
+Cd to CC×N ′  
+
+> 1×N′
+> 2
+
+so that the shape u(L) before the dense linear compression is restored. After that, L upsampling layers consisting of bilinear upsampling layers and resid-ual convolution blocks are used to reconstruct the wave-functions. The evolution of channel and spatial dimen-sion in the decoder exactly mirrors that in the encoder. In the end, the reconstructed wavefunction is normalized according to Eq. A3. The hyperparameters used in the AE are listed in Table I. The architecture of the non-U (1)-equivariant AE is the same as the equivariant AE, except the following mod-ifications: First, the convolutions and group norms are replaced with real-valued layers, and bias is used in the convolutions. Second, the GELU nonlinearity is used to replace the equivariant nonlinearities. Third, the nonlin-earity at the output of the residual block after the short-cut connection is discarded, so that the residual block contains only one nonlinearity. The last modification is because real ReLU-like activations discard half of the in-formation, and we find that discarding the second nonlin-earity improves the reconstruction of the non-equivariant version to be similar to the equivariant version. Note that the equivariant activation does not have this problem. In the non-equivariant autoencoder, the channel dimensions are chosen as 176, 200, 200, 128, 64 so that the total num-ber of parameters approximates the equivariant version. By deleting the second activation in the residual block, the whole non-equivariant encoder can be written as a globally linear part W plus a nonlinear part f :
+
+z = enc( u) = W u + f (u), (A7) where the linear part comes from all the shortcut connec-tions in the residual blocks. In the non-equivariant AE, the input wavefunction is taken as the concatenation of the real part ur and the imaginary part ui: u = [ ur, ui]. Under a U (1) transformation, the input wavefunction transforms as 
+
+u 7 → [ur cos θ − ui sin θ, ur sin θ + ui cos θ]. (A8) If the encoder is exactly linear, each component of the latent vector will transform in a sinusoidal form a cos θ +
+
+b sin θ under the U (1) gauge transformation, and a and b
+
+are both linearly dependent on z. This fact may partly contribute to the approximate sinusoidal form of gauge action in the non-equivariant latent space. When training the autoencoders, a learning rate of 2 × 10 −4 is used. Learning rate will be halved if no im-provement occurs on the validation set in 40 epochs. The 12               
+
+> TABLE II. Hyperparameters of the U(1) MLP Hyperparameter values Dimension of combined feature 48 Hidden dimensions in MLP 32,24,18 Number of matrices Pin the coupling layer 6Number of matrices Qin condition layers 2Rank rof condition matrices 8
+
+training is stopped if no improvement occurs on the val-idation set in 60 epochs or 1200 epochs is reached. The weights with the smallest error on validation set are saved as the final result.  
+
+> 2. Multilayer Perceptron
+
+The multilayer perceptron (MLP) used to predict self energy matrices consists of a coupling layer and a U (1)-equivariant MLP. To predict a target matrix element Σmn k = 〈mk|Σ|nk〉, the two d-dimensional latent vec-tors zmk and znk, corresponding to the basis states are taken as input. First, a coupled feature vector is com-puted through the coupling layer 
+
+fmn k =
+
+> P
+
+∑
+
+> p=1
+
+Apz∗ 
+
+> mk
+
+⊙ Bpznk, (A9) where ⊙ is elementwise multiplication, Ap, B p are train-able matrices, and fmn k is the coupled feature vector. Under a gauge transformation, the coupled feature fmn k
+
+transforms in the same way as the matrix element Σ mn k.The coupled feature then undergoes a U (1)-equivariant MLP consisting of linear trainable matrices an element-wise activations chosen as 
+
+a(x) = LeakyReLU( |x| − b) x
+
+|x| + ǫ , x ∈ C, (A10) where b is a learnable parameter. Finally, the feature vector output by the last hidden layer is linearly mapped to a complex scalar to approximate the matrix element Σmn k. In the MLP, all linear weights are conditioned on scalar features including the DFT energies Emk and Enk,the momentum k, and lattice information including the lattice parameters a1,2 along two in-plane crystal axes and the angle of the two in-plane basis vectors cos α,assembled as v = ( EDF T mk , E DF T nk , k, a 1, a 2, cos α) ∈ Rdv .Each weight matrix W , including those in the coupling layer and the MLP, is computed as 
+
+W (v) = W0 +
+
+> Q
+
+∑
+
+> q=1
+
+(Lqv)( Rq v), (A11) where W0, Lq and Rq are trainable weights. The to-tal weight is W (v) ∈ Cd1×d2 , and the condition matri-ces Lq ∈ C(d1×r)×dv , Rq ∈ C(r×d2)×dv have lower rank 
+
+r < min( d1, d 2). The hyperparameters of the prediction multilayer perceptron are listed in Table II. The architecture of the non-equivariant MLP is the same as the equivariant version, except that all the lay-ers are replaced with real-valued ones, and the activation is replaced by plain LeakyReLU. The coupled feature di-mension is chosen as 60 and the hidden dimensions are chosen as 45,30,20 in the non-equivariant MLP, so that the number of parameters is similar to the equivariant version. When training the prediction MLPs, a learning rate of 3 × 10 −4 is used, and a weight decay of 10 −4 is used to reduce overfitting. All MLPs are trained for 500 epochs, and the weights with the smallest validation error are saved as the final result. 
+
+> Appendix B: Dataset Preparation
+
+The materials studied in this work all come from the Computational 2D Materials Database (C2DB) [39, 40]. We keep only the monolayers with a band gap between 0.5 eV and 5 eV and with an in-plane cell area smaller than 42 ˚ A2. 1638 structures comprising 62 different el-ements are obtained in this way. After that, similar to [17], structures with no more than 6 atoms in the cell are chosen, leading to 834 materials in total, which are used in the training and testing of the autoencoders. Here, the lower bound of the gap is used to exclude metals, and the bounds of the cell area and number of atoms is mainly for considerations of computational cost. The out-of-plane lattice constant of each structure is fixed to 12 ˚ A, hence all the materials have the same cell length along the out-of-plane direction. The mean-field wavefunctions are calculated using the Quantum ESPRESSO software package[41, 42], where the Perdew-Burke-Ernzerhof (PBE) exchange-correlation functional [57] and the scalar-relativistic optimized norm-conserving Vanderbilt (ONCV) pseudopotentials [58] are adopted. The plane-wave cutoff for the wavefunctions is chosen to be 50 Ry, and a Γ-centered 5 ×5×1 grid covering the whole Brillouin zone is used for the k-point sampling. Spin-orbit coupling is not considered. We also turn off all the crystal symmetries, so that the wavefunction at every 
+
+k point is obtained from a direct diagonalization instead of from symmetry unfolding. Four valence bands and six conduction bands are used to train the autoencoders. During training, the wavefunctions are represented on a 24 × 24 × 40 real-space grid, which retains an average charge of 0.9994. The self-energy matrices are calculated by Berke-leyGW [59] in the one-shot G0W0 approximation, and the frequency dependence of the screening is described by the generalized plasmon-pole model [27]. The inverse dielectric matrix is computed on the same 5 × 5 × 1 grid with a dielectric cutoff of 25 Ry. Coulomb truncation [60] is applied along the out-of-plane direction to remove the interaction between the periodic images of the monolayer. 13 Since the screening of a 2-dimensional material changes rapidly near q = 0, the nonuniform neck subsampling scheme with 10 extra q points [61] is further used in this region. The empty states entering the dielectric matrix and the Coulomb-hole summation are generated in the full plane-wave basis, and are then compressed to about 250 effective bands for each material by the stochastic pseudobands technique [62]. Finally, the self-energy is evaluated at all 25 k points, and for each k point the 4 highest valence bands and the 4 lowest conduction bands are included.  
+
+> Appendix C: Calculation of Topological Properties 1. Calculation Methods
+
+Consider a single band of vectors dependent on crystal momentum, denoted as |u(k)〉. In a 2D reciprocal space, take a grid in fractional coordinates 
+
+kl = j1
+
+N1
+
+g1 + j2
+
+N2
+
+g2, (C1) with g1,2 being the two basis vectors of the reciprocal lattice, jμ = 0 , 1, 2, . . . , N μ for μ = 1 , 2 and l = ( j1, j 2). The vectors at the edge jμ = Nμ should be taken as the umklapp of the vector at jμ = 0. The discrete Berry curvature is calculated as [47]: 
+
+F (kl) = arg[ M1(kl) M2(kl + ˆ 1) M1(kl + ˆ 2) −1M2(kl)−1],
+
+(C2) where arg denotes the phase angle of a complex number in ( −π, π ] and 
+
+Mμ(kl) = 
+
+〈u(kl)|u(kl + ˆ μ)〉∣∣〈u(kl)|u(kl + ˆ μ)〉∣ ∣ , (C3) denotes the link variable, with μ = 1 , 2 being two direc-tions of the reciprocal space, and kl + ˆ μ ≡ kl + gμ/N μ
+
+being the next neighboring grid point to kl along the ˆ μ
+
+direction. The summation of the Berry curvature on the grid divided by 2 π is the Chern number, which is guar-anteed to be an integer in the case of exact periodicity or umklapp relation [47]. We also identify the Chern number via hybrid Wannier center winding [46]. In the discrete formulation, take a line along direction 1 at a certain k2 with N1 + 1 points on the line: 
+
+ki = iN1
+
+g1 + k2 g2, (C4) with k2 = j2/N 2 for j2 = 0 , 1, 2, . . . , N 2. The product of the link variables along the line is the Wilson loop: 
+
+W (k2) = 
+
+> N1−1
+
+∏
+
+> i=0
+
+〈u(ki)|u(ki+1 )〉∣∣〈u(ki)|u(ki+1 )〉∣ ∣ , (C5) which is a function of k2. Its phase angle is a Berry phase [25] dependent on k2:
+
+θ(k2) = −i ln W (k2) mod 2 π, (C6) with the physical meaning of a Wannier center, and the winding number of θ(k2) as k2 goes from 0 to 1 equals the Chern number [46].          
+
+> 2. Quantitative Difference between Latent Vectors and Wavefunctions
+> FIG. 7. Difference between the wavefunction Berry curvature
+> Fwfn and latent vector Berry curvature Flatent ,|Fwfn −Flatent |,for MoS 2top valence band (a) and the Haldane model (b) .In panel (a), linear scale is used for values below 0.06, while log scale is used for those above 0.06.
+
+We use the discrete method above to calculate topolog-ical properties of both the wavefunctions and the latent vectors. Fig. 7 shows the difference between the Berry curvature of the original wavefunction and the latent vec-tor for MoS 2 top valence band and the Haldane model. The difference is mostly concentrated in the K/K ′ valley for both cases. One potential reason for this phenomenon is that the Berry curvature itself is peaked in the two val-leys.  
+
+> 3. Construction of the Haldane Model
+
+We construct the Haldane model [48] from the maxi-mally localized Wannier functions [63, 64] of graphene. First, the ground state density is obtained through den-sity functional theory calculations with a 18 × 18 × 1k-grid with a 50 Ry wavefunction cutoff via Quantum ESPRESSO [41, 42]. After that, the Kohn-Sham wave-functions and energies are obtained on a 50 × 50 × 1k-grid in the reciprocal space. Two pz -orbital-like Wan-nier functions are constructed on this grid using Wan-nier90 [65]. Subsequently, the nearest- and next-nearest-neighbor hoppings between the Wannier functions are extracted, and a phase e±iπ/ 2 is multiplied to the next-nearest-neighbor hopping to break the time-reversal sym-metry, producing a two-band Haldane model [48]. The two-band Hamiltonian is then diagonalized on the origi-nal 50 × 50 k-grid. The resulting eigenvectors, together with the gauge transformation matrices obtained from 14 Wannierization, are then used to form linear combina-tions of the original Kohn-Sham Bloch states to obtain the real-space eigenfunctions of the Haldane model. 
+
+Appendix D: Additional Results of Multilayer Perceptron 
+
+U(1) 
+
+U(1) 
+
+U(1) non-U(1) non-U(1) non-U(1) linear 
+
+U(1) linear non-U(1) 
+
+> 0.00 0.0  
+> 0.10 0.1  
+> 0.20
+> 1 − 2
+> train validation
+
+FIG. 8. Difference between 1 and the r2 score of different AE and MLP predictions. The first horizontal row of labels gives the AE version: U (1)-equivariant AE ( U (1)), non-U (1)-equivariant AE (non-U (1)) and linear AE (linear). The sec-ond row gives the MLP version: U (1)-equivariant MLP ( U (1)) and non-U (1)-equivariant MLP (non-U (1)). 
+
+Fig. 8 shows the gap between 1 and the r2 score of each prediction model on the training and validation sets. The height of each bar 1 − r2 is positively related to the pre-diction error. Though all models exhibit overfitting, the distinction between the models is notable, and the models considering U (1) equivariance perform better than their non-equivariant counterparts. 
+
+[1] J. Behler and M. Parrinello, Generalized Neural-Network Representation of High-Dimensional Potential-Energy Surfaces, Physical Review Letters 98 , 146401 (2007). [2] E. Kocer, T. W. Ko, and J. Behler, Neural Net-work Potentials: A Concise Overview of Methods, Annual Review of Physical Chemistry 73 , 163 (2022). [3] S. Batzner, A. Musaelian, L. Sun, M. Geiger, J. P. Mailoa, M. Kornbluth, N. Molinari, T. E. Smidt, and B. Kozinsky, E(3)-equivariant graph neural networks for data-efficient and accurate interatomic potentials, Nature Communications 13 , 2453 (2022). [4] K. T. Sch¨ utt, H. E. Sauceda, P.-J. Kindermans, A. Tkatchenko, and K.-R. M¨ uller, SchNet – A deep learning architecture for molecules and materials, The Journal of Chemical Physics 148 , 241722 (2018). [5] T. Xie and J. C. Grossman, Crystal Graph Con-volutional Neural Networks for an Accurate and Interpretable Prediction of Material Properties, Physical Review Letters 120 , 145301 (2018). [6] H. Li, Z. Wang, N. Zou, M. Ye, R. Xu, X. Gong, W. Duan, and Y. Xu, Deep-learning density functional theory Hamiltonian for effi-cient ab initio electronic-structure calculation, Nature Computational Science 2, 367 (2022). [7] X. Gong, H. Li, N. Zou, R. Xu, W. Duan, and Y. Xu, General framework for E(3)-equivariant neural network representation of density functional theory Hamiltonian, Nature Communications 14 , 2848 (2023). [8] Y. Zhong, H. Yu, M. Su, X. Gong, and H. Xi-ang, Transferable equivariant graph neural net-works for the Hamiltonians of molecules and solids, npj Computational Materials 9, 1 (2023). [9] M. Welborn, L. Cheng, and T. F. I. Miller, Transferability in Machine Learning for Elec-tronic Structure via the Molecular Orbital Basis, Journal of Chemical Theory and Computation 14 , 4772 (2018). [10] Z. Qiao, A. S. Christensen, M. Welborn, F. R. Manby, A. Anandkumar, and T. F. Miller, In-forming geometric deep learning with electronic interactions to accelerate quantum chemistry, Proceedings of the National Academy of Sciences 119 , e2205221119 ( [11] C. Venturella, C. Hillenbrand, J. Li, and T. Zhu, Machine Learning Many-Body Green’s Functions for Molecular Excitation Spectra, Journal of Chemical Theory and Computation 20 , 143 (2024). [12] C. Venturella, J. Li, C. Hillenbrand, X. Leyva Peralta, J. Liu, and T. Zhu, Unified deep learning framework for many-body quantum chemistry via Green’s functions, Nature Computational Science 5, 502 (2025). [13] L. Thiede, A. Aldossary, A. Burger, J. A. Campos-Gonzalez-Angulo, N. Wang, A. Zook, M. Alkan, K. Nakaji, T. L. Patti, J. F. Gonthier, M. G. Vakili, and A. Aspuru-Guzik, Coupled Cluster con M¯ oLe: Molecular Orbital Learning for Neural W (2026), arXiv:2602.20232 [cs.LG]. [14] N. R. Knøsgaard and K. S. Thygesen, Repre-15 
+
+senting individual electronic states for machine learning GW band structures of 2D materials, Nature Communications 13 , 468 (2022). [15] A. Zadoks, A. Marrazzo, and N. Marzari, Spectral operator representations, npj Computational Materials 10 , 278 (2024). [16] B. Hou, J. Wu, and D. Y. Qiu, Unsupervised rep-resentation learning of Kohn–Sham states and conse-quences for downstream predictions of many-body ef-fects, Nature Communications 15 , 9481 (2024). [17] B. Hou, X. Xu, J. Wu, and D. Y. Qiu, MBFormer: A General Transformer-based Learning Paradigm for Many-body Interactions in Real Materials (2025), arXiv:2507.05480 [cond-mat]. [18] D. R. Hartree, The wave mechanics of an atom with a non-Coulomb central field. Part I. Theory and methods, in Mathematical Proceedings of the Cambridge Philosoph-ical Society , Vol. 24 (Cambridge university press, 1928) pp. 89–110. [19] V. Fock, N¨ aherungsmethode zur L¨ osung des quantenmechanischen Mehrk¨ orperproblems, Zeitschrift f¨ ur Physik 61 , 126 (1930). [20] J. C. Slater, Note on Hartree’s Method, Physical Review 35 , 210 (1930). [21] P. Hohenberg and W. Kohn, Inhomogeneous Electron Gas, Physical Review 136 , B864 (1964). [22] W. Kohn and L. J. Sham, Self-Consistent Equa-tions Including Exchange and Correlation Effects, Physical Review 140 , A1133 (1965). [23] N. Marzari, A. A. Mostofi, J. R. Yates, I. Souza, and D. Vanderbilt, Maximally local-ized Wannier functions: Theory and applications, Reviews of Modern Physics 84 , 1419 (2012). [24] D. Xiao, M.-C. Chang, and Q. Niu, Berry phase effects on electronic properties, Reviews of Modern Physics 82 , 1959 (2010). [25] D. Vanderbilt, Berry Phases in Electronic Structure Theory: Electric Polarization, Orbital Magnetization and Topological Insulators (Cambridge University Press, Cambridge, 2018). [26] A. Bansil, H. Lin, and T. Das, Col-loquium: Topological band theory, Reviews of Modern Physics 88 , 021004 (2016). [27] M. S. Hybertsen and S. G. Louie, Electron correlation in semiconductors and insulators: Band gaps and quasipar-ticle energies, Physical Review B 34 , 5390 (1986). [28] R. W. Godby and R. J. Needs, Metal-insulator tran-sition in Kohn-Sham theory and quasiparticle theory, Physical Review Letters 62 , 1169 (1989). [29] S. Albrecht, L. Reining, R. Del Sole, and G. Onida, Ab Initio Calculation of Excitonic Ef-fects in the Optical Spectra of Semiconductors, Physical Review Letters 80 , 4510 (1998). [30] L. X. Benedict, E. L. Shirley, and R. B. Bohn, Optical Absorption of Insulators and the Electron-Hole Interaction: An Ab Initio Calculation, Physical Review Letters 80 , 4514 (1998). [31] M. Rohlfing and S. G. Louie, Electron-Hole Excitations in Semiconductors and Insulators, Physical Review Letters 81 , 2312 (1998). [32] M. Rohlfing and S. G. Louie, Electron-hole ex-citations and optical spectra from first principles, Physical Review B 62 , 4927 (2000). [33] G. Onida, L. Reining, and A. Rubio, Elec-tronic excitations: Density-functional ver-sus many-body Green’s-function approaches, Reviews of Modern Physics 74 , 601 (2002). [34] R. J. Bartlett and M. Musial, Coupled-cluster theory in quantum chemistry, Reviews of Modern Physics 79 , 291 (2007). [35] A.-K. Wu, L. Primeau, J. Zhang, K. Sun, Y. Zhang, and S.-Z. Lin, Modeling quantum geometry for frac-tional Chern insulators with unsupervised learning, npj Computational Materials 12 , 280 (2026). [36] K. He, X. Zhang, S. Ren, and J. Sun, Deep Resid-ual Learning for Image Recognition, in Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (2016) pp. 770–778. [37] Y. Wu and K. He, Group normalization, in Proceedings of the European Conference on Computer Vision (ECCV) 
+
+(2018). [38] P. Baldi and K. Hornik, Neural networks and principal component analysis: Learning from examples without lo-cal minima, Neural Networks 2, 53 (1989). [39] S. Haastrup, M. Strange, M. Pandey, T. Deilmann, P. S. Schmidt, N. F. Hinsche, M. N. Gjerding, D. Torelli, P. M. Larsen, A. C. Riis-Jensen, J. Gath, K. W. Ja-cobsen, J. Jørgen Mortensen, T. Olsen, and K. S. Thyge-sen, The Computational 2D Materials Database: High-throughput modeling and discovery of atomically thin crystals, 2D Materials 5, 042002 (2018). [40] M. N. Gjerding, A. Taghizadeh, A. Rasmussen, S. Ali, F. Bertoldo, T. Deilmann, N. R. Knøsgaard, M. Kruse, A. H. Larsen, S. Manti, T. G. Pedersen, U. Petra-landa, T. Skovhus, M. K. Svendsen, J. J. Mortensen, T. Olsen, and K. S. Thygesen, Recent progress of the Computational 2D Materials Database (C2DB), 2D Materials 8, 044002 (2021). [41] P. Giannozzi, S. Baroni, N. Bonini, M. Calandra, R. Car, C. Cavazzoni, D. Ceresoli, G. L. Chiarotti, M. Cococcioni, I. Dabo, A. Dal Corso, S. de Giron-coli, S. Fabris, G. Fratesi, R. Gebauer, U. Ger-stmann, C. Gougoussis, A. Kokalj, M. Lazzeri, L. Martin-Samos, N. Marzari, F. Mauri, R. Maz-zarello, S. Paolini, A. Pasquarello, L. Paulatto, C. Sbraccia, S. Scandolo, G. Sclauzero, A. P. Seitsonen, A. Smogunov, P. Umari, and R. M. Wentzcovitch, QUANTUM ESPRESSO: A modular and open-source software project for quantum simulations of materials, Journal of Physics: Condensed Matter 21 , 395502 (2009). [42] P. Giannozzi, O. Andreussi, T. Brumme, O. Bunau, M. Buongiorno Nardelli, M. Calandra, R. Car, C. Cavaz-zoni, D. Ceresoli, M. Cococcioni, N. Colonna, I. Carn-imeo, A. Dal Corso, S. de Gironcoli, P. Delugas, R. A. DiStasio, A. Ferretti, A. Floris, G. Fratesi, G. Fugallo, R. Gebauer, U. Gerstmann, F. Giustino, T. Gorni, J. Jia, M. Kawamura, H.-Y. Ko, A. Kokalj, E. K¨ u¸ c¨ ukbenli, M. Lazzeri, M. Marsili, N. Marzari, F. Mauri, N. L. Nguyen, H.-V. Nguyen, A. Otero-de-la-Roza, L. Paulatto, S. Ponc´ e, D. Rocca, R. Sabatini, B. Santra, M. Schlipf, A. P. Seitsonen, A. Smo-gunov, I. Timrov, T. Thonhauser, P. Umari, N. Vast, X. Wu, and S. Baroni, Advanced capabilities for materials modelling with Quantum ESPRESSO, Journal of Physics: Condensed Matter 29 , 465901 (2017). [43] B. Hou, J. Wu, V. Chang Lee, J. Guo, L. Y. Liu, and D. Y. Qiu, Data-driven low-rank ap-proximation for the electron-hole kernel and ac-celeration of time-dependent GW calculations, 16 
+
+npj Computational Materials 11 , 204 (2025). [44] M. V. Berry, Quantal Phase Factors Accompanying Adi-abatic Changes, Proceedings of the Royal Society of Lon-don. Series A, Mathematical and Physical Sciences 392 ,45 (1984), 2397741. [45] D. J. Thouless, M. Kohmoto, M. P. Nightin-gale, and M. den Nijs, Quantized Hall Conduc-tance in a Two-Dimensional Periodic Potential, Physical Review Letters 49 , 405 (1982). [46] D. Gresch, G. Aut` es, O. V. Yazyev, M. Troyer, D. Vanderbilt, B. A. Bernevig, and A. A. Soluyanov, Z2Pack: Numerical implementation of hybrid Wan-nier centers for identifying topological materials, Physical Review B 95 , 075146 (2017). [47] T. Fukui, Y. Hatsugai, and H. Suzuki, Chern Numbers in Discretized Brillouin Zone: Efficient Method of Computing (Spin) Hall Conductances, Journal of the Physical Society of Japan 74 , 1674 (2005), arXiv:cond-mat/0503172. [48] F. D. M. Haldane, Model for a quantum hall effect with-out landau levels: Condensed-matter realization of the ”parity anomaly”, Phys. Rev. Lett. 61 , 2015 (1988). [49] M. van Schilfgaarde, T. Kotani, and S. Faleev, Quasiparticle Self-Consistent $GW $ Theory, Physical Review Letters 96 , 226402 (2006). [50] T. Kotani, M. van Schilfgaarde, and S. V. Faleev, Quasiparticle self-consistent $GW $ method: Abasis for the independent-particle approximation, Physical Review B 76 , 165106 (2007). [51] T. Cohen, M. Weiler, B. Kicanaoglu, and M. Welling, Gauge Equivariant Convolutional Networks and the Icosahedral CNN, in Proceedings of the 36th Interna-tional Conference on Machine Learning (PMLR, 2019) pp. 1321–1330. [52] P. D. Haan, M. Weiler, T. Cohen, and M. Welling, Gauge Equivariant Mesh CNNs: Anisotropic convolutions on ge-ometric graphs, in International Conference on Learning Representations (2020). [53] G. Kanwar, M. S. Albergo, D. Boyda, K. Cranmer, D. C. Hackett, S. Racani` ere, D. J. Rezende, and P. E. Shana-han, Equivariant Flow-Based Sampling for Lattice Gauge Theory, Physical Review Letters 125 , 121601 (2020). [54] D. Luo, G. Carleo, B. K. Clark, and J. Stokes, Gauge Equivariant Neural Networks for Quantum Lattice Gauge Theories, Physical Review Letters 127 , 276402 (2021). [55] M. Favoni, A. Ipp, D. I. M¨ uller, and D. Schuh, Lat-tice Gauge Equivariant Convolutional Neural Networks, Physical Review Letters 128 , 032003 (2022). [56] L. Huang, O. Balabanov, H. Linander, M. Granath, D. Persson, and J. Gerken, Learning Chern Numbers of Multiband Topological Insulators with Gauge Equivari-ant Neural Networks, in Advances in Neural Informa-tion Processing Systems , Vol. 38 (Curran Associates, Inc., 2025) pp. 147997–148026. [57] J. P. Perdew, K. Burke, and M. Ernzerhof, Generalized gradient approximation made simple, Physical review let-ters 77 , 3865 (1996). [58] D. Hamann, Optimized norm-conserving vanderbilt pseu-dopotentials, Physical Review B—Condensed Matter and Materials Physics 88 , 085117 (2013). [59] J. Deslippe, G. Samsonidze, D. A. Strubbe, M. Jain, M. L. Cohen, and S. G. Louie, Berke-leygw: A massively parallel computer package for the calculation of the quasiparticle and op-tical properties of materials and nanostructures, Computer Physics Communications 183 , 1269 (2012). [60] S. Ismail-Beigi, Truncation of periodic im-age interactions for confined systems, Physical Review B 73 , 233103 (2006). [61] F. H. da Jornada, D. Y. Qiu, and S. G. Louie, Nonuni-form sampling schemes of the brillouin zone for many-electron perturbation-theory calculations in reduced di-mensionality, Physical Review B 95 , 035109 (2017). [62] A. R. Altman, S. Kundu, and F. H. da Jor-nada, Mixed stochastic-deterministic approach for many-body perturbation theory calculations, Physical Review Letters 132 , 086401 (2024). [63] N. Marzari and D. Vanderbilt, Maximally localized gen-eralized Wannier functions for composite energy bands, Physical Review B 56 , 12847 (1997). [64] I. Souza, N. Marzari, and D. Vanderbilt, Maximally lo-calized Wannier functions for entangled energy bands, Physical Review B 65 , 035109 (2001). [65] G. Pizzi, V. Vitale, R. Arita, S. Bl¨ ugel, F. Freimuth, G. G´ eranton, M. Gibertini, D. Gresch, C. John-son, T. Koretsune, J. Iba˜ nez-Azpiroz, H. Lee, J.-M. Lihm, D. Marchand, A. Marrazzo, Y. Mokrousov, J. I. Mustafa, Y. Nohara, Y. Nomura, L. Paulatto, S. Ponc´ e, T. Ponweiser, J. Qiao, F. Th¨ ole, S. S. Tsirkin, M. Wierzbowska, N. Marzari, D. Vanderbilt, I. Souza, A. A. Mostofi, and J. R. Yates, Wannier90 as a community code: New features and applications, Journal of Physics: Condensed Matter 32 , 165902 (2020).
