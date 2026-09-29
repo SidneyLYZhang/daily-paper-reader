@@ -1,0 +1,2499 @@
+Title: Learning to Steer, Steering to See: Unveiling the Geometry of RLVR in Large Language Models via Trainable Vectors
+
+URL Source: https://arxiv.org/pdf/2609.34344v1
+
+Published Time: Tue, 29 Sep 2026 03:31:24 GMT
+
+Number of Pages: 41
+
+Markdown Content:
+Preprint 
+
+# LEARNING TO STEER , S TEERING TO SEE : U NVEILING THE 
+
+# GEOMETRY OF RLVR IN LARGE LANGUAGE MODELS VIA 
+
+# TRAINABLE VECTORS 
+
+Yuchen Cai 1,2∗
+
+, Ding Cao 1, Qixiang Yin 3, Xin Xu 2, Kai Yang 2, Siye Wu 2, Pengyuan Wang 2,Jiaxuan Wang 2, Weijie Liu 2, Saiyong Yang 2, Guangzhong Sun 1, Guiquan Liu 1†
+
+, Junfeng Fang 1‡
+
+> 1
+
+USTC, 2Tencent Hunyuan, 3BUPT 
+
+{caiyuchen,caoding }@mail.ustc.edu.cn 
+
+# ABSTRACT 
+
+Reinforcement learning (RL) has emerged as a key paradigm for enhancing the reasoning capabilities of large language models. However, the high dimensionality of parameter updates makes RL training dynamics difficult to analyze, obscuring the mechanisms underlying these gains. In this work, we study reinforcement learning with verifiable rewards (RLVR) and use vector steering as an analytical tool to identify a low-dimensional effective manifold in activation space that is closely associated with RL-induced performance gains. We further uncover two key geometric properties of this manifold. (1) Effective Manifold Capacity: The capacity required to reproduce RL-induced gains can be very small, but it is not infinitely compressible. When the capacity is compressed to an extremely low level, the intervention dimensionality and the ability to express input-dependent corrections become key constraints, and this requirement further varies with injection depth. (2) Control Manifold Separation: Effective control directions lie predominantly in the low-variance complement of the activation principal subspace. Within the same task and base model, the learned geometry remains largely consistent across training configurations; across tasks, geometric alignment correlates with capability transfer. We conduct experiments on 5 LLMs and 6 tasks with verifiable rewards, and the results support the above properties. Based on these findings, we propose Alpha-Stabler , a plug-and-play training framework comprising two modules: a Predictor that monitors principal-subspace intrusion to provide early warnings of training collapse, and a Controller that removes the principal-subspace component of activation gradients during backpropagation while preserving their components in the orthogonal complement of the principal subspace. Experiments show that Alpha-Stabler can stabilize training for 2,000 steps and consistently enhance the gains brought by reinforcement learning. This work advances the understanding of RL from an activation-manifold perspective and offers practical insights for more robust post-training. Our code is available at: https://github.com/caiyuchen-ustc/On Policy Vector Training. 
+
+“Mille viae ducunt homines per saecula Romam.” — Alain de Lille 
+
+# 1 INTRODUCTION 
+
+Reinforcement learning (RL) has become central to post-training for large language models (LLMs), yielding substantial gains in reasoning performance (OpenAI, 2025; Xiao et al., 2026; Xu et al., 2026). Yet how RL produces these improvements internally remains incompletely understood. High-dimensional parameter updates, optimization noise, and sensitivity to training configurations make it difficult to distinguish behaviorally meaningful changes from incidental variation. Prior work has examined sampling efficiency (Yue et al., 2025), entropy dynamics (Cui et al., 2025b), scaling behavior (Tan et al., 2026), and update geometry (Cai et al., 2025; 2026; Zhu et al., 2025). A complementary question remains unanswered: what structure do RL-induced behavioral changes exhibit in activation space, and how does this structure relate to capability transfer and training stability? We view RL post-training as an intervention problem in activation space. Concretely, we freeze the base model and learn input-invariant shared vectors at selected layers to distill its RL-tuned counterpart, thereby testing whether RL-induced gains can be recovered by low-dimensional activation interventions. This directly probes whether RL gains admit a low-dimensional description and when this description breaks down. We thereby identify a low-dimensional effective manifold in activation space tied to RL-induced gains, and characterize two geometric properties of this manifold: Effective Manifold Capacity and Control Manifold Separation .
+
+> ∗
+
+This work was done during an internship at Tencent. 
+
+> †
+
+Corresponding author: gqliu@ustc.edu.cn, fjf@mail.ustc.edu.cn 
+
+1arXiv:2609.34344v1 [cs.LG] 28 Sep 2026 Preprint Part 1: Seeing RL through vector steering Part 2: Geometry-guided stabilization   
+
+> Vector steering as an analytical probe
+> Parameter-space view Activation-space view
+> Many roads to the end, the mechanism is hidden A single vector exposes effective control
+
+? vector probe   
+
+> Unstructured to the observer Low-dimensional effective manifold
+> (c) Alpha-Stabler
+> Keep useful updates, suppress intrusion
+> Effective path
+> So that ‘s how it ’s crawled !
+> (a) Effective Manifold Capacity (b) Control Manifold Separation
+> Param 1 Param 2 Param 3
+> Go back ! That ‘s the wrong direction
+> Predictor
+> Alpha-Staler stabilizes RL training by removing the projection onto the principal subspace
+
+Figure 1: The single steering vector reveals that RLVR-induced changes form a low-dimensional, depth-sensitive control geometry, characterized by (a) effective manifold capacity and (b) control-manifold separation. Building on these findings, (c) Alpha-Stabler stabilizes training via principal-subspace intrusion monitoring and backward gradient projection. Our first finding concerns the effective capacity of this manifold. With an RL-trained model as the teacher, a single input-invariant vector per controlled layer recovers over 85% of the gain achieved by full fine-tuning on most evaluated tasks, as shown in Fig. 1 (a) left. However, this compressibility has clear limits. The first arises from the teacher–student distribution gap: when the two distributions are close, a single-vector intervention suffices, whereas a widening gap requires more flexible parameterizations. The second arises from insertion depth: fixed-vector interventions work well at low-to-middle layers but degrade near the output, as shown in Fig. 1(a) right. Through nonlinear analysis, we further find that this degradation does not stem from weak optimization signals at deeper layers, but from the expressiveness bottleneck of low-dimensional interventions at high layers. We summarize these findings as Property 1 (Effective Manifold Capacity) : the capacity required to reproduce RL-induced gains can be very small, but it is not infinitely compressible; this capacity depends on how well the intervention form matches the required correction. We next examine the geometry of the effective manifold. By extending the single-vector probe to multiple mutually orthogonal vectors per layer, we find that although the standalone performance of later directions declines with extraction order, they can still independently support the target behavior, indicating that the leading direction is dominant but not uniquely effective. While RL’s training parameters differ substantially across configurations in parameter space, they consistently converge, after compression, to a set of reproducible task-related directions. Across tasks, the alignment between direction vectors strongly reflects transfer gains, and these directions consistently concentrate in the low-variance complement of the activation principal subspace, as shown in Fig. 1 (b). We characterize this organization as Property 2 (Control Manifold Separation) : RL-induced control converges to a set of reproducible task-related directions that are largely separated from the variance-dominant representation subspace. These two properties indicate that RL-induced behavioral changes admit a structured, low-dimensional description in activation space. During successful RL training, activation shifts remain predominantly in the low-variance complement of the principal subspace, whereas principal-subspace intrusion accompanies performance degradation and collapse. To this end, we propose Alpha-Stabler , a lightweight, plug-and-play framework for stabilizing RL training, as shown in Fig. 1 (c). It introduces no additional trainable parameters and requires no modification to the optimizer, reward function, or model architecture. Alpha-Stabler consists of a Predictor that monitors principal-subspace intrusion (PSI) against a fixed principal subspace from the frozen base model and warns before collapse, and a Controller that removes the principal-subspace component of activation gradients during backpropagation while preserving their orthogonal complements. Experiments show that, with no significant additional computation and zero additional trainable parameters, Alpha-Stabler achieves more stable reward growth over thousands of training steps than gradient clipping and other gradient projection methods. In summary, this work identifies two geometric properties of RLVR-induced changes: Effective Manifold Capacity 
+
+and Control Manifold Separation . These properties reveal that the seemingly complex dynamics of RL post-2Preprint (a) (c) (d) (b) 
+
+Figure 2: (a) On-policy distillation scores on the training set. (b) Off-policy distillation scores on the evaluation set. 
+
+(c) Scores of vector steering under varying teacher types. (d) Scores of full-parameter training, LoRA, and vector steering under off-policy distillation at three distribution gaps. training are governed by a surprisingly simple structure: a low-dimensional manifold confined to the low-variance complement of the activation principal subspace. Building on these properties, we introduce Alpha-Stabler ,a plug-and-play framework that operates with negligible overhead and provides a practical tool for stabilizing large-scale RL training. 
+
+# 2 EFFECTIVE MANIFOLD CAPACITY 
+
+2.1 EXPERIMENTAL SETTING 
+
+Models and Datasets. We evaluate DeepSeek-R1-Distill-Qwen-1.5B/7B (Guo et al., 2025) and Qwen3-4B/8B/14B (Yang et al., 2025) on four task families: mathematical reasoning, scientific reasoning, code generation, and instruction following. For each task, we train a teacher with GRPO (Guo et al., 2025) or DAPO (Yu et al., 2025) and perform on- or off-policy distillation (Li et al., 2026b), comparing three update parameterizations: full-parameter training, LoRA (Hu et al., 2021), and vector steering. Details are provided in Appendix B.2. 
+
+Vector Steering. Consider a frozen base model with L decoder layers and hidden dimension d. For a set of controlled layers S ⊆ { 1, . . . , L }, we add a trainable vector to each layer’s output: 
+
+h′ 
+
+> ℓ
+
+= hℓ + δℓ, ℓ ∈ S , (1) where hℓ ∈ Rd is the hidden state at a given token position, and δℓ ∈ Rd is a layer-specific vector shared across all inputs and token positions. Only {δℓ}ℓ∈S are optimized under the corresponding distillation objective. We then examine the compressibility of RL updates in Section 2.2 and further analyze its properties in Section 2.3. 2.2 COMPRESSIBILITY OF RL L EARNING SIGNALS 
+
+Compressibility across Distillation Regimes. We examine how much of the capability gain obtained by RL can be retained after distillation under restricted update parameterizations. As shown in Fig. 2 (a), under on-policy distillation, LoRA and full-parameter training perform comparably, while a single steering vector per controlled layer still recovers over 85% of the RL gain. To test whether this compressibility depends on student-generated trajectories (Yang et al., 2026), we also evaluate off-policy distillation with teacher-generated trajectories under the same update parameterizations. As shown in Fig. 2 (b), steering retains a comparably high recovery rate on evaluation datasets. Together, these results indicate that RL-induced gains can be highly compressed, and that fixed layer-wise activation offsets alone suffice to retain most of them. 
+
+Effect of Teacher Type and Update Capacity. These recovery rates, however, have limits. We fix the student and vary the teacher under both distillation regimes to examine the sensitivity of vector steering to the teacher– student distribution gap. As shown in Fig. 2 (c), vector steering effectively transfers the capabilities of RL-trained teachers, whereas steering performance degrades substantially with the tested non-RL teachers, with some settings collapsing as the gap widens. This indicates that teacher–student distribution matching is a key factor governing the effectiveness of fixed activation offsets. A natural explanation is that the required corrections become more input-dependent as the gap widens, exceeding what an input-invariant fixed offset can express. If so, parameterizations with different expressive capacities should exhibit a consistent ordering. As shown in Fig. 2 (d), under off-policy distillation, the three parameterizations perform comparably when the gap is small, whereas a larger gap yields a clear ordering: full-parameter training performs best, followed by LoRA, and vector steering worst. This ordering matches their expressive capacities: 3Preprint (a) (b) (c) (d) (e) 
+
+Figure 3: Layer-wise performance. (a) Converged performance of steering vectors across injection layers. (b) Task performance during training for steering vectors. (c) Steering gradient norms at different layers. (d) KL divergence with the teacher under fixed versus gated steering. (e) Converged performance of fixed versus gated injection. full-parameter training allows model-wide adjustments, LoRA retains input-dependent corrections under low-rank constraints, and vector steering only applies fixed offsets. Therefore, a larger gap raises the input dependence required of the correction, and fixed additive corrections are the first to reach their capacity limit (Cai et al., 2026). 
+
+Implications for RL Compressibility. Taken together, these results show that, although vector steering cannot capture arbitrary teacher-induced corrections, it serves as a targeted probe for analyzing the mechanisms underlying RL-specific capability gains. Building on this, we next examine how RL-induced gains vary with injection depth and how effective the low-dimensional representation is across layers. 2.3 LAYER -WISE COMPRESSIBILITY OF RL U PDATES 
+
+Injection Depth and Optimization Dynamics. Section 2.2 shows that RL-induced gains can be compressed into fixed activation offsets. This raises a complementary question: where should such a low-capacity intervention be applied? We therefore compare full-parameter updating, LoRA, and fixed-vector steering at representative network depths, restricting each intervention to the selected layer and freezing the remaining backbone. As shown in Fig. 3 (a), selected-layer full-parameter updating and LoRA remain effective across depths, whereas fixed-vector steering performs well at lower and intermediate layers but deteriorates near the output. This contrast indicates that low-capacity interventions depend on both the update parameterization and the injection depth. We next examine the learning curves across injection sites. Fig. 3 (b) shows that shallow-layer steering gradually approaches intermediate-layer performance during training, whereas high-layer steering plateaus early, and extended training does not noticeably close the gap. To test whether this stagnation stems from weaker gradient signals, we inspect gradient norms. Fig. 3 (c) further shows that shallow and high-layer injections receive gradients of comparable magnitude yet yield substantially different final performance, indicating that gradient magnitude alone does not explain high-layer degradation. One explanation is that high-layer injections have fewer downstream nonlinear transformations, which may limit the ability of a fixed offset to produce context-dependent effects, whereas LoRA and selected-layer full-parameter updates can directly produce input-dependent activation corrections. 
+
+Input-Dependent Corrections and Capacity Controls. To test whether explicit token-dependent modulation alleviates high-layer degradation, we replace the fixed offset with a low-rank nonlinear correction: 
+
+h′ 
+
+> ℓ
+
+= hℓ + δℓ(hℓ), δℓ(hℓ) = Bℓσ(Aℓhℓ) , (2) where Aℓ ∈ Rr×d, Bℓ ∈ Rd×r, r ≪ d, and σ is an element-wise gating nonlinearity. Here Bℓ defines shared correction directions, while σ(Aℓhℓ) assigns token-dependent coefficients. We zero-initialize Bℓ so that the intervention initially leaves the model unchanged. Fig. 3 (d,e) shows that Rank-1 gating reduces teacher KL divergence and improves converged performance at all four tested high-layer injection sites. At Rank-1, the correction still follows a single shared direction per layer, but its strength can vary across tokens. To separate this flexibility from parameter count, we compare against a parameter-matched input-independent control that replaces 
+
+σ(Aℓhℓ) with a constant coefficient. Fig. 4 (a) shows that the static control does not reproduce the improvement of Rank-1 gating, supporting the role of token-dependent modulation. Increasing the gating rank yields further gains toward the full-parameter reference at r = 16 . Together, these results suggest that high-layer recovery depends on both the available correction directions and their input-dependent modulation. 4Preprint (a) (b) (c) 
+
+Figure 4: Diagnosing and mitigating high-layer degradation. (a) Converged performance of vector steering under different nonlinear parameters. (b) Layer-wise mean pairwise cosine similarity for hidden states and output gradients. (c) Distribution of gating activations at different layers. 
+
+Directional Structure and Effective Manifold Capacity. We further examine how gradient alignment and learned modulation vary across depth. At each layer, we compute the mean pairwise cosine similarity between per-token gradient contributions to the steering vector, Sim grad  
+
+> ℓ
+
+= 1
+
+> |P|
+
+P 
+
+> (i,j )∈P
+
+cos( gℓ,i , gℓ,j ), where gℓ,i denotes the normalized contribution of token i to the gradient of the loss with respect to the steering vector at layer ℓ, and 
+
+P is the set of token pairs. We compute the same statistic for hidden states as a reference. Fig. 4 (b) shows that mean gradient similarity rises from about 0.019 at lower and intermediate layers to about 0.14 near the output. If directional alignment alone determined steering effectiveness, this trend would favor shared-direction interventions at higher layers. Yet fixed-vector steering degrades precisely there, showing that average directional alignment alone does not explain the depth-dependent performance gap. We further analyze the distribution of the Rank-1 gating coefficient σ(Aℓhℓ) in Fig. 4 (c). At lower and intermediate layers, coefficients spread broadly over [0 , 1] ,consistent with graded modulation; at higher layers, they concentrate near 0 and 1, consistent with more selective use of the shared direction. Together with the gated-versus-static comparison in Fig. 4 (a), this indicates that explicit token-dependent modulation improves the effectiveness of high-layer interventions: when the intervention can adjust its strength according to each token’s hidden state, the limited downstream nonlinear transformations at high layers no longer constitute a major bottleneck. 
+
+Summary. We summarize these findings as Property 1 (Effective Manifold Capacity) : reproducing RL-induced gains can require only a very low-dimensional intervention, but its effective capacity depends on how well the intervention form matches the required correction. Appendix D.4 provides a conditional account of fixed-vector recovery in terms of the balance between shared teacher-induced shifts and the context-dependent fluctuations around them. 
+
+# 3 CONTROL MANIFOLD SEPARATION 
+
+Having established strong recovery with one steering vector per controlled layer, we now examine the diversity, reproducibility, and principal-subspace localization of effective steering directions. 3.1 PROBING RESIDUAL EFFECTIVE DIRECTIONS WITH MULTI -V ECTOR STEERING 
+
+Sequential orthogonal steering. To test whether the leading direction is uniquely effective, we sequentially learn 
+
+K vectors Vℓ = {v(k) 
+
+> ℓ
+
+}K−1 
+
+> k=0
+
+at each controlled layer ℓ ∈ S , enforcing pairwise orthogonality against earlier vectors, 
+
+⟨v(k) 
+
+> ℓ
+
+, v(j) 
+
+> ℓ
+
+⟩ = 0 for j < k . The first stage is trained to convergence and frozen; each subsequent stage initializes new vectors in the remaining orthogonal complement, optimizes them to convergence, and reprojects them after every optimizer step: 
+
+v(k) 
+
+> ℓ
+
+← v(k) 
+
+> ℓ
+
+−
+
+> k−1
+
+X
+
+> j=0
+
+D
+
+v(k) 
+
+> ℓ
+
+, v(j)
+
+> ℓ
+
+E
+
+v(j)
+
+> ℓ
+> 22
+
+v(j) 
+
+> ℓ
+
+. (3) At each stage, only the current stage’s vectors are injected and evaluated, jointly defining a multi-layer intervention; earlier vectors remain frozen and serve solely to define the orthogonality constraints. 
+
+Residual effectiveness and model scale. As shown in Fig. 5 (a), the first direction achieves 67 .5% standalone accuracy on SciKnowEval with DeepSeek-R1-Distill-Qwen-1.5B, while the eighth direction, v(7) , achieves 62 .0% ,only 5.5 percentage points lower despite being orthogonal to the preceding seven directions at every controlled layer. This modest reduction indicates that excluding previously learned directions does not exhaust the available steering solutions: the remaining orthogonal space still admits interventions with substantial standalone effectiveness. Training results across all four task domains are shown in Appendix Fig. 11. 5Preprint (a) (b) 
+
+Figure 5: Multi-vector steering with sequential orthogonalization. (a) Training trajectories of sequentially learned orthogonal steering vectors on SciKnowEval with DeepSeek-R1-Distill-Qwen-1.5B. (b) Standalone accuracy of the extracted directions across model scales. Each direction is trained and evaluated independently, with preceding directions used only to define the orthogonality constraint. We further examine how this phenomenon varies with model scale. As shown in Fig. 5 (b), the leading direction consistently performs best, while standalone accuracy generally declines with extraction order; the decline is sharper in smaller models, whereas larger models retain higher-order directions whose performance remains closer to that of the leading direction. This indicates that model scale affects not only the performance of the leading direction, but also the extent to which higher-order directions are retained relative to it. 
+
+Summary. These results show that the leading steering direction is effective but not unique: multiple layer-wise orthogonal interventions can independently support the target behavior, although their standalone effectiveness generally declines with extraction order. We next examine whether comparable directions are recovered across teacher parameterizations and distillation regimes. 3.2 TASK -D EPENDENT GEOMETRY AND PRINCIPAL -S UBSPACE SEPARATION 
+
+Consistency across training configurations. We next ask whether the extracted steering directions are re-producible across training configurations. We compare directions along two axes: teacher parameterizations (full-parameter fine-tuning vs. LoRA with different ranks) and distillation regimes (on- vs. off-policy). For each axis, we extract multi-vector directions using the same procedure and measure their layer-averaged cosine similarity, 
+
+sim( {v(i) 
+
+> a
+
+}, {v(j) 
+
+> b
+
+}) = 1
+
+> |S|
+
+P 
+
+> ℓ∈S
+
+cos( v(i)
+
+> a,ℓ
+
+, v(j) 
+
+> b,ℓ
+
+), where S is the controlled layer set and i, j denote extraction indices. Fig. 6 (a) shows stronger same-index than cross-index alignment across the tested teacher parameteriza-tions, while Fig. 6 (b) reports matching-index alignment between on- and off-policy directions. Together, these comparisons indicate a broadly consistent geometric structure across the evaluated configurations and distillation regimes within the same task. 
+
+Cross-topic alignment and capability transfer. Based on this, we further examine whether this geometric structure also reflects functional relationships across tasks. We partition Science into physics, chemistry, materials, and biology. Keeping the base model fixed, we train one RL teacher per topic and distill it using the same procedure to extract its multi-vector directions. For source topic s and target topic t, we define directional alignment as the sum of the first four same-index cosine similarities, averaged across controlled layers: 
+
+A(s, t ) = 1
+
+|S| 
+
+X
+
+> ℓ∈S
+> 3
+
+X
+
+> i=0
+
+cos 
+
+
+
+v(i)
+
+> s,ℓ
+
+, v(i)
+
+> t,ℓ
+
+
+
+.
+
+We normalize the source-to-target transfer gain by the gain obtained from training directly on the target topic: 
+
+∆rel Acc( s → t) = Acc( Ms, t ) − Acc( Mbase , t )Acc( Mt, t ) − Acc( Mbase , t ) × 100% , (4) where Ms, Mt, and Mbase denote the source-trained, target-trained, and base models, respectively. We evaluate six ordered source–target pairs among the four scientific topics, excluding self-pairs, and report the corresponding directional alignments and normalized transfer gains. As shown in Fig. 6 (c), stronger directional alignment is associated with larger normalized transfer gains across these pairs, with a linear fit yielding R2 = 0 .91 . This indicates that the geometry of the learned steering directions is associated with capability transfer across the evaluated topic pairs, with stronger similarity corresponding to better transferability across tasks. 
+
+Effective steering directions avoid the principal subspace. We further examine where these directions are located in activation space. Let Uℓ,r ∈ Rd×r contain the leading orthonormal eigenvectors of the frozen base model’s token-level activation covariance at layer ℓ, with r corresponding to 10% of the hidden dimension, and 6Preprint (a) (b) (c) 
+
+Figure 6: Geometric consistency and transfer of steering directions. (a) Layer-averaged cosine similarities between steering vectors under different teacher parameterizations, shown as stacked bars for each reference vector v(i) 
+
+> a
+
+, with segments ordered from v(0) to v(3) indicating similarities with {v(j) 
+
+> b
+
+}3
+
+> j=0
+
+. (b) Layer-averaged cosine similarities between on- and off-policy steering vectors with matching extraction indices, per task. (c) Cross-topic directional alignment versus normalized source-to-target transfer gains, with a fitted regression line. define Pℓ = Uℓ,r U ⊤ 
+
+> ℓ,r
+
+. For a layer-wise direction zℓ, its principal-subspace energy fraction is 
+
+ePC (zℓ) = ∥Pℓzℓ∥22
+
+∥zℓ∥22 + ϵ . (5) For multi-layer directions, we average ePC across controlled layers. As shown in Fig. 7 (a), across four scientific topics, unconstrained steering places only about 1% –2% of its energy in the Top-10% principal subspace, well below the 10% isotropic reference, with this pattern persisting across the displayed directions v(0) through v(8) .Low principal-subspace energy is thus a shared geometric property of the extracted interventions. 
+
+Restricting steering to the principal subspace does not recover the gain. To test the functional importance of the low-variance complement, we remove each steering vector’s projection onto the bottom-70% activation-PC subspace after every optimizer step, restricting it to the span of the Top-30% components: v(k) 
+
+> ℓ
+
+← Pℓ,m v(k) 
+
+> ℓ
+
+, where 
+
+m is the number of retained components and Pℓ,m = Uℓ,m U ⊤
+
+> ℓ,m
+
+. As shown in Fig. 7 (b), the Top-10% energy fraction rises to about 15% , but accuracy does not improve meaningfully. The gain therefore does not come from alignment with the principal subspace. 
+
+Principal-subspace intrusion tracks training collapse. We next examine whether actual RL-induced activation shifts exhibit increased intrusion into the base model’s Top-10% principal subspace as training becomes unstable. At step t, we run the current policy and the frozen base model on the same token sequences, defining the activation shift ∆(t) 
+
+> ℓ,b,i
+
+= h(t) 
+
+> ℓ,b,i
+
+− hbase  
+
+> ℓ,b,i
+
+(t) for sample b, position i, and layer ℓ. Here hbase  
+
+> ℓ,b,i
+
+(t) is the frozen base model’s activation on the token sequence used at update t; t indexes the sequence, not a change in base-model parameters. We stack all N valid token-level shifts row-wise into X(t) 
+
+> ℓ
+
+∈ RN ×d to avoid cancellation before projection, and compute 
+
+PSI (t) 
+
+> ℓ
+
+= ∥X(t) 
+
+> ℓ
+
+Uℓ,r ∥2
+
+> F
+
+∥X(t) 
+
+> ℓ
+
+∥2 
+
+> F
+
++ ϵ , (6) where Uℓ,r is the fixed Top-10% principal-subspace basis of the base model. As shown in Fig. 7(c), collapse-prone runs show a clear pattern: during stable training, PSI remains low, well below the 10% isotropic reference; as training proceeds, PSI departs from this range and becomes more volatile before any visible score degradation; as collapse progresses, PSI keeps rising while the score falls more sharply. 
+
+Summary. These results support Property 2 (Control Manifold Separation) : in the evaluated settings, effective steering directions lie mainly in the low-variance complement of the activation principal subspace, their ordered geometry stays broadly consistent across teacher parameterizations and distillation regimes, and cross-topic alignment correlates with transfer gains. Appendices D.5 and D.6 further discuss constrained vector fitting and the link between principal-subspace energy and output sensitivity. 
+
+# 4 ALPHA -S TABLER : G EOMETRY -G UIDED RL S TABILIZATION 
+
+Experiments show that effective steering directions lie in the low-variance complement, while principal-subspace intrusion accompanies training collapse. We therefore propose Alpha-Stabler to monitor whether the RL-induced activation shift departs from this regime. It consists of a Predictor, which detects sustained increases in principal-subspace intrusion (PSI), and a Controller, which removes the principal-subspace component of activation gradients 7Preprint (c) (b) (a) 
+
+Figure 7: Steering geometry and principal-subspace intrusion. Energy fractions in (a) and (b) use the Top-10% 
+
+principal subspace. (a) Standalone accuracy and principal-subspace energy fractions of sequentially extracted directions across four scientific topics. (b) The same quantities when steering vectors are restricted to the Top-30% 
+
+activation-PC subspace. (c) Task score and PSI during RL training, comparing stable and collapse-prone runs. during backpropagation while preserving each incoming gradient’s component in the orthogonal complement of the principal subspace. 4.1 ONLINE MONITORING AND CONTROL 
+
+At parameter-update step t, we evaluate the actor and the frozen initial base model on identical token sequences. We stack their valid token-level differences, ∆(t) 
+
+> ℓ,b,i
+
+= h(t) 
+
+> ℓ,b,i
+
+− hbase  
+
+> ℓ,b,i
+
+(t), into X(t) 
+
+> ℓ
+
+∈ RN ×d. During the first 
+
+Twarm = 50 updates, actor-generated rollouts are evaluated by the frozen base model to estimate the base model’s token-level activation covariance at each monitored layer. At the end of warm-up, we extract its leading orthonormal eigenvectors Uℓ,r , with r = ⌈0.10 d⌉, and keep these bases fixed thereafter. Using the layer-wise PSI defined in Eqn. 6, we additionally aggregate across monitored layers: 
+
+PSI (t) =
+
+P 
+
+> ℓ∈S
+
+∥X(t) 
+
+> ℓ
+
+Uℓ,r ∥2
+
+> F
+
+P 
+
+> ℓ∈S
+
+∥X(t) 
+
+> ℓ
+
+∥2 
+
+> F
+
++ ϵ . (7) Layer-wise PSI determines where control is activated; the aggregate summarizes intrusion across monitored layers according to their shift energies. Both sum token-level energies before normalization, avoiding cancellation between differently oriented shifts. PSI is computed from detached activations, so it does not affect gradients, while the actor’s computation graph is retained for backpropagation. 
+
+Predictor: detecting sustained intrusion. During an initially stable warm-up, the actor trains without projection, and valid activation-shift matrices are retained every M updates. Once the principal bases are fixed, we compute PSI for these retained shifts and set fixed warning and lower release thresholds from layer-wise medians and scaled median absolute deviations. Subsequent valid observations update an exponential moving average initialized at the warm-up median. Control activates after p consecutive valid checks with the smoothed PSI above the warning threshold, and releases when it falls below the lower threshold. Algorithm 1 specifies the full procedure. 
+
+Controller: projecting activation gradients. The Controller modifies backward gradients without changing forward activations. Let G(t) 
+
+> ℓ
+
+∈ RN ×d denote the incoming gradient at layer ℓ, including any downstream control effects. With the Predictor’s flag a(t) 
+
+> ℓ
+
+∈ { 0, 1} fixed during backpropagation and the optimizer step, we apply 
+
+˜G(t) 
+
+> ℓ
+
+= G(t) 
+
+> ℓ
+
+− a(t)
+
+> ℓ
+
+
+
+G(t) 
+
+> ℓ
+
+Uℓ,r 
+
+
+
+U ⊤ 
+
+> ℓ,r
+
+. (8) When active, this removes the component of each token’s gradient in the principal subspace while preserving the component orthogonal to that subspace. It integrates directly into standard RL training: rollout generation, likelihood ratios, rewards, and the GRPO or DAPO loss remain unchanged, and the optimizer updates parameters using only the modified backward signal. Warm-up requires estimating reference statistics and temporarily storing calibration shifts; after calibration, reference activations are needed only at monitoring checks and can be reused from a compatible pass. Each active hook performs two low-rank matrix multiplications, and inference uses the trained actor alone, so the additional computation is minimal. Algorithm 1 summarizes the full training loop. 4.2 EXPERIMENTAL EVALUATION 
+
+Training stabilization. Fig. 8 (a) and (b) compares training trajectories with and without Alpha-Stabler.. In uncontrolled runs, a pronounced increase in PSI coincides with sharp score deterioration, indicating that performance 8Preprint (a) (b) (e) (c) (d) 
+
+Figure 8: (a, b) Training dynamics with and without Alpha-Stabler. (c) Training dynamics across learning rates. (d) 
+
+Task score and peak PSI under different intervention timings. (e) Performance under control of different subspaces. loss accompanies a departure from the earlier activation geometry. Under control, PSI remains near its early-training range while task scores continue to improve, yielding sustained learning alongside limited principal-subspace intrusion rather than reduced PSI at the expense of task performance. 
+
+Ablation studies. We then conduct ablation studies of Alpha-Stabler along three dimensions: learning rate, intervention timing, and controlled subspace. First , we find that stabilization holds across learning rates, as shown in Fig. 8 (c): at each tested learning rate, uncontrolled training eventually collapses, whereas controlled training keeps peak PSI at a low single-digit percentage and reaches comparable final scores across settings, indicating robustness to the choice of learning rate. Second , triggered control is preferable to delayed control, as shown in Fig. 8 (d). Triggered control matches always-on control in both score and peak PSI, indicating that continuous intervention is unnecessary, whereas delaying intervention progressively degrades the score and raises peak PSI. 
+
+Third , Top-PC projection outperforms alternative subspaces, as shown in Fig. 8 (e). Among the compared gradient-control methods, removal of Top-PC components achieves the highest score, while random-subspace, Middle-PC, and Bottom-PC control fail to match it and remain close to the uncontrolled baseline; Top-PC also compares favorably with global gradient clipping. This indicates that the improvement does not arise from an arbitrary gradient constraint, but from removing gradient components in a specific subspace, namely the principal subspace. These results support geometrically targeted control rather than indiscriminate gradient suppression. Appendix D.7 shows that gradient projection minimally removes the principal-subspace component of the incoming gradient and bounds principal-subspace activation leakage for a local, single-site projected step. Fig. 12 further shows nearly identical score trajectories with and without Alpha-Stabler under the same measured wall-clock time, indicating almost no additional time overhead. 
+
+# 5 LIMITATIONS AND FUTURE WORK 
+
+Despite revealing two geometric properties of RLVR’s effect on LLMs, our study has several limitations. First, the theoretical framework rests on empirically motivated assumptions not yet derived from first principles. Second, our analysis and experiments are restricted to RLVR on tasks such as mathematical reasoning and code generation; we do not validate the proposed geometry on RLHF, multi-turn agentic decision-making, or open-ended generation, where whether the same properties hold remains open. Future work can relax these assumptions via neuron attribution and causal tracing, extend the framework to RLHF and agentic settings, and exploit off-principal localization as a broader design principle, e.g., by adding complement-space regularizers or using PSI as an adaptive signal for learning rate and intervention strength, enabling low-rank control without layer monitoring. 
+
+# 6 CONCLUSION 
+
+In this work, we identify two geometric properties of RLVR’s effect on LLMs. Effective Manifold Capacity characterizes how a very low-dimensional intervention can reproduce RLVR-induced gains, with the required capacity depending on how well the intervention form matches the required correction. Control Manifold Separation describes the concentration of reproducible, task-related control directions in the low-variance complement of the activation principal subspace. Based on these properties, Alpha-Stabler monitors principal-subspace intrusion as an 9Preprint early-warning signal and projects away the intrusive component of activation gradients during backpropagation, stabilizing training with almost no additional computational overhead. Overall, this work recasts RLVR from black-box parameter optimization into an interpretable geometric process, opening new avenues for theoretically grounded and practically efficient LLM post-training. 
+
+# AI USE STATEMENT 
+
+Generative AI tools were used to assist with language editing, manuscript organization, and formatting, with the aim of improving clarity, readability, and presentation. All AI-assisted revisions were critically reviewed and revised by the authors to ensure technical accuracy, consistency, and fidelity to the underlying research. The authors take full responsibility for the final manuscript, including its methodology, theoretical arguments, experimental results, and conclusions. 
+
+# REPRODUCIBILITY STATEMENT 
+
+We document the experimental procedures and theoretical assumptions underlying our results. Appendix B specifies the training objectives, model configurations, datasets, task-specific verifiers, evaluation protocols, prompts, optimization hyperparameters, and hardware, together with example commands for vector-steering experiments. Appendix C provides additional analyses of the learned steering vectors. Appendix D states the assumptions and proofs supporting our geometric analysis and details the principal-subspace diagnostic and gradient-projection mechanism of Alpha-Stabler. Algorithm 1 specifies its warm-up calibration, monitoring, and control procedures. The source code is provided in the supplementary materials. 
+
+# REFERENCES 
+
+Andy Arditi, Oscar Obeso, Aaquib Syed, Daniel Paleka, Nina Panickssery, Wes Gurnee, and Neel Nanda. Refusal in language models is mediated by a single direction. Advances in Neural Information Processing Systems , 37: 136037–136083, 2024. Yuchen Cai, Ding Cao, Xin Xu, Zijun Yao, Yuqing Huang, Zhenyu Tan, Benyi Zhang, Guangzhong Sun, Guiquan Liu, and Junfeng Fang. On predictability of reinforcement learning dynamics for large language models. arXiv preprint arXiv:2510.00553 , 2025. Yuchen Cai, Ding Cao, Liang Lin, Chunxi Luo, Xin Xu, Kai Yang, Weijie Liu, Saiyong Yang, Tianxiang Zhao, Guangzhong Sun, et al. Learning to foresee: Unveiling the unlocking efficiency of on-policy distillation. arXiv preprint arXiv:2605.11739 , 2026. Ganqu Cui, Lifan Yuan, Zefan Wang, Hanbin Wang, Yuchen Zhang, Jiacheng Chen, Wendi Li, Bingxiang He, Yuchen Fan, Tianyu Yu, et al. Process reinforcement through implicit rewards. arXiv preprint arXiv:2502.01456 ,2025a. Ganqu Cui, Yuchen Zhang, Jiacheng Chen, Lifan Yuan, Zhi Wang, Yuxin Zuo, Haozhan Li, Yuchen Fan, Huayu Chen, Weize Chen, Zhiyuan Liu, Hao Peng, Lei Bai, Wanli Ouyang, Yu Cheng, Bowen Zhou, and Ning Ding. The entropy mechanism of reinforcement learning for reasoning language models, 2025b. URL https: //arxiv.org/abs/2505.22617 .Yifeng Ding, Hung Le, Songyang Han, Kangrui Ruan, Zhenghui Jin, Varun Kumar, Zijian Wang, and Anoop Deoras. Empowering multi-turn tool-integrated agentic reasoning with group turn policy optimization. In 
+
+Proceedings of the 64th Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) , pp. 42409–42423, 2026. Kehua Feng, Xinyi Shen, Weijie Wang, Xiang Zhuang, Yuqi Tang, Qiang Zhang, and Keyan Ding. Sciknoweval: Evaluating multi-level scientific knowledge of large language models. arXiv preprint arXiv:2406.09098 , 2024. Wei Fu, Jiaxuan Gao, Xujie Shen, Chen Zhu, Zhiyu Mei, Chuyi He, Shusheng Xu, Guo Wei, Jun Mei, Jiashu Wang, et al. Areal: A large-scale asynchronous reinforcement learning system for language reasoning. Advances in Neural Information Processing Systems , 38:36256–36282, 2026. Mor Geva, Avi Caciularu, Kevin Ro Wang, and Yoav Goldberg. Transformer feed-forward layers build predictions by promoting concepts in the vocabulary space, 2022. URL https://arxiv.org/abs/2203.14680 .Daya Guo, Dejian Yang, Haowei Zhang, Junxiao Song, Peiyi Wang, Qihao Zhu, Runxin Xu, Ruoyu Zhang, Shirong Ma, Xiao Bi, et al. Deepseek-r1: Incentivizing reasoning capability in llms via reinforcement learning. arXiv preprint arXiv:2501.12948 , 2025. 10 Preprint Zhiwei He, Tian Liang, Jiahao Xu, Qiuzhi Liu, Xingyu Chen, Yue Wang, Linfeng Song, Dian Yu, Zhenwen Liang, Wenxuan Wang, Zhuosheng Zhang, Rui Wang, Zhaopeng Tu, Haitao Mi, and Dong Yu. Deepmath-103k: A large-scale, challenging, decontaminated, and verifiable mathematical dataset for advancing reasoning, 2025. URL https://arxiv.org/abs/2504.11456 .Edward J. Hu, Yelong Shen, Phillip Wallis, Zeyuan Allen-Zhu, Yuanzhi Li, Shean Wang, Lu Wang, and Weizhu Chen. Lora: Low-rank adaptation of large language models, 2021. URL https://arxiv.org/abs/2106. 09685 .Gabriel Ilharco, Marco Tulio Ribeiro, Mitchell Wortsman, Suchin Gururangan, Ludwig Schmidt, Hannaneh Hajishirzi, and Ali Farhadi. Editing models with task arithmetic. arXiv preprint arXiv:2212.04089 , 2022. Naman Jain, King Han, Alex Gu, Wen-Ding Li, Fanjia Yan, Tianjun Zhang, Sida Wang, Armando Solar-Lezama, Koushik Sen, and Ion Stoica. Livecodebench: Holistic and contamination free evaluation of large language models for code. arXiv preprint , 2024. Bowen Jin, Hansi Zeng, Zhenrui Yue, Jinsung Yoon, Sercan Arik, Dong Wang, Hamed Zamani, and Jiawei Han. Search-r1: Training llms to reason and leverage search engines with reinforcement learning. arXiv preprint arXiv:2503.09516 , 2025. Nathan Lambert, Jacob Morrison, Valentina Pyatkin, Shengyi Huang, Hamish Ivison, Faeze Brahman, Lester James V. Miranda, Alisa Liu, Nouha Dziri, Shane Lyu, Yuling Gu, Saumya Malik, Victoria Graf, Jena D. Hwang, Jiangjiang Yang, Ronan Le Bras, Oyvind Tafjord, Chris Wilhelm, Luca Soldaini, Noah A. Smith, Yizhong Wang, Pradeep Dasigi, and Hannaneh Hajishirzi. Tulu 3: Pushing frontiers in open language model post-training, 2025. URL https://arxiv.org/abs/2411.15124 .Kun Li, Zenan Xu, Junan Li, Zengrui Jin, Jinghao Deng, Zexuan Qiu, and Bo Zhou. Discovery and reinforcement of tool-integrated reasoning chains via rollout trees. In Proceedings of the 64th Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) , pp. 14265–14283, 2026a. Yaxuan Li, Yuxin Zuo, Bingxiang He, Jinqian Zhang, Chaojun Xiao, Cheng Qian, Tianyu Yu, Huan-ang Gao, Wenkai Yang, Zhiyuan Liu, et al. Rethinking on-policy distillation of large language models: Phenomenology, mechanism, and recipe. arXiv preprint arXiv:2604.13016 , 2026b. Hunter Lightman, Vineet Kosaraju, Yura Burda, Harri Edwards, Bowen Baker, Teddy Lee, Jan Leike, John Schulman, Ilya Sutskever, and Karl Cobbe. Let’s verify step by step. arXiv preprint arXiv:2305.20050 , 2023. Ivan Moshkov, Darragh Hanley, Ivan Sorokin, Shubham Toshniwal, Christof Henkel, Benedikt Schifferer, Wei Du, and Igor Gitman. Aimo-2 winning solution: Building state-of-the-art mathematical reasoning models with openmathreasoning dataset. arXiv preprint arXiv:2504.16891 , 2025. OpenAI. Introducing gpt-oss. https://openai.com/zh-Hans-CN/index/ introducing-gpt-oss/ , 2025. Simon Ostermann, Daniil Gurgurov, Tanja Baeumel, Michael A Hedderich, Sebastian Lapuschkin, Wojciech Samek, and Vera Schmitt. From weights to activations: Is steering the next frontier of adaptation? In Proceedings of the 64th Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) , pp. 29854–29879, 2026. Long Ouyang, Jeff Wu, Xu Jiang, Diogo Almeida, Carroll L. Wainwright, Pamela Mishkin, Chong Zhang, Sandhini Agarwal, Katarina Slama, Alex Ray, John Schulman, Jacob Hilton, Fraser Kelton, Luke Miller, Maddie Simens, Amanda Askell, Peter Welinder, Paul Christiano, Jan Leike, and Ryan Lowe. Training language models to follow instructions with human feedback, 2022. URL https://arxiv.org/abs/2203.02155 .Qwen Team. Qwen3.8-max: A new bar for coding and cowork, august 2026. URL https://qwen.ai/blog? id=qwen3.8 .Qihan Ren, Peng Wang, Ruikun Cai, Shuai Shao, Dadi Guo, Yuejin Xie, Yafu Li, Quanshi Zhang, Xia Hu, Jing Shao, and Dongrui Liu. Rethinking generalization in reasoning sft: A conditional analysis on optimization, data, and model capability. arXiv preprint arXiv:2604.06628 , 2026. Guangming Sheng, Chi Zhang, Zilingfeng Ye, Xibin Wu, Wang Zhang, Ru Zhang, Yanghua Peng, Haibin Lin, and Chuan Wu. Hybridflow: A flexible and efficient rlhf framework. In Proceedings of the Twentieth European Conference on Computer Systems , EuroSys ’25, pp. 1279–1297. ACM, March 2025. doi: 10.1145/3689031. 3696075. URL http://dx.doi.org/10.1145/3689031.3696075 .Mingyang Song and Mao Zheng. A survey of on-policy distillation for large language models. arXiv preprint arXiv:2604.00626 , 2026. 11 Preprint Zelin Tan, Hejia Geng, Xiaohang Yu, Mulei Zhang, Guancheng Wan, Yifan Zhou, Qiang He, Xiangyuan Xue, Heng Zhou, Yutao Fan, Zhongzhi Li, Zaibin Zhang, Guibin Zhang, Chen Zhang, Zhenfei Yin, Philip Torr, and Lei Bai. Scaling behaviors of llm reinforcement learning post-training: An empirical study in mathematical reasoning, 2026. URL https://arxiv.org/abs/2509.25300 .Kimi Team, Tongtong Bai, Yifan Bai, Yiping Bao, Jianfeng Cai, Xinyuan Cai, Peizhou Cao, Yuxuan Cao, Ziwei Chai, Y Charles, et al. Kimi k3: Open frontier intelligence. arXiv preprint arXiv:2607.24653 , 2026. Eric Todd, Millicent Li, Arnab Sen Sharma, Aaron Mueller, Byron Wallace, and David Bau. Function vectors in large language models. In International conference on learning representations , volume 2024, pp. 17282–17333, 2024. Tom Wollschl¨ ager, Jannes Elstner, Simon Geisler, Vincent Cohen-Addad, Stephan G¨ unnemann, and Johannes Gasteiger. The geometry of refusal in large language models: Concept cones and representational independence. 
+
+arXiv preprint arXiv:2502.17420 , 2025. Bangjun Xiao, Bingquan Xia, Bo Yang, Bofei Gao, Bowen Shen, Chen Zhang, Chenhong He, Chiheng Lou, Fuli Luo, Gang Wang, et al. Mimo-v2-flash technical report. arXiv preprint arXiv:2601.02780 , 2026. Anyi Xu, Bangcai Lin, Bing Xue, Bingxuan Wang, Bingzheng Xu, Bochao Wu, Bowei Zhang, Chaofan Lin, Chen Dong, Chenchen Ling, et al. Deepseek-v4: Towards highly efficient million-token context intelligence. arXiv preprint arXiv:2606.19348 , 2026. An Yang, Anfeng Li, Baosong Yang, Beichen Zhang, Binyuan Hui, Bo Zheng, Bowen Yu, Chang Gao, Chengen Huang, Chenxu Lv, Chujie Zheng, Dayiheng Liu, Fan Zhou, Fei Huang, Feng Hu, Hao Ge, Haoran Wei, Huan Lin, Jialong Tang, Jian Yang, Jianhong Tu, Jianwei Zhang, Jianxin Yang, Jiaxi Yang, Jing Zhou, Jingren Zhou, Junyang Lin, Kai Dang, Keqin Bao, Kexin Yang, Le Yu, Lianghao Deng, Mei Li, Mingfeng Xue, Mingze Li, Pei Zhang, Peng Wang, Qin Zhu, Rui Men, Ruize Gao, Shixuan Liu, Shuang Luo, Tianhao Li, Tianyi Tang, Wenbiao Yin, Xingzhang Ren, Xinyu Wang, Xinyu Zhang, Xuancheng Ren, Yang Fan, Yang Su, Yichang Zhang, Yinger Zhang, Yu Wan, Yuqiong Liu, Zekun Wang, Zeyu Cui, Zhenru Zhang, Zhipeng Zhou, and Zihan Qiu. Qwen3 technical report. arXiv preprint arXiv:2505.09388 , 2025. Y. Yang, Y. He, J. Liu, and Z. Jin. Making complex reasoning student-friendly: A hybrid llm-to-slm distilla-tion framework. In 1st Workshop on Scaling Post-training for LLMs at the Fourteenth International Confer-ence on Learning Representations (ICLR) , April 2026. URL https://openreview.net/forum?id= 6jP5PDOmqN .Yixin Ye, Zhen Huang, Yang Xiao, Ethan Chern, Shijie Xia, and Pengfei Liu. Limo: Less is more for reasoning, 2025. URL https://arxiv.org/abs/2502.03387 .Qiying Yu, Zheng Zhang, Ruofei Zhu, Yufeng Yuan, Xiaochen Zuo, Yu Yue, Weinan Dai, Tiantian Fan, Gaohong Liu, Lingjun Liu, Xin Liu, Haibin Lin, Zhiqi Lin, Bole Ma, Guangming Sheng, Yuxuan Tong, Chi Zhang, Mofan Zhang, Wang Zhang, Hang Zhu, Jinhua Zhu, Jiaze Chen, Jiangjie Chen, Chengyi Wang, Hongli Yu, Yuxuan Song, Xiangpeng Wei, Hao Zhou, Jingjing Liu, Wei-Ying Ma, Ya-Qin Zhang, Lin Yan, Mu Qiao, Yonghui Wu, and Mingxuan Wang. Dapo: An open-source llm reinforcement learning system at scale, 2025. URL 
+
+https://arxiv.org/abs/2503.14476 .Yang Yue, Zhiqi Chen, Rui Lu, Andrew Zhao, Zhaokai Wang, Yang Yue, Shiji Song, and Gao Huang. Does reinforcement learning really incentivize reasoning capacity in llms beyond the base model?, 2025. URL 
+
+https://arxiv.org/abs/2504.13837 .Z.ai. Glm-5.3: Frontier coding with emergent cyber capabilities, august 2026. URL https://z.ai/blog/ glm-5.3 .Wenting Zhao, Xiang Ren, Jack Hessel, Claire Cardie, Yejin Choi, and Yuntian Deng. Wildchat: 1m chatgpt interaction logs in the wild, 2024. URL https://arxiv.org/abs/2405.01470 .Yifei Zhou, Song Jiang, Yuandong Tian, Jason Weston, Sergey Levine, Sainbayar Sukhbaatar, and Xian Li. Sweet-rl: Training multi-turn llm agents on collaborative reasoning tasks. arXiv preprint arXiv:2503.15478 , 2025. Hanqing Zhu, Zhenyu Zhang, Hanxian Huang, DiJia Su, Zechun Liu, Jiawei Zhao, Igor Fedorov, Hamed Pirsiavash, Zhizhou Sha, Jinwon Lee, et al. The path not taken: Rlvr provably learns off the principals. arXiv preprint arXiv:2511.08567 , 2025. Andy Zou, Long Phan, Sarah Chen, James Campbell, Phillip Guo, Richard Ren, Alexander Pan, Xuwang Yin, Mantas Mazeika, Ann-Kathrin Dombrowski, et al. Representation engineering: A top-down approach to ai transparency. arXiv preprint arXiv:2310.01405 , 2023. 12 Preprint 
+
+# A RELATED WORK 
+
+Reinforcement Learning for Large Language Models. Prior to reasoning-capable models like OpenAI’s o1, RL was primarily used in RLHF for instruction-following and human preference alignment (Ouyang et al., 2022). Recently, Reinforcement Learning with Verifiable Rewards (RLVR) has proven effective for reasoning in verifiable domains such as mathematics and programming (Lambert et al., 2025). OpenAI’s o1 inspired a wave of open reasoning models, including DeepSeek-V4 (Xu et al., 2026), Kimi-K3 (Team et al., 2026), Qwen3.8 (Qwen Team, 2026), and GLM-5.3 (Z.ai, 2026). Beyond single-turn reasoning, RL is increasingly applied to agentic settings involving planning, tool invocation (Li et al., 2026a), and multi-turn environment interaction (Ding et al., 2026), with notable efforts on search-augmented reasoning (Jin et al., 2025), multi-turn credit assignment (Zhou et al., 2025), and asynchronous large-scale agentic RL (Fu et al., 2026). 
+
+Emergent Behaviors of On-Policy Training. Recent studies have investigated intrinsic properties of on-policy RL training. Yue et al. (2025) find that RL primarily improves pass@1 sampling efficiency without expanding the model’s reasoning frontier. Cui et al. (2025b) identify early-stage entropy collapse that prematurely degrades exploration. Tan et al. (2026) reveal a power-law relationship between test loss, computation, and data volume, showing larger models exhibit superior learning efficiency. From a parameter-dynamics perspective, Cai et al. (2025) uncover Rank-1 dominance and Rank-1 linear dynamics, enabling 2.5 × acceleration via AlphaRL. Cai et al. (2026) attribute on-policy distillation’s efficiency to modular redundancy suppression and early directional stabilization, proposing EffOPD with 3 × speedup (Song & Zheng, 2026). 
+
+Steering Vectors and Representation Engineering. While most adaptation methods rely on parameter updates (full fine-tuning or LoRA), an alternative line of work intervenes directly on internal activations via vector steering. Representation Engineering (RepE) provides a unifying framework, treating population-level representations as the analytical unit for monitoring and manipulating cognitive phenomena (Zou et al., 2023). High-level behaviors often exhibit low-dimensional structure: refusal is mediated by a single direction (Arditi et al., 2024) or multi-dimensional concept cones (Wollschl¨ ager et al., 2025). Task vectors (Ilharco et al., 2022) and function vectors (Todd et al., 2024) enable behavioral editing through vector arithmetic, and steering is increasingly viewed as a paradigm complementary to fine-tuning and prompting (Ostermann et al., 2026). 13 Preprint 
+
+# B PRELIMINARIES AND EXPERIMENTAL SETUP 
+
+B.1 PRELIMINARIES 
+
+We consider three post-training paradigms: Reinforcement Learning (RL), On-Policy Distillation (OPD), and Off-Policy Distillation. Let πθ denote the policy or student model, π∗ the fixed teacher model, and πref the fixed reference model used for regularization. The teacher provides distillation targets, whereas the reference model anchors RL regularization; these roles are distinct. 
+
+Reinforcement Learning (RL). The RL objective is: 
+
+max  
+
+> θ
+
+JRL (θ) = Ex∼D 
+
+Ey∼πθ (·| x) [r(x, y )] − βD KL (πθ (· | x) ∥ πref (· | x))  , (9) where y = ( y1, . . . , y T ) is sampled from the current policy, r(x, y ) is the reward assigned to response y for query 
+
+x, and β controls the strength of KL regularization. In Reinforcement Learning from Verifiable Rewards (RLVR), r(x, y ) is determined by verifiable outcomes, such as answer correctness or unit-test execution, without requiring a learned reward model. Separating the task-reward term from reference-policy regularization gives the policy-gradient form: 
+
+∇θ JRL (θ) = Ex∼D , y ∼πθ (·| x)
+
+" TX
+
+> t=1
+
+Art ∇θ log πθ (yt | x, y <t )
+
+#
+
+− β∇θ Ex∼D [DKL (πθ (· | x) ∥ πref (· | x))] , (10) where Art denotes the token-level advantage associated with the task reward. In RLVR, this reward is typically observed only after the complete response has been generated. Equation 10 describes the underlying regularized objective; practical GRPO and DAPO updates use algorithm-specific advantage estimates and clipped surrogate objectives. 
+
+On-Policy Distillation (OPD). OPD samples trajectories from the student policy and minimizes the reverse KL divergence from the student to the teacher: 
+
+min  
+
+> θ
+
+JOPD (θ) = Ex∼D [DKL (πθ (· | x) ∥ π∗(· | x))] = Ex∼D , y ∼πθ (·| x)
+
+" TX
+
+> t=1
+
+(log πθ (yt | x, y <t ) − log π∗(yt | x, y <t )) 
+
+#
+
+. (11) The corresponding sequence-level gradient can be written as: 
+
+∇θ JOPD (θ) = Ex∼D , y ∼πθ (·| x)
+
+" TX
+
+> t=1
+> T
+
+X
+
+> t′=t
+
+(log πθ (yt′ | x, y <t ′ ) − log π∗(yt′ | x, y <t ′ )) 
+
+· ∇ θ log πθ (yt | x, y <t )
+
+#
+
+. (12) For optimization, we use an immediate token-level approximation that retains only the contribution at t′ = t:
+
+∇θ JOPD (θ) ≈ Ex∼D , y ∼πθ (·| x)
+
+" TX
+
+> t=1
+
+(log πθ (yt | x, y <t ) − log π∗(yt | x, y <t )) 
+
+· ∇ θ log πθ (yt | x, y <t )
+
+#
+
+. (13) This approximation provides token-level supervision along student-generated trajectories, but omits the future-token contributions in Equation 12. When implemented as an advantage-weighted surrogate, the log-probability difference is treated as a stop-gradient weight, with gradients taken through the student log-probability that it multiplies. 
+
+Off-Policy Distillation (Off-PD). Off-policy distillation instead samples trajectories from the teacher policy. Its objective is the forward KL divergence from the teacher to the student: 
+
+min  
+
+> θ
+
+JOff -PD (θ) = Ex∼D [DKL (π∗(· | x) ∥ πθ (· | x))] 
+
+14 Preprint 
+
+= Ex∼D , y ∼π∗(·| x)
+
+" TX
+
+> t=1
+
+(log π∗(yt | x, y <t ) − log πθ (yt | x, y <t )) 
+
+#
+
+. (14) Since the teacher-dependent term is constant with respect to θ, this objective is equivalent to minimizing the negative log-likelihood of teacher-generated trajectories: 
+
+LOff -PD (θ) = −Ex∼D , y ∼π∗(·| x)
+
+" TX
+
+> t=1
+
+log πθ (yt | x, y <t )
+
+#
+
+. (15) The corresponding gradient is: 
+
+∇θ LOff -PD (θ) = −Ex∼D , y ∼π∗(·| x)
+
+" TX
+
+> t=1
+
+∇θ log πθ (yt | x, y <t )
+
+#
+
+. (16) Thus, OPD and off-policy distillation differ in both trajectory sampling and the objective being optimized. OPD uses student-generated trajectories with a reverse-KL objective, whereas off-policy distillation uses teacher-generated trajectories with a forward-KL objective, implemented as sequence negative log-likelihood. The latter trains the student on teacher-generated prefixes, while the former evaluates the teacher on prefixes generated by the student. B.2 EXPERIMENTAL SETUP 
+
+Overview. Each experiment in this paper is defined by a training paradigm and an update configuration. The three paradigms are on-policy RL with verifiable rewards (Eqn. 9), on-policy distillation (Eqn. 11), and off-policy distillation (Eqn. 15), as formalized in Section B.1. For RL, we consider full fine-tuning and LoRA, whereas for both on-policy and off-policy distillation, we additionally evaluate vector steering. These configurations differ in which parameters receive gradients and, consequently, in the dimensionality and expressiveness of the resulting updates. Within each matched comparison, we hold the base model, prompt set, teacher model when applicable, sampling recipe, and evaluation protocol fixed across the applicable update configurations. Parameterization-specific optimization settings are reported in Table 2, and execution differences are described below. In on-policy experiments, matching the sampling recipe does not imply identical trajectories, since the samples depend on the current policy. This setup allows us to compare update parameterizations under matched modeling and evaluation protocols while making their optimization differences explicit. 
+
+Models. To ensure the generality of our findings, we conduct experiments across model scales ranging from 1.5B to 14B parameters, spanning two model families: Qwen2.5/DeepSeek-R1-Distill (1.5B and 7B) and Qwen3 (4B, 8B, and 14B), and two RL algorithms (GRPO and DAPO). All RL models are trained locally using the verl 
+
+framework (Sheng et al., 2025). For all distillation students, the default teacher is the RL-tuned version of the student’s own base model, ensuring that the teacher–student gap corresponds exactly to the RL update itself. 
+
+Datasets and Evaluation. The training data spans four topics, each with its own verifier and held-out evaluation set (Table 1). Rewards are always verifiable in the sense of §B.1: rule-based answer matching for mathematical and scientific reasoning, unit-test execution for code, and programmatic constraint checking for instruction following. For the off-policy distillation experiments in Fig. 2 (d), we additionally compare two sources of supervision: standard SFT on Math-CoT-44K (Ren et al., 2026), which contains approximately 44K mathematical queries and 32 responses sampled from Qwen3-32B for each query, yielding more than 1.4M reasoning traces; and off-policy distillation on OpenMathReasoning (Moshkov et al., 2025), which contains 540K mathematical problems and 3.2M long chain-of-thought solutions generated by DeepSeek-R1 and QwQ-32B. Table 1: Training and evaluation datasets and reward functions for each domain.                
+
+> Domain Training Set Evaluation Set Reward
+> Math DeepMath-103K (He et al., 2025) AIME 2024 (Ye et al., 2025) Answer matching MATH500 (Lightman et al., 2023) Science SciKnowEval-Training (Feng et al., 2024) SciKnowEval-Eval (Feng et al., 2024) Answer matching Code Eurus (Cui et al., 2025a) LiveCodeBench-v5 (Jain et al., 2024) Unit tests Instruction following IFEval-Training (Zhao et al., 2024) IFEval-Eval (Zhao et al., 2024) Constraint checking
+
+Instruction-following split. For instruction following, we partition the dataset at the prompt level into an 80% training split and a 20% held-out evaluation split, denoted as IFEval-Training and IFEval-Eval, respectively. These names refer to the partitions used in this study. All responses associated with the same prompt remain in the same partition, and evaluation prompts are excluded from training. The split is kept fixed across all compared configurations. 15 Preprint 
+
+Evaluation protocol. We report mean@4 on the held-out evaluation sets. For each evaluation prompt, we independently sample four responses using the same decoding configuration. Each response is scored using the corresponding task-specific evaluation criterion. The reported result is the arithmetic mean of the four single-sample evaluation scores computed on the same held-out set: 
+
+mean@4 = 14
+
+> 4
+
+X
+
+> j=1
+
+Score 
+
+
+
+{(xi, y (j) 
+
+> i
+
+)}Ni=1 
+
+
+
+, (17) where N is the number of evaluation prompts, y(j) 
+
+> i
+
+is the j-th sampled response to prompt xi, and Score is the task-specific evaluation metric. For mean per-response correctness, this is equivalently the average over all 4N
+
+scored responses. We do not select the best of the four responses or apply majority voting; mean@4 is therefore distinct from pass@4 .
+
+Update configurations. We compare the following trainable parameterizations under the matched modeling and evaluation protocols described above, using the configuration-specific learning rates in Table 2. • Full fine-tuning updates all model parameters by default and serves as the unrestricted reference configuration. In principle, it can express a substantially broader class of parameter updates than the other configurations. • LoRA (Hu et al., 2021) injects low-rank adapters on all-linear target modules while keeping the backbone frozen. This restricts the update to a low-rank form, though each input can still produce a different correction (i.e., it remains context-dependent). The rank varies across experiments; Table 2 reports the default rank-8
+
+configuration. • Vector steering freezes the entire backbone and trains context-invariant bias vectors added to the residual stream. For a controlled layer set S, the single-vector intervention is 
+
+hℓ 7 → hℓ + vℓ, vℓ ∈ Rd, ℓ ∈ S , (18) with |S| d trainable parameters. For the default single-vector configuration on Qwen3-4B ( d = 2560 ) with 
+
+S = {5, . . . , 20 } and |S| = 16 , this amounts to 40 ,960 scalars, approximately 4.1 × 10 4, or roughly 1.0 × 10 −5
+
+of the backbone. Crucially, vℓ does not vary with the input: the same vector is added regardless of context or decoding position. Unless otherwise stated, vector steering uses the controlled layer set S = {5, . . . , 20 } and a single vector per controlled layer ( K = 1 ). In the layer-wise experiments of Section 2.3, all three configurations are restricted to the selected layer: full-parameter updating trains only that layer, LoRA adapts its linear modules, and vector steering adds an offset to its output. The remainder of the backbone is frozen. These selected-layer experiments are distinct from the default model-wide full-fine-tuning and LoRA configurations. For multi-vector probes ( K > 1), we learn the ordered set {v(0)  
+
+> ℓ
+
+, . . . , v(K−1)  
+
+> ℓ
+
+} sequentially at each controlled layer. The first vector is trained to convergence and then retained as a fixed reference. At each subsequent stage k,
+
+only the current vector v(k) 
+
+> ℓ
+
+is injected and optimized; previously learned vectors remain inactive in the forward pass and are used solely to define the orthogonality constraint. After each optimizer step, the current vector is reprojected onto the orthogonal complement of the previously learned directions. Training advances to the next vector once the current-stage loss plateaus. Each direction is also evaluated independently, with only the corresponding vector active at each controlled layer. Consequently, each stage optimizes |S| d parameters, while the complete collection contains K|S| d scalars; increasing K probes additional independently effective directions rather than simultaneously summing constant offsets. Vector steering requires a substantially larger learning rate than the other two configurations; the values we use are reported in Table 2. The auxiliary reference-KL coefficient in Table 2 refers to additional regularization toward πref , not to the main distillation objective. In particular, a zero auxiliary coefficient does not remove the reverse-KL teacher supervision in OPD or the teacher-trajectory negative log-likelihood in Off-PD. 
+
+Prompts. All Qwen3 models are run and trained in non-thinking mode ( enable thinking=False passed to the chat template) so that the response distribution is directly comparable between the base model, the RL teacher, and every steered student; DeepSeek-R1-Distill students keep thinking mode enabled, as their base model is trained that way. We always use each model’s own built-in chat template rather than a hand-written wrapper, and do not manually prepend an additional system message. Each domain uses its own answer-format instruction, which is also what the corresponding verifier parses. The examples below show user-message content only , with {question }
+
+denoting the raw problem statement. Role delimiters and model-specific thinking prefixes are supplied by the native chat template rather than manually inserted into the user message. For mathematical reasoning , the answer-extraction instruction is appended to the question: 16 Preprint Table 2: Learning rates and paradigm-specific hyperparameters.                                                                        
+
+> RL OPD Off-PD
+> LR, full fine-tuning 1×10 −61×10 −55×10 −5
+> LR, LoRA ( r=8 )3×10 −55×10 −61×10 −5
+> LR, vector steering —1×10 −15×10 −2
+> Max prompt / response 2,048 /20 ,480 3,072 /16 ,384 3,072 /16 ,384
+> Prompt batch 128 1,024 1,024
+> Mini-batch (per step) 32 1,024 1,024
+> Training samples per prompt n16 11
+> Evaluation samples per prompt 444
+> Evaluation metric mean@4 mean@4 mean@4
+> Rollout source student student frozen teacher Rollout IS correction —token, threshold 5.0off Auxiliary reference-KL coeff. 0.001 (GRPO) / 0(DAPO) 00
+> Epochs 1000 1000 1000
+> Precision bfloat16 bfloat16 bfloat16
+
+{question} Please reason step by step, and put your final answer within \boxed{}. 
+
+For scientific reasoning , the instruction is placed first and the question is a multiple-choice item whose options are enumerated A–J, so that the verifier can match a single letter: 
+
+Solve the following problem. Make sure to put the answer (and only answer) inside \boxed{}. {question} A: {option_A} B: {option_B} ... J: {option_J} 
+
+For code generation , the instruction requires a single fenced Python block, which the sandbox extracts verbatim and executes against the hidden unit tests: 
+
+{question} Write Python code to solve the problem. Present the code in ‘‘‘python Your code ‘‘‘ at the end. You need to think first then write the Python code. 
+
+For instruction following , the constraints are stated in natural language at the head of the prompt and no separate reasoning instruction is added, since the verifiable constraints concern the response’s surface form: 
+
+Please follow these instructions in your response: {constraint_1} and {constraint_2} and ... {constraint_n}. {question} 
+
+Teacher rollouts for off-policy distillation are generated with the same model-specific prompt template as the corresponding on-policy runs. Prompt construction is therefore matched, while the two paradigms retain the distinct trajectory-sampling distributions and distillation objectives defined in Section B.1. 
+
+Infrastructure. All training runs use 8× or 32 × H20 96GB GPUs with FSDP for the actor and vLLM for generation. Vector-steering runs disable CUDA graph capture ( enforce eager=true ) because the steering hook mutates hidden states inside the vLLM forward pass; LoRA and full-parameter runs leave CUDA graphs enabled. Rollout tensor parallelism is 4 for RL and 2 for distillation. When a fixed model is used for scoring, its parameters are offloaded to CPU between forward passes; this model serves as the reference policy for RL regularization or the teacher for distillation supervision, depending on the paradigm. The two commands below give the on-policy and off-policy distillation invocations for vector steering. The full-parameter and LoRA variants 17 Preprint use the corresponding update parameterizations and hyperparameters in Table 2, with the configuration-specific generation-engine settings described above. On-Policy Distillation Command (vector steering) 
+
+# examples/representation/4bopd_single.sh -> 4bopd.sh python3 -m verl.trainer.main_ppo \algorithm.adv_estimator=grpo \algorithm.use_kl_in_reward=False \algorithm.rollout_correction.rollout_is=token \algorithm.rollout_correction.rollout_is_threshold=5.0 \algorithm.rollout_correction.rollout_rs=null \algorithm.rollout_correction.bypass_mode=false \data.train_files=/path/to/DeepMath-103K/train_filtered_level6.parquet \data.val_files="[’/path/to/AIME2024/test.parquet’]" \data.train_batch_size=1024 \data.max_prompt_length=3072 \data.max_response_length=16384 \data.filter_overlong_prompts=True \data.truncation=’error’ \data.shuffle=True \data.seed=42 \data.return_raw_chat=True \+data.apply_chat_template_kwargs.enable_thinking=False \actor_rollout_ref.model.path=$MODEL_PATH \+actor_rollout_ref.model.base_model_path=$MODEL_PATH \+actor_rollout_ref.ref.model.path=$TEACHER_MODEL_PATH \actor_rollout_ref.model.lora_rank=0 \actor_rollout_ref.model.enable_trainable_token_vector=true \actor_rollout_ref.model.trainable_token_vector_mode=single \actor_rollout_ref.model.trainable_token_vector_num=1 \actor_rollout_ref.model.trainable_token_vector_layer_start=5 \actor_rollout_ref.model.trainable_token_vector_layer_end=20 \actor_rollout_ref.model.trainable_token_vector_sampling_method=hypersphere \actor_rollout_ref.model.trainable_token_vector_scale=0.1 \actor_rollout_ref.model.trainable_token_vector_learnable_alpha=false \actor_rollout_ref.model.trainable_token_vector_alpha_init=0.0 \actor_rollout_ref.model.trainable_token_vector_curriculum=none \actor_rollout_ref.model.trainable_token_vector_force_all_tokens=true \actor_rollout_ref.model.use_remove_padding=True \actor_rollout_ref.model.enable_gradient_checkpointing=True \actor_rollout_ref.actor.optim.lr=1e-1 \actor_rollout_ref.actor.optim.lr_warmup_steps_ratio=0.0 \actor_rollout_ref.actor.policy_loss.only_reverse_kl_advantages=True \actor_rollout_ref.actor.ppo_mini_batch_size=1024 \actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=1 \actor_rollout_ref.actor.use_kl_loss=True \actor_rollout_ref.actor.kl_loss_coef=0 \actor_rollout_ref.actor.kl_loss_type=low_var_kl \actor_rollout_ref.actor.entropy_coeff=0 \actor_rollout_ref.actor.ppo_max_token_len_per_gpu=32768 \actor_rollout_ref.actor.fsdp_config.dtype=bfloat16 \actor_rollout_ref.actor.fsdp_config.model_dtype=fp32 \actor_rollout_ref.actor.fsdp_config.use_orig_params=True \actor_rollout_ref.rollout.name=vllm \actor_rollout_ref.rollout.calculate_log_probs=true \actor_rollout_ref.rollout.n=1 \ actor_rollout_ref.rollout.temperature=1.0 \actor_rollout_ref.rollout.top_p=1.0 \actor_rollout_ref.rollout.tensor_model_parallel_size=2 \actor_rollout_ref.rollout.gpu_memory_utilization=0.8 \actor_rollout_ref.rollout.enforce_eager=true \actor_rollout_ref.rollout.free_cache_engine=True \actor_rollout_ref.rollout.max_num_batched_tokens=32768 \actor_rollout_ref.rollout.val_kwargs.do_sample=True \actor_rollout_ref.rollout.val_kwargs.temperature=1.0 \actor_rollout_ref.rollout.val_kwargs.top_p=1.0 \actor_rollout_ref.rollout.val_kwargs.n=4 \actor_rollout_ref.ref.log_prob_micro_batch_size_per_gpu=1 \
+
+18 Preprint 
+
+actor_rollout_ref.ref.fsdp_config.param_offload=True \reward_model.reward_manager=naive \trainer.save_vector=true \trainer.save_vector_dir=/path/to/trainable_vectors \trainer.logger=’["console","wandb"]’ \trainer.n_gpus_per_node=8 \trainer.nnodes=1 \trainer.test_freq=10 \trainer.total_epochs=1000 $@ 
+
+Off-Policy Distillation Command (vector steering) 
+
+# Stage 1: dump teacher rollouts once python3 -m verl.trainer.main_generation \model.path=$TEACHER_MODEL_PATH \data.path=/path/to/DeepMath-103K/train_filtered_level6.parquet \data.prompt_key=prompt \data.n_samples=1 \data.batch_size=1024 \rollout.temperature=1.0 \rollout.top_p=1.0 \rollout.prompt_length=3072 \rollout.response_length=16384 \ rollout.max_num_batched_tokens=32768 \rollout.tensor_model_parallel_size=2 \data.output_path=$OUTPUT_BASE/round_${i}.parquet python3 examples/representation/merge_rollouts_to_sft.py \--inputs $OUTPUT_BASE/round_*.parquet \--output $OUTPUT_BASE/teacher_sft_all.parquet \--prompt_key prompt --response_key response # Stage 2: distill off-policy on the frozen corpus python3 -m verl.trainer.main_ppo \algorithm.adv_estimator=grpo \algorithm.rollout_correction.rollout_is=null \algorithm.use_kl_in_reward=False \data.train_files=$OUTPUT_BASE/teacher_sft_all.parquet \data.val_files="[’/path/to/AIME2024/test.parquet’]" \data.train_batch_size=1024 \data.max_prompt_length=3072 \data.max_response_length=16384 \data.return_raw_chat=True \+data.apply_chat_template_kwargs.enable_thinking=False \actor_rollout_ref.model.path=$MODEL_PATH \+actor_rollout_ref.ref.model.path=$TEACHER_MODEL_PATH \actor_rollout_ref.model.lora_rank=0 \actor_rollout_ref.model.enable_trainable_token_vector=true \actor_rollout_ref.model.trainable_token_vector_mode=single \actor_rollout_ref.model.trainable_token_vector_num=1 \actor_rollout_ref.model.trainable_token_vector_layer_start=5 \actor_rollout_ref.model.trainable_token_vector_layer_end=20 \actor_rollout_ref.model.trainable_token_vector_sampling_method=hypersphere \actor_rollout_ref.model.trainable_token_vector_scale=0.1 \actor_rollout_ref.model.trainable_token_vector_learnable_alpha=false \actor_rollout_ref.model.trainable_token_vector_alpha_init=0.0 \actor_rollout_ref.model.trainable_token_vector_curriculum=none \actor_rollout_ref.model.trainable_token_vector_force_all_tokens=true \actor_rollout_ref.actor.optim.lr=5e-2 \actor_rollout_ref.actor.policy_loss.only_reverse_kl_advantages=true \actor_rollout_ref.actor.ppo_mini_batch_size=1024 \actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=1 \actor_rollout_ref.actor.ppo_max_token_len_per_gpu=32768 \actor_rollout_ref.actor.use_kl_loss=True \actor_rollout_ref.actor.kl_loss_coef=0 \actor_rollout_ref.actor.entropy_coeff=0 \actor_rollout_ref.rollout.offline_teacher_rollout=true \actor_rollout_ref.rollout.offline_teacher_data_path=$./teacher_sft_all.parquet \ actor_rollout_ref.rollout.offline_teacher_response_key=response \
+
+19 Preprint 
+
+actor_rollout_ref.rollout.name=vllm \actor_rollout_ref.rollout.n=1 \ actor_rollout_ref.rollout.tensor_model_parallel_size=2 \actor_rollout_ref.rollout.gpu_memory_utilization=0.5 \actor_rollout_ref.rollout.enforce_eager=true \actor_rollout_ref.ref.fsdp_config.param_offload=True \reward_model.reward_manager=naive \trainer.save_vector=true \trainer.logger=’["console","wandb"]’ \trainer.n_gpus_per_node=8 \trainer.nnodes=1 \trainer.test_freq=5 \trainer.total_epochs=1000 $@ 
+
+20 Preprint (a) (b) 
+
+Figure 9: Vocabulary-space readout of steering vectors across network depth. (a) Normalized entropy of 
+
+softmax(RMSNorm( vL)W⊤ 
+
+> U
+
+). The dashed line at 0.9498 denotes the mean entropy of normalized Gaussian directions passed through the same readout pipeline. (b) Highest-logit vocabulary items for steering vectors learned at representative layers. All vectors are normalized before readout. 
+
+# C ADDITIONAL EXPERIMENTS FOR EFFECTIVE MANIFOLD CAPACITY 
+
+C.1 VOCABULARY -S PACE READOUT 
+
+The layer-wise experiments in the main text show that fixed-vector steering recovers most of the RL-induced performance gain at lower and intermediate layers, but becomes substantially less effective near the output. To better understand this difference, we examine the vocabulary-space readout of steering vectors learned at different depths. This analysis characterizes how the learned directions align with output vocabulary items and how this alignment changes with injection depth. For a steering vector vL ∈ RH learned at layer L, we bypass subsequent Transformer layers and directly apply RMS normalization followed by the unembedding matrix (Geva et al., 2022): 
+
+ℓ(vL) = WU RMSNorm( vL), RMSNorm( v) = v
+
+q 1
+
+> H
+
+PHj=1 v2 
+
+> j
+
++ ε, ε = 10 −6, (19) where WU ∈ RV ×H is the unembedding matrix, and H and V denote the hidden dimension and vocabulary size, respectively. The resulting readout distribution is 
+
+pL = softmax ( ℓ(vL)) . (20) The learned vector norms vary across injection depths. RMS normalization reduces the influence of these magnitude differences, allowing the readout to primarily characterize the vocabulary alignment of each steering direction. We quantify the concentration of the readout distribution using normalized entropy: 
+
+eH(pL) = − 1log V
+
+> V
+
+X
+
+> t=1
+
+pL,t log pL,t . (21) Values closer to one indicate a more diffuse distribution, whereas lower values indicate greater concentration on a smaller set of vocabulary items. To establish a random-direction baseline, we sample isotropic Gaussian vectors with the same dimensionality as the steering vectors, normalize them to unit L2 norm, and pass them through the same RMS normalization, unembedding, and softmax operations: 
+
+z(m) ∼ N (0, IH ), ¯z(m) = z(m)
+
+∥z(m)∥2
+
+, (22) 
+
+p(m)null = softmax 
+
+
+
+WU RMSNorm(¯ z(m))
+
+
+
+. (23) Averaging the normalized entropy over the M sampled directions gives 
+
+eHnull = 1
+
+M
+
+> M
+
+X
+
+> m=1
+
+eH
+
+
+
+p(m)null 
+
+
+
+= 0 .9498 . (24) As shown in Fig. 9 (a), the normalized entropy remains close to the random baseline at lower and intermediate layers, indicating a diffuse vocabulary readout. The highest-logit items from L2 to L20 in Fig. 9(b) likewise consist 21 Preprint (a) (b) (c) 
+
+Figure 10: Effect of single-vector steering on hidden-state geometry in Qwen3-4B ( k = 20 , H = 2560 ), measured at layer L + 1 for injection at layer L. (a) Mean principal-subspace overlap between clean and steered activations. (b) Ratio of the top-k explained variance after and before steering. (c) Relative displacement of the activation centroid. Dashed lines denote the corresponding reference values. mainly of heterogeneous subword fragments and symbols, without an apparent common semantic theme. Combined with the strong performance of steering at these depths, this observation shows that effective intermediate-layer interventions need not exhibit a concentrated direct preference for particular output tokens. This pattern is consistent with the role of downstream computation: as a shared additive correction propagates through the remaining layers, its interaction with different hidden states can produce context-dependent output adjustments. Near the output, the readout becomes increasingly concentrated. Beginning around L26, normalized entropy falls below the random baseline, while the highest-logit items increasingly include Wait , But , perhaps , and 
+
+Alternatively . These tokens are associated with contrast, qualification, and reconsideration, suggesting that high-layer steering directions have more explicit vocabulary-level associations. The readout thus shifts from a diffuse pattern at lower and intermediate layers toward a concentrated set of discourse-related items near the output. This increase in vocabulary interpretability does not coincide with better steering performance. Instead, the main-text depth sweep shows that fixed-vector steering deteriorates at these higher layers. A direction can therefore have a clear vocabulary-level association while remaining insufficient for effective task adaptation. The issue is not simply whether a direction aligns with meaningful output tokens, but how that direction is applied across token positions. Expressions of contrast, qualification, or reconsideration are useful in different contexts, whereas a fixed steering vector applies the same additive correction at every position, without explicitly adjusting its strength to the current representation. 
+
+Summary. The vocabulary readout provides a complementary view of the layer-wise results. Lower- and intermediate-layer steering remains effective despite its diffuse direct readout, whereas high-layer directions exhibit more concentrated vocabulary associations alongside weaker fixed-vector performance. This pattern suggests that direct vocabulary alignment alone does not account for steering effectiveness. One possible explanation is that the remaining layers allow earlier interventions to acquire context-dependent effects, while later interventions have less opportunity for such transformation. The gains from high-layer gating are consistent with this account, supporting input dependence as a useful factor in understanding the depth sensitivity of fixed-vector steering. C.2 LOCAL REPRESENTATION GEOMETRY UNDER SINGLE -V ECTOR STEERING 
+
+Section 2.3 shows that single-vector steering recovers most of the RL-induced performance gain at lower and intermediate layers, but becomes less effective near the output. The training dynamics and gating results suggest that the expressiveness of a fixed additive correction contributes to this depth dependence. Here, we complement the performance analysis by examining changes in hidden-state geometry across injection depths, focusing on the leading principal subspaces, their associated variance, and the activation means. 
+
+Experimental Setup. For each injection layer L, we collect hidden states from the base and steered models on the same held-out inputs. The steering vector is added to the output of layer L, and representations are measured at the output of layer L + 1 . This captures the local effect of steering after one subsequent Transformer layer. Aggregating all valid token positions gives 
+
+XL ∈ RN ×H , X′ 
+
+> L
+
+∈ RN ×H , (25) where N is the number of token positions and H is the hidden dimension. The subscript L indexes the injection layer; both matrices contain activations measured at layer L + 1 . Their respective means are 
+
+μL = 1
+
+N
+
+> N
+
+X
+
+> i=1
+
+xL,i , μ′ 
+
+> L
+
+= 1
+
+N
+
+> N
+
+X
+
+> i=1
+
+x′
+
+> L,i
+
+. (26) 22 Preprint (a) (b) (d) (c) 
+
+Figure 11: Multi-vector steering across all four task domains and model scales. The first vector is consistently the most effective, with subsequent directions showing gradually decreasing standalone performance; the decay is slower for larger models. We center each activation matrix using its own mean and independently compute low-rank singular value decompo-sitions: 
+
+XL,c ≈ ULΣLV⊤ 
+
+> L
+
+, X′ 
+
+> L,c
+
+≈ U′
+
+> L
+
+Σ′
+
+> L
+
+V′
+
+> L
+> ⊤
+
+. (27) The first k right singular vectors form the orthonormal principal-component bases VL,k , V′ 
+
+> L,k
+
+∈ RH×k. Writing 
+
+ΣL,j and Σ′ 
+
+> L,j
+
+for the corresponding singular values, the covariance eigenvalues are 
+
+λL,j = Σ2
+
+> L,j
+
+N − 1 , λ′ 
+
+> L,j
+
+= Σ′
+
+> L,j
+> 2
+
+N − 1 . (28) For Qwen3-4B, we use k = 20 and H = 2560 .
+
+Principal-Subspace Alignment. We measure the alignment between the clean and steered top-k principal subspaces as 
+
+Overlap L,k = 1
+
+k
+
+> k
+
+X
+
+> j=1
+
+σj
+
+ V⊤
+
+> L,k
+
+V′
+
+> L,k
+
+ , (29) where σj (·) denotes the j-th singular value. These singular values are the cosines of the principal angles between the two subspaces, so an overlap close to one indicates similar subspace orientations. As shown in Fig. 10(a), the overlap remains close to one for lower- and intermediate-layer injections. At these depths, the leading directions of activation variation therefore remain largely aligned after one layer of propagation. The overlap decreases toward the output, with the largest departures occurring at the latest injection sites. This indicates greater changes in the orientation of the leading subspace for these high-layer interventions. 
+
+Variance Captured by the Leading Components. We next compare the total variance captured by the top-k
+
+components of the steered and clean activations: 
+
+ρL,k =
+
+Pkj=1 λ′
+
+> L,j
+
+Pkj=1 λL,j 
+
+. (30) The numerator and denominator use the leading eigenvalues of their respective covariance matrices. A ratio close to one indicates similar amounts of variance captured by the two principal subspaces. Fig. 10(b) shows that this ratio stays close to one at lower and intermediate injection depths. Along with the high subspace overlap, this suggests that steering at these depths introduces relatively small changes in both the orientation and the total variance of the leading components. The ratio departs further from one near the output, although the changes in captured variance remain modest. Thus, the reduced subspace alignment at the latest injection sites is accompanied by a comparatively small change in the variance captured by the leading components. 23 Preprint 
+
+Displacement of the Activation Centroid. To characterize changes in the mean representation, we measure the relative centroid displacement: 
+
+DL = ∥μ′ 
+
+> L
+
+− μL∥2
+
+∥μL∥2 + 10 −9 . (31) This statistic expresses the change in the activation mean relative to the norm of the clean mean. As shown in Fig. 10 (c), relative centroid displacement is small for lower- and intermediate-layer injections and increases near the output, particularly at the latest injection sites. The strong performance of earlier-layer steering therefore coincides with only a small relative change in the mean representation at the next layer. High-layer steering produces a larger relative mean shift, despite its weaker task performance. 
+
+Relation to the Layer-Wise Expressiveness Bottleneck. Effective steering at lower and intermediate layers is accompanied by limited changes in the measured local geometry. Near the output, reduced subspace alignment and larger centroid shifts coexist with weaker task performance. These observations are consistent with the expressive-ness analysis in Section 2.3: high-layer degradation occurs despite measurable changes in the representations, and the gains from gating suggest that input-dependent modulation helps make these interventions more effective. 24 Preprint 
+
+Figure 12: Comparison of pre-collapse score trajectories with and without Alpha-Stabler at learning rates of (a) 
+
+10 −4, (b) 5 × 10 −5, and (c) 10 −5. Shaded regions denote the first 50 warm-up updates of Alpha-Stabler. Controlled and uncontrolled runs exhibit essentially the same score growth before collapse, indicating that Alpha-Stabler’s stabilization introduces almost no additional computational overhead. 25 Preprint 
+
+Algorithm 1 Alpha-Stabler: Warm-Up Calibration and PSI-Triggered Gradient Projection 
+
+Require: Actor θ; frozen base θ0; monitored layers S at 1/4, 1/2, 3/4 depth 
+
+Require: Principal fraction q = 0 .10 ; warm-up Twarm = 50 ; interval M = 3 ; EMA β = 0 .95 ; persistence p = 3 ;thresholds con = 3 , csafe = 2 
+
+Require: RL optimizer and LR ηθ ; stabilizer ϵ > 0; min. avg. squared token shift ηmin > 0
+
+Ensure: Trained actor θ (inference uses the actor alone) 
+
+1: Run Twarm unprojected RL updates; accumulate base activation covariance on actor rollouts 
+
+2: Every M updates, retain detached shifts in Xℓ if N > 0 and ∥Xℓ∥2 
+
+> F
+
+/N > η min 
+
+3: Estimate Uℓ,r from the reference covariance, r = ⌈qd ⌉; freeze bases 
+
+4: for each ℓ ∈ S do 
+
+5: Wℓ ← {∥ XU ℓ,r ∥2 
+
+> F
+
+/(∥X∥2 
+
+> F
+
++ ϵ) : X ∈ X ℓ}
+
+6: if Wℓ is empty then 
+
+7: Stop and recalibrate 
+
+8: end if 
+
+9: mℓ ← median Wℓ; sℓ ← 1.4826 MAD( Wℓ) + ϵ
+
+10: τ on  
+
+> ℓ
+
+← mℓ + con sℓ; τ safe  
+
+> ℓ
+
+← mℓ + csafe sℓ
+
+11: if 0 < τ safe  
+
+> ℓ
+
+< τ on  
+
+> ℓ
+
+< 1 fails then 
+
+12: Stop and recalibrate 
+
+13: end if 
+
+14: aℓ ← 0; nℓ ← 0; ¯ψℓ ← mℓ
+
+15: end for 
+
+16: Discard calibration records; t ← Twarm 
+
+17: while training not complete do 
+
+18: Sample rollouts; compute rewards, advantages, and behavior log-probs 
+
+19: for each minibatch B (one optimizer update) do 
+
+20: t ← t + 1 ; clear parameter gradients 
+
+21: Actor forward for LRL ; retain graph 
+
+22: if t mod M = 0 then 
+
+23: Frozen-base activations on the same tokens; N ← valid positions 
+
+24: for each ℓ ∈ S do 
+
+25: Xℓ ← sg( Hℓ(θ; B) − Hℓ(θ0; B)) 
+
+26: if N > 0 and ∥Xℓ∥2 
+
+> F
+
+/N > η min then 
+
+27: ψℓ ← ∥ XℓUℓ,r ∥2 
+
+> F
+
+/(∥Xℓ∥2 
+
+> F
+
++ ϵ)
+
+28: ¯ψℓ ← β ¯ψℓ + (1 − β)ψℓ
+
+29: nℓ ← nℓ + 1 if ¯ψℓ > τ on  
+
+> ℓ
+
+, else 0
+
+30: aℓ ← 1 if nℓ ≥ p; aℓ ← 0 if ¯ψℓ < τ safe  
+
+> ℓ
+
+; else keep aℓ
+
+31: else 
+
+32: nℓ ← 0 ▷ keep ¯ψℓ, aℓ
+
+33: end if 
+
+34: end for 
+
+35: end if 
+
+36: Fix flags during backward and optimizer step 
+
+37: Backprop LRL with eG(t) 
+
+> ℓ
+
+= G(t) 
+
+> ℓ
+
+− a(t) 
+
+> ℓ
+
+(G(t) 
+
+> ℓ
+
+Uℓ,r )U ⊤
+
+> ℓ,r
+
+38: Update θ with LR ηθ
+
+39: end for 
+
+40: end while 
+
+41: return θ
+
+Note: Hℓ(θ; B) stacks layer-ℓ activations at valid tokens in B; sg is stop-gradient. 26 Preprint 
+
+# D THEORY OF LOW -D IMENSIONAL RLVR S TEERING 
+
+We develop a conditional theoretical account of when RLVR-induced output changes admit a compact activation-space intervention. We study recoverability within a specified intervention class, rather than the intrinsic dimension of the full RL parameter or activation trajectory. Part I formulates local distillation as Fisher-weighted least squares in Section D.2, gives sufficient conditions for shared teacher-induced shifts in Section D.3, and derives a recovery identity and a three-constant lower bound in Section D.4. Part II characterizes sequentially constrained constant-vector fitting in Section D.5 and distinguishes activation variance from output sensitivity in Section D.6. 
+
+Part III analyzes Alpha-Stabler’s fixed-reference PSI statistic and backward gradient projection in Section D.7. Section D.8 summarizes the results and their theoretical or empirical scope. Two relations organize the recovery analysis: 
+
+ρ = SNR 1 + SNR and ρ ≥ κ
+
+(1 + η)(1 + ε) .
+
+Here ε bounds sensitivity-weighted principal energy relative to complement energy, η measures residual energy relative to a shared complement component, and κ measures consistency of its amplitude. The quantity ρ is the fraction of locally representable target energy explained by an optimal constant intervention, as defined in Definition D.2; it is not a task-score gain recovery rate. INFORMAL PREVIEW 
+
+Distillation into a frozen student locally amounts to fitting a hidden-state correction to the teacher’s output distribution. Logit linearization and a quadratic KL expansion yield a weighted least-squares problem with context-dependent target ∆(x) (Proposition D.1). An idealized KL-regularized RL optimum provides a separate account of how shared structure may arise: exponential reward tilting (Lemma D.2) determines next-token probability ratios through continuation-success probabilities (Lemma D.3). Shared success profiles, a small relative logit residual, and a consistent representation pullback then give a shared correction with controlled residual (Lemma D.4, Corollary D.1, and Lemma D.5). These are additional structural conditions, not consequences of reward binarity alone. Under a constant metric, the optimal fixed vector is the mean target shift, and its recovery is high when that mean dominates context-dependent fluctuations (Theorem D.1). Table 3 summarizes the quantities entering the sufficient lower bound. Table 3: Geometric quantities entering the sufficient recovery bound. Their empirical counterparts require matching shift definitions, distributions, and metrics.               
+
+> Const. Name Meaning Related analysis
+> εprincipal intrusion Upper bound on target principal-to-complement energy in the sensitivity metric PC-energy measurements under compatible metrics and target definitions
+> ηcomplement residual Residual-to-shared energy within the com-plement Context dependence and fixed-vector ap-proximation
+> κamplitude consistency 1/(1 + CV( a)2)Consistency of the shared target amplitude
+
+Theorem D.2 gives ρ ≥ κ/ ((1 + η)(1 + ε)) . The bound quantifies recovery under the stated localization and shared-component conditions. These conditions are motivated by the empirical findings; their validity and quantitative values for a particular teacher require a separate justification. PART I. SINGLE -V ECTOR STEERING : C ONDITIONS FOR HIGH RECOVERY 
+
+Section D.1 introduces the local setting. Sections D.2 and D.3 derive the fitting problem and sufficient conditions for shared teacher structure. Section D.4 quantifies the optimal constant-vector fit. 
+
+D.1 SETUP AND NOTATION 
+
+We consider a frozen pretrained language model with decoder layers {fℓ}Lℓ=1 , hidden width d, vocabulary size V ,and unembedding matrix U ∈ RV ×d, which may be tied or untied. A context x ∼ D consists of a token position and its prefix under a specified distillation distribution D. The base model has hidden states and logits 
+
+hℓ(x) ∈ Rd, z0(x) = U hL(x) ∈ RV ,
+
+with p0(· | x) = softmax( z0(x)) . Here hL(x) is the representation supplied to the unembedding, including final normalization. For an intervention before normalization, the downstream Jacobian includes that operation. The teacher induces logits zT (x) and distribution pT (· | x). Vector steering adds a context-invariant offset δℓ ∈ Rd
+
+27 Preprint at each controlled layer ℓ ∈ S ⊆ { 1, . . . , L }: hℓ(x) 7 → hℓ(x) + δℓ, with all backbone weights frozen. We first analyze a single injection site and extend to multiple sites in Remark D.2. For a positive-semidefinite matrix A, write ∥v∥2 
+
+> A
+
+= v⊤Av and ⟨u, v ⟩A = u⊤Av . The notation ∥ · ∥ 2 denotes the Euclidean vector norm or matrix spectral norm; λi(·) and σi(·) denote eigenvalues and singular values in descending order. All logarithms are natural and all vectors are columns. Bold symbols denote named vectors, while unbold subscripts such as sv denote scalar coordinates; matrices such as Jx, Fx, Gx, and Bx use uppercase notation without requiring boldface. The symbol 1V denotes the all-ones vector in RV . Generic arguments such as 
+
+u and v are understood from their stated spaces. We analyze the expected forward-KL objective 
+
+L(δ) = Ex∼D KL  pT (· | x) pδ (· | x). (32) The context distribution is fixed for each fitting problem. All expected quadratic energies used below are finite. Let E ⊆ Rd be a fixed working subspace with orthonormal basis T ∈ Rd×h. Interventions and target corrections lie in E. Inverses are always taken for the compressed matrices, such as T ⊤GxT , assumed positive definite; positive definiteness on E does not require Gx to be invertible on all of Rd. Setting T = Id gives the full-space formulas when their inverses exist. For singular metrics, use a common identifiable subspace with a consistent identification of targets across contexts. For results that decompose vectors using P and Q, additionally assume that E is invariant under these projectors. This ensures that projected targets, means, and corrections remain in the space on which the stated metric bounds apply. 
+
+Objects and their dependence on context. 
+
+• Context-dependent values and operators include hℓ(x), zT (x), t(x), ∆(x), a(x), ξ(x), and Jx, F x, G x, B x.• Context-invariant objects include trainable vectors δℓ and v(k) 
+
+> ℓ
+
+, shared directions s and w, averaged metric G,mean target shift μ, projectors P , Q, and Πvocab , and the constants in the bounds. A trainable vector changes during optimization but is shared across contexts at each step. • Distinct shift objects are the learned intervention δ, the teacher-induced fitting target ∆(x) = Bxt(x), and the actual actor-to-base activation differences collected in X(t) 
+
+> ℓ
+
+in Part III. They are not identified with one another. • Sequence and training indices are introduced separately: Section D.3 distinguishes prompts q and complete responses Y from contexts x = ( q, y <t ); Part III uses t for a parameter-update index. Thus, the local fitting problem approximates a context-dependent target family {∆(x)} by one constant vector in an output-sensitivity metric. 
+
+Assumptions. The local reduction uses Assumption D.1. Constant-metric identities use the exact case of Assumption D.3. Assumption D.2 specifies shared teacher structure, while Assumptions D.4–D.5 supply the additional geometry for the three-constant bound. Part III’s projection statements require only their own explicitly stated conditions. 
+
+Assumption D.1 (Local / trust-region regime) . Fix a teacher, base model, and context distribution. The KL approximation is used only for interventions in a specified neighborhood of the base state. Write 
+
+Jx := ∂z(x)
+
+∂hℓ(x) base 
+
+∈ RV ×d, zδ (x) = z0(x) + Jxδ + ez (x, δ).
+
+The Jacobian includes all downstream operations. Assume differentiability with ∥ez (x, δ)∥2 = o(∥δ∥2), and a bounded third derivative of the log-partition function along the segments between the teacher and intervened logits. For dδ (x) = Jxδ − t(x), also assume that the combined network-linearization and KL-expansion error is o(∥dδ (x)∥22) in the local regime under consideration. A sufficient condition is dδ (x) → 0 and ∥ez (x, δ)∥2 =
+
+o(∥dδ (x)∥2), with uniform or integrable bounds that justify taking expectations of the remainder. Little-o statements concern this joint local regime; differentiability in δ alone does not imply small relative error when Jxδ nearly cancels t(x).
+
+Assumption D.2 (Shared logit component) . The teacher logit shift t(x) = zT (x) − z0(x) ∈ RV admits 
+
+t(x) = a(x)s
+
+| {z } 
+
+> shared direction
+
++r⊥(x), (33) 
+
+where s is fixed, ∥s∥2 = 1 , 1⊤ 
+
+> V
+
+s = 0 , and a(x) ≥ 0. The residual obeys ⟨s, r⊥(x)⟩Fx = 0 at every context and 
+
+Ex∥r⊥(x)∥2 
+
+> Fx
+
+≤ ηlogit Ex∥a(x)s∥2 
+
+> Fx
+
+, ηlogit ≪ 1. (34) 
+
+Remark D.3 justifies the centered gauge. Section D.3 provides sufficient success-profile conditions for this decomposition; it is not assumed to hold merely because rewards are binary. 
+
+28 Preprint Table 4: Recurring symbols for the distillation analysis. Context dependence is indicated by (x) or a subscript x;Part III separately introduces batched training quantities. 
+
+Symbol Type Meaning 
+
+x ∼ D context Token position and prefix, x = ( q, y <t )
+
+q, Y sequence level Prompt and complete response, including termination 
+
+hℓ(x) ∈ Rd ctx.-dep. Layer-ℓ hidden state 
+
+z0(x), zT (x) ∈ RV ctx.-dep. Base and teacher logits 
+
+t(x) = zT (x) − z0(x) ctx.-dep. Teacher logit shift modulo 1V ; Remark D.3 
+
+Fx ∈ RV ×V ctx.-dep. Fisher information at teacher logits; Equation (38) 
+
+Jx ∈ RV ×d ctx.-dep. Downstream logit Jacobian at the base injection state 
+
+Gx = J⊤ 
+
+> x
+
+FxJx ctx.-dep. Pullback sensitivity metric 
+
+Bx = T (T ⊤GxT )−1T ⊤J⊤ 
+
+> x
+
+Fx ctx.-dep. Least-squares pullback into E
+
+∆(x) = Bxt(x) ctx.-dep. Locally best target representation correction 
+
+a(x) ∈ R≥0 ctx.-dep. Amplitude in the specified shared-component decomposition 
+
+ξ(x) ∈ Rd ctx.-dep. Representation residual within the complement 
+
+ν0(x) ∈ [0 , 1] ctx.-dep. Conditional success probability; Equation (42) 
+
+Zβ (x) ctx.-dep. Conditional reward-tilt normalizer 
+
+b(x), a 0(x), e(x) ctx.-dep. Baseline, modulation, and residual of a success profile 
+
+δℓ, v(k) 
+
+> ℓ
+
+∈ Rd invariant Learned constant steering vectors 
+
+s ∈ RV , w ∈ Rd invariant Shared logit and representation directions 
+
+G = Ex[Gx] invariant Averaged sensitivity metric 
+
+μ = Ex[∆(x)] invariant Mean target; optimal constant vector when Gx = GC, P, Q = I − P invariant Reference activation covariance and its spectral projectors 
+
+Πvocab = I − 1V 1⊤ 
+
+> V
+
+/V invariant Vocabulary-centering projector, distinct from Pcβ = e1/β − 1 invariant Tilt strength for binary rewards 
+
+ε, η, κ, ρ invariant Intrusion bound, residual ratio, amplitude consistency, and energy recov-ery 
+
+ηlogit , θ, ζ B , ζ R invariant Relative logit-residual and pullback bounds 
+
+Assumption D.3 (Metric homogeneity) . Let ¯G = Ex∼D [Gx] and abbreviate G = ¯G, with T ⊤GT positive definite. Exact homogeneous-model identities assume Gx = G as quadratic forms on E. When approximation is invoked, its quantitative form is (1 − ζ)G ⪯ Gx ⪯ (1 + ζ)G on E, uniformly over the considered contexts, for 0 ≤ ζ < 1.Remark D.1 treats this perturbation for a fixed target family. Consistency of Bxs is a separate condition, quantified by ζB in Lemma D.5; it does not follow from metric homogeneity. 
+
+Assumption D.4 (Off-principal localization) . Let P be the Euclidean orthogonal projector onto the top-m principal subspace of the reference activation covariance C in Definition D.3, and let Q = I−P . Here m is a general retained rank; the monitoring construction in Section D.7 uses the particular rank r = ⌈0.10 d⌉. Assume compatibility with the sensitivity metric, P ⊤GQ = 0 on the working subspace. Then 
+
+Ex∥∆(x)∥2 
+
+> G
+
+= Ex∥P ∆(x)∥2 
+
+> G
+
++ Ex∥Q∆(x)∥2
+
+> G
+
+. (35) 
+
+Assume in addition the target-energy bound 
+
+Ex∥P ∆(x)∥2 
+
+> G
+
+≤ ε Ex∥Q∆(x)∥2
+
+> G
+
+, 0 ≤ ε ≪ 1.
+
+The operator condition gives a G-orthogonal split for every vector in E; equality of averaged energies for one distribution is weaker. Neither covariance principal structure nor a low Euclidean PC fraction alone guarantees these sensitivity-weighted conditions. Remark D.1 treats approximate compatibility. 
+
+Assumption D.5 (Shared direction in the complement) . There is a fixed w ∈ E ∩ range( Q) with ∥w∥G = 1 such that 
+
+Q∆(x) = a(x)w
+
+| {z } 
+
+> shared complement component
+
++ξ(x), a(x) ≥ 0, (36) 
+
+where ξ(x) ∈ E ∩ range( Q) and 
+
+Ex[ξ(x)] = 0, Ex[a(x)⟨w, ξ(x)⟩G] = 0 . (37) 
+
+Assume 0 < Ex[a(x)2] < ∞ and finite target energy, and define 
+
+κ := (Ex[a(x)]) 2
+
+Ex[a(x)2] ∈ (0 , 1] , η := Ex∥ξ(x)∥2
+
+> G
+
+Ex[a(x)2] ≥ 0.
+
+29 Preprint 
+
+Then κ = 1 exactly when a(x) is constant almost surely, and κ = 1/(1 + CV( a)2) with CV( a)2 =Var x(a(x)) /(Ex[a(x)]) 2. Nonnegativity fixes the shared amplitude’s sign; η is a residual-energy ratio, not a rank. The two moment conditions in Equation (37) have distinct roles: zero mean identifies the shared mean, while weighted orthogonality removes the mixed energy term. Pointwise orthogonality is sufficient for the latter but is not required. The amplitude here belongs to the representation-space decomposition. It is identified with a fixed positive rescaling of the logit-space amplitude only under the compatible pullback conditions discussed in Remark D.5; otherwise the two decompositions use separately defined amplitudes. 
+
+Remark D.1 (Perturbations of the homogeneous model) . (i) Varying metrics. Let ¯GE = T ⊤ ¯GT and bE =
+
+T ⊤Ex[Gx∆(x)] . The quadratic optimum is δ⋆ = T ¯G−1 
+
+> E
+
+bE , with explained energy S = b⊤E ¯G−1 
+
+> E
+
+bE . For 
+
+Evar = Ex∥∆(x)∥2 
+
+> Gx
+
+> 0, its recovery is ρvar = S/E var . For a fixed target family and the metric bounds in Assumption D.3, comparison with constant-metric recovery ρG yields 
+
+1 − ζ
+
+1 + ζ (1 − ρG) ≤ 1 − ρvar ≤ 1 + ζ
+
+1 − ζ (1 − ρG).
+
+Indeed, the metric inequalities bound the residual objective for every admissible constant vector and therefore its infimum, as well as the total target energy. Comparing different target families requires an additional target-perturbation argument. 
+
+(ii) Approximately orthogonal splits. Replace exact compatibility by |⟨ u, v ⟩G| ≤ γ∥u∥G∥v∥G for u ∈ E ∩ range( P )
+
+and v ∈ E ∩ range( Q), with 0 ≤ γ < 1. Then 
+
+(1 − γ)( ∥P z ∥2 
+
+> G
+
++ ∥Qz ∥2
+
+> G
+
+) ≤ ∥ z∥2 
+
+> G
+
+≤ (1 + γ)( ∥P z ∥2 
+
+> G
+
++ ∥Qz ∥2
+
+> G
+
+).
+
+This follows by expanding the cross term and using 2ab ≤ a2 + b2. Under the remaining conditions of Theorem D.2, bounding both the mean energy and total target energy gives ρ ≥ 1−γ 
+
+> 1+ γκ
+> (1+ η)(1+ ε)
+
+.
+
+(iii) Distinct residual and metric conditions. Corollary D.1 bounds the logit residual, and Lemma D.5 bounds a representation residual relative to a specified direction. Applying these estimates to η additionally requires localization, zero residual mean, and weighted orthogonality as in Assumption D.5, or explicit bounds on their deviations. Corollary D.4 compares Euclidean and sensitivity-weighted intrusion only for the same collection of shifts. 
+
+D.2 DISTILLATION REDUCES TO WEIGHTED LEAST SQUARES 
+
+The categorical distribution has natural parameter z ∈ RV , log-partition function A(z) = log PVv=1 ezv , and mean map ∇A(z) = softmax( z). Writing p = softmax( z), its Hessian is 
+
+F (z) = ∇2A(z) = diag( p) − pp ⊤ ⪰ 0. (38) Throughout, Fx = F (zT (x)) is evaluated at teacher logits. It satisfies Fx1V = 0.
+
+Lemma D.1 (KL as a Bregman divergence and its local quadratic form) . For z, z′ ∈ RV ,
+
+KL(softmax( z′) ∥ softmax( z)) = DA(z ∥ z′), where DA is the Bregman divergence generated by A. Under Assumption D.1, 
+
+KL  pT (· | x) pδ (· | x) = 12
+
+ Jxδ − t(x)⊤Fx
+
+ Jxδ − t(x) + o ∥Jxδ − t(x)∥22
+
+. (39) 
+
+Proof. The identity follows by substituting A and ∇A into DA. Set d = Jxδ − t(x) and e = ez (x, δ), so the actual logit difference from the teacher is d + e. Taylor expansion at zT (x) gives 
+
+KL( pT ∥pδ ) = 12 d⊤Fxd + d⊤Fxe + 12 e⊤Fxe + RA(d + e).
+
+If LA bounds the third derivative of A in trilinear operator norm along the logit segment, then 
+
+KL( pT ∥pδ ) − 12 d⊤Fxd ≤ ∥ Fx∥2∥d∥2∥e∥2 + 12 ∥Fx∥2∥e∥22 + LA 
+
+> 6
+
+∥d + e∥32.
+
+The combined remainder condition yields Equation (39); the integrability condition permits the corresponding expected expansion. 
+
+Definition D.1 (Representational metric and target shift) . For each context, define 
+
+Gx := J⊤ 
+
+> x
+
+FxJx ∈ Rd×d, Bx := T (T ⊤GxT )−1T ⊤J⊤ 
+
+> x
+
+Fx ∈ Rd×V ,
+
+∆(x) := arg min 
+
+> u∈E
+
+∥Jxu − t(x)∥2 
+
+> Fx
+
+= Bxt(x),
+
+where T ⊤GxT is positive definite. When T = Id, Bx = G−1 
+
+> x
+
+J⊤ 
+
+> x
+
+Fx. The metric measures local output sensitivity; 
+
+∆(x) is the best linearized hidden-state correction for reproducing the teacher shift. This target is context-dependent even though the learned intervention is constant. It is a fitting target, not an observed teacher-minus-base hidden-state difference. 
+
+30 Preprint 
+
+Proposition D.1 (Distillation as local weighted least squares) . Under Assumption D.1, the local quadratic surrogate is 
+
+Lquad (δ) = 12 Ex∼D (δ − ∆(x)) ⊤Gx(δ − ∆(x)) + Cirr , (40) 
+
+where Cirr ≥ 0 is independent of δ and is the residual teacher-logit energy not fitted by the local Jacobian on E,measured in the Fisher seminorm. The KL objective differs by the expected remainder in Lemma D.1. Proof. Write t(x) = Jx∆(x)+ rx. The least-squares normal equations give T ⊤J⊤ 
+
+> x
+
+Fxrx = 0 . Since δ−∆(x) ∈ E ,
+
+∥Jxδ − t(x)∥2 
+
+> Fx
+
+= ∥Jx(δ − ∆(x)) ∥2 
+
+> Fx
+
++ ∥rx∥2 
+
+> Fx
+
+.
+
+The first term is ∥δ − ∆(x)∥2 
+
+> Gx
+
+. Taking expectations proves Equation (40), with Cirr = 12 Ex∥rx∥2 
+
+> Fx
+
+.
+
+Remark D.2 (Multiple injection sites) . Stack the steering vectors and use the joint Jacobian from all injection sites to the logits. Equation (40) holds with the full Gx = J⊤ 
+
+> x
+
+FxJx, including cross-layer blocks; it is not in general a sum of independent layer-wise fitting problems. Injection at the unembedding input gives Jx = U , whereas earlier injection includes normalization and all other downstream operations. 
+
+Local surrogate versus training dynamics. The reduction describes a fixed-distribution local objective. At a fixed context, forward and reverse KL have the same second-order Fisher term around the teacher, but generally differ beyond this local expansion. Changing on-policy prefix distributions or using an approximate token-level training gradient changes the optimization problem. Consequently, Equation (40) is not an identity for the complete OPD training trajectory or for every off-policy surrogate. Moreover, the unconstrained optimum of the quadratic model need not remain in the neighborhood where that model is accurate. A small teacher–student output gap alone does not ensure this: the Jacobian, its conditioning, and the intervention size also matter. Section D.4 makes the distinction between unconstrained surrogate recovery and locally admissible recovery explicit. D.3 THE RLVR TEACHER SHIFT : EXPONENTIAL TILTING AND SHARED STRUCTURE 
+
+We derive the complete-response optimum of an idealized KL-regularized RL objective and then its next-token shifts. The analysis separates sequence rewards, complete-response probability ratios, and token-level corrections. Shared structure requires conditions on continuation-success profiles and on the student’s pullback. 
+
+Sequence notation and optimization setting. Let q be a prompt, Y a complete response including termination, and x = ( q, y <t ) a next-token context. Responses terminate almost surely under the base policy. Rewards are bounded, β > 0, and policies are supported on the base policy’s support. The symbol π⋆ denotes the optimizer of this stated objective. Empirical teacher checkpoints instead enter the local fitting analysis through their actual logit shifts t(x).
+
+Lemma D.2 (KL-regularized RL optimum as an exponential tilt) . For a fixed prompt q, the objective 
+
+max  
+
+> π
+
+EY ∼π(·| q)[r(q, Y )] − β KL  π(· | q) p0(· | q), β > 0,
+
+is strictly concave on its finite-KL domain and has the unique maximizer 
+
+π⋆(Y | q) = p0(Y | q)er(q,Y )/β 
+
+Zβ (q) , Zβ (q) = EY ∼p0(·| q)[er(q,Y )/β ]. (41) 
+
+Equivalently, log( π⋆(Y | q)/p 0(Y | q)) = r(q, Y )/β − log Zβ (q) on the support. Proof. Bounded rewards make Zβ (q) positive and finite, and the proposed optimizer has finite KL. Substitution rewrites the objective as β log Zβ (q) − β KL( π(· | q)∥π⋆(· | q)) . Nonnegativity of KL gives the unique maximum. Strict concavity follows from strict convexity of KL and linearity of the reward term. 
+
+Lemma D.3 (From complete responses to next-token probabilities) . For x = ( q, y <t ) with positive base prefix probability, define 
+
+Zβ (x) := EY ∼p0(·| x)[er(q,Y )/β ], ν0(x) := Pr  
+
+> Y∼p0(·| x)
+
+(r(q, Y ) = 1) , (42) 
+
+where complete responses extend the prefix. For a supported next token v, write xv for the extended context. Then 
+
+π⋆(v | x) = p0(v | x) Zβ (xv )
+
+Zβ (x) . (43) 
+
+For binary rewards r ∈ { 0, 1} and cβ = e1/β − 1 > 0,
+
+log π⋆(v | x)
+
+p0(v | x) = log[1 + cβ ν0(xv )] − log[1 + cβ ν0(x)] . (44) 
+
+At termination the conditional quantities are evaluated on the resulting complete response. 
+
+31 Preprint 
+
+Proof. Summing Equation (41) over responses extending a prefix gives 
+
+π⋆(y<t | q) = p0(y<t | q) Zβ (x)
+
+Zβ (q) .
+
+Taking the ratio for y<t v and y<t proves Equation (43). For binary rewards, Zβ (x) = 1 − ν0(x) + e1/β ν0(x) = 1 + cβ ν0(x), which gives Equation (44). Thus, relative next-token changes depend on candidate-token continuation-success probabilities, not just the terminal reward of an already observed response. The tower property gives ν0(x) = P 
+
+> v
+
+p0(v | x)ν0(xv ). Neither this identity nor binary rewards imposes a common direction across different contexts. 
+
+Remark D.3 (Softmax gauge and centered logits) . Since softmax( z + c1V ) = softmax( z), logits are defined modulo the all-ones direction. Choose the centered gauge Πvocab = I − 1V 1⊤ 
+
+> V
+
+/V . Because Fx1V = 0,
+
+FxΠvocab = Fx, ∥Πvocab u∥Fx = ∥u∥Fx , BxΠvocab u = Bxu for all u ∈ RV . (45) 
+
+Centering preserves Fisher seminorms, Fisher inner products, and ∆(x). For the idealized teacher with finite logits, we may use t(x) = Π vocab log( π⋆(· | x)/p 0(· | x)) and choose 1⊤ 
+
+> V
+
+s = 0 . The vocabulary-centering projector 
+
+Πvocab is distinct from the activation-principal projector P .
+
+Lemma D.4 (A sufficient condition for a shared logit component) . Let s ∈ RV be fixed, ∥s∥2 = 1 , and 1⊤ 
+
+> V
+
+s = 0 .Suppose the continuation-success profiles obey 
+
+ν0(xv ) = b(x) + a0(x)sv + ev (x), b(x) ∈ [0 , 1] , a0(x) ≥ 0, ν0(xv ) ∈ [0 , 1] , (46) 
+
+where b(x) is token-independent, sv is the v-th scalar coordinate of s, and e(x) is a residual profile with coordinates 
+
+ev (x). Define d(x) = a0(x)s + e(x). Then 
+
+Πvocab log π⋆(· | x)
+
+p0(· | x) = ba(x)s + br(x), ba(x) = cβ a0(x)1 + cβ b(x) ≥ 0, (47) 
+
+with coordinatewise logarithms and ratios, and 
+
+∥br(x)∥2 ≤ cβ ∥e(x)∥2 + c2
+
+> β
+
+2 ∥d(x)∥24, ∥d(x)∥24 =
+
+ P 
+
+> v
+
+|dv (x)|4
+
+1/2
+
+. (48) 
+
+Proof. For f (z) = log(1 + cβ z) on [0 , 1] , |f ′(z)| ≤ cβ and |f ′′ (z)| ≤ c2 
+
+> β
+
+. Taylor expansion between b(x) and 
+
+b(x) + dv (x), both in that interval, yields 
+
+f (b(x) + dv (x)) = f (b(x)) + f ′(b(x)) dv (x) + Rv (x), |Rv (x)| ≤ 12 c2 
+
+> β
+
+|dv (x)|2.
+
+Centering Equation (44) removes the token-independent terms. Since Πvocab s = s, br(x) = Π vocab (f ′(b(x)) e(x) + 
+
+R(x)) . The projector is a Euclidean contraction, and ∥R(x)∥2 ≤ 12 c2 
+
+> β
+
+∥d(x)∥24. These inequalities prove Equa-tion (48). The bound is absolute. Obtaining high relative alignment additionally requires a residual small compared with 
+
+ba(x)∥s∥Fx , as specified next; a small absolute residual alone is insufficient when the shared amplitude is small. 
+
+Corollary D.1 (Fisher-orthogonal shared-component decomposition) . Assume Lemma D.4, ∥s∥Fx > 0, and 
+
+0 ≤ θ < 1 such that 
+
+∥br(x)∥Fx ≤ θba(x)∥s∥Fx at every considered context . (49) 
+
+For t(x) = ba(x)s + br(x), define 
+
+a(x) := ⟨s, t(x)⟩Fx
+
+∥s∥2
+
+> Fx
+
+, r⊥(x) := t(x) − a(x)s. (50) 
+
+Then a(x) ≥ (1 − θ)ba(x) ≥ 0, ⟨s, r⊥(x)⟩Fx = 0 , and 
+
+Ex∥r⊥(x)∥2 
+
+> Fx
+
+≤ θ2
+
+(1 − θ)2 Ex∥a(x)s∥2 
+
+> Fx
+
+. (51) 
+
+This meets Assumption D.2’s small-residual requirement when θ is sufficiently small. Proof. By Equation (50), a(x) = ba(x) + ⟨s, br(x)⟩Fx /∥s∥2 
+
+> Fx
+
+. Cauchy–Schwarz bounds the second term in absolute value by θba(x). The vector a(x)s minimizes the Fisher squared distance to t(x) over the one-dimensional span, so 
+
+∥r⊥(x)∥Fx ≤ ∥ t(x) − ba(x)s∥Fx ≤ θba(x)∥s∥Fx ≤ θ
+
+1 − θ a(x)∥s∥Fx .
+
+Squaring and averaging proves the bound. Orthogonality follows directly from the definition, and Remark D.3 ensures gauge invariance. 32 Preprint 
+
+Remark D.4 (Small positive β and uniform residual bounds) . A multiplicative success profile provides a bound without diverging constants as β ↓ 0, under an additional uniform success condition. Suppose ν0(xv ) ≥ νmin > 0,
+
+cβ νmin ≥ 1/ϱ for 0 < ϱ ≤ 1, and 
+
+log ν0(xv ) = ˜b(x) + a0(x)sv + ˜ ev (x), a0(x) ≥ 0. (52) 
+
+Using log(1 + cβ z) = log cβ + log z + log(1 + 1 /(cβ z)) gives 
+
+Πvocab log π⋆(· | x)
+
+p0(· | x) = a0(x)s + Π vocab ˜e(x) + ϵ(x), ∥ϵ(x)∥2 ≤ √V ϱ. 
+
+Indeed, each last logarithm lies in [0 , ϱ ], and centering is a contraction. Corollary D.1 applies only if its relative Fisher-residual condition also holds. The positive lower bound on success probabilities excludes zero-success continuations and is not automatic for binary rewards. This regime concerns a small positive penalty coefficient in an idealized optimum, not a small realized KL divergence or a zero-penalty checkpoint. 
+
+Lemma D.5 (Consistency of the representation pullback) . Retain Definition D.1 and Assumption D.2. For fixed nonzero w0 ∈ E , define eh(x) = ∆(x) − a(x)w0. Then 
+
+eh(x) = a(x)( Bxs − w0) + Bxr⊥(x). (53) 
+
+Let G be a fixed positive definite metric on E, set E0 = Ex[a(x)2]∥w0∥2 
+
+> G
+
+> 0, and suppose 
+
+Ex
+
+a(x)2∥Bxs − w0∥2
+
+> G
+
+ ≤ ζB E0, Ex∥Bxr⊥(x)∥2 
+
+> G
+
+≤ ζRE0 (54) 
+
+for ζB , ζ R ≥ 0. Then 
+
+Ex∥eh(x)∥2 
+
+> G
+
+≤ 2( ζB + ζR)E0. (55) 
+
+The constants separately control variation of the shared pullback and the pulled-back residual energy. Proof. Substitute t(x) = a(x)s + r⊥(x) into ∆(x) = Bxt(x) and subtract a(x)w0 to obtain Equation (53). Applying ∥u + v∥2 
+
+> G
+
+≤ 2∥u∥2 
+
+> G
+
++ 2 ∥v∥2 
+
+> G
+
+and taking expectations proves Equation (55). Under exact homogeneity, define Ax = F 1/2 
+
+> x
+
+JxT and Px = Ax(A⊤ 
+
+> x
+
+Ax)−1A⊤ 
+
+> x
+
+. This is an orthogonal projector, so 
+
+∥Bxr⊥(x)∥2 
+
+> G
+
+= ( F 1/2 
+
+> x
+
+r⊥(x)) ⊤Px(F 1/2 
+
+> x
+
+r⊥(x)) ≤ ∥ r⊥(x)∥2 
+
+> Fx
+
+. (56) Consequently, the smallest admissible residual ratio in Equation (54) is at most ηlogit Ex∥a(x)s∥2 
+
+> Fx
+
+/E 0.
+
+Remark D.5 (Shared-direction consistency under homogeneous metrics) . Equation (56) controls the pulled-back residual, not variation of Bxs. For example, replacing Jx by −Jx preserves Gx but reverses the pullback, so equal metrics need not yield a common correction direction. For a consistent nonzero w0, normalize w = w0/∥w0∥G
+
+and ah(x) = a(x)∥w0∥G. To use this component in Assumption D.5, one must additionally verify Qw = w, zero residual mean, and weighted orthogonality. The bound on eh(x) alone does not supply these moment conditions. 
+
+From reward structure to recovery. The argument gives a sequence of sufficient conditions: an exact regularized optimum gives a next-token tilt relation; a shared success profile and a small relative residual give a shared logit component; a consistent pullback gives a shared representation component. The final lower bound separately requires off-principal localization and the moment conditions of Assumptions D.4–D.5. Each condition concerns a different object and must be checked independently when applying the analysis. 
+
+Connection to practical RL teachers. The tilt identities concern the exact optimum with β > 0. For trained checkpoints, including DAPO checkpoints with zero explicit KL coefficient, the fitting and recovery results take 
+
+t(x) as given and apply under their stated local and structural conditions. Clipping and small updates motivate inspecting a local regime; they do not imply an exact tilt identity, metric homogeneity, or a shared direction for a trained checkpoint. D.4 SINGLE -VECTOR RECOVERY : AN IDENTITY AND A LOWER BOUND 
+
+The quadratic optimum is generally metric-weighted. Under exact homogeneity, its explained target energy has the signal-to-fluctuation form in Section D.4.1 and the sufficient geometric bound in Section D.4.2. 
+
+Proposition D.2 (Optimal steering vector) . Assume finite target energy and finite Cirr . If T ⊤ ¯GT is positive definite, where ¯G = Ex[Gx], the unique minimizer of the quadratic surrogate over E is δ⋆ = T (T ⊤ ¯GT )−1T ⊤Ex[Gx∆(x)] .For T = Id, it is ¯G−1Ex[Gx∆(x)] . Under exact homogeneity, 
+
+δ⋆ = μ := Ex∼D [∆(x)] .
+
+This optimizes the quadratic surrogate without a trust-region constraint, not necessarily the original nonlinear KL objective. 
+
+33 Preprint 
+
+Proof. Writing δ = T z , the normal equation is T ⊤ ¯GT z = T ⊤Ex[Gx∆(x)] . Positive definiteness gives the unique solution. If Gx = G on E, Ex[∆(x)] ∈ E solves the equation. 
+
+Definition D.2 (Recovery ratio) . In the constant-metric quadratic model, let Etar = Ex∥∆(x)∥2 
+
+> G
+
+∈ (0 , ∞) and define 
+
+ρ := 1 − Ex∥∆(x) − δ⋆∥2
+
+> G
+
+Etar 
+
+∈ [0 , 1] .
+
+This is the fraction of locally representable target energy explained by the optimal constant vector, excluding Cirr .In particular, 
+
+Lquad (0) − L quad (δ⋆)
+
+Lquad (0) = ρE tar 
+
+Etar + 2 Cirr 
+
+.
+
+Thus, even perfect target-energy recovery need not remove irreducible logit error. Exact teacher reproduction additionally requires local reachability and negligible approximation error. Neither ρ nor the displayed surrogate-loss ratio equals an empirical task-score gain recovery rate without further assumptions connecting distributions to task performance. Remark D.1(i) gives the varying-metric counterpart. 
+
+Locally admissible interventions. Let T ⊆ E be a specified trust region containing zero. Its best constant-metric target-energy recovery is 
+
+ρT := 1 − inf δ∈T Ex∥δ − ∆(x)∥2
+
+> G
+
+Etar 
+
+, 0 ≤ ρT ≤ ρ. 
+
+The inequalities follow because zero is feasible and T ⊆ E . If μ ∈ T , the two recovery values coincide. Otherwise, unconstrained surrogate recovery is only an upper bound on what this trust region permits. Relating either value to nonlinear KL additionally requires the remainder bounds to hold at the evaluated interventions. D.4.1 SIGNAL -TO -FLUCTUATION FORM 
+
+Theorem D.1 (Recovery as a signal-to-fluctuation ratio) . In the constant-metric quadratic model, let ˜∆(x) = 
+
+∆(x) − μ, with Ex[ ˜∆(x)] = 0 and positive finite total target energy. Then 
+
+ρ = ∥μ∥2
+
+> G
+
+∥μ∥2 
+
+> G
+
++ Ex∥ ˜∆(x)∥2
+
+> G
+
+= SNR 1 + SNR ,
+
+SNR := ∥μ∥2
+
+> G
+
+Ex∥ ˜∆(x)∥2
+
+> G
+
+.
+
+(57) 
+
+If the fluctuation energy vanishes, set SNR = + ∞ and ρ = 1 . For any target level u ∈ (0 , 1) , ρ ≥ u if and only if 
+
+SNR ≥ u/ (1 − u), using this convention. Proof. Proposition D.2 gives δ⋆ = μ. Since G is constant and the fluctuation has zero mean, Ex∥∆(x)∥2 
+
+> G
+
+=
+
+∥μ∥2 
+
+> G
+
++ Ex∥ ˜∆(x)∥2
+
+> G
+
+. Substitution into Definition D.2 proves Equation (57). If the fluctuation energy is zero, positive total energy makes the mean energy positive. The threshold relation follows by rearranging ρ = SNR /(1 + SNR) .
+
+Corollary D.2 (Spectral upper bound) . In the same model, let u(x) = G1/2∆(x), m = Ex[u(x)] = G1/2μ, and 
+
+Σ = Ex[u(x)u(x)⊤]. For a weighted data operator or factor M with Σ = M M ⊤,
+
+ρ = ∥m∥22
+
+tr Σ ≤ λ1(Σ) tr Σ = σ21 (M )
+
+P 
+
+> i
+
+σ2 
+
+> i
+
+(M ) .
+
+For m̸ = 0 , equality holds exactly when m lies in the leading eigenspace of Σ and m⊤ Cov( u(x)) m = 0 . For 
+
+m = 0 and tr Σ > 0, the inequality is strict. Proof. Since Σ = mm ⊤ + Cov( u(x)) , one has mm ⊤ ⪯ Σ. For v = m/∥m∥2,
+
+λ1(Σ) ≥ v⊤Σv = ∥m∥22 + v⊤ Cov( u(x)) v ≥ ∥ m∥22.
+
+Equality requires equality at both steps. When m = 0 , positive trace implies λ1(Σ) > 0. Finally, tr Σ = Etar and the factorization gives the singular-value expression. 34 Preprint 
+
+Implications for capacity, gap, and depth. The leading spectral share is an upper bound, not generally the recovery of a constant vector. Collinear targets can have unit leading spectral share but low mean-energy recovery when their amplitudes vary or their signs cancel. Uniformly scaling a fixed target family by a nonzero scalar leaves 
+
+ρ unchanged in a fixed metric. Thus, target magnitude or teacher–student gap alone does not impose a monotone capacity requirement. Injection depth can change the Jacobian, reachability, sensitivity metric, and target variation; the theorem does not assert a universal monotone relationship with depth. The observed gap and depth trends are empirical findings consistent with changes in these quantities, not direct consequences of the recovery identity. D.4.2 EXPLICIT THREE -CONSTANT BOUND 
+
+Assumptions D.4–D.5 specify a sufficient favorable regime through principal energy, complement residual energy, and amplitude consistency. 
+
+Theorem D.2 (Off-principal single-direction bound) . In the constant-metric quadratic model, under Assump-tions D.4–D.5 and their working-subspace compatibility conditions, 
+
+ρ ≥ κ
+
+(1 + η)(1 + ε) . (58) 
+
+Energy decomposition. Both moment conditions in Equation (37) are used. In particular, weighted orthogonality removes the mixed term in 
+
+Ex∥a(x)w + ξ(x)∥2 
+
+> G
+
+= Ex[a(x)2]∥w∥2 
+
+> G
+
++ Ex∥ξ(x)∥2 
+
+> G
+
++ 2 Ex[a(x)⟨w, ξ(x)⟩G]. (59) Zero residual mean identifies Qμ = Ex[a(x)] w. Remark D.1 supplies a perturbation bound when the principal/-complement split is only approximately G-orthogonal. 
+
+Proof. By Theorem D.1, ρ = ∥μ∥2
+
+> G
+
+/E tar . The zero-mean residual gives Qμ = Ex[a(x)] w. Metric compatibility and ∥w∥G = 1 imply 
+
+∥μ∥2 
+
+> G
+
+≥ ∥ Qμ∥2 
+
+> G
+
+= ( Ex[a(x)]) 2 = κEx[a(x)2].
+
+The energy split, localization bound, and weighted orthogonality give 
+
+Etar ≤ (1 + ε)Ex∥Q∆(x)∥2 
+
+> G
+
+= (1 + ε)(1 + η)Ex[a(x)2].
+
+The last factor is positive; division proves the result. 
+
+What the bound establishes. Write EP = Ex∥P ∆(x)∥2 
+
+> G
+
+and EQ = Ex∥Q∆(x)∥2 
+
+> G
+
+> 0. The proof gives complement recovery ρQ = ∥Qμ∥2
+
+> G
+
+/E Q = κ/ (1 + η). If EP > 0, define ρP = ∥P μ∥2
+
+> G
+
+/E P and e = EP /E Q.Then the exact relation is 
+
+ρ = ρQ + eρ P
+
+1 + e .
+
+If EP = 0 , ρ = ρQ. The theorem discards a nonnegative principal contribution and uses e ≤ ε. Accordingly, low principal energy is a sufficient condition within this decomposition, not necessary for high constant-vector recovery: a constant nonzero target entirely in the principal subspace also has ρ = 1 . The theorem quantifies a specified localization pattern; it does not derive that pattern from the RLVR objective or establish its prevalence. 
+
+Corollary D.3 (Coefficient-of-variation form) . Under the same conditions, 
+
+ρ ≥ 1(1 + CV( a)2)(1 + η)(1 + ε) ,
+
+since κ = 1 /(1 + CV( a)2).
+
+PART II. MULTI -V ECTOR STEERING : T HE GEOMETRY OF THE RESIDUAL SUBSPACE 
+
+Section D.5 extends constant-vector fitting to subspace constraints and distinguishes it from adaptive subspace approximation. Section D.6 relates principal structure to sensitivity and weight-induced activation changes. 
+
+D.5 SEQUENTIAL -ORTHOGONAL STEERING AND CONSTRAINED FITTING 
+
+The empirical protocol learns v(0) , . . . , v(K−1) sequentially. At each stage only the current multi-layer direction is injected; earlier directions define layer-wise Euclidean orthogonality constraints. Reprojection enforces these constraints after each optimizer step, and each direction is evaluated independently. The result below concerns exact fitting for a fixed target distribution and metric, not cumulative injection of the learned vectors. 35 Preprint 
+
+Theorem D.3 (Constant-vector recovery under a subspace constraint) . Let Vk ⊆ E be a feasible subspace in the constant-metric quadratic model, and let Rk have full-column-rank columns spanning it. The exact constrained minimizer is 
+
+v(k) = Rk(R⊤ 
+
+> k
+
+GR k)−1R⊤ 
+
+> k
+
+Gμ.
+
+For the single-site sequential protocol, Vk = E ∩ span {v(j) : j < k }⊥2 . With Etar > 0, its standalone target-energy recovery satisfies 
+
+ρ(k) = ∥v(k)∥2
+
+> G
+
+Etar 
+
+, Vk+1 ⊆ V k =⇒ ρ(k+1) ≤ ρ(k). (60) 
+
+If G = cI on E, c > 0, V0 = E, and μ̸ = 0 , exact first-stage fitting gives v(0) = μ, and fitting in its Euclidean orthogonal complement gives v(1) = 0.Proof. The parallel-axis identity splits the fitting objective into a constant fluctuation term and ∥v − μ∥2
+
+> G
+
+. Writing 
+
+v = Rkz gives R⊤ 
+
+> k
+
+G(Rkz − μ) = 0 and the stated solution. The residual is G-orthogonal to Vk, hence 
+
+⟨v(k), μ⟩G = ∥v(k)∥2
+
+> G
+
+. Expanding the loss reduction yields Equation (60). Nesting the feasible subspaces cannot improve the optimum. In the isotropic case the second space is orthogonal to μ, whose projection is zero. If the feasible space has dimension zero, its unique minimizer is zero without applying the matrix-inverse formula. A zero vector introduces no further orthogonality constraint. For multiple sites, intersect the product of the layer-wise feasible spaces with the working subspace. The theorem applies to the stacked intervention and the full sensitivity metric, including cross-layer blocks. 
+
+Adaptive subspace approximation. For comparison, consider a shared subspace with unrestricted context-dependent coefficients. Let 1 ≤ K ≤ dim E and u(x) = G1/2∆(x), with Σ = Ex[u(x)u(x)⊤]. Then 
+
+min    
+
+> Q⊤
+> KQK=IK
+> range( QK)⊆G1/2E
+
+Ex∥u(x) − QK Q⊤ 
+
+> K
+
+u(x)∥22 = tr Σ −
+
+> K
+
+X
+
+> i=1
+
+λi(Σ) . (61) Indeed, the captured energy is tr( Q⊤ 
+
+> K
+
+ΣQK ), maximized by a leading eigenspace. The fitted coefficients Q⊤ 
+
+> K
+
+u(x)
+
+depend on context. Thus, the optimal explained fraction is PKi=1 λi(Σ) / tr Σ when the trace is positive. These are oracle coefficients for the quadratic target. A particular gated network must also represent and learn the required coefficient map, and layer-wise restrictions may further reduce its attainable fit. The spectral expression is therefore a characterization of a more flexible approximation class, not a guarantee for a trained gating architecture. 
+
+Interpretation of later steering directions. Nonzero standalone performance of later Euclidean-orthogonal vectors establishes the existence of alternative useful interventions. It does not establish that they recover distinct spectral components of the teacher target. Even a deterministic target can admit more than one useful Euclidean-orthogonal intervention under an anisotropic metric. For example, with E = R2, ∆(x) = (1 , 0) ⊤, and G = ( 2 1 1 1 ),Theorem D.3 gives v(0) = (1 , 0) ⊤ and v(1) = (0 , 1) ⊤, with standalone recovery 1 and 1/2, respectively, although the target second moment has rank one. In the empirical setting, anisotropy, nonlinear responses, evolving sampled contexts, and approximate optimization can all affect the learned directions; task scores are also distinct from quadratic energy recovery. The observed decline with extraction order and its model-scale dependence are consequently descriptions of independently effective interventions, not estimates of target spectral rank or intrinsic manifold dimension. D.6 EFFECTIVE DIRECTIONS AND THE PRINCIPAL SUBSPACE 
+
+The main-text steering measurements place approximately 1% –2% of the learned vectors’ Euclidean energy in a top-10% activation principal subspace, below the approximately 10% isotropic reference. This observation concerns the learned vectors. The recovery bound instead uses sensitivity-weighted energy of the context-dependent target family. We now state the metric comparison needed to connect such quantities when the shift objects are matched. 
+
+Definition D.3 (Variance and sensitivity metrics) . For a specified base-model reference context distribution Dref ,let ¯hℓ = Ex∼D ref [hℓ(x)] and define 
+
+C := Ex∼D ref [( hℓ(x) − ¯hℓ)( hℓ(x) − ¯hℓ)⊤], G := Ex∼D [Gx].
+
+The leading eigenspace of C defines P , with Q = I − P ; fix a choice of basis if the cutoff eigenvalue is degenerate. The matrix G measures output sensitivity, and at the unembedding input equals U ⊤Ex[Fx]U . The reference distribution used to estimate covariance and the distribution used for fitting must be specified; they need not be identical. An uncentered implementation uses C + ¯hℓ ¯h⊤ 
+
+> ℓ
+
+instead and must report its basis accordingly. High activation variance is not equivalent to high or low output sensitivity. 
+
+36 Preprint 
+
+Proposition D.3 (Sensitivity-weighted principal-energy bound) . On the working subspace, define 
+
+gP = sup  
+
+> v∈E∩ range( P)\{ 0}
+
+v⊤Gv 
+
+∥v∥22
+
+, gQ = inf 
+
+> v∈span {Q∆(x)}\{ 0}
+
+v⊤Gv 
+
+∥v∥22
+
+> 0,
+
+with gP = 0 if P E = {0}. If Ex∥Q∆(x)∥22 > 0, then 
+
+eG := Ex∥P ∆(x)∥2
+
+> G
+
+Ex∥Q∆(x)∥2
+
+> G
+
+≤ gP
+
+gQ
+
+Ex∥P ∆(x)∥22
+
+Ex∥Q∆(x)∥22
+
+.
+
+If the right-hand side is small, it supplies a small admissible ε ≥ eG for the localization part of Assumption D.4. Its metric-orthogonality condition remains separate. Proof. At each context, ∥P ∆(x)∥2 
+
+> G
+
+≤ gP ∥P ∆(x)∥22 and ∥Q∆(x)∥2 
+
+> G
+
+≥ gQ∥Q∆(x)∥22. Averaging and dividing by the positive denominator proves the claim; the zero-principal-space case is immediate. 
+
+Sensitivity and localization are distinct. If Jxv = c(x)1V + e(x), softmax gauge invariance gives v⊤Gxv =
+
+∥e(x)∥2 
+
+> Fx
+
+. A small gP requires an appropriate uniform sensitivity bound over the principal subspace, not merely this identity for one vector. The ratio gP /g Q can otherwise be large, so a small Euclidean PC fraction need not imply small sensitivity-weighted intrusion. Nor does localization of a learned mean imply localization of its target family. With G = I, P = e1e⊤ 
+
+> 1
+
+, and equiprobable targets ∆± = ( ±c, 1) ⊤, the optimal constant vector is (0 , 1) ⊤
+
+and has zero principal energy, whereas target principal-to-complement energy is c2 and recovery is 1/(1 + c2).Measurements of learned-vector energy therefore do not alone verify Assumption D.4. D.6.1 A WEIGHT -SPACE ACCOUNT OF ACTIVATION LEAKAGE 
+
+We relate a layer’s weight displacement to its first-order activation change. This is distinct from both the fitted intervention and the pulled-back teacher target. 
+
+Weight-principal components. For W ∈ Rd×d′
+
+with singular value decomposition W = P 
+
+> i
+
+sipiq⊤ 
+
+> i
+
+, define 
+
+PW := X
+
+> i≤k
+
+pip⊤ 
+
+> i
+
+.
+
+The split ∆W = PW ∆W + ( I − PW )∆ W separates principal weight components from their complement. The bound |si(W + ∆ W ) − si(W )| ≤ ∥ ∆W ∥2 controls absolute spectral displacement but does not determine activation-principal localization. 
+
+Lemma D.6 (Weight components and first-order activation leakage) . Consider hℓ(x) = ϕ(W c(x)) with element-wise differentiable ϕ, holding c(x) fixed while perturbing W . Let D(x) = diag( ϕ′(W c(x))) have bounded norm at the evaluated points. For the first-order shift ∆h(x) = D(x)∆ W c(x),
+
+∥P ∆h(x)∥2 ≤ ∥ D(x)∥2∥PW ∆W ∥2∥c(x)∥2
+
+| {z }
+
+> on-principal weight mass
+
++ ∥P D (x)( I − PW )∥2∥∆W ∥2∥c(x)∥2
+
+| {z }
+
+> cross-subspace leakage
+
+. (62) 
+
+If ∥∆h(x)∥2 > 0 and the right-hand side is at most ξ∥∆h(x)∥2, then ∥P ∆h(x)∥2/∥∆h(x)∥2 ≤ ξ.Proof. Decompose 
+
+P ∆h(x) = P D (x)PW ∆W c(x) + P D (x)( I − PW )∆ W c(x).
+
+Apply the triangle inequality, submultiplicativity, and ∥P ∥2 ≤ 1. The relative bound follows by division when the total shift is nonzero. The leakage factor separates as P D (x)( I − PW ) = ( P − PW )D(x)( I − PW ) + PW D(x)( I − PW ), exposing basis mismatch and Jacobian mixing. Small weight-update norm or zero principal weight mass alone does not make this factor small relative to the total activation change. Extending the result beyond first order requires a nonlinear remainder bound; changing earlier layers additionally perturbs c(x). The lemma is a conditional first-order decomposition, not a deduction of activation localization from small weight updates. PART III. GEOMETRIC ANALYSIS OF ALPHA -S TABLER 
+
+Parts I–II analyze frozen-model intervention recovery. We now study a distinct parameter-training procedure: a fixed-reference activation diagnostic and local backward gradient projection. The diagnostic’s energy identity and the projection’s local properties are exact; the link to parameter-induced activation changes is conditional, and overall warning and stabilization performance is empirical. 
+
+37 Preprint D.7 PRINCIPAL -SUBSPACE MONITORING AND GRADIENT CONTROL 
+
+Warm-up estimation and fixed reference geometry. During the first Twarm = 50 parameter updates, the actor trains without projection. Its generated sequences are also evaluated by the frozen initial base model to estimate reference token-activation covariance. After warm-up, let Uℓ ∈ Rd×r contain the selected leading orthonormal eigenvectors, with r = ⌈0.10 d⌉. This is the main-text basis Uℓ,r ; the retained fraction refers to hidden dimensions, not explained variance. Set Pℓ = UℓU⊤ 
+
+> ℓ
+
+and Qℓ = I − Pℓ and hold them fixed thereafter. The analysis conditions on the estimated projectors. It neither assumes they equal population projectors nor supplies a finite-sample PCA guarantee. During each controlled backward pass and optimizer step, both projectors and flags are fixed, and their estimation and selection are detached from differentiation. 
+
+Token-level principal-subspace intrusion. For identical actor/base token sequences, stack the analyzed valid token-level activation differences as rows of X(t) 
+
+> ℓ
+
+∈ RN ×d. Consistent with Equation (6), 
+
+PSI (t) 
+
+> ℓ
+
+= ∥X(t) 
+
+> ℓ
+
+Uℓ∥2
+
+> F
+
+∥X(t) 
+
+> ℓ
+
+∥2 
+
+> F
+
++ ϵnum 
+
+, ϵnum > 0. (63) The stabilizer is the main-text numerical ϵ, not the theoretical intrusion bound ε. Energies are summed over tokens before normalization; averaging vectors first would permit cancellation. Aggregate PSI sums principal and total shift energies across monitored layers before taking their ratio. The identities below hold for the analyzed shift collection. If monitoring uses a token subset, they are exact for that subset, not automatically for all tokens or the population. The sampling and distributed aggregation protocol must be specified with the implementation. 
+
+Corollary D.4 (Energy interpretation and metric comparison) . Fix a layer. Let A = ∥XP ∥2 
+
+> F
+
+, B = ∥XQ ∥2 
+
+> F
+
+, and 
+
+A + B > 0, and set ψ0 = A/ (A + B). For B > 0, define eE = A/B . Then 
+
+ψ0 = eE
+
+1 + eE
+
+, 0 ≤ ψ0 − PSI = ψ0
+
+ϵnum 
+
+A + B + ϵnum 
+
+. (64) 
+
+Write each row of X as ∆⊤ 
+
+> i
+
+. For the same shifts with B > 0, define eG = P 
+
+> i
+
+∥P ∆i∥2
+
+> G
+
+/ P 
+
+> i
+
+∥Q∆i∥2
+
+> G
+
+. Suppose 
+
+0 < m G ≤ MG bound the metric on the span of the projected shifts: mG∥v∥22 ≤ ∥ v∥2 
+
+> G
+
+≤ MG∥v∥22. With 
+
+χ = MG/m G, eG
+
+χ ≤ eE ≤ χe G. (65) 
+
+If this same shift collection satisfies eG ≤ ε, then PSI ≤ ψ0 ≤ χε/ (1 + χε ).Proof. Orthogonality gives ∥X∥2 
+
+> F
+
+= A + B and ∥XU∥ 2 
+
+> F
+
+= A, proving the energy identities by substitution. The metric bounds give mGA ≤ P 
+
+> i
+
+∥P ∆i∥2 
+
+> G
+
+≤ MGA and the corresponding bounds for B. Division proves Equation (65); the last claim follows from monotonicity of u/ (1 + u). If B = 0 and A > 0, ψ0 = 1 and the finite-ratio comparison is inapplicable. If A + B = 0 , the stabilized statistic is zero but contains no directional information. The shifts in this corollary are observed actor-to-base differences. To apply the bound from Parts I–II requires a justified relationship to ∆(x), matched distributions, and appropriate metric bounds; the notation does not assert that relationship. A small PSI is a small directional energy fraction and need not imply small absolute activation displacement. 
+
+Predictor and threshold calibration. During an initially stable warm-up, retain detached actor-to-base shift matrices at checks every M = 3 updates, subject to N > 0 and ∥X(t) 
+
+> ℓ
+
+∥2 
+
+> F
+
+/N > η min . The latter is a floor on the average squared token-level shift norm, not the energy of an averaged shift. After the reference bases are frozen, evaluate the retained matrices using Equation (63); let Wℓ be the valid warm-up PSI values, as in Algorithm 1. Set 
+
+mℓ = median ψ∈W ℓ ψ, sℓ = 1 .4826 median ψ∈W ℓ |ψ − mℓ| + ϵnum ,τ on  
+
+> ℓ
+
+= mℓ + 3 sℓ, τ safe  
+
+> ℓ
+
+= mℓ + 2 sℓ. (66) Calibration is invalid if any Wℓ is empty or 0 < τ safe  
+
+> ℓ
+
+< τ on  
+
+> ℓ
+
+< 1 fails; training stops for recalibration rather than using such thresholds. After calibration, bases and thresholds are fixed and retained records can be released. Every M updates, valid observations update ¯ψℓ ← 0.95 ¯ψℓ + 0 .05PSI ℓ, initialized at mℓ. The flag aℓ ∈ { 0, 1}
+
+starts at zero. It activates after p = 3 consecutive valid checks with ¯ψℓ > τ on  
+
+> ℓ
+
+and releases when a valid check gives ¯ψℓ < τ safe  
+
+> ℓ
+
+. A valid check with ¯ψℓ ≤ τ on  
+
+> ℓ
+
+, or an invalid check, resets the consecutive-warning count; an invalid check leaves the moving average and flag unchanged. Flags are held between checks and fixed throughout the associated gradient accumulation, backward pass, and optimizer update. These rules define a detector with smoothing, persistence, and hysteresis. The MAD multiplier does not provide a false-alarm probability for dependent training observations. An initially stable calibration window is an operational requirement, and useful lead times or error rates require empirical evaluation rather than following from Equation (66). 38 Preprint 
+
+Controller: backward-only gradient projection. Let G(t) 
+
+> ℓ
+
+∈ RN ×d be the incoming activation gradient at a monitored output before its local control operation. This is distinct from the sensitivity metric G in Parts I–II. When several sites are controlled, the incoming gradient already includes any downstream modifications. With a fixed basis and detached flag, pass upstream 
+
+eG(t) 
+
+> ℓ
+
+= G(t) 
+
+> ℓ
+
+− a(t) 
+
+> ℓ
+
+(G(t) 
+
+> ℓ
+
+Uℓ)U⊤ 
+
+> ℓ
+
+. (67) This hook leaves the forward mapping unchanged at fixed model parameters. At an active site it applies G(t) 
+
+> ℓ
+
+Qℓ;at an inactive site it leaves the incoming gradient unchanged. Future forward activations can change through the resulting parameter updates. 
+
+Proposition D.4 (Minimal-change removal of principal gradients) . For a Euclidean orthogonal projector P and 
+
+Q = I − P , the unique solution of 
+
+minimize   
+
+> Z:ZP =0
+
+12 ∥Z − Gℓ∥2 
+
+> F
+
+(68) 
+
+is eGℓ = GℓQ, and 
+
+eGℓP = 0 , eGℓQ = GℓQ, ∥ eGℓ∥2 
+
+> F
+
+= ∥Gℓ∥2 
+
+> F
+
+− ∥ GℓP ∥2 
+
+> F
+
+. (69) 
+
+Proof. Feasibility gives Z = ZQ . Principal and complement components are Frobenius-orthogonal, hence 
+
+∥Z − Gℓ∥2 
+
+> F
+
+= ∥Z − GℓQ∥2 
+
+> F
+
++ ∥GℓP ∥2 
+
+> F
+
+. The unique minimizer is Z = GℓQ. The remaining identities follow from P 2 = P , Q2 = Q, and P Q = 0 .The proposition concerns the incoming gradient at one hook. It preserves that gradient’s complement and cannot increase its local norm. It does not imply a smaller parameter-gradient norm, preservation of the uncontrolled network’s complete gradient, or an analogous projection of future activation changes. Those quantities also depend on network Jacobians, other control sites, and the optimizer. 
+
+From projected gradients to activation changes. We analyze one post-warm-up SGD step on a fixed batch. This provides a local relation between a projected activation gradient and the forward displacement it induces, rather than an optimizer-independent stability guarantee. 
+
+Lemma D.7 (Local principal leakage under projected SGD) . Fix a token batch, one active control site, and a parameter block ϑ. Suppose the loss depends on this block only through the selected activations, all other parameters are held fixed, and h(ϑ) is twice continuously differentiable locally. Stack token activations as 
+
+h = vec( H⊤), and define J = ∂h/∂ϑ , Π = IN ⊗ P , Q = I − Π, and g = ∇hL. For a plain SGD step with 
+
+α ≥ 0 whose update segment stays within a neighborhood of bounded second derivative, 
+
+δϑ = −αJ ⊤Qg, δh = −αK Qg + R, K = JJ ⊤, (70) 
+
+where ∥R∥2 ≤ chα2∥J⊤Qg∥22 for a local constant ch. Consequently, 
+
+∥Πδh ∥2 ≤ α∥ΠKQ∥ 2∥Q g∥2 + chα2∥J⊤Qg∥22. (71) 
+
+Proof. The single-path dependency gives the modified parameter gradient J⊤Qg. Taylor’s theorem for the vector-valued map gives h(ϑ + δϑ ) − h(ϑ) = Jδϑ + R, with ∥R∥2 ≤ ch∥δϑ ∥22; one may take ch as half a uniform bilinear operator-norm bound on its second derivative along the segment. Substitute the SGD step, apply Π, and use ∥Π∥2 ≤ 1 and submultiplicativity to obtain Equation (71). 
+
+What projection does and does not preserve. First-order principal displacement is controlled by ΠKQ, not by 
+
+ΠQ = 0 alone. Relative to an unprojected SGD step at the same state, batch, and gradient, 
+
+δh proj − δh plain = αK Πg + ( Rproj − Rplain ).
+
+Thus the first-order difference in complement displacement is αQKΠg, which need not vanish. If ΠKQ = 0 ,symmetry of K also gives QKΠ = 0 : the projected update then has no first-order principal displacement and preserves the plain step’s complement displacement to first order. Without this additional decoupling, the lemma is a bound, not a guarantee of either preservation property or a comparison showing less leakage than the unprojected step. 
+
+Preconditioning and additional update terms. For a fixed realized parameter-space preconditioner D and an additional direction b, write a particular update as δϑ = −α(DJ ⊤Qg + b). The same Taylor argument gives, provided its update segment satisfies the same local regularity condition, 
+
+∥Πδh ∥2 ≤ α∥ΠJDJ ⊤Q∥ 2∥Q g∥2 + α∥ΠJb ∥2
+
++ chα2∥DJ ⊤Qg + b∥22.
+
+39 Preprint The first-order coupling is now JDJ ⊤; b may contain optimizer-state or other update contributions not represented by the current projected gradient. This is a conditional estimate for a specified step, not a bound on how an adaptive preconditioner or its state evolves. Applying it to a concrete optimizer requires its actual update decomposition. Multiple control sites likewise require the full modified gradient flow; the single-site SGD lemma does not supply a joint guarantee for the complete training algorithm. 
+
+Local leakage versus cumulative PSI and stability. The lemma bounds one update on a fixed batch, whereas PSI measures actor-to-base differences accumulated over training and is a ratio of energies. Even zero new principal displacement need not decrease PSI: for a one-token difference (1 , 1) with the first coordinate principal, a complement-only change (0 , −α), 0 < α < 1, raises the unstabilized PSI from 1/2 to 1/(1 + (1 − α)2). Long-run guarantees would additionally require uniform control of couplings, update magnitudes, remainders, optimizer state, and changing observation distributions. We therefore treat warning utility and training stabilization as empirical outcomes in Figures 7(c) and 8, not consequences of a monotone-PSI or no-collapse theorem. 
+
+Implementation and overhead. The mathematical properties require aligned actor/base observations and flags fixed before the controlled backward pass; they do not require a particular graph-retention strategy. Reusing a compatible actor forward and using a separate detached monitoring pass have different runtime and memory costs. Neither the projection identity nor the absence of additional trainable parameters bounds end-to-end overhead. Such claims require measurements that include reference evaluation, any additional actor pass, covariance estimation, calibration storage, and communication. D.8 SUMMARY OF THEORETICAL AND EMPIRICAL RESULTS 
+
+Table 5 records the object and scope of each conclusion. Parts I–II characterize conditional target-energy recovery and alternative intervention classes. Part III establishes finite-collection energy identities, exact local gradient-projection properties, and a conditional single-step relationship to activation displacement. 
+
+Summary. The analysis links three distinct questions while keeping their mathematical objects distinct. First, shared teacher targets can permit strong constant-vector recovery under local approximation, moment, and metric conditions. Second, constrained and adaptive fitting describe different intervention capacities; neither standalone orthogonality nor low learned-vector PC energy alone determines the teacher target’s rank or localization. Third, Alpha-Stabler uses a fixed activation reference for monitoring and local gradient control. Its projection has exact minimal-change properties, while its effect on parameter-induced activation displacement depends on coupling and the optimizer. These conditional results organize the empirical capacity and localization observations and motivate the controller; they do not replace empirical evidence for task-score recovery, early warning, stability, or runtime overhead. 40 Preprint Table 5: Summary of recovery, steering geometry, and gradient-control results, with their assumptions and empirical scope. 
+
+Statement Reference Scope / status 
+
+Part I — fixed-vector recovery 
+
+Distillation admits a weighted least-squares ap-proximation Proposition D.1 Fixed contexts; controlled network and KL remainders The regularized optimum is an exponential re-ward tilt Lemma D.2 Exact optimum of the stated objective, 
+
+β > 0
+
+Next-token ratios follow continuation normaliz-ers Lemma D.3 Exact under the tilt model Shared profiles and consistent pullbacks give shared shifts Lemmas D.4, D.5 Additional sufficient structural condi-tions 
+
+ρ = SNR /(1 + SNR) Theorem D.1 Constant-metric surrogate target energy Leading spectral energy share upper-bounds ρ Corollary D.2 Upper bound, not a general equality 
+
+ρ ≥ κ/ [(1 + η)(1 + ε)] Theorem D.2 Assumed localization, moments, and metric compatibility 
+
+Part II — geometry of steering interventions 
+
+Constrained constant-vector fitting is a metric projection Theorem D.3 Fixed target family and metric; exact optimization Adaptive subspace recovery is a spectral partial sum Equation (61) Unrestricted context-dependent coeffi-cients Later orthogonal directions can remain useful Section D.5 Empirical standalone interventions; not a rank estimate Euclidean and sensitivity-weighted intrusion are related Proposition D.3 Same targets; explicit metric constants Weight components bound first-order activation leakage Lemma D.6 Fixed input; basis-mismatch and mix-ing factors 
+
+Part III — monitoring and gradient control 
+
+PSI measures Euclidean principal energy of ana-lyzed shifts Corollary D.4 Exact finite-collection identity; stabi-lizer accounted for Projection minimally removes incoming princi-pal gradients Proposition D.4 Exact at each active hook with fixed projector Principal activation displacement obeys a cou-pling bound Lemma D.7 Single-site, fixed-batch, local plain SGD Warm-up specifies a fixed reference and thresh-olds Algorithm 1 Calibration procedure; no detection-error guarantee PSI warns and control improves training stability Figures 7(c) and 8 Empirical findings in the evaluated set-tings 
+
+41

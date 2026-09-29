@@ -1,0 +1,3243 @@
+Title: First-Order Stationarity of Reverse Diffusions
+
+URL Source: https://arxiv.org/pdf/2609.31612v1
+
+Published Time: Mon, 28 Sep 2026 01:32:09 GMT
+
+Number of Pages: 39
+
+Markdown Content:
+# First-Order Stationarity of Reverse Diffusions 
+
+Zhifeng Chen ∗ Chenyang Jiang Yazhen Wang Department of Statistics, UW-Madison 
+
+Abstract 
+
+Recent literature has shown a strong connection between optimization and sampling. We de-velop the corresponding first-order theory for diffusion models. First, the SDE-based reverse-time flows of overdamped and underdamped Langevin diffusions contract relative Fisher divergences at explicit exponential rates whenever the stationary potential of the forward process is strongly convex—a condition on the noising process one chooses, not on the data. This is a unique advantage of SDE-based reverse diffusion, absent in the reverse process based on ODEs. Sec-ond, we incorporate discretization and establish averaged first-order stationarity bounds—the sampling analog of averaged gradient-norm guarantees in nonconvex optimization—for samplers of both overdamped and underdamped diffusion models. As in nonconvex optimization, the convexity-free certificate is local: it guarantees score consistency, not global mode weights. 
+
+# 1 Introduction 
+
+Diffusion models generate data in two stages: a forward Markov process gradually corrupts samples from an unknown data distribution ρ0 until their law is essentially a tractable stationary distribution, and generation simulates this process backward in time, guided by the score functions ∇ log ρs of the forward marginals, learned by (denoising) score matching (Hyvärinen, 2005; Vincent, 2011; Sohl-Dickstein et al., 2015; Song and Ermon, 2019; Ho et al., 2020; Song et al., 2021). Three approximations separate the implemented sampler from the ideal reverse process—initialization from the reference law rather than the true terminal marginal, time discretization, and score estimation—and a large body of work bounds their combined effect on the terminal law, in total variation, KL, or Wasserstein distance. This paper takes a different, more structural view. Rather than asking how far the final sample is from the data, we ask what the reverse dynamics itself—exact or discretized—does to a first-order 
+
+measure of mismatch. The central objects are the relative score and the relative Fisher divergence :for positive densities p and q,
+
+F(p ∥ q) = Ep
+
+∥∥∥∇ log pq
+
+∥∥∥2
+
+.
+
+The relative score vanishes identically if and only if p = q, so F(p ∥ q) is a natural stationarity measure: it plays the role of the squared gradient norm ∥∇ f ∥2, as KL( · ∥ q) plays that of the objective value f . The analogy is not merely formal. The Fokker–Planck equation of overdamped Langevin dynamics is the gradient flow of relative entropy in the Wasserstein geometry (Jordan et al., 1998), and the relative Fisher divergence is exactly its gradient norm. We will show in this work that this is also true for the reverse flow: ddt KL( pt ∥ qt) = −F (pt ∥ qt) (Corollary 2.2)—the  
+
+> ∗Email: zchen925@wisc.edu
+
+1arXiv:2609.31612v1 [stat.ML] 25 Sep 2026 Smooth optimization Reverse diffusion sampling objective f (x) relative entropy KL( p ∥ q)gradient ∇f relative score ∇ log( p/q ) in L2(p)squared gradient norm ∥∇ f ∥2 Fisher divergence F(p ∥ q)learning rate η step size h                              
+
+> descent identity ddtf=−∥∇ f∥2KL dissipation (Corollary 2.2) strong convexity of fstrong log-concavity of the forward potential U
+> ∥∇ f(xt)∥2≤e−2mt ∥∇ f(x0)∥2exponential Fisher contraction (Theorems 3.2, 3.4) Polyak–Łojasiewicz inequality log-Sobolev inequality for q
+> 1
+> N
+> ∑
+> k∥∇ f(xk)∥2≲f(x0)−f⋆
+> ηN +O(η)averaged Fisher bounds (Theorems 4.5, 5.5) change of variables x7→Φ( x)probability-flow ODE (Proposition 2.3)
+
+Table 1: The optimization dictionary used throughout the paper. exact analog of the descent identity ddt f (xt) = −∥∇ f (xt)∥2 along a gradient flow. Table 1 records the full dictionary the paper centers around. Most rows of this dictionary are not new: they underlie the first-order theory of forward Langevin Monte Carlo (Balasubramanian et al., 2022) and Fisher-information dissipation along forward flows (Wibisono, 2026). The contribution of this paper is that the dictionary survives time reversal, where the reference law qt is no longer a fixed stationary distribution but a moving target set by the noising schedule. We show that this symmetry holds for both overdamped and underdamped reverse-time SDEs, but does not extend to their probability flow ODE counterparts. 
+
+Why first-order guarantees? In smooth nonconvex optimization one cannot certify convergence to a global minimum, yet gradient descent still admits the averaged guarantee 1 
+
+> N
+> ∑
+> k
+
+∥∇ f (xk)∥2 ≲   
+
+> f(x0)−f⋆
+> ηN
+
++ O(η) (Ghadimi and Lan, 2013). The sampling situation is parallel: for non-log-concave data, converting score accuracy into KL or total-variation convergence requires functional inequalities, whereas the relative Fisher divergence remains meaningful without such assumptions —driving it to zero certifies that the sampler’s law is locally consistent with its target, the two scores agreeing on average in L2. The analogy also makes the limitation transparent: as a stationary point need not be a minimum, a law can have small relative Fisher divergence while misallocating mass between well-separated modes. This limitation parallels the gap between stationarity and global optimality in nonconvex optimization. 
+
+1.1 Related work 
+
+Convergence theory of diffusion models. Time reversal of diffusions goes back to Anderson (1982) and Haussmann and Pardoux (1986); diffusion models build directly on this theory, including the critically damped kinetic variant of Dockhorn et al. (2022). A growing line of quantitative convergence theory controls initialization, discretization, and score-estimation errors simultaneously for essentially arbitrary data distributions (Lee et al., 2023; Chen et al., 2023b; Jiao et al., 2025). 
+
+Connections between sampling and optimization. A complementary line of work draws connections between sampling dynamics and optimization. The classical variational formulation of the Fokker–Planck equation interprets overdamped Langevin dynamics as a Wasserstein gradient flow of the relative entropy (Jordan et al., 1998), motivating the viewpoint of sampling as optimization over the space of probability measures (Wibisono, 2018). Momentum-based sampling admits an even closer analogy with accelerated optimization: Ma et al. (2021) interpreted underdamped Langevin 2dynamics as an analog of Nesterov acceleration for minimizing the KL divergence, with hypocoercivity playing a role analogous to the coupling between position and momentum in accelerated optimization. 
+
+Fisher-divergence contraction. Recent work has also studied the evolution of Fisher divergence along isotropic Fokker–Planck channels. Wibisono (2026) established contraction of Fisher divergence under suitable convexity assumptions. Closest in spirit to our work, Balasubramanian et al. (2022) developed Fisher-information guarantees for forward Langevin Monte Carlo, viewing Fisher divergence as a sampling analog of first-order stationarity in optimization. Our work develops a corresponding perspective for reverse-time diffusion, where contraction must be established against a reference that itself evolves. 
+
+1.2 Contributions and paper organization 
+
+Contraction in continuous reverse flow. Our results form two groups, one about exact reverse flows and one about discrete samplers. If the stationary potential U of the forward diffusion is strongly convex, then the reverse SDE contracts score mismatch exponentially, for both overdamped and underdamped diffusion. The assumptions concern only the forward potential, and no log-Sobolev inequality is imposed on the data: the continuous reverse dynamics forgets initialization error exponentially fast for almost arbitrary data. 
+
+Averaged Fisher divergence bound for discretized algorithms. (i) For the frozen-score exponential integrator of the reverse overdamped process—the idealized DDPM-type update— with spatially Lipschitz scores and sub-Gaussian data assumptions, the numerical law ˆ pt satisfies   
+
+> 1
+> T
+> ∫T
+> 0
+
+F(ˆ pt ∥ qt) d t ≲ H0/T + L2 
+
+> s
+
+dh + O(h2) against the exact reverse marginals qt (Theorem 4.5). (ii) For the critically damped reverse process we prove an averaged bound on the full phase-space relative Fisher divergence (Theorem 5.5), with the sampler compared to the twin chain that pushes the 
+
+exact initialization through the same numerical kernels, so that the bound isolates the initialization error. 
+
+Organization. Section 2 fixes the setting; in Section 3, we give results for continuous reverse flows. In Sections 4 and 5, we give results for discrete samplers of the overdamped and underdamped model separately. Section 6 gives our experiment results. Appendices A–D prove the results of Sections 2–5 in order, and Appendix E collects critical-damping identities. Our work focuses on the process mechanism itself, so we analyze initialization error and discretization error. Throughout the paper we assume we have access to the true score functions. 
+
+# 2 Setting: two reverse diffusions and a first-order criterion 
+
+This section introduces the two forward models and their reverse dynamics. 
+
+Overdamped model. The forward overdamped Langevin diffusion on Rd is dXs = −∇ U (Xs) d s + √2 d Ws, s ∈ [0 , T ], (2.1) with invariant density p∗ ∝ e−U . Its Fokker–Planck equation can be rewritten as the continuity equation ∂sρs = ∇ · (ρs∇ log( ρs/p ∗)): the probability mass of ρs is transported by the velocity field 3−∇ log( ρs/p ∗). Running time backward, the exact reverse marginals qt := ρT −t therefore satisfy 
+
+∂tqt = −∇ · (qtvqt ) with current velocity 
+
+vqt = ∇ log qt
+
+p∗ , (2.2) realized by the exact reverse SDE d Yt = [ ∇U (Yt) + 2 ∇ log qt(Yt)] d t + √2 d ¯Wt (Anderson, 1982; Haussmann and Pardoux, 1986). If pt is the law of the same reverse SDE initialized from p0̸ = q0,then ∂tpt = −∇ · (ptvpt ) with 
+
+vpt = vqt − ∇ rt, rt = log pt
+
+qt
+
+. (2.3) 
+
+Underdamped model. The forward kinetic (underdamped) Langevin diffusion lives on phase space Rd × Rd, in variables z = ( x, v ), with friction γ > 0 and inverse mass ξ > 0: dXs = ξV s ds, dVs = −∇ U (Xs) d s − γξV s ds + √2γ dWs, (2.4) with invariant density p∗ ∝ exp( −U (x) − ξ 
+
+> 2
+
+∥v∥2). Noise and friction act on the velocity coordinates only. Write J = ( 0 Id 
+
+> −Id0
+
+) and Gγ = ( 0 00 γI d
+
+), so that the drift of (2.4) is bfwd (z) = −(J −Gγ )∇ log p∗ =(ξv, −∇ U (x) − γξv ), with Jacobian 
+
+M (x) := ∇bfwd (z) = 
+
+(
+
+0 ξI d
+
+−∇ 2U (x) −γξI d
+
+)
+
+(2.5) The Fokker–Planck equation of (2.4) is again a continuity equation, with current velocity ws =
+
+−J∇ log p∗ − Gγ ∇ log( ρs/p ∗) (Lemma A.2); hence qt := ρT −t obeys ∂tqt = −∇ · (qtvqt ) with 
+
+vqt = J∇ log p∗ + Gγ ∇ log qt
+
+p∗ , (2.6) realized by the exact reverse SDE d ¯Xt = −ξ ¯Vt dt, d ¯Vt = [∇U ( ¯Xt) + γξ ¯Vt + 2 γ∇v log qt( ¯Xt, ¯Vt)] dt + √2γ d ¯Wt, (2.7) in which only the velocity score ∇v log qt enters—one reason kinetic diffusion models are attractive in practice. For pt solving the same reverse SDE from p0̸ = q0
+
+vpt = vqt − Gγ ∇rt, rt = log pt
+
+qt
+
+. (2.8) The same probability flow (2.6) is also realized by the deterministic reverse ODE d ¯Xt = −ξ ¯Vt dt, d ¯Vt = [∇U ( ¯Xt) + γξ ¯Vt + γ∇v log qt( ¯Xt, ¯Vt)] dt (2.9) 
+
+2.1 Divergences and the exact dissipation identity 
+
+This subsection defines the objects of the dictionary of Table 1, and then proves the analog of the descent identities, which holds with no assumption on U or on the data. For smooth positive probability densities p, q on Rn (n = d or 2 d), write r = log( p/q ), g = ∇r, and define KL( p ∥ q) = 
+
+∫
+
+p log pq , F(p ∥ q) = 
+
+∫
+
+p ∥g∥2, FP (p ∥ q) = 
+
+∫
+
+p ⟨g, P g ⟩ , (2.10) for a symmetric positive definite matrix P . In the underdamped model we also use the velocity part 
+
+Fv(p ∥ q) = ∫ p ∥∇ vr∥2.4Lemma 2.1 (KL derivative for two continuity equations) . Suppose ∂tqt = −∇ · (qtvqt ) and ∂tpt =
+
+−∇ · (ptvpt ), and let rt = log( pt/q t). Then 
+
+ddt KL( pt ∥ qt) = 
+
+> ∫
+
+pt ∇rt · (vpt − vqt ) (2.11) Combining Lemma 2.1 with the velocity differences in (2.3) and (2.8) gives the reverse-diffusion descent identity. 
+
+Corollary 2.2 (KL dissipation along the exact reverse flows) . Along the common exact reverse dynamics, 
+
+ddt KL( pt∥qt) = −F (pt∥qt) (overdamped) , ddt KL( pt∥qt) = −γ Fv(pt∥qt) (underdamped) .
+
+In particular KL( pt ∥ qt) is always nonincreasing in both models. 
+
+The entire effect of the mismatched initialization is the single extra correction term vpt − vqt . The probability-flow ODE realizes the same marginals qt from q0, but transports every initial law by the same field vqt , so no correction term appears at all. 
+
+Proposition 2.3 (No forgetting along the probability-flow ODE) . Let Φt be the flow map of the probability-flow ODE of either model, and let pt = (Φ t)#p0 for an arbitrary initial law p0, and 
+
+qt = (Φ t)#q0 are the exact reverse marginals. Then rt = r0 ◦ Φ−1 
+
+> t
+
+; hence for all t ∈ [0 , T ]KL( pt ∥ qt) = KL( p0 ∥ q0), TV( pt, q t) = TV( p0, q 0),
+
+and likewise for every f -divergence, while the relative score is merely carried along and rescaled by the Jacobian of the flow, 
+
+∇rt
+
+> (
+
+Φt(x)) = (∇Φt(x))−⊤ ∇r0(x), F(pt ∥ qt) = 
+
+> ∫
+
+p0
+
+> ∥∥
+
+(∇Φt)−⊤ ∇r0
+
+> ∥∥2
+
+.
+
+In the dictionary the ODE is a change of variables: the objective and every zeroth-order distance are untouched, and the gradient is transported, not contracted. 
+
+Remark 2.4 (Optimization counterpart, and a moving target) . Corollary 2.2 has a familiar opti-mization counterpart. For the gradient flow ˙ xt = −∇ f (xt) and for the heavy-ball flow ˙ xt = vt,˙vt = −∇ f (xt) − γv t, one has ddt f (xt) = −∥∇ f (xt)∥2 and ddt 
+
+> [
+
+f (xt) + 12 ∥vt∥2]
+
+= −γ ∥vt∥2. In Wasser-stein space the role of f is played by KL( · ∥ qt). In reverse diffusion the target itself moves: pt chases 
+
+qt, which travels on a schedule fixed by the forward process; for the exact flows this costs nothing, and Lemma 2.1 shows why. The same terms in vqt and vpt only make two distributions move in parallel; only relative velocity vpt − vqt matters, and it is precisely what drives pt toward qt. As in nonconvex optimization, a counterpart of the averaged statement 1  
+
+> T
+> ∫T
+> 0
+
+∥∇ f (xt)∥2 dt ≤ (f (x0) − inf f )/T can be obtained by integrating Corollary 2.2. Denote the initialization error as H0 := KL( p0 ∥ q0). 
+
+Proposition 2.5 (Averaged stationarity of the exact reverse flows) . For every potential U , every data distribution, and every pair of initializations (p0, q 0),
+
+1
+
+T 
+
+> ∫T
+> 0
+
+F(pt ∥ qt) d t = H0 − KL( pT ∥ qT )
+
+T ≤ H0
+
+T (overdamped) , (2.12) 
+
+γT 
+
+> ∫T
+> 0
+
+Fv(pt ∥ qt) d t = H0 − KL( pT ∥ qT )
+
+T ≤ H0
+
+T (underdamped) , (2.13) Assuming only H0 < +∞, the time-averaged Fisher divergence of the overdamped flow converges to 0 as T → +∞. However, for the underdamped model we only obtain a bound for the divergence in velocity dimensions Fv. The theorem of Section 4 is a discrete-time version of Proposition 2.5 for the overdamped model. 53 Exponential Fisher contraction of the exact reverse flows 
+
+In this section we directly study the evolution of F(pt ∥ qt), and show that it contracts exponentially fast under strong convexity of the forward potential U . Throughout this section qt is the exact reverse marginal, pt solves the same exact reverse SDE from an arbitrary initial law p0, and rt = log( pt/q t), 
+
+gt = ∇rt, St = ∇2rt.
+
+Assumption 3.1 (Strong convexity and smoothness) . U ∈ C2(Rd) and there are 0 < m ≤ L < ∞
+
+with mI d ⪯ ∇ 2U (x) ⪯ LI d for all x.Assumption 3.1 constrains only the potential U chosen by the practitioner (for the standard Gaussian noising process m = L = 1). 
+
+Overdamped: the ordinary Fisher divergence contracts. The mechanism is a dissipation identity for F(t) := F(pt ∥ qt), proved in Appendix B (Proposition B.3): along the exact reverse flow, ddt F(t) = −2
+
+> ∫
+
+pt ∥St∥2F − 2
+
+> ∫
+
+pt g⊤ 
+
+> t
+
+∇2U g t. (3.1) The first term is a negative term and is always favorable; the second is where convexity of U enters. Gronwall’s inequality then gives: 
+
+Theorem 3.2 (Overdamped Fisher contractivity) . In the overdamped model, if U is convex, then F(pt ∥ qt) is nonincreasing; if U is m-strongly convex, then F(pt ∥ qt) ≤ e−2mt F(p0 ∥ q0) for 
+
+0 ≤ t ≤ T .Remark 3.3 (The reverse flow inherits forward contractivity) . Perhaps surprisingly, identity (3.1) is exactly the same as for the forward Langevin dynamics: Forward Fisher contractivity against the invariant law relies on convexity of U alone, and the reverse flow inherits it without any functional inequality on qt. This is a special case, which we want to highlight here for its importance, of Fisher evolution along isotropic Fokker–Planck channels (Wibisono, 2026, Lemma 2). For continuous reverse processes, our technical contribution is the theorem for the underdamped model. 
+
+Underdamped: a modified Fisher divergence contracts. The underdamped flow dissipates only the velocity components of the relative score (Corollary 2.2), so position-direction error can be damped only indirectly , by rotating into the velocity directions through the Hamiltonian coupling. Following the hypocoercivity paradigm (Villani, 2009), we therefore measure the error in a quadratic form with position–velocity cross terms , chosen so that the coupling converts the conserved part of the error into the dissipated part. Concretely, for γ2ξ > L define 
+
+Pγ =
+
+> 
+
+1 − γ
+
+2
+
+− γ
+
+2
+
+γ2
+
+2 
+
+> 
+
+, κγ,ξ = min  
+
+> (
+
+mγ , γξ − Lγ
+
+> )
+
+> 0. (3.2) With P = Pγ ⊗ Id, the associated modified Fisher divergence is 
+
+FP (pt ∥ qt) = 
+
+> ∫
+
+pt g⊤ 
+
+> t
+
+P g t dz =
+
+> ∫
+
+pt
+
+> (
+
+∥∇ xrt∥2 − γ ⟨∇ xrt, ∇vrt⟩ + γ2
+
+2 ∥∇ vrt∥2)
+
+dz. (3.3) 
+
+Theorem 3.4 (Underdamped modified Fisher contractivity) . Assume the underdamped model (2.4) ,Assumption 3.1, and γ2ξ > L . With P = Pγ ⊗ Id as in (3.2) ,
+
+FP (pt ∥ qt) ≤ e−2tκ γ,ξ FP (p0 ∥ q0)6Since P has eigenvalues bounded away from 0 and ∞, contraction of FP is equivalent, up to a fixed conditioning factor, to contraction of F itself. For the standard Gaussian potential U (x) = 12 ∥x∥2
+
+we have m = L = 1, and we can select parameters γ = 2, ξ = 1 used by critically-damped diffusion models (Dockhorn et al., 2022). 
+
+# 4 Averaged stationarity of the discretized overdamped reverse 
+
+We now account for the error incurred by time discretization. The practically dominant forward process is the standard Ornstein–Uhlenbeck (OU) diffusion, dYs = −Ys ds + √2 d Bs, Y0 ∼ ρ0, (4.1) with marginals ρs: the overdamped model (2.1) with U (x) = 12 ∥x∥2. The sampler we analyze is the frozen-score exponential integrator , the idealized form of standard DDPM-type updates: on the uniform grid tk = kh , h = T /N , freeze the score at the step start and solve the resulting linear SDE exactly. Its continuous-time interpolation is dXt = {Xt + 2 stk (Xtk )} dt + √2 d Bt, t ∈ [tk, t k+1 ], (4.2) which integrates in closed form: for τ = t − tk,
+
+Xt = eτ Xtk + 2( eτ − 1) stk (Xtk ) + √
+
+e2τ − 1 ζ, ζ ∼ N (0 , I d). (4.3) Let ˆ pt denote the law of Xt, the numerical process. The object of interest is the time-averaged Fisher divergence 1  
+
+> T
+> ∫T
+> 0
+
+F(ˆ pt ∥ qt) d t against the exact reverse marginal : the sampling analog of the averaged gradient norm at a randomly stopped iterate (Ghadimi and Lan, 2013), and the reverse-process counterpart of Balasubramanian et al. (2022). 
+
+Assumption 4.1 (Score Lipschitzness) . There is Ls ≥ 0 with ∥st(x) − st(y)∥ ≤ Ls∥x − y∥ for every 
+
+t ∈ [0 , T ] and x, y ∈ Rd.
+
+Assumption 4.2 (Finite initial divergence) . The initial laws have positive densities with H0 := KL(ˆ p0 ∥ q0) < ∞.
+
+Assumption 4.3 (Sub-Gaussian data) . For Y0 ∼ ρ0 there is a λ > 0 with E exp ( λd ∥Y0∥2) =: M < ∞.Set H0 := KL(ˆ p0 ∥ q0), λ0 := min {λ, d 
+
+> 4
+
+}, and M := dλ0 (H0 + log M + d). 
+
+Remark 4.4 (Role of the Sub-Gaussian assumption) . Assumption 4.3 serves exactly one purpose in the proof: controlling the second moments of the numerical marginals ˆ pt. The assumption is equivalent to standard definition of sub-Gaussian distributions, normalized by the dimension d.
+
+Theorem 4.5 (Averaged Fisher stationarity, overdamped) . Suppose Assumptions 4.1–4.3 hold. There is a universal constant c > 0 such that the following holds. If 
+
+h ≤ c
+
+1 + Ls
+
+and T [L2 
+
+> s
+
+dh + L2 
+
+> s
+
+(1 + Ls)2Mh2] ≤ cd, (4.4) 
+
+then the numerical law never drifts far from the exact one in relative entropy, sup 0≤t≤T KL(ˆ pt ∥ qt) <H0 + d, and 
+
+1
+
+T 
+
+> ∫T
+> 0
+
+F(ˆ pt ∥ qt) d t ≲ H0
+
+T + L2 
+
+> s
+
+dh + L2 
+
+> s
+
+(1 + Ls)2Mh2. (4.5) 7Remark 4.6 (Shape of the bound) . Bound (4.5) has exactly the shape of the nonconvex optimization guarantee in Table 1: an amortized initialization term H0/T plus step-size terms. It refines the exact identity (2.12), which it recovers as h → 0. 
+
+Remark 4.7 (Score error) . Suppose the integrator is run with estimated scores ˆ stk in place of stk
+
+in (4.2), with max k Eˆptk ∥ˆstk − stk ∥2 ≤ ε2. The only change in the proof is one triangle inequality inside the mismatch term of Proposition C.3, E∥ˆstk (Xtk ) − st(Xt)∥2 ≤ 2ε2 + 2 E∥stk (Xtk ) − st(Xt)∥2.Consequently, with slight adjustment of the proof, the conclusions of Theorem 4.5 hold with the additional term ε2 on the right-hand side of (4.5). In practice, however, the estimator is trained under the exact marginals qtk , so its error is naturally controlled in L2(qtk ) rather than in L2(ˆ ptk ). Transferring the bound from one measure to the other requires either a uniform bound or a change of measure, which is achievable under a Gaussian-tail assumption on score errors, but we do not pursue here. Appendix F.4 confirms empirically that the mechanism analyzed here persists under a learned score. 
+
+# 5 Averaged stationarity of the discretized critically damped reverse 
+
+We now prove the underdamped counterpart of Theorem 4.5, for the critically damped kinetic OU forward process: the underdamped model (2.4) with U (x) = 12 ∥x∥2 and the parameters γ = 2, 
+
+ξ = 1, and for the frozen-score exponential integrator. One genuine obstacle separates this case from Section 4. Repeating the argument of Section 4 along the frozen-score SDE interpolation is possible, but it could only provide a bound on Fv(ˆ pt ∥ qt), as in Proposition 2.5. To upgrade Fv
+
+to the full F one wants a hypocoercive Lyapunov functional in the spirit of Ma et al. (2021); but differentiating FP (ˆ pt ∥ qt) along an SDE interpolation like (4.2) produces derivatives of the score mismatch, objects for which no useful control is available. Our resolution is decomposing the integrator. Since the frozen-score step solves a linear SDE, it can be written as a deterministic score kick applied at the beginning of the step, followed by the score-free reverse dynamics d Y = CY dτ + 2 E dW run for the full step (Lemma D.1). Along this interpolation no derivative of the score error ever appears: the kick is a deterministic map, and the score-free leg is an exact linear diffusion on which entropy and twisted-Fisher identities hold in closed form. Therefore, hypocoercive dissipation and discretization decouple completely. However, this decoupled composition also forces us to tell the story in an indirect way. Instead of bounding F(ˆ pt ∥ qt) directly, we will bound F(ˆ pt ∥ ˆqt) for a reference process ˆ qt, which isolates the initialization error. The discretization is isolated in the difference between ˆ qt and qt, and it is controlled at the level of path measures by the standard Girsanov computation (Chen et al., 2023b). 
+
+5.1 The critically damped reverse process and the integrator 
+
+For z = ( x, v ) ∈ R2d set 
+
+C := 
+
+> (
+
+0 −Id
+
+Id 2Id
+
+> )
+
+, E := 
+
+> (
+
+0
+
+Id
+
+> )
+
+, Πv := EE ⊤, D := 4Π v. (5.1) The critically damped kinetic noising process, in the forward clock s and with marginal densities ρs,is dZs = −CZ s ds + 2 E dBs, i.e. dXs = Vs ds, dVs = −(Xs + 2 Vs) d s + 2 d Bs; (5.2) 8its transition law over time h is N (e−hC z, G h) with Gh := ∫ h 
+
+> 0
+
+e−rC De −rC ⊤
+
+dr. In the increasing 
+
+reverse clock t := T − s, with qt := ρT −t, the path-reversed process has dynamics dYt = (CY t + 4 E∇v log qt(Yt)) dt + 2 E d ¯Bt, Y0 ∼ ρT (5.3) Fix an increasing reverse-time grid 0 = t0 < t 1 < · · · < t N = T with steps hi := ti+1 − ti > 0, not necessarily uniform, and let si := ∇v log qti be the velocity score at reverse time ti. The sampler is the frozen-score exponential integrator of (5.3), the kinetic analog of (4.3): freeze si at the step start and solve the resulting linear SDE exactly, ˆYi+1 = ehiC ˆYi + 4 
+
+( ∫ hi
+
+> 0
+
+euC du
+
+)
+
+Es i( ˆYi) + ξi, ξi ∼ N (0 , Q hi ), (5.4) where Qh := ∫ h 
+
+> 0
+
+erC De rC ⊤
+
+dr = ehC GhehC ⊤
+
+is the covariance accumulated by the noise over a step of the reverse dynamics. For h > 0 define the kick vector and the kick map 
+
+Bh := 4 
+
+∫ h
+
+> 0
+
+e−rC E dr =
+
+(4[1 − (1 + h)e−h]Id
+
+4he −hId
+
+)
+
+, Ψi,h (z) := z + Bhsi(z), (5.5) and let Rτ be the Markov semigroup of the score-free reverse dynamics , the linear SDE dYτ = CY τ dτ + 2 E dWτ , Rτ : y 7 −→ eτ C y + N (0 , Q τ ), (5.6) obtained from (5.3) by switching the score off. Therefore the transition kernel Ki of the update (5.4) can be factorized as (Lemma D.1): 
+
+μKi = Rhi
+
+((Ψ i,h i )#μ) for every input law μ : (5.7) one step of the integrator is the score kick Ψ i,h i —the whole score impulse of the step, applied at its start—followed by the score-free reverse flow for the length of the step. All discretization error sits in the deterministic kick, and all stochastic evolution is an exact linear diffusion. We propagate the numerical initialization ˆ p0 and the exact initialization ˆ q0 = ρT through the same kernels, interpolating within step i by the clock 0 ≤ τ ≤ hi of the score-free leg: ˆpi+1 = ˆ piKi, ˆqi+1 = ˆ qiKi; ˆpi,τ := Rτ
+
+((Ψ i,h i )# ˆpi
+
+), ˆqi,τ := Rτ
+
+((Ψ i,h i )# ˆqi
+
+), (5.8) so that ˆ pi,h i = ˆ pi+1 and ˆ qi,h i = ˆ qi+1 . At the grid points these are the laws of the sampler and of its twin; within a step they are the laws, at reverse time ti + τ , of the process that kicks at ti and then follows the score-free reverse dynamics. 
+
+5.2 Assumptions and the stationarity theorem 
+
+Assumption 5.1 (Score Lipschitzness) . Every si is C1, and ∥∇ si(z)∥op ≤ Lmap for all 0 ≤ i < N 
+
+and z ∈ R2d, for some Lmap ≥ 0. 
+
+Assumption 5.2 (Reference mixed Hessian) . ∥∇ z ∇v log ˆ qi,τ (z)∥op ≤ Lref for all i, τ ∈ (0 , h i], z,for some Lref ≥ 0. 
+
+Assumption 5.3 (Finite initial divergence) . The initial laws have positive densities with H0 := KL(ˆ p0 ∥ q0) < ∞ and F0 := F(ˆ p0 ∥ q0) < ∞.90 2 4    
+
+> reverse time t
+> 10 −4
+> 10 −2
+> 10 0
+> relative divergence
+> TV = 0.41 KL = 0.40
+> FT=F0= 4 :4£10 ¡5
+
+(a)       
+
+> bound e¡2t
+> F=F0
+> KL =H 0
+> TV
+> −20 020 40
+> x
+> 0.0 0.2 0.4
+> density  1.00 0.05 0.25 0.71
+
+(b)        
+
+> data qT=½0
+> pT(SDE)
+> pT(ODE) 10 −2 10 −1
+> step size h
+> 10 −1
+> 10 0
+> gap in  1
+> T
+> Z
+> F
+
+(c)   
+
+> jsampler ¡exact flow j
+> slope 1 ( O(h))
+
+Figure 1: One-dimensional Gaussian mixture with exact scores, wrong initialization p0 = N (10 , 0.52). 
+
+(a) F/F0 against the bound e−2t of Theorem 3.2, KL /H 0, and TV along the exact reverse SDE. 
+
+(b) Terminal laws of the reverse SDE and of the probability-flow ODE from the same initialization. 
+
+(c) Gap between the time-averaged F(ˆ pt ∥ qt) of the frozen-score integrator and its exact-flow counterpart F(pt ∥ qt) versus step size (log–log). 
+
+Remark 5.4 (On the status of Assumption 5.2) . Assumption 5.2 is actually an implicit constraint on the data distribution, and does not involve the numerical initialization ˆ p0. The twin ˆ qi,τ is the exact 
+
+initialization ρT pushed through the known, fixed kernels—kicks by the velocity scores and explicit linear diffusions—so Assumption 5.2 is an additional regularity property of the data propagated by known dynamics, and it can be explicitly verified for Gaussian ρ0.Set Λ := max {1, L map , L ref }.
+
+Theorem 5.5 (Averaged relative-Fisher stationarity, underdamped) . Suppose Assumptions 5.1–5.3 hold and 
+
+max  
+
+> 0≤i<N
+
+hi ≤ 164Λ 2 . (5.9) 
+
+Then the full phase-space relative score satisfies 
+
+1
+
+T 
+
+> N−1
+
+∑
+
+> i=0
+
+∫ hi
+
+> 0
+
+F(ˆ pi,τ ∥ ˆqi,τ ) d τ ≲ Λ2H0 + F0
+
+T . (5.10) 
+
+Remark 5.6 (Discretization error) . Notice that the right-hand side only contains initialization error. The discretization error is inside the difference between ˆ qi,τ and qt. Denote Q0: T the path measure of the exact reverse process and ˆQ0: T that of the twin. The standard Girsanov analysis (Theorem 16 of Chen et al. (2023b)) gives KL 
+
+(
+
+Q0: T ∥ ˆQ0: T
+
+)
+
+≤ ˜O(h) at grid times. 
+
+# 6 Numerical experiments 
+
+Two experiments with exact scores (Appendix F) show initialization error being forgotten ex-ponentially fast in the first-order sense, but not the allocation of mass between well-separated modes. 
+
+First , ρ0 = 0 .3 N (−20 , 1.52) + 0 .4 N (0 , 1.52) + 0 .3 N (20 , 1.52) is noised by (4.1) up to T = 5, and both exact reverse dynamics—the SDE and the probability-flow ODE—are started from 
+
+p0 = N (10 , 0.52) instead of q0 = ρT (H0 = 49 .8, F0 = 100). Along the SDE (Figure 1(a)), 
+
+F(pt ∥ qt) contracts at exactly the rate of Theorem 3.2, KL( pt ∥ qt) decreases monotonically but flattens once the trajectories have committed to a mode. The terminal relative Fisher divergence 
+
+F(pt ∥ qT ) = 4 .5 ∗ 10 −3 is small, but panel (b) shows mode weights (0 .05 , 0.25 , 0.71) instead of 10 (0 .3, 0.4, 0.3)—locally indistinguishable from the data, globally wrong. The ODE, with the same score, the same marginals and the same initialization, forgets nothing (Proposition 2.3): the terminal law is far outside the data. Panel (c): the time-averaged Fisher divergence of the integrator stays below H0/T , with a gap to the exact flow decaying like ˜O(h) (Theorem 4.5). 
+
+Second , with ρ0 the empirical law of the n = 28000 CelebA-HQ training images (Karras et al., 2018) at 256 × 256, the OU marginals are kernel density estimates whose bandwidth is the noise level, so the sampler of Section 4 runs with the exact score ( T = 5 .06, 150 steps geometric in the noise-to-signal ratio, ending at s = 0). Figure 3 shows 64 generated images for three initializations. Every image is close to a training image whatever the initialization—local consistency holds—but which images are produced depends on it: the nearly exact N (0 , I d) returns a mixed draw of the training set, while the mean shifts μ = ±4 1/√d return almost exclusively bright, respectively dark, photographs. A pretrained DDPM, which includes the score estimation error and does not purely memorize, shows the same bias from the same initializations and horizon (Appendix F.4). 
+
+# 7 Conclusion 
+
+Reverse diffusions admit a first-order theory that parallels smooth optimization line by line. The relative score is the gradient; the SDE reverse flow is its descent dynamics, dissipating KL and contracting Fisher divergences exponentially under strong log-concavity of the forward stationary potential—a condition on the noising process one chooses, not on the data. Under mild assumptions, implementable integrators then achieve averaged first-order stationarity at rate H0/T plus explicit step-size terms. This also separates the two standard samplers. Only the SDE descends, and the ODE is a change of variables, so it forgets nothing of its initialization. Since the identities of Section 2 hold from any time on, the same holds for any perturbation of the law introduced during sampling: the SDE forgets it in the first-order sense, the ODE carries it to the end. This gives a precise form to the observation that stochastic samplers correct earlier errors (Karras et al., 2022) and to the role of Langevin corrector steps in ODE-based samplers (Song et al., 2021; Chen et al., 2023a). However, the stationarity guarantee for the underdamped reverse process is indirect. Theorem 5.5 compares the sampler ˆ p with a twin chain ˆ q that pushes the exact initialization through the same 
+
+numerical kernels, so it isolates the initialization error. This is the price of decoupling the analysis of discretization and hypocoercivity, and Assumption 5.2 is also an artifact of this compromise. Even though we have KL 
+
+> (
+
+Q0: T ∥ ˆQ0: T
+
+> )
+
+≤ ˜O(h), it does not automatically transfer to a control on 
+
+F(ˆ pt ∥ qt). Closing this gap—a first-order comparison of the kinetic sampler with the exact reverse process itself—is a natural direction for future work. As the dictionary predicts, a first-order certificate is local: a law can have small relative Fisher divergence while misallocating mass between well-separated modes, so our guarantees certify local consistency with the target rather than recovery of mode weights—the price of convexity-free guarantees, in sampling as in nonconvex optimization. A log-Sobolev inequality for the data plays the role of the Polyak–Łojasiewicz condition (Polyak, 1963; Karimi et al., 2016): when it holds, the Fisher divergence bounds then convert into KL bounds against the reference laws: the first-order theory recovers zeroth-order convergence exactly when a PL-type inequality holds, as in optimization. 
+
+# References 
+
+Brian D. O. Anderson. Reverse-time diffusion equation models. Stochastic Processes and their Applications , 12(3):313–326, 1982. 11 Krishna Balasubramanian, Sinho Chewi, Murat A. Erdogdu, Adil Salim, and Shunshi Zhang. Towards a theory of non-log-concave sampling: first-order stationarity guarantees for Langevin Monte Carlo. In Proceedings of the 35th Conference on Learning Theory (COLT) , pages 2896–2923, 2022. Sitan Chen, Sinho Chewi, Holden Lee, Yuanzhi Li, Jianfeng Lu, and Adil Salim. The probability flow ODE is provably fast. In Advances in Neural Information Processing Systems (NeurIPS) ,volume 36, pages 68552–68575, 2023a. Sitan Chen, Sinho Chewi, Jerry Li, Yuanzhi Li, Adil Salim, and Anru R. Zhang. Sampling is as easy as learning the score: theory for diffusion models with minimal data assumptions. In International Conference on Learning Representations (ICLR) , 2023b. Tim Dockhorn, Arash Vahdat, and Karsten Kreis. Score-based generative modeling with critically-damped Langevin diffusion. In International Conference on Learning Representations (ICLR) ,2022. Saeed Ghadimi and Guanghui Lan. Stochastic first- and zeroth-order methods for nonconvex stochastic programming. SIAM Journal on Optimization , 23(4):2341–2368, 2013. Xiangming Gu, Chao Du, Tianyu Pang, Chongxuan Li, Min Lin, and Ye Wang. On memorization in diffusion models. Transactions on Machine Learning Research , 2025. Ulrich G. Haussmann and Etienne Pardoux. Time reversal of diffusions. The Annals of Probability ,14(4):1188–1205, 1986. Jonathan Ho, Ajay Jain, and Pieter Abbeel. Denoising diffusion probabilistic models. In Advances in Neural Information Processing Systems (NeurIPS) , volume 33, pages 6840–6851, 2020. Aapo Hyvärinen. Estimation of non-normalized statistical models by score matching. Journal of Machine Learning Research , 6:695–709, 2005. Yuchen Jiao, Yuchen Zhou, and Gen Li. Optimal convergence analysis of DDPM for general distributions. arXiv preprint arXiv:2510.27562 , 2025. Richard Jordan, David Kinderlehrer, and Felix Otto. The variational formulation of the Fokker– Planck equation. SIAM Journal on Mathematical Analysis , 29(1):1–17, 1998. Zahra Kadkhodaie, Florentin Guth, Eero P. Simoncelli, and Stéphane Mallat. Generalization in diffusion models arises from geometry-adaptive harmonic representations. In International Conference on Learning Representations (ICLR) , 2024. Hamed Karimi, Julie Nutini, and Mark Schmidt. Linear convergence of gradient and proximal-gradient methods under the Polyak–Łojasiewicz condition. In Machine Learning and Knowledge Discovery in Databases (ECML PKDD) , pages 795–811, 2016. Tero Karras, Timo Aila, Samuli Laine, and Jaakko Lehtinen. Progressive growing of GANs for improved quality, stability, and variation. In International Conference on Learning Representations (ICLR) , 2018. Tero Karras, Miika Aittala, Timo Aila, and Samuli Laine. Elucidating the design space of diffusion-based generative models. In Advances in Neural Information Processing Systems (NeurIPS) ,volume 35, pages 26565–26577, 2022. 12 Holden Lee, Jianfeng Lu, and Yixin Tan. Convergence of score-based generative modeling for general data distributions. In Proceedings of the 34th International Conference on Algorithmic Learning Theory (ALT) , pages 946–985, 2023. Sixu Li, Shi Chen, and Qin Li. A good score does not lead to a good generative model. arXiv preprint arXiv:2401.04856 , 2024. Yi-An Ma, Niladri S. Chatterji, Xiang Cheng, Nicolas Flammarion, Peter L. Bartlett, and Michael I. Jordan. Is there an analog of Nesterov acceleration for gradient-based MCMC? Bernoulli , 27(3): 1942–1992, 2021. doi: 10.3150/20-BEJ1297. Boris T. Polyak. Gradient methods for minimizing functionals. USSR Computational Mathematics and Mathematical Physics , 3(4):864–878, 1963. Jascha Sohl-Dickstein, Eric Weiss, Niru Maheswaranathan, and Surya Ganguli. Deep unsuper-vised learning using nonequilibrium thermodynamics. In Proceedings of the 32nd International Conference on Machine Learning (ICML) , pages 2256–2265, 2015. Yang Song and Stefano Ermon. Generative modeling by estimating gradients of the data distribution. In Advances in Neural Information Processing Systems (NeurIPS) , volume 32, 2019. Yang Song, Jascha Sohl-Dickstein, Diederik P. Kingma, Abhishek Kumar, Stefano Ermon, and Ben Poole. Score-based generative modeling through stochastic differential equations. In International Conference on Learning Representations (ICLR) , 2021. Santosh Vempala and Andre Wibisono. Rapid convergence of the unadjusted Langevin algorithm: Isoperimetry suffices. In Advances in Neural Information Processing Systems (NeurIPS) , volume 32, 2019. Cédric Villani. Hypocoercivity , volume 202(950) of Memoirs of the American Mathematical Society .American Mathematical Society, 2009. Pascal Vincent. A connection between score matching and denoising autoencoders. Neural Compu-tation , 23(7):1661–1674, 2011. Andre Wibisono. Sampling as optimization in the space of measures: The Langevin dynamics as a composite optimization problem. In Proceedings of the 31st Conference on Learning Theory ,volume 75, pages 2093–3027. PMLR, 2018. Andre Wibisono. Mixing time of the proximal sampler in relative Fisher information via strong data processing inequality. IEEE Transactions on Information Theory , 72(5):2667–2688, 2026. doi: 10.1109/TIT.2026.3670723. TaeHo Yoon, Joo Young Choi, Sehyun Kwon, and Ernest K. Ryu. Diffusion probabilistic models generalize when they fail to memorize. In ICML 2023 Workshop on Structured Probabilistic Inference and Generative Modeling , 2023. 13 Standing conventions for the appendices 
+
+Regularity. All probability densities appearing in the appendices are positive and smooth, with enough decay at infinity that the integrals we write are finite, that differentiation under the integral sign is justified, and that the integrations by parts we perform carry no boundary terms. This is the standard qualitative setting for Fisher-information computations (Vempala and Wibisono, 2019; Balasubramanian et al., 2022). 
+
+Notation. Universal constants c, C > 0 are absolute and may change from line to line; A ≲ B
+
+means A ≤ CB (in Appendix D, C is the matrix of (5.1)). For a vector field F we write (∇F )ij = ∂zj Fi; for a scalar φ, ∇2φ is the Hessian, and ∇v, ∆ v act on the velocity block. For the pair of laws under consideration we write r = log(tracked law /reference law) and g = ∇r, so that 
+
+F(p ∥ q) = ∫ p ∥g∥2 and FP (p ∥ q) = ∫ p ⟨g, P g ⟩ as in (2.10). 
+
+# A Proofs for Section 2 
+
+Both models of Section 2 are instances of a forward diffusion on Rn with constant diffusion matrix, dZs = b(Zs) d s + √2 G1/2 dWs, s ∈ [0 , T ], (A.1) where b ∈ C1(Rn; Rn) and G is symmetric positive semidefinite: the overdamped model (2.1) has 
+
+n = d, b = −∇ U , G = Id, and the underdamped model (2.4) has n = 2 d, b = bfwd , G = Gγ . We write ρs for the marginals of (A.1) and treat both models at once. 
+
+Lemma A.1 (Current velocities of the forward and reverse flows) . The marginals of (A.1) satisfy 
+
+∂sρs = −∇ · (ρsws) with ws = b − G∇ log ρs. Hence the reverse marginals qt := ρT −t satisfy 
+
+∂tqt = −∇ · (qtvqt ) with 
+
+vqt = −b + G∇ log qt, (A.2) 
+
+and qt is the law of the reverse SDE 
+
+dYt = [ − b(Yt) + 2 G∇ log qt(Yt)] dt + √2 G1/2 d ¯Wt, Y0 ∼ q0. (A.3) 
+
+If pt is the law of (A.3) started from p0̸ = q0 instead, then ∂tpt = −∇ · (ptvpt ) with 
+
+vpt = vqt − G∇rt, rt = log pt
+
+qt
+
+. (A.4) 
+
+Proof. The Fokker–Planck equation of (A.1) is 
+
+∂sρs = −∇ · (ρsb) + ∆( Gρ s)= −∇ · (ρsb) + ∇ · (G∇ρs)= −∇ · (ρs(b − G∇ log ρs)) Substituting s = T − t reverses the sign of the velocity, which gives (A.2). The Fokker–Planck equation of (A.3), for the law μt of a solution, is 
+
+∂tμt = −∇ · (μt[−b + 2 G∇ log qt]) + ∇ · (G∇μt) = −∇ · (μt[−b + 2 G∇ log qt − G∇ log μt]).
+
+For μt = qt the velocity field in the bracket equals vqt , so qt solves this equation, and by uniqueness for the Fokker–Planck equation the SDE (A.3) started from q0 has marginals qt: this is the time-reversal theorem of Anderson (1982); Haussmann and Pardoux (1986). For μt = pt the bracket equals 
+
+vqt − G∇ log( pt/q t), which is (A.4). 14 With G = Id and b = −∇ U one has −b + G∇ log qt = ∇ log( qt/p ∗), and (A.2)–(A.4) are (2.2) and (2.3). For the underdamped model, the next lemma records the form used in Section 2. 
+
+Lemma A.2 (Current velocity, underdamped) . Let ρs be the density of (2.4) . Then ∂sρs =
+
+−∇ · (ρsws) with 
+
+ws = −J∇ log p∗ − Gγ ∇ log ρs
+
+p∗ .
+
+Consequently qt = ρT −t has the current velocity (2.6) , and a mismatched initialization has the current velocity (2.8) .Proof. Since ∇ log p∗(z) = ( −∇ U (x), −ξv ), the drift of (2.4) is bfwd = ( ξv, −∇ U (x) − γξv ) = 
+
+−(J − Gγ )∇ log p∗, and the noise √2γ dWs on the velocity block is √2 G1/2 
+
+> γ
+
+dWs. So (2.4) is (A.1) with b = bfwd and G = Gγ , and by Lemma A.1, we have 
+
+ws = bfwd − Gγ ∇ log ρs = −J∇ log p∗ + Gγ ∇ log p∗ − Gγ ∇ log ρs = −J∇ log p∗ − Gγ ∇ log ρs
+
+p∗ .
+
+Then vqt = −wT −t is (2.6), and (A.4) with G = Gγ is (2.8). 
+
+Lemma 2.1 (KL derivative for two continuity equations) . Suppose ∂tqt = −∇ · (qtvqt ) and ∂tpt =
+
+−∇ · (ptvpt ), and let rt = log( pt/q t).
+
+ddt KL( pt ∥ qt) = 
+
+∫
+
+pt ∇rt · (vpt − vqt )
+
+Proof. By integration by parts and ∫ ∂tpt = 0, ddt
+
+∫
+
+pt log pt
+
+qt
+
+=
+
+∫
+
+∂tpt rt −
+
+∫ pt
+
+qt
+
+∂tqt
+
+= −
+
+∫
+
+∇ · (ptvpt )rt +
+
+∫
+
+∇ · (qtvqt ) pt
+
+qt
+
+=
+
+∫
+
+pt vpt · ∇ rt −
+
+∫
+
+qtvqt · ∇ (pt/q t)=
+
+∫
+
+pt vpt · ∇ rt −
+
+∫
+
+pt vqt · ∇ rt
+
+Corollary 2.2 (KL dissipation along the exact reverse flows) . Along the common exact reverse dynamics, 
+
+ddt KL( pt∥qt) = −F (pt∥qt) (overdamped) , ddt KL( pt∥qt) = −γ Fv(pt∥qt) (underdamped) .
+
+In particular KL( pt ∥ qt) is always nonincreasing in both models. Proof. By (A.4), vpt − vqt = −G∇rt, so Lemma 2.1 gives ddt KL( pt ∥ qt) = − ∫ pt ∇r⊤ 
+
+> t
+
+G∇rt. For 
+
+G = Id this is −F (pt ∥ qt); for G = Gγ , which acts as γ on the velocity block, it is −γ ∫ pt∥∇ vrt∥2 =
+
+−γ Fv(pt ∥ qt). 
+
+Proposition 2.3 (No forgetting along the probability-flow ODE) . Let Φt be the flow map of the probability-flow ODE of either model, and let pt = (Φ t)#p0 for an arbitrary initial law p0, and 
+
+qt = (Φ t)#q0 are the exact reverse marginals. Then rt = r0 ◦ Φ−1 
+
+> t
+
+; hence for all t ∈ [0 , T ]KL( pt ∥ qt) = KL( p0 ∥ q0), TV( pt, q t) = TV( p0, q 0),
+
+15 and likewise for every f -divergence, while the relative score is merely carried along and rescaled by the Jacobian of the flow, 
+
+∇rt
+
+> (
+
+Φt(x)) = (∇Φt(x))−⊤ ∇r0(x), F(pt ∥ qt) = 
+
+> ∫
+
+p0
+
+> ∥∥
+
+(∇Φt)−⊤ ∇r0
+
+> ∥∥2
+
+.
+
+Proof. (D.3) with M = I gives the formula for F. For a general f -divergence the same change of variables, ( pt ◦ Φt) | det ∇Φt| = p0 together with rt ◦ Φt = r0, yields 
+
+> ∫
+
+pt f 
+
+> (
+
+pt
+
+qt
+
+> )
+
+=
+
+> ∫
+
+(pt ◦ Φt) | det ∇Φt| f (er0 ) =
+
+> ∫
+
+p0 f 
+
+> (
+
+p0
+
+q0
+
+> )
+
+,
+
+which for f (u) = log u is the KL statement, and for f (u) = 12 | 1 
+
+> u
+
+− 1| is the TV statement. 
+
+Proposition 2.5 (Averaged stationarity of the exact reverse flows) . For every potential U , every data distribution, and every pair of initializations (p0, q 0), with H0 = KL( p0 ∥ q0),
+
+1
+
+T 
+
+> ∫T
+> 0
+
+F(pt ∥ qt) d t = H0 − KL( pT ∥ qT )
+
+T ≤ H0
+
+T (overdamped) ,γT 
+
+> ∫T
+> 0
+
+Fv(pt ∥ qt) d t = H0 − KL( pT ∥ qT )
+
+T ≤ H0
+
+T (underdamped) .
+
+Proof. Integrate the identities of Corollary 2.2 over [0 , T ] (under the standing conventions t 7 →
+
+KL( pt ∥ qt) is absolutely continuous) and use KL( pT ∥ qT ) ≥ 0. 
+
+# B Proofs for Section 3: exponential contraction 
+
+Throughout this appendix qt is the exact reverse marginal, pt solves the same exact reverse SDE from an arbitrary initial law p0, and, as in Section 3, rt = log( pt/q t), gt = ∇rt, St = ∇2rt. Both contraction theorems come from one computation in the generic setting of Appendix A: a transport equation for gt (Lemma B.1) and the dissipation identity it implies for quadratic forms of gt
+
+(Proposition B.2). 
+
+B.1 Transport of the relative score and the dissipation identity 
+
+In the setting of Lemma A.1, define the reference generator 
+
+Ltf := 1
+
+qt
+
+∇ · (qtG∇f ) = G : ∇2f + at · ∇ f, at := G∇ log qt, (B.1) where G : ∇2f = tr( G∇2f ). It satisfies ∫ qt Ltφ = 0 by the divergence theorem and the regularity assumption; when it acts on a vector, it applies componentwise. It also follows the product rule 
+
+Lt(φψ ) = φL tψ + ψL tφ + 2 ∇φ⊤G∇ψ. (B.2) Indeed, since ∇(φψ ) = ψ∇φ + φ∇ψ and ∇ · (ψV ) = ψ ∇ · V + ∇ψ · V for any vector field V ,
+
+qt Lt(φψ ) = ∇ · (ψ q tG∇φ) + ∇ · (φ q tG∇ψ)
+
+= ψ ∇ · (qtG∇φ) + φ ∇ · (qtG∇ψ) + qt
+
+> (
+
+∇ψ⊤G∇φ + ∇φ⊤G∇ψ),
+
+and the last bracket equals 2 ∇φ⊤G∇ψ because G is symmetric; dividing by qt yields (B.2). 16 Lemma B.1 (Transport of the relative density and the relative score) . In the setting of Lemma A.1, 
+
+(∂t + vqt · ∇ )rt = Ltrt + g⊤ 
+
+> t
+
+Gg t, (B.3) (∂t + vqt · ∇ )gt = Ltgt + ( ∇b)⊤gt + 2 StGg t. (B.4) 
+
+Proof. Let ht = pt/q t = ert . Since pt∇rt = ∇pt − pt∇ log qt = qt∇ht, (A.4) gives ptvpt = htqtvqt −
+
+qtG∇ht, so the continuity equation of pt can be written as 
+
+∂t(htqt) = −∇ · (htqtvqt ) + ∇ · (qtG∇ht).
+
+Expanding the left side and the first term on the right, and canceling ht∂tqt = −ht∇ · (qtvqt ), leaves 
+
+qt∂tht = −qtvqt · ∇ ht + ∇ · (qtG∇ht), that is, (∂t + vqt · ∇ )ht = Ltht. (B.5) Now ht = ert . Since ∇er = er∇r and ∇2er = er(∇2r + ∇r ∇r⊤), we have 
+
+Lter = G : ∇2er + at · ∇ er
+
+= er(G : ∇2r + tr( G ∇r ∇r⊤)) + er at · ∇ r
+
+= er(Ltr + ∇r⊤G∇r),
+
+where tr( G ∇r ∇r⊤) = ∇r⊤G∇r. On the left side of (B.5), ( ∂t + vqt · ∇ )ert = ert (∂t + vqt · ∇ )rt by the chain rule, so dividing (B.5) by ht = ert yields (B.3). For (B.4) take the gradient of (B.3). On the left of (B.3), since ∇ and ∂t commute, 
+
+∇[(∂t + vqt · ∇ )rt
+
+] = ∂t∇rt + ( ∇vqt )⊤∇rt + Stvqt
+
+= ∂tgt + vqt · ∇ gt + ( ∇vqt )⊤gt
+
+= ( ∂t + vqt · ∇ )gt + ( ∇vqt )⊤gt.
+
+On the right of (B.3), the second-order part G : ∇2 of Lt has constant coefficients, so it commutes with ∇ and acts on gt componentwise; and ∇(g⊤ 
+
+> t
+
+Gg t) = 2 StGg t, because ∂j
+
+∑
+
+> i,k
+
+(gt)iGik (gt)k =
+
+∑
+
+> i,k
+
+[(St)ji Gik (gt)k + ( gt)iGik (St)jk 
+
+] = 2( StGg t)j for symmetric St and G. Hence 
+
+∇[Ltrt + g⊤ 
+
+> t
+
+Gg t
+
+] = ∇(G : ∇2rt
+
+) + ∇(at · ∇ rt) + ∇(g⊤ 
+
+> t
+
+Gg t
+
+)
+
+= G : ∇2gt + [(∇at)⊤gt + at · ∇ gt
+
+] + 2 StGg t
+
+= Ltgt + ( ∇at)⊤gt + 2 StGg t.
+
+Equating the two expansions and moving ( ∇vqt )⊤gt to the right, (∂t + vqt · ∇ )gt = Ltgt + (∇(at − vqt ))⊤gt + 2 StGg t,
+
+and by (A.2), at − vqt = G∇ log qt − (−b + G∇ log qt) = b, which is (B.4). The last line is the structural point of Section 3: the coefficient ( ∇b)⊤ of the zeroth-order term in (B.4) does not depend on qt, hence not on the data. 
+
+Proposition B.2 (Dissipation identity for quadratic forms of the relative score) . In the setting of Lemma A.1, for every constant symmetric matrix P ,
+
+ddt
+
+∫
+
+pt g⊤ 
+
+> t
+
+P g t =
+
+∫
+
+pt g⊤
+
+> t
+
+(∇b P + P (∇b)⊤)gt − 2
+
+∫
+
+pt tr (StGS tP ). (B.6) 17 Proof. Write Ft = g⊤ 
+
+> t
+
+P g t and ht = pt/q t, so that ∫ ptFt = ∫ qt htFt. Since qt is transported by 
+
+vqt , integrating its continuity equation by parts gives ddt
+
+∫ qtφt = ∫ qt(∂t + vqt · ∇ )φt for every time-dependent function φt. We apply this with φt = htFt. Writing D := ∂t + vqt · ∇ (acting componentwise on vector fields), the product rule, (B.5) and the chain rule for the quadratic form 
+
+Ft = g⊤ 
+
+> t
+
+P g t give 
+
+D(htFt) = Ft Dh t + ht DF t
+
+= Ft Ltht + 2 ht g⊤ 
+
+> t
+
+P Dg t,
+
+using that P is symmetric. Multiplying by qt, integrating, and using qtht = pt in the second term, ddt
+
+∫
+
+ptFt =
+
+∫
+
+qt (Ltht)Ft + 2 
+
+∫
+
+pt g⊤ 
+
+> t
+
+P (∂t + vqt · ∇ )gt. (B.7) For the first term, the product rule (B.2) and ∫ qtLt(htFt) = 0 give 
+
+∫
+
+qt (Ltht)Ft = −
+
+∫
+
+qt htLtFt − 2
+
+∫
+
+qt ∇h⊤ 
+
+> t
+
+G∇Ft = −
+
+∫
+
+pt LtFt − 2
+
+∫
+
+pt g⊤ 
+
+> t
+
+G∇Ft,
+
+using qt∇ht = ptgt. Two derivatives of Ft = ∑
+
+> i,k
+
+(gt)iPik (gt)k are needed. First, ∇Ft = 2 StP g t.Second, the product rule (B.2) applied to ( gt)i(gt)j , with ∇(gt)i = ∇∂irt = Stei and hence 
+
+∇(gt)⊤ 
+
+> i
+
+G∇(gt)j = ( StGS t)ij , yields 
+
+LtFt = ∑
+
+> i,j
+
+Pij 
+
+[
+
+(gt)i Lt(gt)j + ( gt)j Lt(gt)i + 2 ( StGS t)ij 
+
+]
+
+= 2 g⊤ 
+
+> t
+
+P L tgt + 2 tr( StGS tP ),
+
+Inserting both into the previous display, 
+
+∫
+
+qt (Ltht)Ft = −2
+
+∫
+
+pt g⊤ 
+
+> t
+
+P L tgt − 2
+
+∫
+
+pt tr( StGS tP ) − 4
+
+∫
+
+pt g⊤ 
+
+> t
+
+GS tP g t.
+
+For the second term of (B.7), (B.4) shows 2
+
+∫
+
+pt g⊤ 
+
+> t
+
+P (∂t + vqt · ∇ )gt = 2 
+
+∫
+
+pt g⊤ 
+
+> t
+
+P L tgt + 2 
+
+∫
+
+pt g⊤ 
+
+> t
+
+P (∇b)⊤gt + 4 
+
+∫
+
+pt g⊤ 
+
+> t
+
+P S tGg t.
+
+Adding the two, the terms in Ltgt cancel, and so do the two mixed terms, because g⊤P SGg =
+
+g⊤GSP g for symmetric P, S, G . What remains is (B.6), after writing 2 g⊤P (∇b)⊤g = g⊤(∇b P +
+
+P (∇b)⊤)g.
+
+B.2 Overdamped 
+
+Proposition B.3 (Dissipation identity for the ordinary Fisher divergence) . In the overdamped model, F(t) := F(pt ∥ qt) satisfies (3.1) :
+
+F′(t) = −2
+
+∫
+
+pt ∥St∥2F − 2
+
+∫
+
+pt g⊤ 
+
+> t
+
+∇2U g t.
+
+Proof. Take b = −∇ U , G = Id and P = Id in Proposition B.2: then ∇b P + P (∇b)⊤ = −2∇2U and tr( StSt) = ∥St∥2F.
+
+Theorem 3.2 (Overdamped Fisher contractivity) . In the overdamped model, if U is convex, then F(pt ∥ qt) is nonincreasing; if U is m-strongly convex, then F(pt ∥ qt) ≤ e−2mt F(p0 ∥ q0) for 
+
+0 ≤ t ≤ T .Proof. If ∇2U ⪰ 0, both terms in Proposition B.3 are nonpositive. If ∇2U ⪰ mI d, the identity gives 
+
+F′(t) ≤ − 2mF(t), and Gronwall’s inequality concludes. 18 B.3 Underdamped 
+
+In the underdamped model the forward drift is bfwd , whose Jacobian is M (x) in (2.5), and G = Gγ .Proposition B.2 therefore gives, for every constant symmetric P ,ddt FP (pt ∥ qt) = 
+
+∫
+
+pt g⊤
+
+> t
+
+(M (x)P + P M (x)⊤)gt dz − 2
+
+∫
+
+pt tr (StGγ StP ) dz. (B.8) The second term is nonpositive whenever P ≻ 0, since tr( StGγ StP ) = ∥G1/2 
+
+> γ
+
+StP 1/2∥2F. The first term is where the Hamiltonian coupling acts: M (x)⊤gt rotates position-gradient error into the velocity directions, and everything comes down to finding a P for which M (x)P + P M (x)⊤ is negative definite uniformly in x. The matrix Pγ of (3.2) does this. 
+
+Lemma B.4 (Lyapunov inequality for Pγ ). Suppose γ2ξ > L and let P = Pγ ⊗ Id with Pγ , κγ,ξ as in (3.2) . Under Assumption 3.1, 
+
+M (x)P + P M (x)⊤ ⪯ − 2κγ,ξ P for all x ∈ Rd. (B.9) 
+
+Moreover det Pγ = γ2/4 > 0, so Pγ ≻ 0, with eigenvalues 
+
+λ±(Pγ ) = 12
+
+(
+
+1 + γ2
+
+2
+
+)
+
+± 12
+
+√
+
+1 + γ4
+
+4 . (B.10) 
+
+Proof. Fix x and diagonalize ∇2U (x) = O⊤ diag( η1, . . . , η d) O with O orthogonal and ηi ∈ [m, L ]. Conjugation by diag( O, O ) leaves P = Pγ ⊗ Id unchanged, because each d × d block of P is a multiple of Id, and turns M (x) into ( 0 ξI d  
+
+> −diag( ηi)−γξI d
+
+), which splits into d two-dimensional systems with matrices 
+
+M (η) := 
+
+(
+
+0 ξ
+
+−η −γξ 
+
+)
+
+, η ∈ [m, L ].
+
+So it suffices to prove M (η)Pγ + Pγ M (η)⊤ ⪯ − 2κγ,ξ Pγ for every η ∈ [m, L ]. In the coordinates ( x, x + 2 
+
+> γ
+
+v), i.e. after conjugation by T = ( 1 01 2 /γ 
+
+), the matrix M (η) becomes 
+
+A(η) := T M (η)T −1 =
+
+
+
+− γξ 
+
+2
+
+γξ 
+
+2
+
+γξ 
+
+2 − 2ηγ − γξ 
+
+2
+
+ , A(η) + A(η)⊤
+
+2 =
+
+
+
+− γξ 
+
+2 ss − γξ 
+
+2
+
+ ,
+
+with s = ( γ2ξ − 2η)/2γ. The symmetric part has eigenvalues −γξ/ 2 ± | s|, and according to the sign of s,
+
+− γξ 
+
+2 + |s| = − min 
+
+( ηγ , γξ − ηγ
+
+)
+
+≤ − min 
+
+( mγ , γξ − Lγ
+
+)
+
+= −κγ,ξ (η ∈ [m, L ]) ,
+
+which is negative precisely when m > 0 and γ2ξ > L . Thus A(η) + A(η)⊤ ⪯ − 2κγ,ξ I. Multiplying on the left by T ⊤ and on the right by T , and writing Q := T ⊤T , this reads M (η)⊤Q+QM (η) ⪯ − 2κγ,ξ Q;multiplying on both sides by Q−1 gives M (η)Q−1 + Q−1M (η)⊤ ⪯ − 2κγ,ξ Q−1. Finally 
+
+Q =
+
+(
+
+2 2/γ 
+
+2/γ 4/γ 2
+
+)
+
+, Q−1 =
+
+(
+
+1 −γ/ 2
+
+−γ/ 2 γ2/2
+
+)
+
+= Pγ ,
+
+whose trace and determinant are 1 + γ2/2 and γ2/4; this implies (B.10). 19 Theorem 3.4 (Underdamped modified Fisher contractivity) . Assume the underdamped model (2.4) ,Assumption 3.1, and γ2ξ > L . With P = Pγ ⊗ Id as in (3.2) , FP (pt ∥ qt) ≤ e−2tκ γ,ξ FP (p0 ∥ q0).Proof. In (B.8) with P = Pγ ⊗ Id ≻ 0, the second term is nonpositive and, by Lemma B.4, the first is at most −2κγ,ξ 
+
+∫ pt g⊤ 
+
+> t
+
+P g t = −2κγ,ξ FP (pt ∥ qt). Gronwall’s inequality concludes. If U is merely convex ( m = 0), then we have ddt FP ≤ 0. 
+
+# C Proofs for Section 4: the overdamped sampler 
+
+Throughout this appendix, qt = ρT −t and st = ∇ log qt are the exact reverse marginals and scores of the forward OU process (4.1), Xt is the interpolated numerical process (4.2) on the uniform grid 
+
+tk = kh , h = T /N , and ˆ pt is its law. Assumption 4.2 supplies the positive densities and the finite initial entropy H0 required by the standing conventions, and λ0 = min {λ, d 
+
+> 4
+
+}, M = dλ0 (H0 +log M +d)are as in Section 4. The proof of Theorem 4.5 runs as follows. Freezing the score costs a source term in the entropy dissipation: for t ∈ [tk, t k+1 ], ddt KL(ˆ pt ∥ qt) ≤ − 12 F(ˆ pt ∥ qt) + 2 E∥stk (Xtk ) − st(Xt)∥2 (C.1) (Proposition C.3). The source term compares the frozen score with the current one. It has a spatial part, from the increment Xt − Xtk , which Lipschitzness and the explicit step (4.3) control, and a temporal part, from stk − st at a fixed point, which we control through the OU semigroup (Lemma C.5; compare Chen et al., 2023b, Lemma 17). Both can be controlled by second moments under the numerical law ˆ pt. Assumption 4.3 bounds exponential moments of the exact marginals qt,and the Gibbs variational inequality converts them into second moments of ˆ pt as long as KL(ˆ pt ∥ qt)stays bounded (Lemma C.8). Integrating (C.1) with this bound closes the entropy bootstrap and results in our main theorem. 
+
+C.1 KL dissipation for the numerical marginal 
+
+Lemma C.1 (Marginal Markov projection) . For t ∈ [tk, t k+1 ] let ¯st(x) := E[stk (Xtk ) | Xt = x].Then 
+
+∂t ˆpt = −∇ · (ˆpt[x + 2¯ st(x)] ) + ∆ˆ pt. (C.2) 
+
+Proof. For a smooth compactly supported φ, Itô’s formula applied to (4.2) gives ddt E φ(Xt) = E[ ⟨∇ φ(Xt), X t + 2 stk (Xtk )⟩ + ∆ φ(Xt)]
+
+= E[ ⟨∇ φ(Xt), X t + 2¯ st(Xt)⟩ + ∆ φ(Xt)],
+
+by conditioning on Xt in the frozen-score term. This is the weak form of (C.2). 
+
+Lemma C.2 (Relative entropy derivative for two Fokker–Planck equations) . If ∂tμt = −∇ · (μtbμt ) + ∆μt and ∂tνt = −∇ · (νtbνt ) + ∆ νt, then 
+
+ddt KL( μt ∥ νt) = −F (μt ∥ νt) + Eμt
+
+〈
+
+∇ log μt
+
+νt
+
+, b μt − bνt
+
+〉
+
+. (C.3) 
+
+Proof. Both equations are continuity equations, with velocities vμt = bμt − ∇ log μt and vνt =
+
+bνt − ∇ log νt. Thus vμt − vνt = bμt − bνt − ∇ log( μt/ν t), and Lemma 2.1 completes the proof. 20 Proposition C.3 (Master inequality) . For t ∈ [tk, t k+1 ],
+
+ddt KL(ˆ pt ∥ qt) ≤ − 12 F(ˆ pt ∥ qt) + 2 E∥stk (Xtk ) − st(Xt)∥2.
+
+Proof. The exact marginal satisfies ∂tqt = −∇ · (qt[x + 2 st]) + ∆ qt, the Fokker–Planck equation of the exact reverse SDE (Lemma A.1 with b = −x, G = Id). Lemma C.2 with μt = ˆ pt, νt = qt and Lemma C.1 give ddt KL(ˆ pt ∥ qt) = −F (ˆ pt ∥ qt) + 2 Eˆpt
+
+〈
+
+∇ log ˆpt
+
+qt
+
+, ¯st − st
+
+〉
+
+≤ − 12 F(ˆ pt ∥ qt) + 2 Eˆpt ∥¯st − st∥2,
+
+by 2 ⟨g, e ⟩ ≤ 12 ∥g∥2 + 2 ∥e∥2. Finally ¯ st(Xt) − st(Xt) = E[stk (Xtk ) − st(Xt) | Xt], and Jensen’s inequality for the conditional expectation bounds E∥¯st(Xt) − st(Xt)∥2 by E∥stk (Xtk ) − st(Xt)∥2.
+
+C.2 Temporal score variation from the OU semigroup 
+
+Along the forward flow (4.1), Ys+τ d
+
+= e−τ Ys + √1 − e−2τ G with G ∼ N (0 , I d) independent of Ys.Read at s = T − t and s + τ = T − tk, i.e. at t = tk + τ , this expresses the earlier reverse-time marginal as a scaled and then smoothed version of the later one: 
+
+qtk = ((aI d)#qt
+
+) ∗ N (0 , σ 2Id), a = e−τ , σ2 = 1 − e−2τ . (C.4) We first quantify what the smoothing does to a score. 
+
+Lemma C.4 (Score perturbation by Gaussian smoothing) . Let π be a smooth positive density on 
+
+Rd whose score u = ∇ log π is Lπ-Lipschitz, and let πσ = π ∗ N (0 , σ 2Id). If Lπσ2 ≤ 12 , then for every x,
+
+∥∇ log πσ(x) − u(x)∥ ≤ Lπ
+
+√2dσ 2 + 2 Lπσ2 ∥u(x)∥. (C.5) 
+
+Proof. Fix x and let μx be the probability density on Rd proportional to π(y) exp( −∥ x − y∥2/2σ2), the conditional law of Y ∼ π given Y + σG = x. Since ∇xe−∥ x−y∥2/2σ2
+
+= −∇ ye−∥ x−y∥2/2σ2
+
+, an integration by parts in y gives 
+
+∇πσ(x) ∝
+
+∫
+
+π(y) ∇xe−∥ x−y∥2/2σ2
+
+dy =
+
+∫
+
+∇π(y) e−∥ x−y∥2/2σ2
+
+dy, 
+
+and dividing by πσ(x), with ∇π = πu , gives ∇ log πσ(x) = Eμx u(Y ). Hence ∥∇ log πσ(x) − u(x)∥ ≤ 
+
+Lπ Eμx ∥Y − x∥, and it remains to show that μx concentrates near x.Write μx ∝ e−Vx with Vx(y) = − log π(y) + ∥x − y∥2/2σ2. As ∇2(− log π) = −∇ u ⪰ − LπId, we have ∇2Vx ⪰ (σ−2 − Lπ)Id ⪰ (2 σ2)−1Id, so Vx has a unique minimizer y⋆. At y⋆, we know 
+
+−u(y⋆) + ( y⋆ − x)/σ 2 = 0 , i.e. y⋆ − x = σ2u(y⋆),
+
+and therefore 
+
+∥y⋆ − x∥ ≤ σ2∥u(x)∥ + Lπσ2∥y⋆ − x∥, hence ∥y⋆ − x∥ ≤ 2σ2∥u(x)∥.
+
+Next we show that μx concentrates around y⋆. Since ∇μx = −μx∇Vx, an integration by parts shows, 
+
+Eμx ⟨Y − y⋆, ∇Vx(Y )⟩ = −
+
+∫
+
+⟨y − y⋆, ∇μx(y)⟩ dy =
+
+∫
+
+μx(y) ∇ · (y − y⋆) d y = d. 
+
+21 On the other hand, we have ∇2Vx ⪰ (2 σ2)−1Id and ∇Vx(y⋆) = 0, so 
+
+⟨y − y⋆, ∇Vx(y)⟩ =
+
+〈
+
+y − y⋆,
+
+∫ 10
+
+∇2Vx
+
+(y⋆ + s(y − y⋆))(y − y⋆) d s
+
+〉
+
+≥ ∥y − y⋆∥2
+
+2σ2 .
+
+Therefore Eμx ∥Y − y⋆∥2 ≤ 2dσ 2. Altogether, by the triangle inequality and Jensen’s inequality, 
+
+Eμx ∥Y − x∥ ≤ (Eμx ∥Y − y⋆∥2)1/2 + ∥y⋆ − x∥ ≤ √2dσ 2 + 2 σ2∥u(x)∥.
+
+Substituting this bound into ∥∇ log πσ(x) − u(x)∥ ≤ Lπ Eμx ∥Y − x∥ completes the proof. 
+
+Lemma C.5 (Temporal OU score perturbation) . Under Assumption 4.1, let t = tk + τ with 
+
+0 ≤ τ ≤ h. If h ≤ c/ (1 + Ls) with c ≤ 18 , then for every x ∈ Rd,
+
+∥stk (x) − st(x)∥2 ≲ L2 
+
+> s
+
+dτ + L2 
+
+> s
+
+τ 2∥x∥2 + (1 + Ls)2τ 2∥st(x)∥2. (C.6) 
+
+Proof. Let π = ( aI d)#qt be the scaled density in (C.4) and u = ∇ log π. Since π(x) = a−dqt(x/a ), 
+
+u(x) = a−1st(x/a ), (C.7) so u is Lπ-Lipschitz with Lπ = Lsa−2. For τ ≤ h ≤ c/ (1 + Ls) we have a−1 = eτ ≤ 2, eτ − 1 ≤ 2τ ,
+
+σ2 = 1 − e−2τ ≤ 2τ , and Lπσ2 = Ls(e2τ − 1) ≤ 4Lsτ ≤ 12 . By Lemma C.4, we get 
+
+∥stk (x) − u(x)∥ ≲ Ls
+
+√dτ + Lsτ ∥u(x)∥. (C.8) It remains to compare u with st. By (C.7), u(x) − st(x) = ( a−1 − 1) st(x/a ) + (st(x/a ) − st(x)), and 
+
+∥x/a − x∥ = ( eτ − 1) ∥x∥ ≤ 2τ ∥x∥, so by Lipschitzness 
+
+∥u(x) − st(x)∥ ≤ 2τ (∥st(x)∥ + 2 Lsτ ∥x∥) + 2 Lsτ ∥x∥ ≲ τ ∥st(x)∥ + Lsτ ∥x∥. (C.9) In particular ∥u(x)∥ ≲ ∥st(x)∥ + Lsτ ∥x∥. Substituting this into (C.8), adding (C.9), and using 
+
+Lsτ ≤ 1, 
+
+∥stk (x) − st(x)∥ ≲ Ls
+
+√dτ + Lsτ ∥x∥ + (1 + Ls)τ ∥st(x)∥,
+
+and squaring both sides completes the proof. 
+
+C.3 Second moments of the numerical law 
+
+Lemma C.6 (Exponential moments along the OU flow) . Under Assumption 4.3, with λ0 =min {λ, d 
+
+> 4
+
+},
+
+Eqt exp 
+
+( λ0
+
+d ∥X∥2)
+
+≤ e2λ0 M for every t ∈ [0 , T ]. (C.10) 
+
+Proof. Every qt is a forward marginal ρs, and Ys d
+
+= aY 0 + σG with a = e−s, σ2 = 1 − e−2s, and 
+
+G ∼ N (0 , I d) independent of Y0 ∼ ρ0. Conditionally on Y0, Ys is Gaussian with mean aY 0 and covariance σ2Id, and for Z ∼ N (m, σ 2Id) and 2 θσ 2 < 1, 
+
+Eeθ∥Z∥2
+
+= (1 − 2θσ 2)−d/ 2 exp 
+
+( θ∥m∥2
+
+1 − 2θσ 2
+
+)
+
+.
+
+Take θ = λ0/d ≤ 14 and put x := 2 θσ 2 ≤ 2λ0/d ≤ 12 . Since − log(1 − x) ≤ 2x on [0 , 12 ], the prefactor is (1 − x)−d/ 2 ≤ edx ≤ e2λ0 , and a2 ≤ 1 − 2θσ 2 because a2 = 1 − σ2 and 2 θ ≤ 1. Hence 
+
+Ee(λ0/d )∥Ys∥2
+
+≤ e2λ0 E exp 
+
+( λ0a2
+
+d(1 − 2θσ 2) ∥Y0∥2)
+
+≤ e2λ0 Ee(λ0/d )∥Y0∥2
+
+≤ e2λ0 M, 
+
+the last step because λ0 ≤ λ.22 Lemma C.7 (Gibbs variational inequality) . For probability measures Q ≪ P and every measurable 
+
+f with EP ef < ∞, EQf ≤ KL( Q ∥ P ) + log EP ef .Proof. With ϱ = d Q/ dP , apply Jensen’s inequality 
+
+EQf − KL( Q ∥ P ) = EQ log( ef /ϱ ) ≤ log EQ(ef /ϱ ) ≤ log EP ef .
+
+Lemma C.8 (Moment bounds under the KL bootstrap) . Assume Assumptions 4.1 and 4.3. If, at some time t,
+
+KL(ˆ pt ∥ qt) ≤ H0 + d, (C.11) 
+
+then 
+
+Eˆpt ∥X∥2 ≲ M, Eˆpt ∥st(X)∥2 ≲ L2 
+
+> s
+
+M, Eˆpt ∥X + 2 st(X)∥2 ≲ (1 + Ls)2M. (C.12) 
+
+Proof. Lemma C.7 with f (x) = λ0 
+
+> d
+
+∥x∥2, Lemma C.6 and (C.11) give 
+
+λ0
+
+d Eˆpt ∥X∥2 ≤ KL(ˆ pt ∥ qt) + log Eqt e(λ0/d )∥X∥2
+
+≤ H0 + d + log M + 2 λ0 ≤ 32
+
+λ0
+
+d M
+
+which is the first bound; likewise we have 
+
+λ0
+
+d Eqt ∥Y ∥2 ≤ log Eqt e(λ0/d )∥Y ∥2
+
+≤ log M + 2 λ0,
+
+so Eqt ∥Y ∥2 ≤ dλ0 (log M + d 
+
+> 2
+
+) ≤ M . For the score, Eqt st(Y ) = ∫ ∇qt = 0, so for every x,
+
+∥st(x)∥ = ∥∥EY ∼qt [st(x) − st(Y )] ∥∥ ≤ Ls Eqt ∥x − Y ∥ ≤ Ls
+
+(∥x∥ + Eqt ∥Y ∥),
+
+hence ∥st(x)∥2 ≤ 2L2 
+
+> s
+
+(∥x∥2+M). Averaging over x ∼ ˆpt yields the second bound, and ∥x+2 st(x)∥2 ≤
+
+2∥x∥2 + 8 ∥st(x)∥2 the third. 
+
+C.4 One-step score error 
+
+Lemma C.9 (Local score mismatch) . Assume Assumptions 4.1 and 4.3, and h ≤ c/ (1 + Ls) with c
+
+as in Lemma C.5. Let t = tk + τ with 0 ≤ τ ≤ h, and suppose KL(ˆ ps ∥ qs) ≤ H0 + d for all s ≤ t.Then 
+
+E∥stk (Xtk ) − st(Xt)∥2 ≲ L2 
+
+> s
+
+dτ + L2 
+
+> s
+
+(1 + Ls)2Mτ 2. (C.13) 
+
+Proof. We split 
+
+E∥stk (Xtk ) − st(Xt)∥2 ≤ 2 E∥stk (Xtk ) − stk (Xt)∥2 + 2 E∥stk (Xt) − st(Xt)∥2. (C.14) For the first term, by Lipschitzness we have 
+
+E∥stk (Xtk ) − stk (Xt)∥2 ≤ L2 
+
+> s
+
+E∥Xt − Xtk ∥2,
+
+and by (4.3) 
+
+Xt − Xtk = ( eτ − 1) {Xtk + 2 stk (Xtk )} + √
+
+e2τ − 1 ζ
+
+with ζ ∼ N (0 , I d) independent of Xtk , so the cross term has zero mean. Since eτ − 1 ≤ 2τ and 
+
+e2τ − 1 ≤ 4τ for τ ≤ h ≤ 18 , Lemma C.8 at time tk implies 
+
+E∥Xt − Xtk ∥2 ≲ (1 + Ls)2Mτ 2 + dτ. (C.15) 23 For the second term, take x = Xt in Lemma C.5, average over Xt ∼ ˆpt, and use Lemma C.8 at time 
+
+t:
+
+E∥stk (Xt) − st(Xt)∥2 ≲ L2 
+
+> s
+
+dτ + L2 
+
+> s
+
+τ 2 E∥Xt∥2 + (1 + Ls)2τ 2 E∥st(Xt)∥2
+
+≲ L2 
+
+> s
+
+dτ + L2 
+
+> s
+
+(1 + Ls)2Mτ 2.
+
+Inserting both bounds into (C.14) completes the proof. 
+
+C.5 Proof of Theorem 4.5 
+
+Theorem 4.5 (Averaged Fisher stationarity, overdamped) . Suppose Assumptions 4.1–4.3 hold and 
+
+H0 < ∞. There are universal constants c such that if h ≤ c/ (1+ Ls) and T [L2 
+
+> s
+
+dh +L2 
+
+> s
+
+(1+ Ls)2Mh2] ≤
+
+cd , then sup 0≤t≤T KL(ˆ pt ∥ qt) < H 0 + d and 
+
+1
+
+T
+
+∫ T
+
+> 0
+
+F(ˆ pt ∥ qt) d t ≲ H0
+
+T + L2 
+
+> s
+
+dh + L2 
+
+> s
+
+(1 + Ls)2Mh2.
+
+Proof. Write H( t) := KL(ˆ pt ∥ qt), a continuous function of t under the standing conventions. When-ever H( s) ≤ H0 + d for all s ≤ t, Proposition C.3 and Lemma C.9 give, for t ∈ [tk, t k+1 ] and 
+
+τ = t − tk,H′(t) ≤ − 12 F(ˆ pt ∥ qt) + C[L2 
+
+> s
+
+dτ + L2 
+
+> s
+
+(1 + Ls)2Mτ 2]. (C.16) The source term integrates to C[L2 
+
+> s
+
+dh 2/2 + L2 
+
+> s
+
+(1 + Ls)2Mh3/3] over a full step, to less over a partial one, and there are T /h steps. So, for every t ≤ T up to which (C.16) is in force, H( t) + 12
+
+∫ t
+
+> 0
+
+F(ˆ ps ∥ qs) d s ≤ H0 + CT [L2 
+
+> s
+
+dh + L2 
+
+> s
+
+(1 + Ls)2Mh2] ≤ H0 + d
+
+2 , (C.17) where the last inequality is the second condition of the theorem, once c ≤ 1/2C.The bootstrap closes by continuity. Let t⋆ := sup {t ∈ [0 , T ] : H( s) ≤ H0 + d for all s ≤ t}; since H(0) = H0, t⋆ > 0 and H ≤ H0 + d on [0 , t ⋆], so (C.17) applies up to t⋆ and gives H( t⋆) ≤ H0 + d/ 2. Were t⋆ < T , H would stay below H0 + d slightly beyond t⋆ by continuity, contradicting its definition. Hence t⋆ = T , (C.16) holds on all of [0 , T ]. The inequality (C.17) at t = T implies 12
+
+∫ T
+
+> 0
+
+F(ˆ pt ∥ qt) d t ≤ H0 + CT [L2 
+
+> s
+
+dh + L2 
+
+> s
+
+(1 + Ls)2Mh2].
+
+Dividing by T proves (4.5). 
+
+# D Proofs for Section 5: the underdamped sampler 
+
+Throughout this appendix, ˆ pi and ˆ qi are the grid laws of the numerical chain started from ˆ p0 and from the exact initialization ˆ q0 = ρT respectively, ˆ pi,τ and ˆ qi,τ are their within-step interpolations (5.8), and C, E, Π v, D are the matrices of (5.1). Assumption 5.3 supplies the positive densities and the finite H0, F0 of the standing conventions; since ˆ q0 = q0, H0 = KL(ˆ p0 ∥ ˆq0) and F0 = F(ˆ p0 ∥ ˆq0). The argument follows the two-factor form (5.7) of the integrator. The kick is a deterministic map applied to both laws, so it preserves relative entropy and transforms the relative score by the inverse transpose of its Jacobian (Lemma D.2). The score-free leg is a linear diffusion, along which relative entropy dissipates the velocity part of the relative score, and a twisted Fisher divergence with a time-dependent metric can dissipate the full relative score, at the price of a term involving the 24 mixed Hessian of the reference law, which Assumption 5.2 controls (Proposition D.3). Appendix D.4 combines the two into a Lyapunov functional, lists the four properties (M1)–(M4) that the moving metric must have, and shows that they make the functional decrease at least as fast as F(ˆ pi,τ ∥ ˆqi,τ )along each leg and match at the grid points, so that the bound telescopes (Proposition D.4). Appendix D.5 motivates and defines the metric, verifies (M1)–(M3), and completes the proof of the theorem; the remaining property (M4), a 2 × 2 matrix inequality, is verified in Appendix D.6. 
+
+D.1 Reverse dynamics and the integrator 
+
+Lemma D.1 (Exact two-factor decomposition of the integrator) . Let Ki be the transition kernel of the update (5.4) . Then for every input law μ,
+
+μKi = Rhi
+
+> (
+
+(Ψ i,h i )#μ), (D.1) 
+
+with the kick Ψi,h of (5.5) and the score-free semigroup Rτ of (5.6) .Proof. Fix z and let f := 4 Es i(z), a constant vector. The frozen-score step from z is the time-h
+
+value of the linear SDE d X = ( CX + f ) d t + 2 E d ¯B, X0 = z, which by variation of constants is 
+
+Xh = ehC (
+
+z + 
+
+> ∫h
+> 0
+
+e−rC f dr
+
+> )
+
++ 
+
+> ∫h
+> 0
+
+e(h−u)C 2E d ¯Bu = ehC (z + Bhsi(z)) + ζ, 
+
+where ζ ∼ N (0, ∫ h 
+
+> 0
+
+evC De vC ⊤
+
+dv) = N (0 , Q h). This is Rh applied to the kicked point Ψ i,h (z). 
+
+D.2 Two laws under a common map 
+
+Lemma D.2 (Common deterministic pushforward) . Let T : R2d → R2d be a C1 diffeomorphism, and let μ+ = T#μ, ν+ = T#ν for positive densities μ, ν . With r = log( μ/ν ) and r+ = log( μ+/ν +),
+
+r+ ◦ T = r, KL( μ+ ∥ ν+) = KL( μ ∥ ν), (∇r+) ◦ T = ( ∇T)−⊤ ∇r. (D.2) 
+
+Consequently, for every symmetric matrix M ,
+
+FM (μ+ ∥ ν+) = 
+
+> ∫
+
+μ
+
+> 〈
+
+∇r, (∇T)−1M (∇T)−⊤ ∇r
+
+> 〉
+
+. (D.3) 
+
+Proof. By the change of variables formula, μ+ ◦ T = μ/ | det ∇T| and likewise for ν; the Ja-cobians cancel in the ratio, which is the first identity. The second is obtained by integrat-ing r+. Differentiating the first by the chain rule gives the third, and inserting the third into 
+
+FM (μ+ ∥ ν+) = ∫ μ 〈(∇r+) ◦ T, M (∇r+) ◦ T〉 implies (D.3). 
+
+D.3 Identities on the score-free leg 
+
+On the score-free leg both interpolated densities in (5.8) solve 
+
+∂τ ντ = −∇ · (ντ Cz ) + 2∆ vντ , (D.4) the Fokker–Planck equation of (5.6). For a pair ( μτ , ν τ ) of solutions put 
+
+rτ = log μτ
+
+ντ
+
+, gτ = ∇rτ , gv,τ = E⊤gτ = ∇vrτ ,
+
+and let ∇z ∇vrτ and ∇z ∇v log ντ denote the 2 d × d matrices of mixed second derivatives, the latter being the mixed Hessian of Assumption 5.2. Unlike the exact reverse flow of Appendix B, whose drift contains the reference score, the score-free leg is oblivious to the pair it transports; the price is the last term of (D.6) below, in which the reference law enters through its mixed Hessian. 25 Proposition D.3 (Entropy and twisted-Fisher identities on the score-free leg) . Let (μτ )τ and (ντ )τ
+
+be positive densities solving (D.4) . Then 
+
+ddτ KL( μτ ∥ ντ ) = −2 Fv(μτ ∥ ντ ), (D.5) 
+
+and for every C1 family τ 7 → M (τ ) of symmetric matrices, 
+
+ddτ FM (τ )(μτ ∥ ντ ) = 
+
+∫
+
+μτ
+
+〈
+
+gτ , ( ˙M (τ ) − CM (τ ) − M (τ )C⊤)gτ
+
+〉
+
+− 4
+
+∫
+
+μτ tr 
+
+(
+
+(∇z ∇vrτ )⊤M (τ ) ∇z ∇vrτ
+
+)
+
++ 8 
+
+∫
+
+μτ
+
+〈
+
+M (τ )gτ , (∇z ∇v log ντ ) gv,τ 
+
+〉
+
+.
+
+(D.6) 
+
+Proof. Equation (D.4) is the continuity equation with velocity field 
+
+uντ = Cz − 2E∇v log ντ , so that uμτ − uντ = −2Eg v,τ ,
+
+and Lemma 2.1 implies ddτ KL( μτ ∥ ντ ) = 
+
+∫
+
+μτ ⟨gτ , −2Eg v,τ ⟩ = −2
+
+∫
+
+μτ ∥gv,τ ∥2 = −2 Fv(μτ ∥ ντ ).
+
+For the second identity, divide (D.4) by ντ . Using 
+
+∇ · (ντ Cz ) = ντ tr C + Cz · ∇ ντ , ∆vντ
+
+ντ
+
+= ∆ v log ντ + ∥∇ v log ντ ∥2,
+
+we get 
+
+∂τ log ντ = − tr C − Cz · ∇ log ντ + 2∆ v log ντ + 2 ∥∇ v log ντ ∥2.
+
+Subtracting this from the same equation for μτ , and writing ∥∇ v log μτ ∥2 − ∥∇ v log ντ ∥2 = ∥gv,τ ∥2 +2 ⟨gv,τ , ∇v log ντ ⟩,
+
+∂τ rτ = −Cz · ∇ rτ + 2∆ vrτ + 2 ∥gv,τ ∥2 + 4 ⟨gv,τ , ∇v log ντ ⟩ . (D.7) Let Sτ = ∇2rτ , so that ∇z ∇vrτ = Sτ E, and write Hτ = ∇z ∇v log ντ . Taking the gradient of (D.7) with 
+
+∇(Cz · ∇ rτ ) = C⊤gτ + Sτ Cz, ∇∥ gv,τ ∥2 = 2 Sτ Eg v,τ ,
+
+∇ ⟨ gv,τ , ∇v log ντ ⟩ = Sτ E∇v log ντ + Hτ gv,τ ,
+
+we obtain 
+
+∂τ gτ = −C⊤gτ − Sτ Cz + 2∆ vgτ + 4 Sτ E(gv,τ + ∇v log ντ
+
+) + 4 Hτ gv,τ 
+
+= −C⊤gτ − Sτ Cz + 2∆ vgτ + 4 Sτ E∇v log μτ + 4 Hτ gv,τ . (D.8) Now differentiate FM (τ )(μτ ∥ ντ ) = ∫ μτ ⟨gτ , M (τ )gτ ⟩. Write M = M (τ ) for brevity. Using the continuity equation of μτ for the first term and ∇ ⟨ gτ , M g τ ⟩ = 2 Sτ M g τ ,ddτ FM (τ )(μτ ∥ ντ ) = 2 
+
+∫
+
+μτ ⟨Sτ M g τ , u μτ ⟩ +
+
+∫
+
+μτ
+
+〈
+
+gτ , ˙M g τ
+
+〉
+
++ 2 
+
+∫
+
+μτ ⟨M g τ , ∂ τ gτ ⟩ .
+
+Since uμτ = Cz − 2E∇v log μτ and Sτ , M are symmetric, the first term equals 2
+
+∫
+
+μτ ⟨M g τ , S τ Cz ⟩ − 4
+
+∫
+
+μτ ⟨M g τ , S τ E∇v log μτ ⟩ .
+
+26 In the third term we insert (D.8) and integrate the Laplacian by parts: as ∂vj gτ = Sτ ed+j and 
+
+∂vj (μτ M g τ ) = μτ ∂vj log μτ M g τ + μτ M S τ ed+j ,4
+
+> ∫
+
+μτ ⟨M g τ , ∆vgτ ⟩ = −4
+
+> ∫
+
+μτ ⟨M g τ , S τ E∇v log μτ ⟩ − 4
+
+> ∫
+
+μτ tr ((Sτ E)⊤M S τ E).
+
+Collecting everything, ddτ FM (τ )(μτ ∥ ντ ) = 
+
+> ∫
+
+μτ
+
+> 〈
+
+gτ , ˙M g τ
+
+> 〉
+
+− 2
+
+> ∫
+
+μτ
+
+> 〈
+
+M g τ , C ⊤gτ
+
+> 〉
+
++ (2 − 2) 
+
+> ∫
+
+μτ ⟨M g τ , S τ Cz ⟩
+
++ ( −4 + 8 − 4) 
+
+> ∫
+
+μτ ⟨M g τ , S τ E∇v log μτ ⟩− 4
+
+> ∫
+
+μτ tr ((Sτ E)⊤M S τ E) + 8 
+
+> ∫
+
+μτ ⟨M g τ , Hτ gv,τ ⟩ .
+
+Since 2 
+
+> 〈
+
+M g τ , C ⊤gτ
+
+> 〉
+
+=
+
+> 〈
+
+gτ , (CM + M C ⊤)gτ
+
+> 〉
+
+, this is (D.6). 
+
+D.4 A Lyapunov functional with a moving metric 
+
+Motivation. By (D.5), relative entropy dissipates only the velocity part Fv of the relative score. To reach the full F we add, as in the hypocoercive functional of Section 3, a twisted Fisher divergence FM . Identity (D.6) shows what each ingredient contributes along a leg: the drift term 〈
+
+g, ( ˙M − CM − M C ⊤)g
+
+> 〉
+
+is the only one that can dissipate in every direction, including position; the trace term has the right sign as soon as M ⪰ 0; and the mixed-Hessian term has no sign, but by Assumption 5.2 it costs only a multiple of Fv, which the entropy pays. A constant metric does not survive the kick. By (D.3), the kick replaces the metric M by (∇Ψ) −1M (∇Ψ) −⊤ , which can be larger than M in some directions. We therefore let the metric move within each leg: it starts at a matrix M (0) slightly below a fixed grid metric Θ, low enough that the increase by the kick is absorbed by the decrease in the metric Θ − M (0), and returns to Θ at the end of the leg, so that consecutive legs match at the grid points. The deficit Θ − M (0) is a budget that the dissipation along the leg must pay back. 
+
+Requirements. Fix a symmetric positive definite matrix Θ (the grid metric, chosen in (D.14)) and a weight a > 0. Fix a step i and write h = hi and Ψ = Ψ i,h . A C1 family {M (τ )}0≤τ ≤h of symmetric 2 d × 2d matrices is an admissible metric for step i if the following hold. (M1) Kick compatibility: for every z ∈ R2d,
+
+M (0) ⪯ ∇ Ψ( z) Θ ∇Ψ( z)⊤.
+
+(M2) Matching at the grid: M (h) = Θ. (M3) Positivity: M (τ ) ⪰ 0 for 0 ≤ τ ≤ h.(M4) Dissipation: for 0 ≤ τ ≤ h,
+
+−( ˙M (τ ) − CM (τ ) − M (τ )C⊤) − 14 M (τ )2 + (2 a − 64Λ 2)Π v ⪰ I2d.
+
+Given an admissible metric for step i, define on the ith leg and at the grid points 
+
+Yi(τ ) := a KL(ˆ pi,τ ∥ ˆqi,τ ) + FM (τ )(ˆ pi,τ ∥ ˆqi,τ ), 0 ≤ τ ≤ hi,
+
+Ygrid  
+
+> i
+
+:= a KL(ˆ pi ∥ ˆqi) + FΘ(ˆ pi ∥ ˆqi). (D.9) 27 (M1) and (M2) make Yi start below Ygrid  
+
+> i
+
+and end at Ygrid  
+
+> i+1
+
+, while (M3) and (M4) make it decrease at least as fast as F in between. 
+
+Proposition D.4 (One-step dissipation) . Suppose Ψi,h i is a C1 diffeomorphism and {M (τ )} is an admissible metric for step i. Then, for 0 < τ < h i,
+
+Y′
+
+> i
+
+(τ ) ≤ −F (ˆ pi,τ ∥ ˆqi,τ ), (D.10) 
+
+and consequently 
+
+Ygrid  
+
+> i+1
+
++
+
+∫ hi
+
+> 0
+
+F(ˆ pi,τ ∥ ˆqi,τ ) d τ ≤ Y grid  
+
+> i
+
+. (D.11) 
+
+If this holds for every 0 ≤ i < N with the same a and Θ, then  
+
+> N−1
+
+∑
+
+> i=0
+
+∫ hi
+
+> 0
+
+F(ˆ pi,τ ∥ ˆqi,τ ) d τ + Ygrid  
+
+> N
+
+≤ Y grid 0 = aH 0 + FΘ(ˆ p0 ∥ ˆq0). (D.12) 
+
+Proof. Write h = hi, M = M (τ ), and apply Proposition D.3 to μτ = ˆ pi,τ and ντ = ˆ qi,τ , with 
+
+gτ = ∇ log ˆpi,τ 
+
+ˆqi,τ 
+
+, gv,τ = E⊤gτ , Hτ = ∇z ∇v log ˆ qi,τ .
+
+By Assumption 5.2, ∥H τ ∥op ≤ Λ, so the mixed-Hessian term of (D.6) is bounded pointwise by 8 ⟨M g τ , Hτ gv,τ ⟩ ≤ 8Λ ∥M g τ ∥ ∥ gv,τ ∥ ≤ 14 ∥M g τ ∥2 + 64Λ 2∥gv,τ ∥2.
+
+The trace term of (D.6) is nonpositive by (M3). Adding a times (D.5), which contributes 
+
+−2a ∫ ˆpi,τ ∥gv,τ ∥2, and writing ∥M g τ ∥2 = 〈gτ , M 2gτ
+
+〉 and ∥gv,τ ∥2 = ⟨gτ , Πvgτ ⟩, we get 
+
+Y′
+
+> i
+
+(τ ) ≤
+
+∫
+
+ˆpi,τ 
+
+〈
+
+gτ ,
+
+( ˙M − CM − M C ⊤ + 14 M 2 − (2 a − 64Λ 2)Π v
+
+)
+
+gτ
+
+〉
+
+dz ≤ − 
+
+∫
+
+ˆpi,τ ∥gτ ∥2
+
+by (M4). This is (D.10). At the start of the leg, ˆ pi, 0 = (Ψ i,h )# ˆpi and ˆ qi, 0 = (Ψ i,h )# ˆqi. Relative entropy is invariant (Lemma D.2), and (M1) is equivalent to ( ∇Ψi,h )−1M (0)( ∇Ψi,h )−⊤ ⪯ Θ, so (D.3) shows 
+
+FM (0) (ˆ pi, 0 ∥ ˆqi, 0) ≤ F Θ(ˆ pi ∥ ˆqi), hence Yi(0) ≤ Y grid  
+
+> i
+
+.
+
+At the end of the leg, M (h) = Θ by (M2) and ˆ pi,h = ˆ pi+1 , ˆ qi,h = ˆ qi+1 , so Yi(h) = Ygrid  
+
+> i+1
+
+. Integrating (D.10) over [0 , h ] gives (D.11), and summing (D.11) over i = 0 , . . . , N − 1 gives (D.12), since ˆq0 = q0.Theorem 5.5 is thus reduced to constructing, for every step, an admissible metric with a ≲ Λ2
+
+and a grid metric Θ comparable to I2d. This is done in Appendix D.5, with a = 88Λ 2 and Θ ⪯ 4I2d.
+
+Remark D.5 (The velocity part alone) . Relative entropy is invariant under the common kick (a diffeomorphism by Lemma D.6) and satisfies (D.5) on every leg, so without any metric 2 
+
+> N−1
+
+∑
+
+> i=0
+
+∫ hi
+
+> 0
+
+Fv(ˆ pi,τ ∥ ˆqi,τ ) d τ = H0 − KL(ˆ pN ∥ ˆqN ) ≤ H0, (D.13) the discrete counterpart of (2.13). This identity does not use Assumption 5.2; the moving metric is what upgrades Fv to F.28 D.5 Construction of the moving metric 
+
+All matrices in this subsection and the next have scalar d × d blocks, X = ¯X ⊗ Id with ¯X ∈ R2×2.We identify X with its 2 × 2 representative ¯X, write Xxx , Xxv , Xvv for its entries, and note that 
+
+X ⪰ Y if and only if ¯X ⪰ ¯Y . Fix one step, of length h, drop the index i, and write Ψ h = Ψ i,h and 
+
+s = si.
+
+Definition. Set Θ := 
+
+( 12 −1
+
+−1 3
+
+)
+
+, A := CΘ + Θ C⊤ =
+
+(
+
+2 − 92
+
+− 92 10 
+
+)
+
+, Θ−1 =
+
+(
+
+6 22 1
+
+)
+
+, (D.14) so that 0 ≺ Θ ⪯ 4I2d, and 
+
+Ph := h
+
+3 Θ2 + 3Λ 2
+
+h BhB⊤ 
+
+> h
+
+,Mh(τ ) := 
+
+(
+
+1 − τh
+
+)
+
+eτ C (Θ − Ph)eτ C ⊤
+
++ τh e(τ −h)C Θe(τ −h)C⊤
+
+, 0 ≤ τ ≤ h. 
+
+(D.15) Thus 
+
+Mh(0) = Θ − Ph, Mh(h) = Θ , (D.16) and, since e−τ C Mh(τ )e−τ C ⊤
+
+is affine in τ with derivative 1
+
+> h
+
+(e−hC Θe−hC ⊤
+
+− Θ + Ph
+
+),˙Mh(τ ) − CM h(τ ) − Mh(τ )C⊤ = 1
+
+h eτ C (e−hC Θe−hC ⊤
+
+− Θ + Ph
+
+)eτ C ⊤
+
+. (D.17) 
+
+Verification. Requirement (M2) is (D.16). Requirements (M1) and (M3) are checked in Lemma D.6, and (M4) in Lemma D.7. 
+
+Lemma D.6 (The kick and the budget Ph: (M1) and (M3)) . If h ≤ (64Λ 2)−1, then Ψh is a global 
+
+C1 diffeomorphism, 
+
+Θ − Ph ⪰ 16 Θ, Mh(τ ) ≻ 0 (0 ≤ τ ≤ h),
+
+and, for every z ∈ R2d,
+
+Mh(0) ⪯ ∇ Ψh(z) Θ ∇Ψh(z)⊤. (D.18) 
+
+Consequently, for all positive densities μ, ν ,
+
+FMh(0) 
+
+((Ψ h)#μ ∥∥ (Ψ h)#ν) ≤ F Θ(μ ∥ ν). (D.19) 
+
+Proof. Diffeomorphism. By (5.5), Bh = ( βx, β v)⊤ with 
+
+βx = 4 [1 − (1 + h)e−h] ∈ [0 , 2h2], βv = 4 he −h ∈ [0 , 4h],
+
+where we used 1 − (1 + h)e−h ≤ h2/2. Hence ∥Bh∥op ≤ 4h√1 + h2/4. As h ≤ (64Λ 2)−1 and Λ ≥ 1, we have Λ h ≤ 164 , so Λ ∥Bh∥op < 1. Thus z 7 → y − Bhs(z) is a contraction for every y, so Ψh(z) = z + Bhs(z) is a bijection; its Jacobian I2d + Bh∇s(z) is invertible, and by the inverse function theorem Ψ h is a C1 diffeomorphism. 
+
+Kick compatibility. Put Γ = Bh∇s(z), so that ∇Ψh = I2d + Γ and (I2d + Γ)Θ( I2d + Γ) ⊤ = Θ + ΓΘ + ΘΓ ⊤ + ΓΘΓ ⊤.
+
+29 The last term is positive semidefinite, and for every g, using ∥Γ⊤g∥ = ∥(∇s)⊤B⊤ 
+
+> h
+
+g∥ ≤ Λ∥B⊤ 
+
+> h
+
+g∥,
+
+∣∣ 〈
+
+g, (ΓΘ + ΘΓ ⊤)g
+
+〉 ∣∣ = 2 ∣∣ 〈
+
+Θg, Γ⊤g
+
+〉 ∣∣ ≤ h
+
+3 ∥Θg∥2 + 3
+
+h ∥Γ⊤g∥2 ≤ ⟨ g, P hg⟩ .
+
+Hence (I2d + Γ)Θ( I2d + Γ) ⊤ ⪰ Θ − Ph = Mh(0), which is (D.18). It is equivalent to (∇Ψh)−1Mh(0)( ∇Ψh)−⊤ ⪯ Θ, and (D.19) follows from (D.3). 
+
+Positivity. For Θ − Ph ⪰ 16 Θ it suffices that ∥Θ−1/2PhΘ−1/2∥op ≤ 56 . Using ∥Θ∥op ≤ 4, Θ −1
+
+from (D.14), and the bounds on βx, β v,
+
+∥Θ−1/2PhΘ−1/2∥op ≤ h
+
+3 ∥Θ∥op + 3Λ 2
+
+h B⊤ 
+
+> h
+
+Θ−1Bh = h
+
+3 ∥Θ∥op + 3Λ 2
+
+h
+
+(6β2 
+
+> x
+
++ 4 βxβv + β2
+
+> v
+
+)
+
+≤ 4h
+
+3 + 48Λ 2h
+
+(
+
+1 + 2 h + 32 h2)
+
+≤ 148 + 34
+
+(
+
+1 + 132 + 38192 
+
+)
+
+< 56 .
+
+Finally, Mh(τ ) is a convex combination of 
+
+eτ C (Θ − Ph)eτ C ⊤
+
+⪰ 16 eτ C Θeτ C ⊤
+
+≻ 0 and e(τ −h)C Θe(τ −h)C⊤
+
+≻ 0,
+
+so Mh(τ ) ≻ 0. 
+
+Lemma D.7 (Dissipation certificate: (M4)) . For h ≤ (64Λ 2)−1 and 0 ≤ τ ≤ h,
+
+−( ˙Mh(τ ) − CM h(τ ) − Mh(τ )C⊤) − 14 Mh(τ )2 + 112Λ 2Πv ⪰ I2d. (D.20) 
+
+Proof of Theorem 5.5. We now collect the pieces. 
+
+Theorem 5.5 (Averaged relative-Fisher stationarity, underdamped) . Suppose Assumptions 5.1–5.3 hold and max 0≤i<N hi ≤ (64Λ 2)−1. Then 
+
+1
+
+T 
+
+> N−1
+
+∑
+
+> i=0
+
+∫ hi
+
+> 0
+
+F(ˆ pi,τ ∥ ˆqi,τ ) d τ ≲ Λ2H0 + F0
+
+T .
+
+Proof. Fix i. By Lemma D.6, Ψ i,h i is a C1 diffeomorphism and Mhi satisfies (M1) and (M3); (M2) is (D.16); and by Lemma D.7, Mhi satisfies (M4) with 2 a − 64Λ 2 = 112Λ 2, that is, with a = 88Λ 2.Proposition D.4 therefore applies to every step, and (D.12) together with Θ ⪯ 4I2d gives  
+
+> N−1
+
+∑
+
+> i=0
+
+∫ hi
+
+> 0
+
+F(ˆ pi,τ ∥ ˆqi,τ ) d τ + Ygrid  
+
+> N
+
+≤ 88Λ 2H0 + FΘ(ˆ p0 ∥ ˆq0) ≤ 88Λ 2H0 + 4 F0.
+
+Since Ygrid  
+
+> N
+
+≥ 0 and ∑ 
+
+> i
+
+hi = T ,1
+
+T 
+
+> N−1
+
+∑
+
+> i=0
+
+∫ hi
+
+> 0
+
+F(ˆ pi,τ ∥ ˆqi,τ ) d τ ≤ 88Λ 2H0 + 4 F0
+
+T . (D.21) 
+
+D.6 Proof of the dissipation certificate 
+
+Lemma D.7 (Dissipation certificate: (M4)) . For h ≤ (64Λ 2)−1 and 0 ≤ τ ≤ h,
+
+−( ˙Mh(τ ) − CM h(τ ) − Mh(τ )C⊤) − 14 Mh(τ )2 + 112Λ 2Πv ⪰ I2d.
+
+Proof. Throughout, h ≤ (64Λ 2)−1 with Λ ≥ 1, so that h ≤ 164 , and 0 ≤ τ ≤ h, u := τ /h ∈ [0 , 1], 
+
+Rt := etC . We work with 2 × 2 representatives. The proof has five steps: an exact formula for the left side of (D.20) (Step 1), elementary bounds on its ingredients (Steps 2–4), and the estimate of its three entries (Step 5). 30 Step 1: the matrix to be bounded. For a symmetric matrix X write Xt := RtXR ⊤ 
+
+> t
+
+; then  
+
+> ddt
+
+Xt = Rt(CX + XC ⊤)R⊤ 
+
+> t
+
+, and in particular ddt Θt = At. Put 
+
+Kt := RtΘ2R⊤ 
+
+> t
+
+, b =
+
+(bx
+
+bv
+
+)
+
+:= Rτ Bh, ¯Aτ := 1
+
+h
+
+∫ ττ −h
+
+At dt = 1
+
+h
+
+(Θτ − Θτ −h
+
+).
+
+By (D.17) and the definition of Ph,
+
+−( ˙Mh(τ ) − CM h(τ ) − Mh(τ )C⊤) = 1
+
+h
+
+(Θτ − Θτ −h
+
+) − 1
+
+h Rτ PhR⊤ 
+
+> τ
+
+= ¯Aτ − 13 Kτ − 3Λ 2
+
+h2 bb ⊤.
+
+The left side of (D.20) is therefore 
+
+Dh(τ ) := ¯Aτ − 13 Kτ − 3Λ 2
+
+h2 bb ⊤ − 14 Mh(τ )2 + 112Λ 2Πv. (D.22) We shall prove 
+
+(Dh(τ )) 
+
+> xx
+
+≥ 19 16 , ∣∣(Dh(τ ))
+
+> xv
+
+∣∣ ≤ 17 5 , (Dh(τ )) 
+
+> vv
+
+≥ 64Λ 2. (D.23) This yields (D.20). Indeed, the diagonal entries of Dh(τ ) − I2 are at least 316 and 64Λ 2 − 1 ≥ 63, so det (Dh(τ ) − I2
+
+) ≥ 316 · 63 −
+
+( 17 5
+
+)2
+
+= 101 400 > 0,
+
+and a symmetric 2 × 2 matrix with positive diagonal and positive determinant is positive definite. 
+
+Step 2: scalar bounds on Θt, At, Kt. By (E.1), Rt = et( 1−t −tt 1+ t
+
+), and direct multiplication shows Θt = e2t
+
+( 12 + t + 32 t2 −1 − 52 t − 32 t2
+
+−1 − 52 t − 32 t2 3 + 4 t + 32 t2
+
+)
+
+, At = e2t
+
+(
+
+2 + 5 t + 3 t2 − 92 − 8t − 3t2
+
+− 92 − 8t − 3t2 10 + 11 t + 3 t2
+
+)
+
+,Kt = e2t
+
+( 54 + 92 t + 17 4 t2 − 72 − 35 4 t − 17 4 t2
+
+− 72 − 35 4 t − 17 4 t2 10 + 13 t + 17 4 t2
+
+)
+
+.
+
+Every entry of these three matrices, and every trace, is ±f (t) with 
+
+f (t) = e2t(α + βt + γt 2), α ≥ 12 , β ≥ 0, 0 ≤ γ ≤ 17 2 .
+
+For such f ,
+
+f ′(t) = e2t[(2 α + β) + 2( β + γ)t + 2 γt 2], f ′′ (t) = e2t[(4 α + 4 β + 2 γ) + 4( β + 2 γ)t + 4 γt 2],
+
+and both are positive on |t| ≤ 164 , because there the constant coefficient dominates the linear one. So f is increasing and convex on |t| ≤ 164 , and lies above its tangent at 0 and below its chords: 
+
+f (0) + f ′(0) t ≤ f (t) ≤
+
+
+
+f (0) , − 164 ≤ t ≤ 0,f (0) + f ′( 164 ) t, 0 ≤ t ≤ 164 , and f (t) ≤ f ( 164 ). (D.24) We apply (D.24) with the following constants, computed from the formulas above and e1/32 < 1.032 (recall ddt Θt = At): 31 • f ′(0) = 9 , 31 , 92 , 12 , 17 for ( At)xx , ( At)vv , −(Θ t)xv , tr Θ t, −(At)xv ;• f ′( 164 ) ≤ 11 5 , 24 5 , 21 2 , 18 , 8, 35 for (Θ t)xx , −(Θ t)xv , (Θ t)vv , −(At)xv , ( Kt)xx , ( Kt)vv 
+
+• f ( 164 ) ≤ 15 4 , 19 5 , 12 for tr Θ t, −(Kt)xv , tr Kt
+
+The result is, writing t+ = max {t, 0}: for |t| ≤ 164 ,(At)xx ≥ 2 + 9 t, (At)vv ≥ 10 + 31 t, − 92 − 18 t+ ≤ (At)xv < 0; (D.25) for 0 ≤ t ≤ 164 ,0 < (Θ t)xx ≤ 12 + 11 5 t, −1 − 24 5 t ≤ (Θ t)xv ≤ − 1, (Θ t)vv ≤ 3 + 21 2 t, 
+
+72 ≤ tr Θ t ≤ 15 4 , (Kt)xx ≤ 54 + 8 t, − 19 5 ≤ (Kt)xv ≤ − 72 ,
+
+(Kt)vv ≤ 10 + 35 t, tr Kt ≤ 12; (D.26) and for − 164 ≤ t ≤ 0, 0 < (Θ t)xx ≤ 12 , −1 ≤ (Θ t)xv ≤ − 1 + 92 |t|,
+
+(Θ t)vv ≤ 3, 72 − 12 |t| ≤ tr Θ t ≤ 72 .
+
+(D.27) In particular, for − 164 ≤ t ≤ 0, (Θ 2 
+
+> t
+
+)xx = (Θ t)2 
+
+> xx
+
++ (Θ t)2 
+
+> xv
+
+≤ 14 + 1 = 54 .
+
+Step 3: the kick vector. Since Bh = 4 ∫ h 
+
+> 0
+
+R−rE dr and RtE = et( −t
+
+> 1+ t
+
+),
+
+b = Rτ Bh = 4 
+
+∫ h
+
+> 0
+
+Rτ −rE dr = 4 
+
+∫ ττ −h
+
+et
+
+( −t
+
+1 + t
+
+)
+
+dt. 
+
+The interval [ τ − h, τ ] ⊂ [−h, h ] has length h, so ∫ ττ −h |t| dt ≤ h2 
+
+> 2
+
+; and 0 < e t(1 + t) ≤ (1 + h)eh there. Hence 
+
+|bx| ≤ 2h2eh, 0 < b v ≤ 4h(1 + h)eh.
+
+With Λ 2h ≤ 164 , h ≤ 164 and (1 + h)2e2h ≤ e4h ≤ 1 + 4 he 1/16 , this gives 3Λ 2
+
+h2 b2 
+
+> x
+
+≤ 12Λ 2h2e2h ≤ h
+
+5 , 3Λ 2
+
+h2 |bxbv| ≤ 24Λ 2h(1 + h)e2h ≤ 25 ,
+
+3Λ 2
+
+h2 b2 
+
+> v
+
+≤ 48Λ 2(1 + h)2e2h ≤ 48Λ 2 + 3 e1/16 ≤ 48Λ 2 + 16 5 ,
+
+3Λ 2
+
+h
+
+(b2 
+
+> x
+
++ b2
+
+> v
+
+) ≤ 316 h2e2h + 34 e1/16 ≤ 45 .
+
+(D.28) Only the size of bx is used; it has no fixed sign. 32 Step 4: the moving metric. Put W := Rτ (Θ − Ph)R⊤ 
+
+> τ
+
+. By (D.15), 
+
+Mh(τ ) = (1 − u)W + u Θτ −h, W = Θ τ − h
+
+3 Kτ − 3Λ 2
+
+h bb ⊤, (D.29) with τ ∈ [0 , h ] and τ − h ∈ [−h, 0]. 
+
+Bounds on W . By Lemma D.6, W ⪰ 16 Θτ ≻ 0, so Wxx , W vv > 0. The two matrices subtracted from Θ τ in (D.29) are positive semidefinite, so the diagonal entries of W are at most those of Θ τ . For the off-diagonal entry, (D.26) gives − h 
+
+> 3
+
+(Kτ )xv ∈ [ 76 h, 19 15 h], and (D.28) gives 3Λ 2 
+
+> h
+
+|bxbv| ≤ 25 h < 76 h.For the trace we use tr Kτ ≤ 12 and the last bound of (D.28). Altogether, 0 < W xx ≤ 12 + 11 5 τ, 0 < W vv ≤ 3 + 21 2 τ, −1 − 24 5 τ ≤ Wxv ≤ − 1 + 53 h, 
+
+tr W ≥ 72 − 4h − 45 ≥ 21 8 .
+
+(D.30) 
+
+Bounds on Mh. Since Mh(τ ) is a convex combination of W and Θ τ −h, (D.30) and (D.27) (at 
+
+t = τ − h, so |t| ≤ h) give 
+
+−1 − 24 5 h ≤ (Mh(τ )) 
+
+> xv
+
+≤ − 1 + 92 h, 
+
+0 < (Mh(τ )) 
+
+> vv
+
+≤ 3 + 21 2 h, 21 8 ≤ tr Mh(τ ) ≤ 15 4 .
+
+(D.31) Here ( Mh)vv > 0 because Mh ≻ 0, and tr Mh ≤ max {tr Θ τ , tr Θ τ −h} ≤ 15 4 .
+
+Bounds on M 2 
+
+> h
+
+. For a symmetric 2 × 2 matrix X,(X2)xx = X2 
+
+> xx
+
++ X2
+
+> xv
+
+, (X2)xv = Xxv tr X, (X2)vv = X2 
+
+> xv
+
++ X2
+
+> vv
+
+.
+
+With (D.31) and h ≤ 164 , the last two give 21 8
+
+(
+
+1 − 92 h
+
+)
+
+≤ − (Mh(τ )2) 
+
+> xv
+
+≤ 43 40 · 15 4 ,
+
+(Mh(τ )2) 
+
+> vv
+
+≤
+
+( 43 40 
+
+)2
+
++
+
+(
+
+3 + 21 128 
+
+)2
+
+≤ 56 5 .
+
+(D.32) For the position entry we use the convexity of X 7 → X2,
+
+Mh(τ )2 ⪯ (1 − u)W 2 + u Θ2 
+
+> τ−h
+
+(the difference is u(1 − u)( W − Θτ −h)2),
+
+together with (Θ 2 
+
+> τ−h
+
+)xx ≤ 54 and, by (D.30) (note |Wxv | ≤ 1 + 24 5 τ ), (W 2)xx ≤
+
+( 12 + 11 5 τ
+
+)2
+
++
+
+(
+
+1 + 24 5 τ
+
+)2
+
+= 54 + 59 5 τ + 697 25 τ 2 ≤ 54 + 25 2 τ, 
+
+where 697 25 τ 2 ≤ 697 1600 τ . Hence 
+
+(Mh(τ )2) 
+
+> xx
+
+≤ (1 − u)
+
+( 54 + 25 2 τ
+
+)
+
++ 54 u ≤ 54 + 25 2 τ. (D.33) 33 Step 5: the three entries. We insert the bounds of Steps 2–4 into (D.22). For ¯Aτ we use (D.25) and the averages 1
+
+h  
+
+> ∫ττ−h
+
+t dt = τ − h
+
+2 , 1
+
+h  
+
+> ∫ττ−h
+
+t+ dt = τ 2
+
+2h ≤ h
+
+2 .
+
+Position entry. By (D.25), (D.26), (D.28) and (D.33), 
+
+> (
+
+Dh(τ )) 
+
+> xx
+
+≥ 2 + 9 
+
+> (
+
+τ − h
+
+2
+
+> )
+
+− 13 
+
+> (
+
+54 + 8 τ
+
+> )
+
+− h
+
+5 − 14 
+
+> (
+
+54 + 25 2 τ
+
+> )
+
+= 61 48 + 77 24 τ − 47 10 h ≥ 61 48 − 47 640 = 2299 1920 > 19 16 .
+
+Velocity entry. By (D.25), (D.26), (D.28) and (D.32), 
+
+> (
+
+Dh(τ )) 
+
+> vv
+
+≥ 10 + 31 
+
+> (
+
+τ − h
+
+2
+
+> )
+
+− 13 (10 + 35 τ ) −
+
+> (
+
+48Λ 2 + 16 5
+
+> )
+
+− 14 · 56 5 + 112Λ 2
+
+= 64Λ 2 + 23 + 58 3 τ − 31 2 h ≥ 64Λ 2 + 23 − 31 128 > 64Λ 2.
+
+Off-diagonal entry. From below, by (D.25), (D.26), (D.28) and (D.32), 
+
+> (
+
+Dh(τ )) 
+
+> xv
+
+≥
+
+> (
+
+− 92 − 9h
+
+> )
+
++ 76 − 25 + 14 · 21 8
+
+> (
+
+1 − 92 h
+
+> )
+
+= − 1477 480 − 765 64 h ≥ − 1477 480 − 316 = − 1567 480 > − 17 5 .
+
+From above, ( ¯Aτ )xv < 0 by (D.25), so the same bounds give 
+
+> (
+
+Dh(τ )) 
+
+> xv
+
+≤ 19 15 + 25 + 14 · 43 40 · 15 4 = 53 + 129 128 < 17 5 .
+
+This proves (D.23), and hence the lemma. 
+
+# E Elementary critical-damping formulas 
+
+The estimates of Section 5 and Appendix D use only the following explicit identities for the matrix 
+
+C of (5.1). Writing C = I2d + K0 with K20 = 0 (critical damping makes C − I2d nilpotent), 
+
+etC = et
+
+> (
+
+(1 − t)Id −tI d
+
+tI d (1 + t)Id
+
+> )
+
+, e−tC = e−t
+
+> (
+
+(1 + t)Id tI d
+
+−tI d (1 − t)Id
+
+> )
+
+. (E.1) The singular values of C are 1 + √2 and √2 − 1, each repeated d times. Finally, 
+
+etC etC ⊤
+
+= e2t
+
+> (
+
+(1 − 2t + 2 t2)Id −2t2Id
+
+−2t2Id (1 + 2 t + 2 t2)Id
+
+> )
+
+. (E.2) These formulas verify all block identities used in Section 5.1 and in Appendix D and show explicitly how velocity expansion is transferred to position through the critically damped coupling. 
+
+# F Numerical experiments: details 
+
+This appendix documents the experiments of Section 6. Both use scores that are available in closed form, so that initialization and discretization are the only error sources, exactly as in the theory; nothing is trained until Section F.4. 34 F.1 The initialization error evolves by the forward semigroup 
+
+The one-dimensional experiment computes the law of the exact reverse flow started from the wrong initialization without simulating it , through the following consequence of the transport equation (B.5). Let P fwd  
+
+> t
+
+denote the Markov semigroup of the generic forward diffusion (A.1), 
+
+P fwd  
+
+> t
+
+f (z) = E[f (Zt) | Z0 = z]. 
+
+Lemma F.1 (Semigroup representation of the initialization error) . In the setting of Lemma A.1, 
+
+pt = qt P fwd  
+
+> t
+
+(p0/q 0) for all t ∈ [0 , T ]. In particular, for the OU process (4.1) , pt(x) =
+
+qt(x) E[(p0/q 0)(e−tx + √1 − e−2t Z)] with Z ∼ N (0 , I d).Proof. By (B.5), ht = pt/q t satisfies ∂tht = −vqt · ∇ ht + Ltht. Inserting vqt = −b + G∇ log qt and 
+
+Lth = G : ∇2h + G∇ log qt · ∇ h, the two terms containing ∇ log qt cancel, and 
+
+∂tht = b · ∇ ht + G : ∇2ht,
+
+the backward Kolmogorov equation of (A.1), whose solution with initial datum h0 is P fwd  
+
+> t
+
+h0.(Probabilistically: under the exact reverse path measure, dpt 
+
+> dqt
+
+(y) = E[h0(Y0) | Yt = y], which by time reversal and the Markov property of the forward process equals E[h0(ZT ) | ZT −t = y] = P fwd  
+
+> t
+
+h0(y).) For the OU process, P fwd  
+
+> t
+
+f (x) = Ef (e−tx + √1 − e−2t Z).
+
+F.2 One-dimensional Gaussian mixture 
+
+Setting. The data law is ρ0 = ∑3 
+
+> i=1
+
+wiN (μi, σ 2) with w = (0 .3, 0.4, 0.3), μ = ( −20 , 0, 20), 
+
+σ = 1 .5; the forward process is the OU diffusion (4.1) on [0 , T ] with T = 5, so qt = ρT −t = 
+
+> ∑
+> i
+
+wiN (e−sμi, e −2sσ2+1 −e−2s), s = T −t, and st = ∇ log qt are explicit. The uniform score Lipschitz constant of Assumption 4.1 is Ls = sup t,x |s′
+
+> t
+
+(x)| ≈ 20. The wrong initialization is p0 = N (10 , 0.52); the exact initialization q0 = ρT is a near-standard Gaussian, so both H0 = KL( p0 ∥ q0) = 49 .8 and 
+
+F0 = 100 are large. 
+
+Exact reverse overdamped flow. By Lemma F.1, pt = qtP fwd  
+
+> t
+
+h0 with h0 = p0/q 0, and the relative score has the posterior-mean form ∇ log P fwd  
+
+> t
+
+h0(x) = e−t 
+
+> 1−e−2t
+
+Eνx [Y − e−tx] with νx(y) ∝
+
+N (y; e−tx, 1 − e−2t)h0(y), which is evaluated using numerical quadrature algorithms. The mass of pT in the three basins (split at the midpoints between the modes) is (0 .05 , 0.25 , 0.71), against (0 .3, 0.4, 0.3) for ρ0.
+
+Discretized sampler. The frozen-score exponential integrator (4.3) is run on uniform grids with N = T /h ∈ { 10 , 25 , 50 , 100 , 250 , 500 , 1000 } steps. Its law ˆ pt is propagated on a spatial grid by applying the Gaussian transition kernel of (4.3) exactly (a dense kernel–vector product), including at intermediate times t ∈ (tk, t k+1 ), and 1  
+
+> T
+> ∫T
+> 0
+
+F(ˆ pt ∥ qt) d t is computed by four-point Gauss–Legendre quadrature in time within every step. No trajectories are sampled. The gap of the time-averaged Fisher divergence decays like O(h) (Figure 1(c)), matching the O(h) discretization term of Theorem 4.5. 
+
+Critically damped flow. Figure 2 repeats the whole experiment for the kinetic model of Section 5 ( γ = 2, ξ = 1), with data law ρ0 ⊗ N (0 , 1) on phase space and the same wrong position law, p0 = N (10 , 0.52) ⊗ N (0 , 1). Lemma F.1 applies verbatim with the kinetic forward semigroup, whose transition law is Gaussian with mean e−tC z and covariance Gt (Section 5.1). In panel (a), the modified Fisher divergence FP with P = P2 decays faster than the guaranteed e−t. The 35 0 2 4     
+
+> reverse time t
+> 10 −4
+> 10 −2
+> 10 0
+> relative divergence  TV = 0.70 KL = 1.37
+> FP; T =FP; 0= 1 :2£10 ¡3
+
+(a)       
+
+> bound e¡t
+> FP=FP; 0
+> KL =H 0
+> TV
+> −20 020
+> x
+> 0.0 0.1 0.2 0.3
+> density
+> 0.00 0.00 1.00
+
+(b)       
+
+> data qT=½0
+> pT(wrong init.) 10 −2 10 −1
+> step size h
+> 010 20 30
+> time-averaged  F
+
+(c)           
+
+> F(pkq)(exact flow)
+> F(^ pk^q)(Thm.)
+> F(^ pkq)
+> 10 −2 10 −1
+> step size h
+> 10 −1
+> 10 0
+> gap in  1
+> T
+> Z
+> F
+
+(d)      
+
+> jF (^ pkq)¡ F (pkq)j
+> slope 1 ( O(h))
+
+Figure 2: The critically damped experiment ( γ = 2, ξ = 1), presented as in Figure 1. (a) Along the exact reverse flow, the modified Fisher divergence FP contracts faster than the guaranteed 
+
+e−t, KL decreases monotonically, and TV plateaus. (b) Terminal position marginal. (c) The frozen-score exponential integrator (5.4): the time-averaged F(ˆ p ∥ ˆq) of Theorem 5.5 (circles) and the time-averaged F(ˆ pt ∥ qt) against the exact marginals along the frozen-score SDE interpolation (squares) versus step size, with the exact-flow value 1
+
+> T
+
+∫ T 
+
+> 0
+
+F(pt ∥ qt) d t (gray). (d) Gap between the time-averaged F(ˆ pt ∥ qt) of (c) and its exact-flow counterpart F(pt ∥ qt) versus step size (log–log; dashed: slope one), as in Figure 1(c). terminal TV is larger than in the overdamped case because the critically damped forward process contracts positions only like (1 + s)e−s, so at T = 5 it has mixed less and the mode weights are decided earlier in reverse time: panel (b) shows the terminal position marginals— pT puts mass (0 .00 , 0.00 , 1.00) on the three basins, against (0 .3, 0.4, 0.3) for ρ0, i.e. almost everything on the mode nearest the initialization—while the marginal relative score remains small, the same locally-consistent, globally-reweighted picture as in Figure 1(b). 
+
+Kinetic exponential integrator. We also ran the frozen-score exponential integrator (5.4) itself, in the two-factor form (5.7), on uniform grids with h ∈ { 0.1, 0.05 , 0.025 , 0.0125 , 0.00625 }
+
+and tN = T : the sampler ˆ p (wrong initialization) and its twin ˆ q (exact initialization ρT ) of Theorem 5.5 are propagated through the same kernels on the 561 × 281 phase-space grid, and ∫ h 
+
+> 0
+
+F(ˆ pi,τ ∥ ˆqi,τ ) d τ is accumulated by four-point Gauss–Legendre quadrature along the within-step interpolation (5.8), exactly the left-hand sides of the theorem. The time average of F(ˆ p ∥ ˆq) carries almost no discretization term—the divergence F(ˆ p ∥ ˆq) measures initialization error alone, as the decomposition of Section 5 intends. Although we do not prove this directly, the sampler is indeed empirically first-order stationary with respect to the exact marginals themselves. For the comparison with Figure 1(c) we evaluate 
+
+> 1
+> T
+
+∫ T 
+
+> 0
+
+F(ˆ pt ∥ qt) d t against the analytic scores along the frozen-score SDE interpolation of the scheme, the kinetic analog of (4.2). Its gap to the exact-flow value decays like O(h) (Figure 2(d)). 36 F.3 CelebA-HQ with the exact empirical score 
+
+Setting. Let x1, . . . , x n ∈ [−1, 1] d be the n = 28000 training images of CelebA-HQ (Karras et al., 2018) at 256 × 256 resolution, and ρ0 = 1 
+
+> n
+> ∑
+> i
+
+δxi . The OU marginals are ρs = 1 
+
+> n
+> ∑
+> i
+
+N (asxi, b 2 
+
+> s
+
+Id)with as = e−s, b2 
+
+> s
+
+= 1 − e−2s—a Gaussian kernel density estimate whose bandwidth is the noise level—and 
+
+∇ log ρs(y) = as ¯xs(y) − yb2
+
+> s
+
+, ¯xs(y) = ∑
+
+> i
+
+wsi (y) xi, ws(y) = softmax i 
+
+> (
+
+2as⟨y, x i⟩ − a2 
+
+> s
+
+∥xi∥2
+
+2b2
+
+> s
+> )
+
+(the common term ∥y∥2 is dropped from the softmax), where ¯ xs(y) = E[X0 | Xs = y] is the posterior mean. One score evaluation is one matrix product with the n × d data matrix. Since the data are exactly memorized, every trajectory ends at a training image, and what the initialization can change is which training images are produced. That the samples are training images is not a shortcoming of the experiment but the setting of the paper, which assumes the true score throughout: for a finite training set the true score is the empirical one above, and it is also the exact minimizer of the denoising score-matching objective, so a diffusion model whose network fitted its objective perfectly would memorize; the generalization of trained models comes from the inductive bias of the network, not from the objective (Yoon et al., 2023; Gu et al., 2025; Kadkhodaie et al., 2024; Li et al., 2024). Using the exact score is therefore the only way to run the object analyzed in Sections 3–4 on real data with the score error removed, leaving initialization and discretization as the only error sources. The phenomenon shown here is moreover not tied to memorization: Appendix F.4 shows the same phenomenon with a learned score that does not memorize. 
+
+Sampler. We use the frozen-score exponential integrator (4.3) on a grid of forward times s0 =
+
+T > s 1 > · · · > s K−1 = smin > s K = 0 that is geometric in the noise-to-signal ratio σs = √e2s − 1(Karras et al., 2022) between s0 = T and sK−1 = smin , followed by one last step to s = 0 ( K = 150, 
+
+smin = 1 × 10 −5, T = 5 .06). The horizon is T = 5 .06, the horizon of the DDPM noise schedule used in Appendix F.4, so that the two experiments run the same three initial laws over the same time span; at this T the standard initialization is close to exact (KL( N (0 , I d) ∥ ρT ) = 0 .30 nats) and serves as the control. Each initialization is run for 64 samples. 
+
+Initializations. (i) standard : ˆ p0 = N (0 , I d), the initialization of every practical sampler; (ii) mean shift : ˆ p0 = N (μ, I d) with μ = β 1/√d, a uniform brightness offset of β/ √d per pixel, β = ±4—the same three initial laws as in the learned-score experiment of Appendix F.4. H0 and F0 are estimated by Monte Carlo from the closed-form densities. 
+
+Results. Figure 3 shows the 64 generated images of each run. Every one of them is close to a training image (root-mean-square distance to the nearest training image below one gray level, i.e. the noise of the last step): local consistency holds regardless of the initialization. Which training images are produced does depend on the initialization. The standard initialization N (0 , I d), nearly exact at this horizon ( H0 = 0 .30 nats), is the control: it returns a mixed draw of the training set—dark and light backgrounds, hair colors and lighting conditions (mean pixel value −0.14 on the [ −1, 1] scale, mean per-image pixel standard deviation 0 .51). The mean shifts ( H0 = 5 .03 resp. 6.78 nats) move the output to opposite ends of the training set: β = −4 returns almost exclusively dark photographs—dim lighting, dark backgrounds, hair and skin (mean pixel value −0.43)—and 
+
+β = +4 almost exclusively bright ones—light backgrounds, blond hair, pale skin, over-exposed shots. 37 N (0 , I d) N (−4 1/√d, I d) N (4 1/√d, I d)
+
+Figure 3: CelebA-HQ with the exact empirical score: 64 images generated by the sampler of Section 4 from the standard initialization and the two mean shifts, T = 5 .06, n = 28000 training images. Every image is a training image; the initialization decides which ones are produced. The initialization error is not negligible but shrinks along the flow in the first-order sense, yet it decides the palette of the output: small relative Fisher divergence certifies local consistency, not the mode weights. 
+
+F.4 The same effect with a learned score 
+
+To check that this phenomenon persists in the presence of score estimation errors, we repeat the mean-shift experiment with the pretrained CelebA-HQ 256 × 256 DDPM of Ho et al. (2020) (google/ddpm-celebahq-256 ), sampled with its ancestral sampler (250 steps)—the discrete pre-decessor of the integrator of Section 4—whose noise schedule corresponds to the OU horizon 
+
+T = 5 .06. Figure 4 shows 64 samples from the standard initialization N (0 , I d) and from N (μ, I d)with μ = β 1/√d for β = −4 and +4—the same three initial laws as in Figure 3. The mean pixel value of the samples moves from −0.09 to −0.56 and +0 .50 respectively: a positive shift makes the learned model return bright photographs and a negative shift dark ones. The bias now acts on the cluster of bright (dark) photographs rather than on individual training images, as one expects from a score that has learned the data distribution rather than the training set; the mechanism—the mass allocated to the clusters is decided by the tilt the initialization induces, while every sample remains a clean face—is the same. 38 N (0 , I ) (mean pixel −0.09) N (μ, I ), μ = −4 1/√d (−0.56) N (μ, I ), μ = 4 1/√d (+0 .50) 
+
+Figure 4: Pretrained CelebA-HQ DDPM (Ho et al., 2020), 64 samples of the 250-step ancestral sampler from the same three initializations of the initial noise as in Figure 3. The mean shifts along the all-ones direction nevertheless bias them towards dark ( β < 0) or bright ( β > 0) photographs, exactly as with the exact score. 39
