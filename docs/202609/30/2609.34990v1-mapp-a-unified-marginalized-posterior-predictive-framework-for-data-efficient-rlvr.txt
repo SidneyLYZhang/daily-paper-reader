@@ -1,0 +1,1308 @@
+Title: MaPP: A Unified Marginalized Posterior-Predictive Framework for Data-Efficient RLVR
+
+URL Source: https://arxiv.org/pdf/2609.34990v1
+
+Published Time: Tue, 29 Sep 2026 03:53:05 GMT
+
+Number of Pages: 18
+
+Markdown Content:
+# MaPP: A Unified Marginalized Posterior-Predictive Framework for Data-Efficient RLVR 
+
+Yangyang Ren 1,2∗ Haodong Zhu 1,2∗ Sheng Xu 3† Yanjing Li 4†
+
+Nikolai Yu. Zolotykh 5 Wentao Zhang 2,6 Baochang Zhang 1,71Beihang University 2Zhongguancun Academy 3Communication University of China 
+
+> 4
+
+Nanyang Technological University 5Lobachebsky University 
+
+> 6
+
+Peking University 7Hangzhou Innovation Institute of Beihang University 
+
+## Abstract 
+
+Reinforcement learning with verifiable rewards (RLVR) enhances the reasoning capabilities of large language models (LLMs), but at the expense of significant computational overhead due to compute-intensive rollout processes and frequent policy updates. Online prompt selection, a widely adopted strategy for improving training efficiency, maintains per-prompt Bayesian posteriors to predict prompt difficulty and prioritize informative prompts before committing rollout budget. However, these methods assess prompt informativeness without accounting for how reliably learning signal is extracted from sampled responses. In GRPO-based RL algorithms, the realized advantage of a response depends not only on its own outcome, but also on the randomly sampled outcomes of its peers through group normalization. Our experimental and theoretical analysis show that the resulting uncertainty in group composition induces composition noise ,a non-vanishing variance component that creates an irreducible lower bound on gradient estimation error. Consequently, the standard group-relative advantage fails to faithfully characterize response-level utility, degrading gradient estimation and thereby impairing downstream prompt selection. To address this issue, we propose a unified Ma rginalized Posterior-Predictive framework ( MaPP ) for data-efficient RLVR, which first denoises response-level advantage estimation and then improves prompt selection using a shared Beta posterior. Specifically, for each response, MaPP replaces the standard group-relative advantage with a composition-invariant intrinsic advantage via closed-form Beta–Binomial marginalization. This yields a closed-form posterior-predictive advantage estimator whose error provably diminishes as the posterior concentrates. Then, building on the same posterior, MaPP derives an uncertainty-aware prompt selection score that more faithfully characterizes prompt informativeness, improving data efficiency without additional rollout cost. Experiments across mathematics, planning, and visual geometry on five model backbones show that MaPP consistently outperforms GRPO and strong selection baselines, achieving up to +2.45 average accuracy improvement over the strongest baseline under the same rollout budget, a new state-of-the-art. 
+
+## 1 Introduction 
+
+Reinforcement learning with verifiable rewards (RLVR) is a key post-training paradigm for enhancing LLM reasoning [Shao et al., 2024, Yu et al., 2025, Guo et al., 2025, Jaech et al., 2024, Yang et al., 2025]. Among RLVR algorithms, GRPO [Shao et al., 2024] is most widely adopted, eliminating a           
+
+> ∗Equal contribution.
+> †Corresponding authors: Sheng Xu ( shengxu@cuc.edu.cn ) and Yanjing Li ( yanjing.li@ntu.edu.sg ). Preprint. arXiv:2609.34990v1 [cs.LG] 28 Sep 2026 0.0 0.2 0.4 0.6 0.8 1.0
+> # Rollouts (Million)
+> 60 65 70 75 80 85
+> Accuracy (%)
+> (a) Test Accuracy vs. Rollout Cost
+> GRPO DPS MoPPS DS
+> Ours
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> Prompt pass rate
+> 2
+> 1
+> 012
+> GRPO advantage  Aj
+> (b) Composition Noise in GRPO Advantages
+> Correct Incorrect Empirical ± 1 std
+
+Figure 1: On the CountDown dataset using the Qwen3-4B model, (a) MaPP achieves higher accuracy than all selection methods with the same rollout cost, while requiring 80% fewer rollouts than DS to reach comparable performance. (b) Group-composition uncertainty induces composition noise 
+
+in GRPO (group size G=8 ; mid-training checkpoint of MoPPS; 100 prompts × 50 groups): under the same policy checkpoint, identical correct (red) or incorrect (blue) response receives widely varying advantages depending on group composition ( ±1 std shaded). The noise persists across all non-degenerate difficulty levels, e.g. , ∆ = 2 .22 at γ ≈ 0.15 and ∆ = 1 .62 at γ ≈ 0.8.learned value network by estimating advantages via within-group normalization of G responses per prompt. However, RLVR incurs high computation and memory costs due to intensive rollouts for policy evaluation and updates [Zheng et al., 2025c, Lin et al., 2025]. Thus, improving utility per fixed rollout budget is a central challenge in scaling RLVR. Existing methods improve training efficiency by selecting prompts for rollout budget. Uniform sampling is inefficient: overly easy or hard prompts cause degenerate groups (all correct or incorrect), wasting rollouts on zero gradient [Bae et al., 2026, Chen et al., 2025, Zeng et al., 2025]. Only intermediate-difficulty prompts provide informative signals. Dynamic Sampling [Yu et al., 2025] oversamples a candidate set, rolls out all, then discards degenerate ones—but the rollouts on discarded prompts are already spent [Zheng et al., 2025c]. To avoid this waste, prediction-based methods [Qu et al., 2026a, Zheng et al., 2025b, Zhou et al., 2026] estimate prompt difficulty before rollout and skip likely degenerate prompts entirely, achieving comparable or superior performance with significantly fewer rollouts, as shown in Fig. 1 (a). However, conventional methods which select prompt before rollout do not by itself determine how reliably learning signal is extracted from the responses sampled afterward. In GRPO-based RLVR [Shao et al., 2024], both prompt selection and policy optimization are driven by group-level statistics formed from the sampled responses. For non-degenerate prompts, these counts are not fixed properties of the prompt itself, but random rewards with uncertainty induced by the current policy’s latent success rate under a finite number of sampled responses. As a result, even for the same response on the same prompt under the same policy, the realized advantage can deviate substantially depending on which peers happen to be drawn. Fig. 1 (b) visualizes this effect: the same correct or incorrect response receives widely varying advantages across different sampled groups, despite sharing the same prompt and policy. We refer to this deviation, induced by uncertainty in group composition, as composition noise . This composition noise degrades gradient estimation and, in turn, limits how faithfully prompt informativeness can be assessed for downstream selection. Crucially, the information needed to account for this noise already exists in current selection pipelines: the per-prompt Beta posterior maintained over the latent pass rate γτ tracks exactly the quantity that governs group-composition uncertainty. To leverage this observation, we propose a Ma rginalized 
+
+Posterior-Predictive framework ( MaPP ), which first denoises response-level advantage estimation and then improves prompt selection using a shared Beta posterior. The key insight is that the GRPO advantage conditions on a single realized group composition, whereas the true learning signal of a response is determined by its correctness and the prompt’s intrinsic difficulty alone. The first component of MaPP, which we call MaPP-AD , denoises the realized GRPO advantage via closed-form Beta–Binomial marginalization, recovering a composition-invariant intrinsic advantage . This yields a closed-form posterior-predictive advantage estimator whose error provably diminishes as the posterior concentrates. Building on the same posterior, the second component of MaPP, which we call MaPP-PS , derives a marginalized posterior-predictive, uncertainty-aware prompt selection 2、       
+
+> (B) Marginalized Posterior-Predictive Prompt Selection
+> Top-k Sampling Sample γ~ 𝐀𝐀𝐀𤠀(𝐀, 𝐀)
+> Proportional Sampling
+> 𝐀 𝐀 𝐀𝐀𝐀𝐀 = 𝐀 𝐀~ 𝐀𝐀𝐀𝐀(𝐀, 𝐀) [𝐀 𝐀 (𝐀)]
+> Existing
+> MaPP-PS
+> 𝐀 𝐀 | 𝐀 𝐀 𝐀 ~ 𝐀𝐀𝐀𤠀(𝐀 𝐀 𝐀 , 𝐀 𝐀 𝐀 )
+> (A) Marginalized Posterior-Predictive Advantage Denoising
+> Existing
+> MaPP-AD
+> 𝐀 1𝐀 2𝐀 3𝐀 𝐀
+
+...    
+
+> 𝐀 1𝐀 2𝐀 3𝐀 𝐀
+
+...      
+
+> 𤠀 𝐀 𝐀𝐀𝐀𝐀 = 𝐀 𝐀(𝐀|𝐀 𝐀 ,𝐀 −𝐀 )[𤠀 𝐀 ∗(𝐀)]
+> Variance
+> 𝐀 𝐀 = 𝐀𝐀𤠀𤠀(𝐀 1, . . . , 𝐀 𝐀 )𝐀 𝐀 ~𝐀𤠀𤠀𣠀𝐀𝐀(𝐀𝐀𣠀𝐀𝐀) 𤠀 𝐀 = 𝐀(𝐀 𝐀 , 𝐀 𝐀 )
+> Candidate Batch
+> τ1τ2τB
+
+... 
+
+> Rollout & Reward
+
+...   
+
+> Advantage Weights
+> 𤠀 𝐀 1
+> 𝐀𝐀 𤠀 𝐀 2
+> 𝐀𝐀 𤠀 𝐀 𝐀
+> 𝐀𝐀
+
+... Policy Update   
+
+> 𝐀 𝐀 L
+> Prompt Selected
+> τ𝐀 1τ𝐀 2τ𝐀 𝐀
+
+...     
+
+> Posterior Update Shared Prompt-Level Beta Posterior
+> 𝐀 𝐀+1 𝐀 = 𝐀𝐀 𝐀 𝐀 + (1 − 𝐀) + 𝐀 𝐀 𝐀
+> 𝐀 𝐀+1 𝐀 = 𝐀𝐀 𝐀 𝐀 + (1 − 𝐀) + 𝐀 − 𝐀 𝐀 𝐀
+> Variance
+
+Figure 2: Overview of the MaPP framework. A shared Beta posterior (ατt , β τt ), updated online from rollout history, serves as the foundation for two closed-form components. (A) MaPP-AD 
+
+marginalizes a⋆j (γ) over a leave-one-out posterior, replacing the composition-dependent GRPO advantage with composition-invariant weights. Both components reuse the same posterior at no additional rollout cost. (B) MaPP-PS marginalizes VG(γ) over the full posterior for uncertainty-aware prompt selection, replacing the point-estimate scoring used by existing methods. method that more accurately characterizes prompt informativeness. Both components are modular and can be layered on top of existing selection pipelines. Our contributions are threefold: • We identify composition noise , a within-rollout variance component in the GRPO advantage induced by uncertainty in group composition and show that it degrades gradient estimation and thereby limits downstream prompt selection (§3.2). • We propose MaPP, a unified posterior-predictive framework with two closed-form components: MaPP-AD, which denoises the realized GRPO advantage via posterior-predictive marginalization, and MaPP-PS, which uses the same shared Beta posterior to derive a more faithful prompt-selection score (§4). • Experiments across three domains and five model backbones show that MaPP consistently outper-forms GRPO and strong selection baselines, achieving up to +2 .45 average accuracy improvement over the strongest baseline with the same rollout budget. 
+
+## 2 Related Work 
+
+2.1 RL Finetuning for Large Language Models 
+
+RLVR is a dominant post-training paradigm for reasoning LLMs [Guo et al., 2025, Shao et al., 2024, Jaech et al., 2024]. GRPO [Shao et al., 2024] eliminates PPO’s [Schulman et al., 2017] learned value network via within-group normalization, setting the template for many follow-ups. Variants address specific failure modes: Dr.GRPO [Liu et al., 2025] removes length normalization and std scaling, DAPO [Yu et al., 2025] adds asymmetric clipping and dynamic sampling, VAPO [Yue et al., 2025] reintroduces a value model for long CoT. Others include sequence-level importance ratios [Zheng et al., 2025a] and adaptive reweighting [Yang et al., 2026]. These modify what is optimized. MaPP is complementary: it modifies how the GRPO advantage is estimated under group composition uncertainty, while operating within the same GRPO training framework. Conceptually, MaPP Rao–Blackwellizes [Casella and Robert, 1996] the GRPO advantage using a conjugate Beta posterior instead of a learned critic [Liu et al., 2017]. 
+
+2.2 Online Prompt Selection for RLVR 
+
+Prompts in RLVR contribute unevenly: overly easy or extremely hard prompts yield vanishing gradients, while intermediate ones provide informative signals [Yu et al., 2025, Bae et al., 2026, Zeng et al., 2025]. This motivates online selection methods [Yu et al., 2025, Qu et al., 2026a, Mao et al., 2026, Zheng et al., 2025b, Zhou et al., 2026, Qu et al., 2026b]. 3Existing approaches fall into two paradigms [Qu et al., 2026b]: evaluation-based (e.g., Dynamic Sampling [Yu et al., 2025], SPEED-RL [Zhang et al., 2025]) oversample and filter, wasting budget; prediction-based (MoPPS [Qu et al., 2026a], DPS [Mao et al., 2026], GRESO [Zheng et al., 2025b], GPS [Qu et al., 2026b], INSIGHT [Zhou et al., 2026]) estimate difficulty before rollout. These mainly improve budget allocation across prompts, but ignore composition noise from uncertainty in group composition when GRPO assigns response-level advantages. Unlike these methods, MaPP also addresses signal extraction from sampled responses. Specifically, MaPP-AD denoises the GRPO advantage via posterior-predictive marginalization, and MaPP-PS reuses the shared Beta posterior for a more faithful prompt-selection score. Both are modular and can be layered on existing pipelines. 
+
+## 3 Challenge Analysis 
+
+3.1 Preliminaries GRPO for RLVR: Given a prompt τ from training dataset T = {τi}Ni=1 ,where N is the size of the training dataset, and G independent responses {yj }Gj=1 generated by the policy πθ (· | τ ), each receiving a binary reward rτj ∈ { 0, 1} verifying correctness [Shao et al., 2024, Guo et al., 2025], the objective of RL finetuning is to maximize the expected return: 
+
+max  
+
+> θ
+
+Eτ ∼T , {yj }Gj=1 ∼πθ (·| τ )
+
+ 1
+
+G
+
+> G
+
+X
+
+> j=1
+
+rτj
+
+ , (1) where G denotes the group size. GRPO [Shao et al., 2024] eliminates the need for a learned value network by estimating advantages through within-group normalization. For each prompt τ , the policy generates a group of G independent responses {yj }Gj=1 , each receiving a binary reward rτj ∈ { 0, 1}.The group-relative advantage for the j-th response is then defined as: 
+
+ˆAτj = rτj − mean( {rτk }Gk=1 )std( {rτk }Gk=1 ) . (2) As noted in DAPO [Yu et al., 2025], when all responses to a given prompt are either all correct or all incorrect, they receive identical rewards, yielding ˆAτj = 0 . In this scenario, the prompt is degenerate 
+
+and contributes no gradient signal [Yu et al., 2025, Zheng et al., 2025b]. To identify such conditions, prior work on prompt selection [Zheng et al., 2025b] introduces a success count variable Sτ ∈ { 0, G }
+
+indicating the degenerate case, i.e. , all responses are correct or all are incorrect. 
+
+Online Prompt Selection: Prediction-based online prompt selection introduces a success rate 
+
+γτ ∈ [0 , 1] for each prompt τ to estimate prompt difficulty for selection. Since γ is not directly observable, prior works [Qu et al., 2026a, Zhou et al., 2026] first model each response reward 
+
+rτj ∈ { 0, 1} generated from prompt τ as an independent Bernoulli trial: 
+
+rτj | γτ ∼ Bernoulli( γτ ) ∀j ∈ { 1, · · · G}. (3) We define the corresponding success count as Sτ := PGj=1 rτj , which follows a Binomial distribution, 
+
+i.e. , Sτ | γτ ∼ Binomial( G, γ τ ).Then, a recursive Bayesian update procedure is applied for efficient posterior inference of the success rates γτ . At the initial stage a Beta prior models the initial success rate formulated as: 
+
+γτ 
+
+> 0
+
+∼ Beta( ατ 
+
+> 0
+
+, β τ 
+
+> 0
+
+), (4) where ατ 
+
+> 0
+
+and βτ 
+
+> 0
+
+reflect prior pseudo-counts of successes and failures, typically set to (1 , 1) for a uniform prior. During prompt selection, the optimization history is denoted as Ht = {Bt, R t}, where 
+
+Bt is the selected prompt batch at step t and Rt = {rτj }j∈Gτ ∈Bt collects the corresponding rewards. By Bayes rule, the posterior distribution over γτt given observations up to step t is: 
+
+p(γτt | H t) ∝ p(rτj | γτt ) · p(γτt | H t−1), (5) where p(γτt | H t−1) ∼ Beta( ατt , β τt ) represents the conditional prior using the last updated posterior as the proxy. p(rτj | γτt ) is the likelihood of observing the feedback under prompt τ at step t.4With a temporal discounting factor λ ∈ (0 , 1) applied for tracking the evolving policy [Qu et al., 2026a, Zhou et al., 2026], the posterior parameters are updated as: 
+
+ατt+1 = λ · ατt + (1 −λ) · ατ 
+
+> 0
+
++ Sτt , βτt+1 = λ · βτt + (1 −λ) · βτ 
+
+> 0
+
++ G − Sτt . (6) Existing selection methods use this posterior to prioritize prompts with intermediate difficulty, as these are most likely to yield non-degenerate gradients [Bae et al., 2026, Qu et al., 2026a,b]. 
+
+3.2 Composition Noise in GRPO 
+
+Previous online prompt selection methods model prompt difficulty using success rates and update it via posterior probabilities [Qu et al., 2026a, Mao et al., 2026, Zheng et al., 2025b, Zhou et al., 2026, Qu et al., 2026b], while suffer from composition noise as illustrated in Fig. 1 (b). For an in-depth analysis, we formulate the explicit form of the aforementioned composition noise . The variance of the advantage for each response under the same prompt τ admits a precise decomposition via the law of total variance, expressed as: 
+
+Var   ˆAτj | γτ | {z }
+
+> total
+
+= Var  E[ ˆAτj | rτj , γ τ ] γτ | {z }
+
+> composition-free signal
+
++ EVar( ˆAτj | rτj , γ τ ) γτ | {z }  
+
+> composition noise ξ(γτ)
+
+. (7) The first term describes the variation in advantage among different responses to the same prompt, which distinguishes correct responses from incorrect ones, reflecting the genuine signal. The second term describes that, even when the response is fixed as correct or incorrect, its advantage still varies across different groups — a variation that arises entirely from the random composition of the group. This forms the composition noise term ξ(γτ ), which is intrinsic and independent to prompt selection. However, ξ(γτ ) is strictly positive for all γτ ∈ (0 , 1) (Theorem D.1) and cannot be reduced by prompt selection alone. In standard GRPO, the realized advantage ˆAτj directly enters the policy gradient, so the composition-noise term in Eq.(7) contributes variance to gradient estimation. Since prompt-selection methods assess prompt informativeness through sampled group rewards generated by the same policy, this noise also makes such assessments less faithful. Therefore, rather than using the noisy realized advantage ˆAτj , we target its conditional expectation E[ ˆAτj | rτj , γ τ ], which depends only on the response reward and the prompt’s latent difficulty and removes the composition-noise term by construction. 
+
+## 4 Method 
+
+The decomposition in Eq. (7) identifies E[ ˆAτj | rτj , γ τ ] as the composition-free target. This section formalizes that target (§4.1), recovers it via posterior-predictive marginalization (§4.2), and extends the same principle to prompt selection (§4.3). In this section, we discuss our method with a given prompt τ . Hence, we omit superscript τ for simplicity. 
+
+4.1 The Intrinsic Advantage 
+
+The intrinsic advantage answers the question the standard GRPO advantage fails to: given that this response is correct (or not) on a prompt of difficulty γ, what advantage should it receive on average? 
+
+Intuitively, it should depend only on the response reward and the prompt intrinsic difficulty, never on which peers happened to be drawn. Therefore, we first give the definition of the intrinsic advantage 
+
+a⋆j (γ) and its closed form below. 
+
+Definition 1 (Intrinsic advantage) . For a prompt τ with success rate γ ∈ (0 , 1) , the intrinsic advantage 
+
+of response j is 
+
+a⋆j (γ ) := E ˆAj rj , γ , (8) 
+
+Proposition 4.1 (Closed form) . Under rj | γ i.i.d.
+
+∼ Bernoulli( γ ),
+
+a⋆j (γ ) = 
+
+(+μG(γ ), rj = 1 ,
+
+−μG(1 − γ ), rj = 0 , (9) 
+
+where 
+
+μG(p) = 
+
+> G−1
+
+X 
+
+> S=1
+
+G − 1
+
+S − 1
+
+
+
+pS −1(1 −p)G−S
+
+r G−SS , G ≥ 2. (10) 5Note that in the degenerate cases where S = {0, G } contribute zero and are omitted from the sum. Applying such intrinsic advantage a⋆j (γ ) for ˆAj guarantees that Var[ a⋆j | rj , γ ] = 0 . Therefore, the total variance in Eq.(7) degenerates into the composition-free signal term alone and intrinsically eliminates the composition-noise term. However, a⋆j depends on the latent success rate γ , which can not be observed or explicitly derived. Therefore, we recover it through closed-form marginalization over the Beta posterior. 
+
+4.2 Marginalized Posterior-Predictive Advantage Denoising 
+
+To avoid each response’s self-influence [Liu et al., 2025], we marginalize the latent success rate γ
+
+over a leave-one-out Beta posterior that excludes response j’s own reward, formulated as: 
+
+p(γ | H t, r t;−j ) = Beta( α′ 
+
+> t+1; j
+
+, β ′ 
+
+> t+1; j
+
+), (11) 
+
+α′ 
+
+> t+1; j
+
+:= αt+1 −rt;j , β′ 
+
+> t+1; j
+
+:= βt+1 − 1 + rt;j , (12) where group-shared αt+1 and βt+1 are calculated according to Eq. (6). rt;−j denotes the other rewards in the group except for j-th response at t-th iteration. This construction guarantees that the posterior used to estimate the advantage of response j is conditionally independent of rj ; consequently, the resulting estimator is free from bias induced by the response it evaluates. At each training step t, we marginalize a⋆j (γ) over the leave-one-out posterior to obtain a composition-free advantage estimate: 
+
+ˆaMaPP  
+
+> j
+
+:= Ep(γ|H t,r t;−j )
+
+a⋆j (γ) =
+
+Z 10
+
+a⋆j (γ) p(γ | H t, r t;−j ) d γ. (13) With Eq.(13), we average all plausible values of γ , which is weighted by the observed optimization history and forms ˆaMaPP  
+
+> j
+
+, called MaPP-AD. Consequently, the closed form of our tractable integral MaPP-AD is given by Beta–Binomial conjugacy. 
+
+Proposition 4.2 (Closed form) . At training step t, let α′ 
+
+> j
+
+:= α′ 
+
+> t+1; j
+
+and β′ 
+
+> j
+
+:= β′ 
+
+> t+1; j
+
+for brevity. Then 
+
+ˆaMaPP  
+
+> j
+
+=
+
+
+
++
+
+> G−1
+
+X
+
+> S=1
+
+wS (α′ 
+
+> j
+
+, β ′ 
+
+> j
+
+)
+
+r G−SS , rj = 1 ,
+
+−
+
+> G−1
+
+X
+
+> S=1
+
+wS (β′ 
+
+> j
+
+, α ′ 
+
+> j
+
+)
+
+r G−SS , rj = 0 ,
+
+(14) 
+
+where wS (α, β ) := PBB (S − 1 | G − 1, α, β ) =  G−1
+
+> S−1
+
+ B(α + S − 1, β + G − S)
+
+B(α, β ) is the Beta-Binomial PMF evaluated at S − 1 successes out of G − 1 trials. 
+
+The weight wS (α′ 
+
+> j
+
+, β ′ 
+
+> j
+
+) has a concrete meaning: it is the posterior-predictive probability that a hypothetical fresh group of G−1 responses would contain s−1 correct ones. The estimator evaluates the advantage at every plausible composition s and averages under the posterior belief, replacing the single realized composition with its full predictive distribution. As the posterior concentrates around the true pass rate with more observations, ˆaMaPP  
+
+> j
+
+converges to the intrinsic advantage a⋆j (γ).We show in Appendix D that ˆaMaPP  
+
+> j
+
+achieves provably lower MSE than GRPO once the posterior accumulates a few updates per prompt. 
+
+4.3 Marginalized Posterior-Predictive Prompt Selection 
+
+§4.1–4.2 focused on denoising response-level advantage estimation. We now show how the same posterior-predictive principle also yields a more faithful prompt-selection score. Existing selection methods score prompts via point estimates of difficulty and select the top-k candidates closest to a target difficulty [Qu et al., 2026a, Mao et al., 2026, Zheng et al., 2025b, Zhou et al., 2026]. This point-estimate approach mirrors the same limitation exposed in §3.2: a single value of γ is substituted for the latent quantity, discarding posterior uncertainty. We propose instead a principled informativeness score derived from the same marginalization principle. Define the probability that a prompt yields a non-degenerate gradient as VG(γ) = 1 −
+
+6Table 1: Evaluation results on CountDown3to4 and mathematical reasoning benchmarks. Bold 
+
+indicates the best result. CountDown is evaluated after CountDown3to4 training, while all other benchmarks use math-trained models. Rollouts and GPU hours report math-training cost.                                                                                                                                  
+
+> Models Methods CountDown AMC MATH500 Minerva. Olympiad. Avg. ↑Rollouts ↓GPU Hours ↓
+> Qwen3-4B Random 80.95 54.22 78.63 28.31 38.25 56.07 563k 90h MoPPS 83.68 60.24 81.04 28.31 44.28 59.51 563k 81h DPS 83.42 59.04 80.65 28.68 43.98 59.15 563k 81h DS 83.83 60.24 82.06 30.88 45.03 60.41 2252k 209h
+> Ours 85.67 62.65 82.66 31.25 47.59 61.96 563k 81h
+> Qwen3-8B Random 81.29 55.42 81.05 30.51 42.17 58.09 563k 104h MoPPS 84.69 62.65 82.46 30.15 50.60 62.11 563k 88h DPS 85.80 60.24 81.45 29.78 48.49 61.15 563k 89h DS 83.79 61.45 82.86 31.62 48.34 61.61 2252k 230h
+> Ours 87.51 63.86 83.47 30.88 52.26 63.60 563k 88h
+> R1-Distill-7B Random 78.92 57.83 80.24 27.57 38.86 56.68 563k 63h MoPPS 80.75 59.20 81.45 26.84 41.11 57.87 563k 59h DPS 80.03 59.04 79.64 25.74 40.66 57.02 563k 58h DS 81.52 62.65 80.85 27.81 41.57 58.88 2231k 152h
+> Ours 82.24 61.45 82.26 28.31 42.17 59.29 563k 58h
+
+(γ)G − (1 − γ)G, which peaks at γ = 1 /2 and vanishes at the extremes. Since γ is latent, we marginalize against the posterior: 
+
+V MaPP  
+
+> G
+
+(ατ , β τ ) := Eγ∼p(γ|H τ )
+
+VG(γ) = 1 − B(ατ +G, β τ )
+
+B(ατ , β τ ) − B(ατ , β τ +G)
+
+B(ατ , β τ ) . (15) Since VG is concave, Jensen’s inequality gives V MaPP  
+
+> G
+
+≤ VG(E[γτ | H τ ]) : the marginalized score automatically down-weights prompts whose posterior is wide, avoiding wasted rollouts on prompts that appear informative under a point estimate but whose true difficulty remains uncertain. Batches are drawn by sampling prompts with probability proportional to V MaPP  
+
+> G
+
+(ατ , β τ ), preserving exploration over prompts whose posterior is still consolidating. 
+
+Unified posterior-predictive gradient. Combining posterior-predictive selection with the posterior-predictive advantage of §4.2, the MaPP gradient takes the form 
+
+∇J = Eτ ∼q, {yτj }Gj=1 ∼πθ (·| τ )
+
+ 1
+
+G
+
+> G
+
+X
+
+> j=1
+
+ˆaMaPP ,τ j ∇θ log πθ (yτj | τ )
+
+ , q(τ ) ∝ V MaPP  
+
+> G
+
+(ατ , β τ ).
+
+(16) where both the batch distribution q(τ ) and the per-response weight aMaPP  
+
+> j
+
+are posterior-predictive marginalizations against the same shared Beta posterior. Both components are modular: each can be adopted independently or composed with existing selection strategies, adding O(|B| · G2) per-step overhead, negligible compared to rollout and backpropagation. Algorithm 1 gives the full training loop. 
+
+## 5 Experiments 
+
+5.1 Experimental Setup 
+
+We evaluate MaPP across three reasoning domains, mathematics, numerical planning, and visual geometry, using diverse model backbones to assess generality. 
+
+Tasks. For Mathematics , we train on MATH [Hendrycks et al., 2021] (7,500 problems) and evaluate on AMC23, MATH500 [Lightman et al., 2023], Minerva Math [Lewkowycz et al., 2022], and OlympiadBench [He et al., 2024]. For Numerical planning , we use the Countdown Number Game: train on Countdown-34 [Pan et al., 2025], evaluate on held-out CD-34 and harder CD-4 (four source numbers, larger search space). For Visual geometry , we train and evaluate on Geometry3k [Lu et al., 2021, Hiyouga, 2025], pairing diagrams with multi-step reasoning questions. 760 140 220 300 380 72.5 75.0 77.5 80.0 82.5                     
+
+> Accuracy (%) Qwen3-4B Math
+> 60 140 220 300 380 70.0 72.5 75.0 77.5 80.0 82.5 85.0
+> Qwen3-8B Math
+> 60 140 220 300 380 72.5 75.0 77.5 80.0 82.5 85.0
+> DSR-7B Math
+> Random MOPPS DPS
+> Ours
+> 20 40 60 80 100 110
+> Training Steps
+> 75.0 77.5 80.0 82.5 85.0
+> Accuracy (%) Qwen3-4B Countdown
+> 20 40 60 80 100 110
+> Training Steps
+> 75.0 77.5 80.0 82.5 85.0 87.5
+> Qwen3-8B Countdown
+> 20 40 60 80 100 110
+> Training Steps
+> 67.5 70.0 72.5 75.0 77.5 80.0 82.5
+> DSR-7B Countdown
+> Random MOPPS DPS
+> Ours
+
+Figure 3: Performance comparisons of different methods and models on the MATH and Countdown tasks. Our proposed MaPP outperforms the existing SOTA methods and other baselines in both training efficiency and performance. 
+
+Models. For mathematics and planning, we use three text-only models: Qwen3-4B-Base, Qwen3-8B-Base [Yang et al., 2025], and DeepSeek-R1-Distill-Qwen-7B [Guo et al., 2025]. For visual geometry, we adopt Qwen2.5-VL-3B-Instruct and Qwen2.5-VL-7B-Instruct [Bai et al., 2025]. 
+
+Baselines. We compare against four methods spanning online prompt selection paradigms [Qu et al., 2026b]. (1) Random : uniform sampling (standard GRPO baseline) [Shao et al., 2024]. (2) MoPPS [Qu et al., 2026a]: prediction-based; models success rate as Beta variable, uses Thompson sampling for intermediate difficulty. (3) DPS [Mao et al., 2026]: prediction-based; frames solving progress as a 3-state HMM, prioritizes partially-solved prompts. (4) Dynamic Sampling (DS) [Yu et al., 2025]: evaluation-based; oversamples 4× batch, rolls out all, filters zero-variance prompts. Serves as compute-intensive oracle baseline. 
+
+5.2 Main Results Mathematics. Tab. 1 reports evaluation results across five mathematics benchmarks for three model backbones. Across all scales, MaPP consistently achieves the highest average accuracy, outperforming both prediction-based methods (MoPPS, DPS) and the compute-intensive oracle baseline DS. On Qwen3-4B, MaPP obtains an average score of 61.96, improving over the strongest prediction-based baseline MoPPS by +2.45 and even surpassing DS by +1.55, while using only 25% of its rollout budget (563k vs. 2252k). Similar trends hold on Qwen3-8B (+1.49 over MoPPS) and R1-Distill-7B (+1.42 over MoPPS), confirming that the improvement is consistent across model families and scales. 
+
+Planning and visual geometry. On the Countdown task (Fig. 3, bottom row), MaPP achieves final accuracy gains of +1.84 (Qwen3-4B) and +1.71 (Qwen3-8B) over the strongest baseline at convergence. For visual geometry on Geometry3k (Fig. C(a)), MaPP outperforms the strongest baseline by +1.04 on Qwen2.5-VL-3B-Instruct and +2.40 on Qwen2.5-VL-7B-Instruct. These results demonstrate that MaPP generalizes beyond text-only mathematical reasoning to both planning and multi-modal tasks. 
+
+Training efficiency. Fig. 3 plots accuracy against training steps across all six model-task combina-tions. MaPP converges substantially faster than all baselines: on MATH, it reaches the same accuracy as Random Sample by approximately 2.5–2.8 × faster convergence speed, while the acceleration rates range from 1.6 × to 2.6 × on Countdown dataset. MaPP introduces no additional rollout cost over 8Table 2: Sensitivity to the temporal discount λ.Trained on Qwen3-4B, Countdown.                      
+
+> λCountDown3to4 CountDown4 Avg. 0.0 83.51 66.19 74.85 0.1 85.17 70.04 77.61
+> 0.5 86.76 72.24 79.50
+> 0.7 85.95 69.18 77.57 0.9 83.08 67.33 75.21 1.0 85.82 70.72 78.27
+
+Table 3: Robustness to rollout group size G. Trained on Qwen3-4B, Countdown.                                        
+
+> G= 4 G= 16
+> Method CD-34 CD-4 #Rollouts CD-34 CD-4 #Rollouts Random 79.39 60.14 123k 82.54 64.01 492k MoPPS 80.22 62.70 123k 86.39 72.79 492k DPS 82.17 63.26 123k 86.90 70.18 492k DS 81.85 64.11 490k 83.87 66.66 1855k Ours 82.45 64.44 123k 88.33 73.42 492k
+
+prediction-based methods, and requires less than half the runtime of DS across all settings (Tab. 1, last two columns). 
+
+Discussion. Several patterns emerge from the results. First, the gains are most pronounced on challenging benchmarks such as OlympiadBench (+3.31 on Qwen3-4B), suggesting that cleaner gradient signals from advantage denoising disproportionately benefit the learning of harder reasoning skills. Second, MaPP significantly improves over MoPPS and DPS despite sharing the same Beta posterior infrastructure, confirming that the gains stem from how the posterior is used, specifically marginalization for both advantage estimation and prompt selection, rather than from a better posterior itself. Third, the improvement persists across three task families and five model backbones, indicating that posterior-predictive marginalization provides a general refinement to GRPO learning signals rather than a task-specific heuristic. 
+
+5.3 Ablation Analysis 
+
+Table 4: Ablation on the two components. 
+
+Trained on MATH, Qwen3-4B. MaPP-AD: posterior-predictive advantage (§ 4.2). MaPP-PS: posterior-predictive selection (§ 4.3).                            
+
+> Method MATH Olympiad. Avg. GRPO 79.41 38.25 58.83 + MaPP-PS 81.03 43.17 62.10 + MaPP-AD 82.07 44.52 63.30
+> + AD + PS 82.85 47.59 65.22
+> MoPPS 82.17 44.28 63.23 + MaPP-AD 82.63 45.90 64.27
+> DPS 82.24 43.98 63.11 + MaPP-AD 82.71 45.75 64.23
+
+Effect of the two components. MaPP comprises two modules: the posterior-predictive advantage (MaPP-AD) and the posterior-predictive selection score (MaPP-PS). Tab. 4 disentangles the contribu-tions of MaPP-AD and MaPP-PS on Qwen3-4B. Starting from standard GRPO, adding MaPP-PS alone yields +1.62 improvement on MATH, while MaPP-AD alone yields a larger +2.66. Combining both produces +3.44, exceeding the sum of indi-vidual gains, suggesting the two modules are syn-ergistic. To verify complementarity with existing methods, we plug MaPP-AD into MoPPS and DPS without modifying their selection logic; it consis-tently improves both (+1.04 and +1.12 respectively), demonstrating that advantage denoising provides additional gains beyond prompt selection. 
+
+Sensitivity to the temporal discount λ. The temporal discount λ controls the trade-off between tracking speed and posterior stability. Tab. 2 and Fig. C(b) reports MaPP performance on Countdown under varying λ. Performance peaks at λ=0 .5 (79.50 avg.) and degrades at both extremes: λ=0 .0
+
+(74.85) forgets all history and reduces the posterior to single-step evidence, while λ=0 .9 (75.21) retains stale observations that lag behind the evolving policy. The moderate sensitivity suggests that a reasonable balance between recency and stability is sufficient, and the optimal value does not require fine-grained tuning. We use λ=0 .5 for all other experiments. 
+
+Robustness to group size. Tab. 3 and Fig. B evaluate MaPP on the Countdown benchmark under group sizes G=4 and G=16 , complementing the default G=8 used on in main experiment. MaPP achieves the highest accuracy across both settings: at G=4 , it outperforms the best baseline by +0.28 (CD-34) and +0.33 (CD-4); at G=16 , the margin widens to +1.43 (CD-34) and +0.63 (CD-4). The wider margin at larger G is expected: more responses per group provide richer per-step evidence for the posterior, enabling more precise advantage corrections that outweigh the averaging effect of larger groups. This confirms that posterior-predictive marginalization scales favorably with group size. 96 Conclusion 
+
+We identified composition noise in the GRPO advantage due to uncertainty in group composition, which degrades gradient estimation and prompt selection. To address this, we proposed MaPP: a unified framework that extends the per-prompt Beta posterior to a closed-form posterior-predictive advantage estimator with provably diminishing MSE and an uncertainty-aware selection score, addressing both data-efficiency losses through a single shared posterior. Experiments on mathematics, planning, and visual geometry with five backbones show consistent gains in accuracy and convergence over GRPO and strong baselines, with no additional rollout overhead. 
+
+## References 
+
+S. Bae, J. Hong, M. Y. Lee, H. Kim, J. Nam, and D. Kwak. Online difficulty filtering for reasoning oriented reinforcement learning. In Proceedings of the 19th Conference of the European Chapter of the Association for Computational Linguistics (Volume 1: Long Papers) , pages 700–719, 2026. S. Bai, K. Chen, X. Liu, J. Wang, W. Ge, S. Song, K. Dang, P. Wang, S. Wang, J. Tang, H. Xu, M. Yan, J. Lin, D. Liu, B. Yu, B. Hui, B. Li, J. Zhou, J. Lin, C. Zhou, J. Zhou, et al. Qwen2.5-vl technical report. arXiv preprint arXiv:2502.13923 , 2025. G. Casella and C. P. Robert. Rao-blackwellisation of sampling schemes. Biometrika , 83(1):81–94, 1996. X. Chen, J. Lu, M. Kim, D. Zhang, J. Tang, A. Piché, N. Gontier, Y. Bengio, and E. Kamalloo. Self-evolving curriculum for llm reasoning. arXiv preprint arXiv:2505.14970 , 2025. D. Guo, D. Yang, H. Zhang, J. Song, P. Wang, Q. Zhu, R. Xu, R. Zhang, S. Ma, X. Bi, et al. Deepseek-r1: Incentivizing reasoning capability in llms via reinforcement learning. arXiv preprint arXiv:2501.12948 , 2025. C. He, R. Luo, Y. Bai, S. Hu, Z. Thai, J. Shen, J. Hu, X. Han, Y. Huang, Y. Zhang, et al. Olympiadbench: A challenging benchmark for promoting agi with olympiad-level bilingual multimodal scientific problems. In 
+
+Proceedings of the 62nd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) , pages 3828–3850, 2024. D. Hendrycks, C. Burns, S. Kadavath, A. Arora, S. Basart, E. Tang, D. Song, and J. Steinhardt. Measuring mathematical problem solving with the math dataset. arXiv preprint arXiv:2103.03874 , 2021. Hiyouga. Geometry3k: A large-scale multi-modal geometry reasoning dataset. https://huggingface.co/ datasets/hiyouga/geometry3k , 2025. A. Jaech, A. Kalai, A. Lerer, A. Richardson, A. El-Kishky, A. Low, A. Helyar, A. Madry, A. Beutel, A. Carney, et al. Openai o1 system card. arXiv preprint arXiv:2412.16720 , 2024. A. Lewkowycz, A. Andreassen, D. Dohan, E. Dyer, H. Michalewski, V. Ramasesh, A. Slone, C. Anil, I. Schlag, T. Gutman-Solo, et al. Solving quantitative reasoning problems with language models. Advances in neural information processing systems , 35:3843–3857, 2022. H. Lightman, V. Kosaraju, Y. Burda, H. Edwards, B. Baker, T. Lee, J. Leike, J. Schulman, I. Sutskever, and K. Cobbe. Let’s verify step by step. In The twelfth international conference on learning representations ,2023. Z. Lin, M. Lin, Y. Xie, and R. Ji. Cppo: Accelerating the training of group relative policy optimization-based reasoning models. arXiv preprint arXiv:2503.22342 , 2025. H. Liu, Y. Feng, Y. Mao, D. Zhou, J. Peng, and Q. Liu. Action-depedent control variates for policy optimization via stein’s identity. arXiv preprint arXiv:1710.11198 , 2017. Z. Liu, C. Chen, W. Li, P. Qi, T. Pang, C. Du, W. S. Lee, and M. Lin. Understanding r1-zero-like training: A critical perspective. arXiv preprint arXiv:2503.20783 , 2025. I. Loshchilov and F. Hutter. Decoupled weight decay regularization. arXiv preprint arXiv:1711.05101 , 2017. P. Lu, R. Gong, S. Jiang, L. Qiu, S. Huang, X. Liang, and S.-C. Zhu. Inter-gps: Interpretable geometry problem solving with formal language and symbolic reasoning. In The Joint Conference of the 59th Annual Meeting of the Association for Computational Linguistics and the 11th International Joint Conference on Natural Language Processing (ACL-IJCNLP 2021) , 2021. 
+
+10 Y. Mao, Y. Qu, Q. Wang, H. Zou, and X. Ji. Dynamics-predictive sampling for active rl finetuning of large reasoning models. arXiv preprint arXiv:2603.10887 , 2026. J. Pan, J. Zhang, X. Wang, L. Yuan, H. Peng, and A. Suhr. Tinyzero. https://github.com/Jiayi-Pan/ TinyZero , 2025. Accessed: 2025-01-24. Y. Qu, Q. Wang, Y. Mao, V. T. Hu, B. Ommer, and X. Ji. Can prompt difficulty be online predicted for accelerating rl finetuning of reasoning models? In Proceedings of the 32nd ACM SIGKDD Conference on Knowledge Discovery and Data Mining V. 1 , pages 1240–1250, 2026a. Y. Qu, Q. Wang, Y. Mao, H. Zou, Y. Jiang, W. Liu, C. Bai, K. Yang, Y. Chen, S. Yang, et al. Small generalizable prompt predictive models can steer efficient rl post-training of large reasoning models. arXiv preprint arXiv:2602.01970 , 2026b. J. Schulman, F. Wolski, P. Dhariwal, A. Radford, and O. Klimov. Proximal policy optimization algorithms. 
+
+arXiv preprint arXiv:1707.06347 , 2017. Z. Shao, P. Wang, Q. Zhu, R. Xu, J. Song, X. Bi, H. Zhang, M. Zhang, Y. Li, Y. Wu, et al. Deepseekmath: Pushing the limits of mathematical reasoning in open language models. arXiv preprint arXiv:2402.03300 ,2024. G. Sheng, C. Zhang, Z. Ye, X. Wu, W. Zhang, R. Zhang, Y. Peng, H. Lin, and C. Wu. Hybridflow: A flexible and efficient rlhf framework. In Proceedings of the Twentieth European Conference on Computer Systems ,pages 1279–1297, 2025. A. Yang, A. Li, B. Yang, B. Zhang, B. Hui, B. Zheng, B. Yu, C. Gao, C. Huang, C. Lv, et al. Qwen3 technical report. arXiv preprint arXiv:2505.09388 , 2025. F. Yang, Z. Chen, X. Wang, X. Lu, J. Chai, G. Yin, W. Lin, S. Ma, F. Zhuang, D. Wang, et al. Your group-relative advantage is biased. arXiv preprint arXiv:2601.08521 , 2026. Q. Yu, Z. Zhang, R. Zhu, Y. Yuan, X. Zuo, Y. Yue, W. Dai, T. Fan, G. Liu, L. Liu, et al. Dapo: An open-source llm reinforcement learning system at scale. arXiv preprint arXiv:2503.14476 , 2025. Y. Yue, Y. Yuan, Q. Yu, X. Zuo, R. Zhu, W. Xu, J. Chen, C. Wang, T. Fan, Z. Du, et al. Vapo: Efficient and reliable reinforcement learning for advanced reasoning tasks. arXiv preprint arXiv:2504.05118 , 2025. Y. Zeng, Z. Sun, B. Ji, E. Min, H. Cai, S. Wang, D. Yin, H. Zhang, X. Chen, and J. Wang. Cures: From gradient analysis to efficient curriculum learning for reasoning llms. arXiv preprint arXiv:2510.01037 , 2025. R. Zhang, D. Arora, S. Mei, and A. Zanette. Speed-rl: Faster training of reasoning models via online curriculum learning. arXiv preprint arXiv:2506.09016 , 2025. C. Zheng, S. Liu, M. Li, X.-H. Chen, B. Yu, C. Gao, K. Dang, Y. Liu, R. Men, A. Yang, et al. Group sequence policy optimization. arXiv preprint arXiv:2507.18071 , 2025a. H. Zheng, Y. Zhou, B. R. Bartoldson, B. Kailkhura, F. Lai, J. Zhao, and B. Chen. Act only when it pays: Efficient reinforcement learning for llm reasoning via selective rollouts. arXiv preprint arXiv:2506.02177 , 2025b. H. Zheng, Y. Zhou, B. R. Bartoldson, B. Kailkhura, F. Lai, J. Zhao, and B. Chen. Act only when it pays: Efficient reinforcement learning for llm reasoning via selective rollouts. arXiv preprint arXiv:2506.02177 , 2025c. X. Zhou, B. Zhu, H. Zhang, H. Wang, and Z. Guo. Efficient rlvr training via weighted mutual information data selection. arXiv preprint arXiv:2603.01907 , 2026. 
+
+11 Appendix A Algorithm 
+
+Algorithm 1 summarizes the complete MaPP training loop. At each step, prompts are first selected by sampling proportionally to the posterior-predictive score V MaPP  
+
+> G
+
+(§4.3). After rollout, the posterior-predictive advantage ˆaMaPP  
+
+> j
+
+replaces the standard GRPO advantage for policy update (§4.2). The shared Beta posterior is then updated from the new observations. The entire procedure adds only closed-form computations on top of standard GRPO, with no additional rollouts or model forward passes. 
+
+Algorithm 1 MAPP: Marginalized Posterior-Predictive Framework 
+
+Require: Prompt pool T ; policy πθ ; group size G; batch size |B| ; discount λ ∈ (0 , 1) ; training steps 
+
+T
+
+Ensure: Updated policy πθ 
+
+> 1:
+
+Initialize (ατ 
+
+> 0
+
+, β τ 
+
+> 0
+
+) ← (1 , 1) for all τ ∈ T ▷ uninformative Beta prior  
+
+> 2:
+
+for t = 0 , . . . , T − 1 do 
+
+▷ Posterior-predictive prompt selection (§4.3)  
+
+> 3:
+
+for τ ∈ T do  
+
+> 4:
+
+V MaPP  
+
+> G
+
+(ατt , β τt ) ← 1 − B(ατt +G, β τt )   
+
+> B(ατt,β τt)
+
+− B(ατt , β τt +G)   
+
+> B(ατt,β τt)
+
+▷ Eq. (15)  
+
+> 5:
+
+end for  
+
+> 6:
+
+Sample batch Bt ∼ q(τ ) ∝ V MaPP  
+
+> G
+
+(ατt , β τt )
+
+▷ Rollout and reward collection  
+
+> 7:
+
+for τ ∈ B t do  
+
+> 8:
+
+Draw {yτj }Gj=1 ∼ πθ (· | τ ); observe rewards {rτt;j }Gj=1  
+
+> 9:
+
+Sτt ← PGj=1 rτt;j 
+
+> 10:
+
+end for 
+
+▷ Posterior-predictive advantage (§4.2)  
+
+> 11:
+
+for τ ∈ B t, j = 1 , . . . , G do  
+
+> 12:
+
+α′τt+1; j ← λ · ατt + (1 − λ) · ατ 
+
+> 0
+
++ Sτt − rτt;j ▷ LOO posterior, Eq. (12)  
+
+> 13:
+
+β′τt+1; j ← λ · βτt + (1 − λ) · βτ 
+
+> 0
+
++ G − Sτt − 1 + rτt;j 
+
+> 14:
+
+if rτt;j = 1 then  
+
+> 15:
+
+ˆaMaPP ,τ t;j ← + PG−1 
+
+> S=1
+
+wS (α′τt+1; j , β ′τt+1; j )p(G − S)/S ▷ Eq. (14)  
+
+> 16:
+
+else  
+
+> 17:
+
+ˆaMaPP ,τ t;j ← − PG−1 
+
+> S=1
+
+wS (β′τt+1; j , α ′τt+1; j )p(G − S)/S  
+
+> 18:
+
+end if  
+
+> 19:
+
+end for 
+
+▷ Policy update (Eq. (16) ) 
+
+> 20:
+
+θ ← θ + η ∇θ J (θ) with ∇θ J = 1
+
+> |B t|
+
+P 
+
+> τ∈B t
+> 1
+> G
+
+PGj=1 ˆaMaPP ,τ t;j ∇θ log πθ (yτj | τ )
+
+▷ Posterior update (Eq. (6) ) 
+
+> 21:
+
+for τ ∈ B t do  
+
+> 22:
+
+ατt+1 ← λ · ατt + (1 − λ) · ατ 
+
+> 0
+
++ Sτt 
+
+> 23:
+
+βτt+1 ← λ · βτt + (1 − λ) · βτ 
+
+> 0
+
++ G − Sτt 
+
+> 24:
+
+end for  
+
+> 25:
+
+end for 
+
+## B Implementation Details 
+
+B.1 Tasks and Datasets Mathematics. We train on the MATH dataset [Hendrycks et al., 2021], which contains 7,500 competition-level problems spanning algebra, geometry, number theory, and combinatorics. Follow-ing prior work [Mao et al., 2026, Qu et al., 2026a,b], we evaluate on four benchmarks: AMC23, MATH500 [Lightman et al., 2023], Minerva Math [Lewkowycz et al., 2022], and OlympiadBench [He et al., 2024], using the datasets hosted by MOPPS [Qu et al., 2026a]. We adopt a binary reward 12 function following the default configuration in verl [Sheng et al., 2025]: a reward of 1 for correct and 0 otherwise. 
+
+Numerical planning. We adopt the Countdown Number Game [Pan et al., 2025], which requires combining given numbers using basic arithmetic operations to reach a target value. Training is con-ducted on a 2,000-problem subset of the Countdown-34 dataset. Evaluation uses two benchmarks: a 512-problem held-out split from Countdown-34 (CD-34), and a 512-problem subset from Countdown-4 (CD-4), a harder variant that provides four source numbers per problem and substantially enlarges the search space. 
+
+Visual geometry. We train on the 2,101-problem training split of the Geometry3k dataset [Lu et al., 2021, Hiyouga, 2025], which pairs geometric diagrams with multi-step reasoning questions. Evaluation is conducted on the official 601-problem test split. 
+
+B.2 Training Details 
+
+We adopt GRPO [Shao et al., 2024] as the default RLVR algorithm, implemented within the verl framework [Sheng et al., 2025]. At each training step, we sample G=5 responses per prompt for math tasks and G=8 responses per prompt for Countdown and Geometry, using temperature 1.0 and top-p=1 .0 for rollout generation. We disable the KL penalty by setting β=0 , consistent with Yu et al. [2025]. Training batch sizes are set to 256 for MATH and Countdown, with mini-batch sizes of 128 and 64 respectively, and 512 for Geometry3k with a mini-batch size of 256. The maximum response length is 1024 tokens for all tasks. Optimization is performed using AdamW [Loshchilov and Hutter, 2017] with learning rate 1 × 10 −6, (β1, β 2) = (0 .9, 0.999) , and weight decay 0.01. We apply the Clip-Higher strategy from DAPO [Yu et al., 2025], which decouples clipping ranges with ϵlow =0 .2
+
+and ϵhigh =0 .28 . All experiments are conducted on 8 NVIDIA H100 GPUs. For all prediction-based prompt selection methods, the candidate pool size is set to ˆM =8 × the training batch size B. For MoPPS [Qu et al., 2026a] and DPS [Mao et al., 2026], we follow their original top-B selection protocol, where prompts are ranked by the corresponding scoring criterion and the top-B prompts are selected. In contrast, MaPP does not perform deterministic top-B selection. Instead, each candidate prompt is assigned a retention probability q(τ ) ∝ V MaPP  
+
+> G
+
+(ατ , β τ ), and the training batch is sampled according to these probabilities. For MaPP, the Beta prior is initialized as (α0, β 0) = (1 , 1) and the temporal discount is set to λ=0 .5 across all tasks. For MoPPS [Qu et al., 2026a], we follow the original configuration with Beta prior (α0, β 0) = (1 , 1) , target success probability γ∗=0 .5, and decay factor λ=0 .5. For DPS [Mao et al., 2026], we adopt the default three-state HMM with Dirichlet prior α0 = (1 , 1, 1) and decay ratio λ=0 .5. For Dynamic Sampling [Yu et al., 2025], we use the verl implementation, which over-samples a candidate batch 4× the training batch size and post-hoc filters out prompts with zero reward standard deviation. 
+
+## C Additional Experiments 
+
+C.1 Empirical Calibration of MaPP-AD and MaPP-PS 
+
+We verify that a⋆j (γ) and V M aP P G (γ) faithfully reflect empirical training dynamics. For MaPP-AD, we take a mid-training checkpoint on Countdown (Qwen3-4B, G=8 ), sample 100 prompts and draw 50 independent groups per prompt; Figure A(a) shows that the theoretical intrinsic advantage closely tracks the empirical mean advantage, with nearly all points falling along the ideal calibration line, and the ±1 std band visualizes the composition noise that MaPP-AD eliminates. For MaPP-PS, we collect the predicted V M aP P G (ˆ γ) and the empirical non-degenerate ratio at each training step throughout training, bin them by the theoretical score, and compare; Figure A(b) shows that VG(ˆ γ) tracks the empirical ratio within a ±0.05 band across the full range, confirming reliable difficulty estimation. Together, both plots validate the Bernoulli–Beta modeling assumption that MaPP builds upon. 
+
+C.2 Training Dynamics Robustness to group size. Figure B shows accuracy versus training steps under group sizes 
+
+G=4 and G=16 on Countdown. MaPP reaches the same accuracy as the strongest baseline by approximately 2.0–2.4× faster convergence speed at G=4 , while the acceleration increases to 2.6–13 Figure A: (a) Calibration of the intrinsic advantage: the theoretical prediction a⋆j (γ) (Proposition 4.1) closely matches the empirical mean advantage across 100 prompts × 50 groups ( G=8 ). The ±1 std band reflects the composition noise that MaPP eliminates via marginalization. (b) Calibration of the selection score: the posterior-predictive non-zero-variance probability V MaPP  
+
+> G
+
+(Eq. (15)) tracks the empirical effective ratio within a ±0.05 band. 20 40 60 80 100 120                 
+
+> Training Steps
+> 75.0 77.5 80.0 82.5
+> Accuracy (%) Countdown3to4
+> 20 40 60 80 100 120
+> Training Steps
+> 50.0 55.0 60.0 65.0
+> Countdown4
+> Random MOPPS DS DPS
+> Ours
+> 20 40 60 80 100 120
+> Training Steps
+> 75.0 80.0 85.0
+> Countdown3to4
+> 20 40 60 80 100 120
+> Training Steps
+> 55.0 60.0 65.0 70.0
+> Countdown4
+> Random MOPPS DS DPS
+> Ours
+> (a) n_rollout = 4 (b) n_rollout = 16
+
+Figure B: Ablation experiments of our proposed MaPP method under different numbers of rollouts (n = 4 and n = 16 , with n = 8 evaluated in the main experiments). The results show that MaPP performs consistently well across different rollout group sizes. 
+
+2.8× at G=16 . The more pronounced speedup at larger G is consistent with the observation in §5.3 that richer per-step evidence enables sharper advantage corrections. 
+
+Visual geometry and sensitivity to λ. Figure C(a) shows training curves for the visual geometry task on Qwen2.5-VL-3B and Qwen2.5-VL-7B. MaPP outperforms the strongest baseline by +1.04 and +2.40 respectively at convergence, reaching comparable accuracy by approximately 1.4–1.5×
+
+faster convergence speed, confirming that MaPP generalizes to multi-modal settings. Figure C(b) shows training curves under varying λ on Countdown. λ=0 .5 achieves the best final accuracy and convergence speed, while extreme values ( λ=0 .0 and λ=1 .0) converge noticeably slower. 
+
+## D Theoretical Analysis 
+
+All proofs in this section are for a single prompt τ at a fixed training step t; we drop the superscript 
+
+τ for brevity and write α′ 
+
+> j
+
+:= α′ 
+
+> t+1; j
+
+, β′ 
+
+> j
+
+:= β′ 
+
+> t+1; j
+
+following Proposition 4.2. The latent pass rate 
+
+γ ∈ (0 , 1) is treated as a fixed (but unknown) parameter; expectations E[· | γ] are taken over the rollout randomness only, while Bayesian quantities are computed under the leave-one-out posterior 
+
+γ | H t, r t;−j ∼ Beta( α′ 
+
+> j
+
+, β ′ 
+
+> j
+
+). Under binary rewards, the GRPO advantage reduces to 
+
+ˆAj = h(rj , S ) = 
+
++p(G − S)/S, rj = 1 ,
+
+−pS/ (G − S), rj = 0 , (17) with ˆAj := 0 when S ∈ { 0, G }; correspondingly, both a⋆j (γ) and ˆAj drop the degenerate terms, so 
+
+E[ ˆAj | rj , γ ] = a⋆j (γ) for γ ∈ (0 , 1) .14 Theorem D.1 (Composition-noise lower bound) . For any G ≥ 2 and γ ∈ (0 , 1) ,
+
+E( ˆAj − a⋆j (γ)) 2 γ = ξ(γ) > 0, (18) 
+
+where ξ(γ) depends only on (γ, G ) and is independent of the posterior or training history. 
+
+Proof. By Definition 1, a⋆j (γ) = E[ ˆAj | rj , γ ]. Conditioning on rj and γ, the only remaining randomness comes from the other G − 1 responses, so 
+
+E( ˆAj − a⋆j (γ)) 2 | γ = Erj
+
+ Var( ˆAj | rj , γ ) γ =: ξ(γ). (19) Letting k ∼ Bin( G−1, γ ) denote the number of correct responses among the other G − 1,
+
+ξ(γ) = γ Var k
+
+q G−1−kk+1 
+
+
+
++ (1 −γ) Var k
+
+q kG−k
+
+
+
+. (20) The map S 7 → p(G − S)/S is strictly monotone on {1, . . . , G − 1} and the binomial is non-degenerate for γ ∈ (0 , 1) , hence ξ(γ) > 0. Since ξ depends only on (γ, G ), this lower bound is structural and cannot be reduced by any prompt-level posterior or selection scheme. □
+
+Theorem D.2 (Frequentist MSE bound for MaPP) . Fix γ ∈ (0 , 1) and G ≥ 2. Let ˜γ := α′ 
+
+> j
+
+/(α′ 
+
+> j
+
++ β′ 
+
+> j
+
+)
+
+and n := α′ 
+
+> j
+
++ β′ 
+
+> j
+
+. There exist constants C1(γ, G ), C 2(γ, G ) depending only on (γ, G ) such that 
+
+E(ˆ aMaPP  
+
+> j
+
+− a⋆j (γ)) 2 γ ≤ C1 (˜ γ − γ)2
+
+| {z }
+
+> calibration bias
+
++ C2
+
+n + 1 
+
+| {z }  
+
+> =O(G/n )
+
+. (21) 
+
+Proof. Decompose the frequentist MSE under the rollout history Ht into squared bias and variance: 
+
+E(ˆ aMaPP  
+
+> j
+
+− a⋆j (γ)) 2 | γ =  EHt [ˆ aMaPP  
+
+> j
+
+| γ] − a⋆j (γ)2
+
+| {z }
+
+> bias 2
+
++ Var Ht (ˆ aMaPP  
+
+> j
+
+| γ)
+
+| {z }
+
+> variance
+
+. (22) Since a⋆j = ±μG is a degree-(G−1) polynomial with binomial coefficients, its first two derivatives are bounded on compact subsets of (0 , 1) :
+
+LG := sup 
+
+> γ∈K
+
+(a⋆j )′(γ) = O(G), MG := sup 
+
+> γ∈K
+
+(a⋆j )′′ (γ) = O(G2), K ⋐ (0 , 1) ,
+
+(23) where the constants depend on the distance of K to {0, 1} and are bounded over the non-degenerate regime enforced by MaPP-PS via V MaPP  
+
+> G
+
+. A second-order Taylor expansion of a⋆j around γ gives, for γ′ in a neighborhood of γ,
+
+a⋆j (γ′) = a⋆j (γ) + ( a⋆j )′(γ) ( γ′ − γ) + R(γ′, γ ), |R(γ′, γ )| ≤ 12 MG (γ′ − γ)2. (24) Taking expectation under the leave-one-out posterior γ′ ∼ Beta( α′ 
+
+> j
+
+, β ′ 
+
+> j
+
+) at fixed Ht, and using 
+
+Eγ′ [γ′] = ˜ γ,
+
+ˆaMaPP  
+
+> j
+
+= a⋆j (γ) + ( a⋆j )′(γ) (˜ γ − γ) + Eγ′ [R(γ′, γ )] . (25) Bias. Taking expectation of Eq. (25) over Ht at fixed γ and using |Eγ′ [R]| ≤ 12 MGEγ′ [( γ′ − γ)2],
+
+EHt [ˆ aMaPP  
+
+> j
+
+| γ] − a⋆j (γ) ≤ LG EHt [˜ γ | γ] − γ + O MG/n , (26) where the last term absorbs both Eγ′ [( γ′ − ˜γ)2] = Var γ′ (γ′) = O(1 /n ) and (˜ γ − γ)2. Squaring, the bias contributes C1 (˜ γ − γ)2 + O(G2/n 2) with C1 = L2 
+
+> G
+
+= O(G2); the higher-order term is dominated by the variance term below for n ≥ 1.Variance. The variance term equals the posterior variance of a⋆j (γ′) under γ′ ∼ Beta( α′ 
+
+> j
+
+, β ′ 
+
+> j
+
+).Substituting Eq. (24) and using Var γ′ (constants ) = 0 ,
+
+Var γ′
+
+ a⋆j (γ′) ≤ (a⋆j )′(γ)2 Var γ′ (γ′) + O M 2
+
+> G
+
+/n 2 ≤ L2
+
+> G
+
+4( n + 1) + O(1 /n 2), (27) using Var γ′ (γ′) = α′ 
+
+> j
+
+β′ 
+
+> j
+
+/[n2(n + 1)] ≤ 1/[4( n + 1)] . This gives C2 = L2
+
+> G
+
+/4 = O(G).Combining bias and variance yields Eq. (21). 15 20 40 60 80 100 120                 
+
+> Training Steps
+> 30.0 32.5 35.0 37.5 40.0 42.5 45.0 47.5 50.0
+> Accuracy (%) Qwen2.5-3B-VL Geometry
+> 20 40 60 80 100 120
+> Training Steps
+> 42.5 45.0 47.5 50.0 52.5 55.0
+> Qwen2.5-7B-VL Geometry
+> Random MOPPS DS DPS
+> Ours
+> 20 40 60 80 100 120
+> Training Steps
+> 75.0 80.0 85.0
+> Countdown3to4
+> 20 40 60 80 100 120
+> Training Steps
+> 55.0 60.0 65.0 70.0
+> Countdown4
+> =0.0
+> =0.1
+> =0.7
+> =0.9
+> =1.0
+> =0.5
+> (a) Training on Geometry (b) Posterior Tracking Discount
+
+Figure C: (a): Performance of our method trained on the Qwen2.5-VL-Instruct series models and evaluated on the Geometry test set. (b): Self-ablation of MaPP under different posterior tracking discounts. The best performance is achieved at λ = 0 .5 (Ours). 
+
+Corollary D.3 (Crossover) . Combining Theorems D.1 and D.2, there exists a threshold 
+
+n⋆(γ, G ) ≤ C2
+
+ξ(γ) − C1(˜ γ − γ)2 − 1, (28) 
+
+such that for all n ≥ n⋆,
+
+E(ˆ aMaPP  
+
+> j
+
+− a⋆j (γ)) 2 γ ≤ ξ(γ) = E( ˆAj − a⋆j (γ)) 2 γ, (29) 
+
+i.e., MaPP strictly improves over GRPO at the per-response level. In practice, this threshold is small under standard initialization (α0, β 0) = (1 , 1) and is reached after a few posterior updates per prompt, ensuring that MaPP outperforms GRPO throughout the main training phase. 
+
+Connection to gradient estimation. The per-response MSE bounds in Theorems D.1 and D.2 trans-fer to the policy gradient under a standard score-function moment condition. Let sj := ∇θ log πθ (yj |
+
+τ ) and let g := 1
+
+> G
+
+PGj=1 ˆaj sj , g⋆ := 1
+
+> G
+
+PGj=1 a⋆j (γ)sj denote the policy gradient and its ora-cle counterpart, where ˆaj denotes either ˆAj (GRPO) or ˆaMaPP  
+
+> j
+
+(MaPP), with per-response error 
+
+ϵj := ˆ aj − a⋆j (γ). Suppose E[∥sj ∥2 | τ ] ≤ B2, as is routinely assumed in policy-gradient analysis. A direct application of Cauchy–Schwarz to g − g⋆ = 1
+
+> G
+
+PGj=1 ϵj sj , together with symmetry across responses, yields 
+
+E∥g − g⋆∥2 γ ≤ B2 · Eϵ21 γ. (30) Since this bound is monotone in the per-response MSE, the bounds of Theorems D.1 and D.2 immediately yield corresponding gradient-level bounds, and Corollary D.3 likewise transfers: MaPP achieves a smaller gradient MSE upper bound than GRPO whenever n ≥ n⋆. Empirically, Fig. 1(b) and Fig. A show that composition noise produces visible variability in realized advantages across groups, which MaPP suppresses. 
+
+## E Derivation of Closed Forms 
+
+All derivations in this section are for a single prompt τ ; we drop the superscript τ for brevity and write α′ 
+
+> j
+
+:= α′ 
+
+> t+1; j
+
+, β′ 
+
+> j
+
+:= β′ 
+
+> t+1; j
+
+following Proposition 4.2. 
+
+Intrinsic advantage (Proposition 4.1). Consider rj = 1 ; the case rj = 0 follows by sym-metry. Conditional on rj = 1 and γ, the remaining G − 1 responses each follow independent 
+
+Bernoulli( γ) trials, so the total success count satisfies S ∈ { 1, . . . , G } with P(S = s | rj = 1 , γ ) = 
+
+ G−1
+
+> s−1
+
+γs−1(1 − γ)G−s. Since ˆAj = 0 when S = G, taking expectation gives 
+
+a⋆j (γ) = E ˆAj | rj =1 , γ  =
+
+> G−1
+
+X
+
+> S=1
+
+G − 1
+
+S − 1
+
+
+
+γS−1(1 −γ)G−S
+
+r G−SS = μG(γ). (31) For rj = 0 , by symmetry a⋆j (γ) = −μG(1 −γ).16 Posterior-predictive advantage (Proposition 4.2). Marginalizing a⋆j (γ) = μG(γ) against the leave-one-out posterior γ ∼ Beta( α′ 
+
+> j
+
+, β ′ 
+
+> j
+
+) and exchanging summation with integration: 
+
+ˆaMaPP  
+
+> j
+
+=
+
+Z 10
+
+μG(γ) γα′ 
+
+> j−1
+
+(1 −γ)β′ 
+
+> j−1
+
+B(α′ 
+
+> j
+
+, β ′ 
+
+> j
+
+) dγ
+
+=
+
+> G−1
+
+X
+
+> S=1
+
+G−1
+
+S−1
+
+r G−SS
+
+1
+
+B(α′ 
+
+> j
+
+, β ′ 
+
+> j
+
+)
+
+Z 10
+
+γα′ 
+
+> j+S−2
+
+(1 −γ)β′  
+
+> j+G−S−1
+
+dγ
+
+| {z }   
+
+> =B(α′
+> j+S−1, β ′
+> j+G−S)
+
+=
+
+> G−1
+
+X
+
+> S=1
+
+G−1
+
+S−1
+
+ B(α′ 
+
+> j
+
++S−1, β ′ 
+
+> j
+
++G−S)
+
+B(α′ 
+
+> j
+
+, β ′ 
+
+> j
+
+)
+
+| {z }       
+
+> =wS(α′
+> j, β ′
+> j) = PBB (S−1|G−1, α ′
+> j,β ′
+> j)
+
+r G−SS . (32) The case rj = 0 follows by the change of variable γ′ = 1 −γ, which swaps α′ 
+
+> j
+
+and β′ 
+
+> j
+
+.
+
+Selection score (Eq. (15) ). The selection score operates across prompts, so we restore the super-script τ . By linearity, V MaPP  
+
+> G
+
+= 1 − Eγ∼Beta( ατ ,β τ )[γG] − E[(1 −γ)G]. The first moment evaluates as 
+
+E[γG] = 1
+
+B(ατ , β τ )
+
+Z 10
+
+γατ +G−1(1 −γ)βτ −1 dγ = B(ατ +G, β τ )
+
+B(ατ , β τ ) , (33) and E[(1 −γ)G] follows by symmetry, giving Eq. (15). 
+
+## F Extension to Multi-Level Rewards 
+
+The main text presents MaPP under binary rewards for notational clarity, but the posterior-predictive marginalization principle extends naturally to discrete multi-level rewards rτj ∈ { v1, . . . , v L} by replacing the Beta–Binomial conjugate pair with the Dirichlet–Multinomial pair: the latent difficulty becomes a probability vector γτ ∈ ∆L−1 with a Dirichlet posterior, and the intrinsic advantage is obtained by enumerating over leave-one-out count vectors weighted by the Dirichlet–Multinomial predictive probability. For moderate G and L, this involves  G+L−2
+
+> L−1
+
+ terms (e.g., 36 for G=8 ,
+
+L=3 ), which is computationally negligible. In this work, all experiments are conducted under binary rewards: the standard {0, 1} setting is used directly, and the {0, 0.1, 1} reward scheme is also treated as binary by merging 0 and 0.1 into the negative class, following MOPPS [Qu et al., 2026a] and related methods. A systematic evaluation of the multi-level extension is left for future work. 
+
+## G Data Examples 
+
+We provide illustrative data examples for each task below. Prompt templates for MATH and Geome-try3k are adopted from the verl framework [Sheng et al., 2025], and the Countdown template follows Pan et al. [2025]. 17 MATH Data Example Prompt: 
+
+You have seven bags of gold coins. Each bag has the same number of gold coins. One day, you find a bag of 53 coins. You decide to redistribute the number of coins you have so that all eight bags you hold have the same number of coins. You successfully manage to redistribute all the coins, and you also note that you have more than 200 coins. What is the smallest number of coins you could have had before finding the bag of 53 coins? Let’s think step by step and output the final answer within \boxed{} .
+
+Ground-Truth Answer: 
+
+203 
+
+Countdown Data Example Prompt: 
+
+A conversation between User and Assistant. The user asks a question, and the Assistant solves it. The assistant first thinks about the reasoning process in the mind and then provides the user with the answer. User: Using the numbers [79 , 8, 27 , 47] , create an equation that equals 91 . You can use basic arithmetic operations (+ , −, ×, ÷), and each number can only be used once. Show your work in <think> </think> tags, and return the final answer in <answer> </answer> tags, for example <answer> (1 + 2) /3</answer> .Assistant: Let me solve this step by step. 
+
+<think> 
+
+Ground-Truth Answer: 
+
+79 + 47 − 27 − 8 = 91 
+
+Geometry3K Data Example Prompt: 
+
+Find x. Round to the nearest tenth if necessary. Assume that segments that appear to be tangent are tangent. You FIRST think about the reasoning process as an in-ternal monologue and then provide the final answer. The reasoning process MUST BE enclosed within <think> </think> tags. The final answer MUST BE put in 
+
+\boxed{} .
+
+Ground-Truth Answer: 
+
+818

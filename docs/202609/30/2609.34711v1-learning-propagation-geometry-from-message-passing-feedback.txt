@@ -1,0 +1,2192 @@
+Title: Learning Propagation Geometry from Message-Passing Feedback
+
+URL Source: https://arxiv.org/pdf/2609.34711v1
+
+Published Time: Tue, 29 Sep 2026 03:58:19 GMT
+
+Number of Pages: 29
+
+Markdown Content:
+# LEARNING PROPAGATION GEOMETRY FROM MESSAGE -PASSING FEEDBACK 
+
+Yingxu Wang 1, Kunyu Zhang 2, Xinwang Liu 3, Mengzhu Wang 4, Siyang Gao 5,Chang Tang 6, Nan Yin 2 
+
+> 1
+
+The Chinese University of Hong Kong 2 The Education University of Hong Kong  
+
+> 3
+
+National University of Defense Technology 4 Hebei University of Technology  
+
+> 5
+
+City University of Hong Kong 6 Huazhong University of Science and Technology 
+
+{yingxv.wang,dreamkily,yinnan8911 }@gmail.com kuzh330@outlook.com, xinwangliu@nudt.edu.cn siyangao@cityu.edu.hk, tangchang@hust.edu.cn 
+
+## ABSTRACT 
+
+Learning local geometry enables graph neural networks (GNNs) to adapt how they compare and integrate neighborhood information. However, estimating geometry from aggregated representations can overlook variation among individual mes-sages and dependencies across feature dimensions. We propose GeoF, a recurrent framework that jointly evolves node features and propagation geometry through message-passing feedback. Each node maintains a local symmetric positive-definite geometry, initialized from a structure-aware prototype atlas and parameterized in block log-triangular coordinates. At each step, the geometry determines neighbor-hood weights, while triangular frame transport maps transformed source messages into the target node’s local coordinates before aggregation. Weighted second-order statistics of residuals between aligned messages and the transformed target state capture directional variation and within-block dependencies, yielding a geometric update target. A shared controller learns complementary corrections through task supervision. A bounded log-triangular update combines these corrections, the target, and the previous geometric state while preserving positive definiteness. The geometry governs subsequent propagation, closing the feedback loop. With parameters shared across recurrent steps, task-specific readouts support node clas-sification, link prediction, and graph classification. Experiments on benchmark datasets show that GeoF consistently outperforms state-of-the-art GNN baselines. 
+
+## 1 INTRODUCTION 
+
+Graph neural networks (GNNs) learn representations by repeatedly transforming and aggregating neighborhood information (Gilmer et al., 2017; Xu et al., 2019). Convolution, attention, and multi-hop aggregation organize this computation through different propagation operators (Kipf & Welling, 2017; Veliˇ ckovi´ c et al., 2018; Abu-El-Haija et al., 2019). Beyond selecting and weighting neighbors, message passing involves comparing features and transforming messages before they are combined. Geometry makes these operations explicit: local metrics determine how feature directions con-tribute to comparisons, while coordinate mappings specify how messages are expressed across local spaces (Chami et al., 2019; Bodnar et al., 2022; Wang et al., 2025). Learning propagation geometry provides a means of adapting neighborhood interactions to graph structure and the prediction task. Existing geometric GNNs adapt propagation at two levels: the choice of representation space and the local rules for comparing and transforming messages. At the first level, curvature learning and node-specific space selection address the mismatch between prescribed geometric assumptions and graph structure by adapting the curvature or geometric family to the data (Chami et al., 2019; Fu et al., 2021; Lee et al., 2023). At the second level, feature-dependent approaches refine how neighboring information is compared and transformed by learning local maps for message transformation (Bodnar et al., 2022) and node-wise metrics for feature comparison (Wang et al., 2026a). Whereas the first level concerns which geometry is appropriate, the second concerns how local interactions should adapt 1arXiv:2609.34711v1 [cs.LG] 28 Sep 2026 to the representations being processed. This makes the information used to infer those local rules consequential. ARGNN estimates its metrics from target features and neighborhood means (Wang et al., 2026a), compressing the neighborhood into a summary that can conceal relationships across feature dimensions. Two neighborhoods can have identical means but different patterns of joint variation. Given identical target features, the metric estimator assigns them the same geometry, even when these differences matter for prediction. Examining individual incoming messages relative to the target state under the current geometry can expose variation obscured by the mean, providing additional information for subsequent geometric updates. This motivates our central question: Can feedback from message passing improve the learning of local propagation geometry for prediction? 
+
+Leveraging this feedback presents three interconnected challenges. First, message differences require a consistent geometric interpretation. When nodes use different local coordinate frames, direct comparisons can conflate coordinate mismatch with variation in the messages themselves. Second, feedback needs to capture how individual messages vary, rather than only how their average changes. 
+
+Opposing contributions can cancel during aggregation, obscuring directional variation and depen-dencies across feature dimensions. Third, residual statistics describe how messages vary, but not which directions of variation matter for prediction. Directions with large residual energy need not be those most relevant to the downstream task. Geometric updates therefore need to incorporate task supervision while remaining well-defined and bounded across repeated propagation steps. To address these challenges, we propose GeoF, a recurrent framework that jointly evolves node features and local geometry through message-passing feedback. Each node maintains a feature state and a symmetric positive-definite geometry, initialized from a structure-aware prototype atlas and parameterized in block log-triangular coordinates (Lin, 2019). First, to resolve coordinate mismatch, 
+
+triangular frame transport maps transformed source messages into the target node’s local coordinates, establishing a common reference for comparison and geometry-weighted aggregation. Second, to capture variation obscured by averaging, second-order residual feedback accumulates weighted outer products of residuals between individual aligned messages and the transformed target state. These statistics capture directional variation and within-block dependencies, yielding a geometric update target. Third, task-guided geometry evolution complements this target with corrections learned by a shared controller through end-to-end task supervision. A bounded log-triangular update combines the target, corrections, and previous geometric state, preserving positive definiteness across recurrent steps. The updated geometry determines neighborhood weights and frame transformations for subsequent propagation, closing the feedback loop. All recurrent parameters are shared across steps, and task-specific readouts support node classification, link prediction, and graph classification. Our contributions are summarized as follows: (1) We investigate message-passing feedback as an information source for local geometry learning, formulating propagation geometry as a persistent node-wise state that evolves jointly with node features. (2) We develop a closed-loop mechanism in which local geometry governs neighborhood weighting and frame-aligned message propagation, while weighted second-order residual statistics and task-supervised corrections drive its evolution. (3) We evaluate GeoF on node classification, link prediction, and graph classification, where it demonstrates consistent gains over general, manifold-based, and adaptive GNN baselines. 
+
+## 2 RELATED WORK 
+
+Operator and Structure Adaptation in GNNs. GNN adaptation has been explored through propa-gation operator design and graph structure learning. Higher-order neighborhood mixing integrates information across hop distances, while adaptive propagation adjusts the contributions of different propagation scales (Abu-El-Haija et al., 2019; Xu et al., 2018; Gasteiger et al., 2018; Liu et al., 2020). To adapt connectivity to downstream tasks, graph structure learning constructs meta-path graphs or iteratively refines graph structure together with node representations (Yun et al., 2019; Chen et al., 2020; Wang et al., 2026b). Related approaches refine noisy adjacency matrices for robust prediction (Jin et al., 2020; Yao et al., 2023) or learn latent edges that support message passing beyond observed connectivity (Wu et al., 2022; Wang et al., 2026c). These studies adapt how messages are aggregated and which nodes communicate. GeoF learns node-wise propagation geometry that explicitly governs message comparison and transport. 
+
+Geometric Modeling and Adaptive Propagation Spaces. Geometric GNNs introduce inductive biases through representation spaces and local maps for message passing. Hyperbolic methods 2exploit negative curvature to represent hierarchical and scale-free structures (Liu et al., 2019; Chami et al., 2019), while sheaf-based diffusion learns local linear maps that relate node spaces for feature comparison and propagation (Bodnar et al., 2022). Geometric adaptation further includes learning graph-dependent curvature (Fu et al., 2021) and selecting between Euclidean and hyperbolic spaces at the node level (Lee et al., 2023). Adaptive Riemannian models learn anisotropic node-wise metric tensors from node features and neighborhood means, adapting geometry to individual nodes (Wang et al., 2026a). GeoF maintains local geometry as a persistent state across propagation steps and updates it through second-order statistics of aligned message residuals and task-guided corrections. 
+
+## 3 METHODOLOGY 
+
+Problem Setup. Let G = ( V, E, X ) be an undirected attributed graph with n = |V | nodes, adjacency matrix A, and node features X = [ x1, . . . , x n]⊤ ∈ Rn×F0 . Each node has a structural signature 
+
+ui ∈ Rq , and U = [ u1, . . . , u n]⊤ collects these signatures. We construct ui from normalized degree and random-walk return probabilities and keep it fixed during propagation. Let N (i) denote the neighbors of node i and eN (i) = N (i) ∪ { i} include the self-loop. We consider three prediction tasks: node classification predicts node labels yi ∈ { 1, . . . , C }, link prediction estimates whether a candidate node pair (u, v ) is connected, and graph classification predicts a graph label YG ∈ { 1, . . . , C }. Here, 
+
+C denotes the number of classes for the corresponding classification task. 
+
+Overview. GeoF couples node features and local geometry through three recurrent components. We initialize feature states and construct local geometries from a structure-aware prototype atlas in block log-triangular coordinates. The recurrent computation then comprises: (i) Triangular Frame Transport , which uses the current geometry to weight neighbors and align transformed messages with the target node’s local frame for aggregation and feature updates; (ii) Second-Order Residual Feedback , which summarizes aligned message residuals to capture directional variation and within-block dependencies, producing a target metric on the node’s local coordinates; and (iii) Task-Guided Geometry Evolution , which combines this target with task-supervised corrections and the previous geometric state to update the geometry. Together, these components form a closed feedback loop, with parameters shared across steps. Task-specific readouts produce node, link, and graph predictions, and the corresponding learning objectives train the framework end to end. 3.1 GEOMETRIC STATES AND INITIALIZATION 
+
+Learning propagation geometry through recurrent feedback requires a compact parameterization that preserves positive definiteness under repeated updates and an initialization informed by local structure. Inspired by log-Cholesky parameterizations (Lin, 2019), we use block log-triangular coordinates and a shared prototype atlas. The former models within-block interactions, while the latter uses structural signatures to initialize node-specific geometries. At step l, node i maintains a local feature state ξli ∈ Rd and geometric coordinates Zli = {zli,b }Bb=1 .We partition the feature space into B blocks of size m, with d = Bm . Each block is parameterized as zli,b = [ ali,b , ℓ li,b ]⊤ ∈ Rm(m+1) /2, where ali,b ∈ Rm(m−1) /2 stores strictly lower-triangular entries and ℓli,b ∈ Rm stores log-diagonal scales. The corresponding triangular frame and local metric are: 
+
+Lli,b = mat sl (ali,b ) + Diag  exp( ℓli,b ) , gli,b = ( Lli,b )⊤Lli,b , (1) where mat sl reconstructs a strictly lower-triangular matrix and the exponential acts elementwise. The positive diagonal makes Lli,b invertible and gli,b positive definite. Lli,b maps local coordinates into a shared environment, where gli,b measures lengths with ∥Lli,b v∥22 = v⊤gli,b v. Combining the blocks: 
+
+Lli =
+
+> B
+
+M
+
+> b=1
+
+Lli,b , gli =
+
+> B
+
+M
+
+> b=1
+
+gli,b = ( Lli)⊤Lli, (2) where L denotes the block-diagonal direct sum. This representation uses d(m + 1) /2 geomet-ric coordinates per node while retaining off-diagonal interactions within each block. To bound coordinate magnitudes during initialization and recurrent updates, we define the admissible set 
+
+Z = [ −amax , a max ]m(m−1) /2 × [ℓmin , ℓ max ]m, where amax > 0 and ℓmin < ℓ max are finite bounds. 3We denote coordinatewise clipping to this set by ΠZ . This constraint bounds the geometric coordi-nates, while positive definiteness follows from the log-triangular reconstruction. Before propagation feedback becomes available, we initialize geometry from the structural signatures 
+
+ui. Let {zproto  
+
+> k,b
+
+}Kk=1 denote K learnable prototype coordinates for block b. A shared gate assigns each node a distribution over the prototypes, yielding 
+
+ξ0 
+
+> i
+
+= Win xi, αi = softmax( Wg ui + bg ), z0 
+
+> i,b
+
+= Π Z
+
+XKk=1 αik zproto 
+
+> k,b
+
+
+
+, (3) where Win , Wg , and bg are learnable parameters. The atlas shares geometric templates across nodes, while the structural gate determines their initial mixtures. These initial states provide the starting point for frame-aligned propagation and subsequent feedback-driven geometric updates. 
+
+Lemma 1 (Well-Posed Geometric Parameterization) Let m ≥ 1 and z, z ′ ∈ Z . The frame 
+
+L(z) is lower triangular with det L(z) = exp( P 
+
+> t
+
+ℓt) > 0, so it is invertible and g(z) ∈ SPD( m).There are constants σ+ ≥ σ− > 0 and κL > 0, depending only on m, amax , ℓmin , and ℓmax , such that 
+
+∥L(z)∥2 ≤ σ+, ∥L(z)−1∥2 ≤ σ−1 
+
+> −
+
+, σ2 
+
+> −
+
+Im ⪯ g(z) ⪯ σ2+ Im,
+
+and the reconstruction is Lipschitz: ∥L(z)−L(z′)∥F ≤ κL∥z −z′∥2 and ∥L(z)−1 −L(z′)−1∥2 ≤
+
+σ−2 
+
+> −
+
+κL∥z − z′∥2. All statements carry over to the block-diagonal frames Li = L 
+
+> b
+
+L(zi,b ) and 
+
+gi = L⊤ 
+
+> i
+
+Li, with ∥z − z′∥2 replaced by ∥Zi − Z′
+
+> i
+
+∥F := ( P 
+
+> b
+
+∥zi,b − z′
+
+> i,b
+
+∥22)1/2.
+
+Lemma 1 makes the recurrence well-posed: the triangular solves of Eq. (5) and the projected update of Eq. (12) are defined at every admissible state, and the bounds supply the constants for Propositions 1 and 3. The proof, with explicit expressions for σ± and κL, is in Appendix B. 3.2 TRIANGULAR FRAME TRANSPORT 
+
+Message passing across node-specific frames requires a common coordinate reference for comparison and aggregation. GCN (Kipf & Welling, 2017) and GAT (Veliˇ ckovi´ c et al., 2018) transform neighbor-ing features in shared coordinates and weight them through degree normalization or learned attention. However, scalar reweighting alone cannot align distinct frames. We introduce triangular frame transport to map transformed source messages through a shared environment into the target node’s local coordinates before aggregation. The same geometric state determines neighborhood weights, coupling weighting with alignment and providing a consistent reference for residual computation. Specifically, at step l, we construct environment representations from the current feature and geometric states and compute neighborhood weights from their pairwise distances: 
+
+hli = Lliξli, elij = ∥hli − hlj ∥22, ωlij = exp( −elij /τ )
+
+P   
+
+> k∈eN(i)
+
+exp( −elik /τ ) , (4) where j ∈ eN (i), ∥ · ∥ 2 denotes the Euclidean norm, and τ > 0 controls the concentration of the weights. The weights satisfy ωlij ≥ 0 and P   
+
+> j∈eN(i)
+
+ωlij = 1 . To align messages before aggregation, we apply a shared feature transformation ϕ(ξ) = Wϕξ. For each block b, the transformed source message is mapped through the source frame and pulled back into the target frame: 
+
+mlj→i,b = TriSolve  Lli,b , L lj,b 
+
+ ϕ(ξlj )
+
+> b
+
+ , (5) where (·)b extracts the b-th feature block and TriSolve( L, y ) solves Lw = y without explicitly forming L−1. Lemma 1 ensures this solution is unique for every admissible geometric state. The transported message satisfies Lli,b mlj→i,b = Llj,b (ϕ(ξlj )) b: both sides represent the same transformed message in the shared environment, while mlj→i,b expresses it in the target node’s coordinates. We concatenate the blockwise messages and aggregate them using the geometry-conditioned weights: 
+
+mlj→i = concat  mlj→i, 1, . . . , m lj→i,B 
+
+ , ¯ξli = X   
+
+> j∈eN(i)
+
+ωlij mlj→i. (6) All terms in ¯ξli are expressed in the target frame. A feature gate balances the state against the aggregated message: 
+
+rli = σ  Wr [ξli∥ ¯ξli] + br
+
+ , ξl+1  
+
+> i
+
+= ( 1 − rli) ⊙ ξli + rli ⊙ ¯ξli, (7) 4where Wr ∈ Rd×2d and br ∈ Rd are learnable parameters, σ is the elementwise sigmoid, ∥ denotes concatenation, ⊙ denotes elementwise multiplication, and 1 ∈ Rd is the all-ones vector. The parameters Wϕ, Wr , and br are shared across nodes and recurrent steps. 
+
+Proposition 1 (Frame-Aligned Transport) Fix a recurrent step l with admissible geometric states, and let T lj→i,b = ( Lli,b )−1Llj,b and M lj = Llj Wϕ(Llj )−1. Then mlj→i,b = T lj→i,b (ϕ(ξlj )) b
+
+with ∥T lj→i,b ∥2 ≤ σ+/σ −, and the frame maps satisfy T li→i,b = Im and T lj→i,b T lk→j,b = T lk→i,b ,so their product along any walk depends only on its endpoints. In environment coordinates, the aggregate and the residuals δlij := mlj→i − ϕ(ξli) read 
+
+Lli ¯ξli = X   
+
+> j∈˜N(i)
+
+ωlij M lj hlj , Lliδlij = M lj hlj − M li hli,
+
+where each M lj is similar to Wϕ with ∥M lj ∥2 ≤ (σ+/σ −)∥Wϕ∥2, and M lj = cI d when Wϕ = cI d.
+
+In environment coordinates, one recurrent step is thus Gaussian-kernel attention with temperature τ ,where the frames enter through the energies elij , the transforms M lj , and the pull-back (Lli)−1 that makes the residuals of Sec. 3.3 comparable across neighbors. The proof is in Appendix C. 3.3 SECOND -O RDER RESIDUAL FEEDBACK 
+
+The transport step aligns messages and updates node features under the current geometry, and the aligned messages give a common reference for local comparison. ARGNN estimates local metrics from target features and neighborhood means (Wang et al., 2026a), but identical summaries can conceal directional variation and cross-feature dependence. We therefore examine the residuals of individual aligned messages from the transformed target state, not their aggregate, and accumulate their weighted outer products into a geometric target that captures directional variation and within-block dependence. Interactions under the current geometry thereby become feedback for its evolution. Specifically, for node i and block b, we compute the residual between each aligned message and the transformed target state, δlij,b = mlj→i,b −  ϕ(ξli)
+
+> b
+
+, which by Proposition 1 are expressed in the same frame. To capture directional variation beyond the mean, we form a second-moment matrix whose quadratic form measures residual energy along any direction, reusing ωlij to preserve aggregation weights: 
+
+Cli,b = X   
+
+> j∈eN(i)
+
+ωlij δlij,b (δlij,b )⊤ + ϵsIm, (8) where ϵs > 0 provides a positive spectral lower bound. The diagonal entries combine weighted squared residuals with ϵs, while the off-diagonal entries capture weighted cross-products within each block. Since residuals are measured relative to the transformed target state rather than centered at their neighborhood mean, Cli,b is a regularized second-moment matrix. Writing ¯δli,b = P 
+
+> j
+
+ωlij δlij,b for the weighted mean residual, the classical mean–covariance decomposition gives, for every v ∈ Rm,
+
+v⊤Cli,b v = ϵs∥v∥22 +  v⊤ ¯δli,b 
+
+2 + X   
+
+> j∈eN(i)
+
+ωlij 
+
+v⊤ δlij,b − ¯δli,b 
+
+ 2 . (9) The last term is the weighted residual covariance: residuals of opposite sign cancel in the mean yet still contribute to Cli,b , which is exactly what mean-based estimators discard. Since the geometric state evolves in log-triangular coordinates, we convert this statistic into a coordinate target for updates: 
+
+Rli,b = SChol( Cli,b ), bzli,b =
+
+
+
+Svec sl (Rli,b )⊤, log 
+
+
+
+diag( Rli,b )
+
+⊤⊤
+
+, (10) where SChol( C) returns the positive-diagonal lower-triangular factor R with RR ⊤ = C + ηI m,
+
+Svec sl stacks the strictly lower-triangular entries in fixed order, and log is elementwise. Since Cholesky factorization is bijective on SPD( m), bzli,b encodes Cli,b + ηI m losslessly, and Rli,b maps the local unit ball onto the residual second-moment ellipsoid, stretching high-energy residual directions. 
+
+Proposition 2 (Second-Order Refinement) Fix a step l. Write Rli,b = {(ωlij , δ lij,b )}j∈ ˜N (i) for the residual configuration of node i in block b, with weighted mean ¯δli,b , and call an update 
+
+first-order if it depends on Rli,b only through the weights and ¯δli,b . Let i, i ′ be nodes with ξli = ξli′ ,
+
+Zli = Zli′ , ui = ui′ , and ¯δli,b = ¯δli′,b for all b.
+
+5(i) Every first-order update, including the mean-only target Cl, mean  
+
+> i,b
+
+= ¯δli,b (¯δli,b )⊤ + ϵsIm, the controller of Eq. (11) , and the feature update of Eq. (7) , returns identical outputs for i and i′;in particular ξl+1  
+
+> i
+
+= ξl+1  
+
+> i′
+
+and ∆zli,b = ∆ zli′,b .(ii) The second-order target is injective in the statistic: Cli,b ̸ = Cli′,b implies ˆzli,b ̸ = ˆ zli′,b . If 
+
+λ ∈ (0 , 1] and Eq. (12) is not clipped in block b, then Zl+1 
+
+> i
+
+̸ = Zl+1  
+
+> i′
+
+, and hl+1 
+
+> i
+
+̸ = hl+1  
+
+> i′
+
+unless 
+
+ξl+1  
+
+> i
+
+∈ ker( Ll+1  
+
+> i
+
+− Ll+1  
+
+> i′
+
+), a proper subspace. (iii) If i has at least two neighbors and Rli′,b ranges over all configurations with the same weights and first moment, those with Cli′,b = Cli,b form a Lebesgue-null set. (iv) The target depends on Rli,b only through Cli,b and is therefore strictly weaker than an injective aggregator: for m = 1 there are distinct three-point residual sets with equal weights, first, and second moments. Conversely, for m ≥ 2 the sets {0, ±v} and {0, ±w} with v =(1 , 1, 0, . . . , 0) ⊤, w = (1 , −1, 0, . . . , 0) ⊤ and equal weights on ±v, ±w share the mean-only and the diagonal target Cl, diag  
+
+> i,b
+
+= Diag   P  
+
+> j
+
+ωlij δlij,b ⊙ δlij,b 
+
+ + ϵsIm, yet Cli,b ̸ = Cli′,b .
+
+Proposition 2 places the feedback of GeoF in a moment hierarchy: first-order updates, including the controller and mean-based metric estimation (Wang et al., 2026a), cannot register variation that cancels in the mean, the second-order target registers it for almost every configuration, and the mean-only and diagonal targets sit strictly below it. The proof is in Appendix D. 3.4 TASK -G UIDED GEOMETRY EVOLUTION 
+
+The residual target captures local variation but does not identify which differences matter for predic-tion. Rather than directly estimating local metrics from feature summaries (Wang et al., 2026a), we learn a complementary correction through task supervision. This correction, the residual target, and the previous geometric state are combined through a bounded log-triangular update. The geometric correction is predicted from the current local features, aligned neighborhood aggregate, and structural signature. For node i and block b, these quantities are concatenated into qli,b =[( ξli)b∥( ¯ξli)b∥ui]. A shared MLP Γθ processes this input using a single hidden layer: Γθ (qli,b ) = 
+
+WΓ,2 SiLU 
+
+
+
+WΓ,1qli,b + bΓ,1
+
+
+
++ bΓ,2, where θ collects trainable parameters and SiLU( x) = x/ (1 + 
+
+e−x). The output is reshaped into U li,b , V li,b and a log-diagonal correction dli,b . Following Sec. 3.1, the strictly lower-triangular entries of U li,b (V li,b )⊤ correct ali,b and dli,b corrects ℓli,b . Concatenating them gives 
+
+∆zli,b =
+
+
+
+Svec sl 
+
+
+
+U li,b (V li,b )⊤
+
+⊤
+
+(dli,b )⊤
+
+⊤
+
+∈ Rm(m+1) /2. (11) The controller is trained using task objectives, with parameters shared across nodes, blocks, and recurrent steps. The geometric update combines the previous state, residual target, and correction: 
+
+zl+1  
+
+> i,b
+
+= Π Z
+
+ (1 − λ)zli,b + λbzli,b + γ∆zli,b 
+
+ , (12) where λ ∈ (0 , 1] and γ ≥ 0. The target supplies a reference derived from local interactions, while the learned correction allows the update to depart from that reference under task supervision. 
+
+Proposition 3 (Stability and Convergence) Fix τ > 0, ϵs > 0, η ≥ 0 and a feature bound Ξ.Let D = {(ξ, Z ) : ∥ξi∥2 ≤ Ξ, z i,b ∈ Z} , let F : ( ξl, Z l) 7 → (ξl+1 , Z l+1 ) denote one recurrent step, and let d∞(S, S ′) = max i
+
+ ∥ξi − ξ′
+
+> i
+
+∥2 + ∥Zi − Z′
+
+> i
+
+∥F
+
+.(i) Eq. (12) is a projected proximal step: ΠZ is the Euclidean projection onto Z, and zl+1  
+
+> i,b
+
+is the unique minimizer over Z of  
+
+> 1−λ
+> 2
+
+∥z − zli,b ∥22 + λ 
+
+> 2
+
+∥z − ˆzli,b ∥22 − γ⟨∆zli,b , z − zli,b ⟩.
+
+It differs from the uncorrected update zl+1 ,0 
+
+> i,b
+
+= Π Z
+
+ (1 − λ)zli,b + λˆzli,b 
+
+ by at most γ∥∆zli,b ∥2.(ii) One step is Lipschitz on D: d∞
+
+ F (S), F (S′) ≤ K d ∞(S, S ′) with K = cξ + (1 − λ) + 
+
+λc ˆZ + γc ∆, where the constants depend only on m, B, σ±, κL, ϵs, η, τ , Ξ, λ, γ, and the norms of Wϕ, Wr , and Γθ , but not on node degrees. 
+
+6(iii) For fixed ξ, let Φξ (Z) = Π Z
+
+ (1 − λ)Z + λ ˆZ(Z; ξ) + γ∆Z(Z; ξ). If Z⋆ is an unclipped fixed point of Φξ whose Jacobian J = ∂Φξ (Z⋆) has spectral radius ρ(J) < 1, then Z⋆ is locally attracting with rate ρ(J): for every ε > 0 there are c > 0 and a neighborhood U of 
+
+Z⋆ such that ∥Zl − Z⋆∥F ≤ c (ρ(J) + ε)l ∥Z0 − Z⋆∥F for all Z0 ∈ U .(iv) If moreover ˆZ(·; ξ) and ∆Z(·; ξ) are Lˆz - and L∆-Lipschitz on ZnB and ρ := (1 − λ) + 
+
+λL ˆz + γL ∆ < 1, the fixed point is unique and ∥Zl+1 − Zl∥F ≤ ρl∥Z1 − Z0∥F from every initialization. 
+
+Proposition 3 characterizes the update as a projected proximal step, bounds the single-step effect of the learned correction, gives a one-step Lipschitz constant that does not depend on node degrees, and states conditions under which the geometry converges. The proof is in Appendix E. 3.5 LEARNING OBJECTIVES 
+
+The prediction losses depend on the final geometric coordinates {zLi,b }Bb=1 through the environment representation hLi = LLi ξLi , where LLi is assembled from the block factors reconstructed using Eq. (1). The intermediate updates zli,b 7 → zl+1  
+
+> i,b
+
+also shape subsequent message passing by determining the neighborhood weights and frame transformations. The task objectives below train the geometric controller Γθ , propagation parameters, and task-specific readouts jointly through these dependencies. 
+
+Node Classification. A shared linear classifier maps hLi to class logits, followed by softmax normalization. Training minimizes cross-entropy over the labeled nodes Vtr ⊆ V :
+
+si = WohLi + bo, pi = softmax( si), Lnode = − 1
+
+|Vtr |
+
+X
+
+> i∈Vtr
+> C
+
+X
+
+> c=1
+
+I[yi = c] log pi,c , (13) where Wo, bo are learnable classifier parameters, C is the number of node classes. si, p i denote the logits and class probabilities. yi is the ground-truth, and I[yi = c] = 1 when yi = c and 0 otherwise. 
+
+Graph Classification. For a graph G with node set VG, we mean-pool the final environment representations in their shared coordinate space and apply a shared MLP to obtain class probabilities: 
+
+hG = 1
+
+|VG|
+
+X
+
+> i∈VG
+
+hLi , p G = softmax(MLP( hG)) , Lgraph = EG∼D graph tr 
+
+[ℓCE (pG, Y G)] , (14) where hG is the graph representation. The vector pG contains the class probabilities, with pG,c 
+
+denoting the probability of class c, and YG is the ground-truth label. The cross-entropy loss is 
+
+ℓCE (pG, Y G) = − PCc=1 I[YG = c] log pG,c , where I[YG = c] = 1 when YG = c and 0 otherwise. 
+
+Link Prediction. For a candidate pair (u, v ), we construct a symmetric pair representation fuv =[hLu ⊙ hLv ∥ | hLu − hLv |] ∈ R2d from the final environment representations. A shared MLP predicts whether the nodes are connected. Let Etr = E+ ∪ E− contain positive training edges E+ and sampled negative pairs E−. The edge probability and training objective are 
+
+puv = σ(MLP link (fuv )) , Llink = E(u,v )∼E tr [ℓBCE (puv , y uv )] , (15) where MLP link is a learnable decoder, σ(t) is the sigmoid function, and puv is the predicted edge probability. The label yuv = 1 for positive edges and 0 for negative pairs. 
+
+## 4 EXPERIMENTS 
+
+4.1 EXPERIMENTAL SETTINGS 
+
+Datasets. We evaluate GeoF on node classification, link prediction, and graph classification. Node classification uses 60%/20%/20% splits for training, validation, and testing, and link prediction uses 80%/5%/15% (Wang et al., 2026a; Pei et al., 2020), both on CiteSeer, PubMed (Sen et al., 2008), CS, Physics, Photo, and Computers (Shchur et al., 2018). Graph classification uses 10-fold cross-validation on PROTEINS, Mutagenicity, NCI1, FRANKENSTEIN, BBBP, and ogbg-molhiv (Hong et al., 2024; Wei et al., 2023). We report accuracy for node and graph classification, and ROC-AUC for link prediction and for BBBP and ogbg-molhiv. More details are provided in Appendix G. 7Table 1: Performance comparisons (in %) between baselines and GeoF for Node Classification (NC) and Link Prediction (LP) on different datasets. Bold indicates the best performance. 
+
+Model CiteSeer PubMed CS Physics Photo Computers NC LP NC LP NC LP NC LP NC LP NC LP GCN 71.5 ±1.7 92.3 ±0.9 87.6 ±0.5 92.9 ±0.6 93.8 ±0.4 92.7 ±0.6 93.5 ±0.2 92.6 ±1.3 92.1 ±0.5 86.1 ±0.7 87.8 ±0.7 86.9 ±0.8
+
+GIN 70.6 ±1.2 93.0 ±1.0 86.6 ±0.6 89.5 ±0.7 91.3 ±0.6 93.3 ±0.7 94.2 ±0.5 92.1 ±0.8 92.7 ±0.5 87.7 ±0.4 87.1 ±0.8 84.1 ±1.2
+
+ML 2-GCL 73.7 ±2.0 93.8 ±1.0 87.9 ±0.5 95.8 ±0.3 92.1 ±0.5 97.1 ±0.1 93.4 ±1.6 97.2 ±0.1 92.8 ±0.8 96.7 ±0.1 87.4 ±0.8 95.8 ±0.3
+
+AMPs 74.4 ±1.8 93.5 ±0.9 88.9 ±0.3 96.6 ±0.3 94.6 ±0.3 97.1 ±0.2 96.1 ±0.1 96.6 ±0.6 94.6 ±0.8 96.8 ±0.2 90.2 ±0.6 96.0 ±0.1
+
+WaveGC 75.4 ±1.9 92.8 ±0.7 87.6 ±0.5 97.5 ±0.3 94.4 ±0.3 97.1 ±0.2 96.2 ±0.1 97.2 ±0.2 94.6 ±0.8 97.7 ±0.4 90.2 ±0.8 97.5 ±0.4
+
+SPARROW 73.1 ±2.1 92.9 ±0.9 85.5 ±0.6 97.0 ±0.7 92.0 ±0.3 97.0 ±0.1 94.5 ±0.3 97.2 ±0.3 93.4 ±1.0 97.8 ±0.1 88.2 ±0.5 97.3 ±0.2
+
+G2Former 72.7 ±1.7 93.0 ±0.6 88.6 ±0.5 97.1 ±0.2 93.7 ±0.4 96.4 ±0.9 95.5 ±0.2 97.4 ±0.4 94.1 ±0.7 97.9 ±0.3 90.4 ±0.4 97.1 ±0.1
+
+HGCN 74.6 ±1.8 92.1 ±1.0 84.8 ±0.7 91.3 ±0.3 91.9 ±0.4 93.2 ±0.4 92.0 ±3.1 95.7 ±0.4 89.5 ±0.8 92.6 ±0.9 85.9 ±0.7 88.1 ±0.2
+
+D-GCN 74.9 ±1.1 92.0 ±0.6 86.9 ±0.9 93.1 ±0.4 93.8 ±0.2 96.2 ±0.1 93.6 ±0.2 97.1 ±0.3 93.7 ±0.6 97.1 ±0.1 87.1 ±0.5 94.1 ±0.6
+
+SPDGNN 74.9 ±1.7 92.7 ±0.8 87.2 ±0.6 93.8 ±0.7 92.6 ±0.4 94.9 ±0.2 94.1 ±0.2 94.5 ±0.6 93.0 ±0.8 95.7 ±0.5 88.7 ±1.2 93.1 ±0.6
+
+ACE-HGNN 74.0 ±1.5 92.9 ±0.6 86.8 ±0.5 96.9 ±0.1 92.5 ±0.3 97.0 ±0.1 93.9 ±0.2 97.3 ±0.2 94.0 ±1.0 97.2 ±0.1 89.5 ±1.1 97.3 ±0.5
+
+BEC-GNN 74.0 ±1.6 94.0 ±1.3 87.3 ±0.3 97.4 ±0.2 93.3 ±0.4 97.2 ±0.2 96.3 ±0.2 97.2 ±0.2 94.1 ±0.5 97.1 ±0.1 89.8 ±0.8 96.7 ±0.1
+
+GNRF 74.2 ±1.7 93.6 ±0.5 87.4 ±0.6 95.8 ±0.2 93.7 ±0.6 97.0 ±0.1 95.4 ±1.0 97.3 ±0.3 93.9 ±0.9 96.8 ±0.4 89.0 ±0.9 96.3 ±0.3
+
+ARGNN 75.6 ±1.2 94.1 ±0.6 88.8 ±0.2 97.6 ±0.4 94.4 ±0.4 96.2 ±0.3 96.3 ±0.2 97.4 ±0.2 94.9 ±0.5 97.0 ±0.3 90.4 ±0.4 97.4 ±0.5
+
+GeoF 77.7 ±1.2 94.9 ±0.8 89.6 ±0.3 98.5 ±0.2 95.8 ±0.3 97.7 ±0.3 97.2 ±0.1 97.9 ±0.3 96.0 ±0.4 98.4 ±0.2 91.2 ±0.5 98.0 ±0.4
+
+(a) Ablation Study (b) Sensitivity Analysis (c) Evolution Depth (d) Perturbation Stability 
+
+Figure 1: (a) Ablations on Mutagenicity and NCI1. (b) Sensitivity to block count B and atlas size K
+
+on NCI1. (c), (d) Evolution depth and perturbation stability on PubMed, respectively. 
+
+Baselines. We compare GeoF with a comprehensive set of baselines, including: (1) general graph neural networks (GNNs), such as GCN (Kipf & Welling, 2017), GIN (Xu et al., 2019), ML 2-GCL (Liang et al., 2025), AMPs (Errica et al., 2025), WaveGC (Liu et al., 2025), SPARROW (Lin et al., 2025), and G 2Former (Zhang et al., 2025); (2) manifold-based GNNs, including HGCN (Chami et al., 2019), D-GCN (Sun et al., 2024), and SPDGNN (Wang & Chang, 2025); and (3) adaptive GNNs, including ACE-HGNN (Fu et al., 2021), GNRF (Chen et al., 2025), BEC-GNN (Hevapathige et al., 2025), and ARGNN (Wang et al., 2026a). More details of baselines can be found in Appendix H. 4.2 PERFORMANCE COMPARISONS 
+
+Table 2: Performance comparisons (in %) between base-lines and GeoF for Graph Classification. 
+
+Model PROTEINS Mutag NCI1 FRANK BBBP molhiv GCN 75.3 ±1.9 79.8 ±1.8 76.0 ±1.0 63.3 ±2.2 87.4 ±2.0 75.8 ±2.0
+
+GIN 76.7 ±1.7 80.1 ±1.9 78.0 ±1.2 68.9 ±1.7 89.5 ±2.1 77.3 ±2.0
+
+ML 2-GCL 77.9 ±1.8 81.9 ±1.9 80.7 ±1.3 70.7 ±1.8 90.9 ±2.2 81.3 ±1.6
+
+AMPs 78.8 ±2.0 83.4 ±1.6 82.0 ±1.1 72.4 ±1.8 92.5 ±2.3 82.0 ±2.4
+
+WaveGC 79.0 ±1.8 82.3 ±2.3 81.6 ±1.8 72.6 ±1.9 92.6 ±1.8 82.0 ±1.9
+
+SPARROW 78.7 ±1.5 83.7 ±1.9 80.9 ±1.2 72.3 ±2.2 91.8 ±1.9 81.5 ±2.3
+
+G2Former 78.9 ±2.0 82.7 ±2.4 82.1 ±1.5 71.9 ±1.9 92.4 ±2.4 81.8 ±1.6
+
+HGCN 77.3 ±1.6 80.2 ±2.1 78.3 ±1.4 69.4 ±2.3 89.4 ±2.2 76.0 ±1.6
+
+D-GCN 78.4 ±2.2 82.2 ±1.8 79.1 ±1.3 69.8 ±2.2 90.7 ±1.7 79.0 ±2.2
+
+SPDGNN 78.5 ±1.9 81.6 ±1.7 79.6 ±1.6 71.4 ±2.1 91.5 ±1.7 81.3 ±2.2
+
+ACE-HGNN 77.5 ±1.7 80.7 ±1.8 81.6 ±1.2 71.7 ±2.2 91.6 ±1.2 79.1 ±2.2
+
+BEC-GNN 77.5 ±1.9 81.0 ±1.5 79.4 ±2.2 70.0 ±2.3 91.9 ±1.8 80.3 ±1.3
+
+GNRF 78.5 ±1.7 82.4 ±2.3 81.9 ±2.1 72.1 ±1.7 92.2 ±1.8 81.5 ±1.7
+
+ARGNN 78.0 ±1.8 83.4 ±1.5 81.7 ±1.6 72.2 ±2.0 92.3 ±1.7 81.1 ±2.2
+
+GeoF 79.4 ±1.6 84.9 ±1.7 83.0 ±1.5 73.3 ±1.8 93.4 ±1.8 82.9 ±1.1
+
+Tables 1 and 2 compare GeoF with the base-lines on node classification (NC), link pre-diction (LP), and graph classification (GC). Three observations follow. (1) Advanced architectures such as AMPs and WaveGC improve clearly over GCN and GIN, which underlines the value of multi-scale propa-gation. (2) Manifold-based and adaptive GNNs are competitive through richer geo-metric priors and curvature-aware designs, but they treat geometry as a fixed manifold or a locally adaptive parameter rather than an evolving state, which limits how far the propagation space can follow task-specific requirements. (3) GeoF is best on every dataset and task. This matches its design. It keeps propagation geometry as a persis-tent node-wise state that governs neighborhood weighting and frame-aligned propagation, and it updates this state at every step from the previous geometry, a target built from second-order statis-tics of aligned residuals, and task-supervised corrections, so directional variation and within-block dependencies enter the geometry that governs subsequent propagation. 84.3 ABLATION STUDY 
+
+We evaluate five ablations on Mutagenicity and NCI1. Three remove a component: the structural signatures in the prototype gate and the correction (w/o SA), the structure-aware prototype atlas for initialization (w/o AI), and the triangular frame transport into the target frame (w/o GT). Two alter the geometry update, either replacing the second-order residual target by the current geometry while keeping the correction (w/o SF) or freezing the initialized geometry across steps (w/o GE). Figure 1(a) shows that the full model attains the highest accuracy on both datasets. Freezing the geometry costs the most, confirming the benefit of adapting propagation geometry during message passing, and removing second-order feedback costs the second most, so residual statistics contribute beyond the correction. Disabling frame transport also lowers accuracy, consistent with the role of coordinate alignment in aggregation and residual computation. Removing the atlas hurts more on NCI1, and removing structural signatures causes modest decreases. Additional results are in Appendix K.2. 4.4 SENSITIVITY ANALYSIS 
+
+Hyperparameters Analysis. We vary the number of geometric blocks B, atlas prototypes K, and evolution depth L, which set the block partition, atlas size, and recurrent depth. On NCI1, Figure 1(b) shows that accuracy improves as B increases from 4 to 8, stays stable for B ∈ { 8, 16 , 32 }, and drops at B = 64 , while it changes little for K ∈ { 4, 8, 16 } and decreases slightly at K = 32 and 64 ;moderate values therefore suffice. On PubMed, Figure 1(c) shows stable accuracy for L from 1 to 8,while the terminal geometric change DZ (L) = 1
+
+> nB
+
+P 
+
+> i,b
+
+∥zLi,b − zL−1 
+
+> i,b
+
+∥2 decreases with depth, with a plateau between L = 2 and 5. Successive geometric updates thus shrink with depth without affecting accuracy, consistent with the stability of Proposition 3. More results are provided in Appendix K.3. 
+
+Perturbation Stability. We perturb the initial features {ξ0 
+
+> i
+
+}ni=1 on PubMed along a random Gaussian direction with relative norm σ, keeping the graph, initial geometry, and trained parameters fixed, and report accuracy together with the one-step sensitivity R(1) state (σ) = d(S1 
+
+> σ
+
+, S 1)/d (S0 
+
+> σ
+
+, S 0), where 
+
+Sl = (Ξ l, Z l) stacks the feature states and geometric coordinates of all nodes and d(S, S ′) = 
+
+∥Ξ − Ξ′∥F + P 
+
+> b
+
+∥Zb − Z′
+
+> b
+
+∥F . Figure 1(d) shows that R(1) state (σ) is nearly constant at small σ,indicating a proportional response to small perturbations, and decreases steadily by 7.6% from 
+
+σ = 0 .01 to 0.5, while accuracy drops by only 1.1% over the same range. Larger perturbations thus reduce accuracy mildly without amplifying the one-step sensitivity of the coupled update. 4.5 ANALYSIS OF SECOND -O RDER FEEDBACK 
+
+Table 3: Performance comparison (in %) be-tween baselines and their second-order (SO) variants. Bold indicates the best performance.                                 
+
+> Model CiteSeer Photo PROTEINS BBBP GCN 71.5 ±1.792.1 ±0.575.3 ±1.987.4 ±2.0
+> GCN w/ SO 72.3 ±1.992.4 ±1.177.0 ±2.486.7 ±2.5
+> GIN 70.6 ±1.292.7 ±0.576.7 ±1.789.5 ±2.1
+> GIN w/ SO 73.3 ±1.093.6 ±1.478.5 ±1.591.3 ±2.2
+> ARGNN 75.6 ±1.294.9 ±0.578.0 ±1.892.3 ±1.7
+> ARGNN w/ SO 74.4 ±2.395.3 ±0.678.3 ±2.291.9 ±2.1
+> GeoF 77.7 ±1.296.0 ±0.479.4 ±1.693.4 ±1.8
+
+Features versus Feedback. To test whether the gains come from second-order information alone, we give GCN, GIN, and ARGNN the same weighted second-order residual statistics as additional features, with parameter counts matched to GeoF within 0.5% (Ta-ble 3). The augmentation helps GIN in all four set-tings and GCN in three, but hurts GCN on BBBP and ARGNN on CiteSeer and BBBP. GeoF exceeds the strongest augmented variant in every column, by 0.7
+
+to 3.3 points. At comparable parameter budgets, the difference is how the statistics are used. The base-lines consume them as features, whereas GeoF uses them as feedback that changes the geometry governing subsequent weighting and transport. Table 4: Performance comparison (in %) among different residual feedback statistics. 
+
+Bold indicates the best performance.                     
+
+> Feedback Photo CS Mutag. NCI1 Mean-only 94.9 ±0.695.1 ±0.383.7 ±1.781.9 ±1.6
+> Diagonal 95.1 ±0.395.2 ±0.483.2 ±2.080.4 ±1.0
+> One-shot 94.6 ±0.594.8 ±0.383.1 ±1.879.8 ±2.7
+> Full 96.0 ±0.495.8 ±0.384.9 ±1.783.0 ±1.5
+
+Feedback Structure and Schedule. Table 4 varies the feedback with the rest of the model unchanged. Replacing the full statistic Cli,b by the mean-only tar-get Cl, mean  
+
+> i,b
+
+or the diagonal target Cl, diag  
+
+> i,b
+
+of Proposi-tion 2 lowers accuracy on all four datasets, consistent with Proposition 2; the diagonal target loses most on NCI1 and Mutag. The two restricted variants rank differently across datasets, so the mean and the marginal second moments capture different aspects 9of local variation. Updating the geometry only once, after the first step, also lowers accuracy on all four datasets, by 1.4 and 1.0 points on Photo and CS and by 1.8 and 3.2 points on Mutag and NCI1. 
+
+## 5 CONCLUSION 
+
+To capture message-level variation obscured by aggregation, we proposed GeoF, which jointly evolves node features and propagation geometry through recurrent message-passing feedback. The geometry governs neighborhood weighting and triangular frame transport for consistent message comparison, second-order residual statistics capture directional variation and within-block dependencies to define geometric targets, and bounded log-triangular updates combine these targets with task-supervised corrections while preserving positive definiteness. Experiments on node, link, and graph prediction show consistent gains over competitive baselines, supporting learning propagation geometry from the interactions it induces and motivating future work on adaptive-depth inference and evolving graphs. 
+
+## REFERENCES 
+
+Sami Abu-El-Haija, Bryan Perozzi, Amol Kapoor, Nazanin Alipourfard, Kristina Lerman, Hrayr Harutyunyan, Greg Ver Steeg, and Aram Galstyan. Mixhop: Higher-order graph convolutional architectures via sparsified neighborhood mixing. In Proceedings of the International Conference on Machine Learning , pp. 21–29, 2019. Cristian Bodnar, Francesco Di Giovanni, Benjamin Chamberlain, Pietro Lio, and Michael Bronstein. Neural sheaf diffusion: A topological perspective on heterophily and oversmoothing in gnns. 
+
+Proceedings of the Conference on Neural Information Processing Systems , 35:18527–18541, 2022. Ines Chami, Zhitao Ying, Christopher R´ e, and Jure Leskovec. Hyperbolic graph convolutional neural networks. Proceedings of the Conference on Neural Information Processing Systems , 32, 2019. Jialong Chen, Bowen Deng, Zhen Wang, Chuan Chen, and Zibin Zheng. Graph neural ricci flow: Evolving feature from a curvature perspective. In Proceedings of the International Conference on Learning Representations , volume 2025, pp. 31083–31111, 2025. Yu Chen, Lingfei Wu, and Mohammed Zaki. Iterative deep graph learning for graph neural networks: Better and robust node embeddings. Advances in neural information processing systems , 33: 19314–19326, 2020. Paul D Dobson and Andrew J Doig. Distinguishing enzyme structures from non-enzymes without alignments. Journal of molecular biology , 330(4):771–783, 2003. Federico Errica, Henrik Christiansen, Viktor Zaverkin, Takashi Maruyama, Mathias Niepert, and Francesco Alesiani. Adaptive message passing: A general framework to mitigate oversmoothing, oversquashing, and underreaching. In Proceedings of the International Conference on Machine Learning , pp. 15490–15515. PMLR, 2025. Xingcheng Fu, Jianxin Li, Jia Wu, Qingyun Sun, Cheng Ji, Senzhang Wang, Jiajun Tan, Hao Peng, and Philip S Yu. Ace-hgnn: Adaptive curvature exploration hyperbolic graph neural network. In 
+
+2021 IEEE international conference on data mining (ICDM) , pp. 111–120. IEEE, 2021. Johannes Gasteiger, Aleksandar Bojchevski, and Stephan G¨ unnemann. Predict then propagate: Graph neural networks meet personalized pagerank. arXiv preprint arXiv:1810.05997 , 2018. Justin Gilmer, Samuel S Schoenholz, Patrick F Riley, Oriol Vinyals, and George E Dahl. Neural message passing for quantum chemistry. In Proceedings of the International Conference on Machine Learning , pp. 1263–1272, 2017. Asela Hevapathige, Ahad N Zehmakan, and Qing Wang. Depth-adaptive graph neural networks via learnable bakry-´ emery curvature. In Proceedings of the International ACM SIGKDD Conference on Knowledge Discovery & Data Mining , pp. 944–955, 2025. Xiaobin Hong, Wenzhong Li, Chaoqun Wang, Mingkai Lin, and Sanglu Lu. Label attentive distillation for gnn-based graph classification. In Proceedings of the AAAI Conference on Artificial Intelligence ,volume 38, pp. 8499–8507, 2024. 10 Roger A Horn and Charles R Johnson. Matrix analysis . Cambridge university press, 2012. Weihua Hu, Matthias Fey, Marinka Zitnik, Yuxiao Dong, Hongyu Ren, Bowen Liu, Michele Catasta, and Jure Leskovec. Open graph benchmark: Datasets for machine learning on graphs. Advances in neural information processing systems , 33:22118–22133, 2020. Wei Jin, Yao Ma, Xiaorui Liu, Xianfeng Tang, Suhang Wang, and Jiliang Tang. Graph structure learning for robust graph neural networks. In Proceedings of the 26th ACM SIGKDD international conference on knowledge discovery & data mining , pp. 66–74, 2020. Jeroen Kazius, Ross McGuire, and Roberta Bursi. Derivation and validation of toxicophores for mutagenicity prediction. Journal of medicinal chemistry , 48(1):312–320, 2005. Thomas N. Kipf and Max Welling. Semi-supervised classification with graph convolutional networks. In Proceedings of the International Conference on Learning Representations , 2017. See Hian Lee, Feng Ji, and Wee Peng Tay. Node-specific space selection via localized geometric hyperbolicity in graph neural networks. arXiv preprint arXiv:2303.01724 , 2023. Jianqing Liang, Zhiqiang Li, Xinkai Wei, Yuan Liu, and Zhiqiang Wang. Ml 2-gcl: Manifold learning inspired lightweight graph contrastive learning. In Proceedings of the International Conference on Machine Learning , 2025. Yuena Lin, Gengyu Lyu, Haichun Cai, Deng-Bao Wang, Haobo Wang, and Zhen Yang. Simplified graph contrastive learning model without augmentation. IEEE Transactions on Knowledge and Data Engineering , 2025. Zhenhua Lin. Riemannian geometry of symmetric positive definite matrices via cholesky decomposi-tion. SIAM Journal on Matrix Analysis and Applications , 40(4):1353–1370, 2019. Meng Liu, Hongyang Gao, and Shuiwang Ji. Towards deeper graph neural networks. In Proceedings of the International ACM SIGKDD Conference on Knowledge Discovery & Data Mining , pp. 338–348, 2020. Nian Liu, Xiaoxin He, Thomas Laurent, Francesco Di Giovanni, Michael M Bronstein, and Xavier Bresson. A general graph spectral wavelet convolution via chebyshev order decomposition. In 
+
+Proceedings of the International Conference on Machine Learning , pp. 38598–38622. PMLR, 2025. Qi Liu, Maximilian Nickel, and Douwe Kiela. Hyperbolic graph neural networks. Advances in neural information processing systems , 32, 2019. Julian McAuley, Christopher Targett, Qinfeng Shi, and Anton Van Den Hengel. Image-based recommendations on styles and substitutes. In Proceedings of the International ACM SIGIR Conference on Research & Development in Information Retrieval , pp. 43–52, 2015. Francesco Orsini, Paolo Frasconi, and Luc De Raedt. Graph invariant kernels. In Proceedings of the International Joint Conference on Artificial Intelligence , 2015. James M Ortega and Werner C Rheinboldt. Iterative solution of nonlinear equations in several variables . SIAM, 2000. Hongbin Pei, Bingzhe Wei, Kevin Chen-Chuan Chang, Yu Lei, and Bo Yang. Geom-gcn: Geometric graph convolutional networks. arXiv preprint arXiv:2002.05287 , 2020. Prithviraj Sen, Galileo Namata, Mustafa Bilgic, Lise Getoor, Brian Gallagher, and Tina Eliassi-Rad. Collective classification in network data. AI magazine , 29(3):93–106, 2008. Oleksandr Shchur, Maximilian Mumme, Aleksandar Bojchevski, and Stephan G¨ unnemann. Pitfalls of graph neural network evaluation. arXiv preprint arXiv:1811.05868 , 2018. Li Sun, Zhenhao Huang, Zixi Wang, Feiyang Wang, Hao Peng, and Philip S Yu. Motif-aware riemannian graph neural network with generative-contrastive learning. In Proceedings of the AAAI Conference on Artificial Intelligence , volume 38, pp. 9044–9052, 2024. 11 Petar Veliˇ ckovi´ c, Guillem Cucurull, Arantxa Casanova, Adriana Romero, Pietro Li` o, and Yoshua Bengio. Graph attention networks. In Proceedings of the International Conference on Learning Representations , 2018. Nikil Wale, Ian A Watson, and George Karypis. Comparison of descriptor spaces for chemical compound retrieval and classification. Knowledge and Information Systems , 14:347–375, 2008. Xudong Wang, Chris Ding, Tongxin Li, and Jicong Fan. Adaptive riemannian graph neural networks. In Proceedings of the AAAI Conference on Artificial Intelligence , volume 40, pp. 26606–26614, 2026a. Yingxu Wang, Kunyu Zhang, Jiaxin Huang, Nan Yin, Siwei Liu, and Eran Segal. Protomol: en-hancing molecular property prediction via prototype-guided multimodal learning. Briefings in Bioinformatics , 26(6):bbaf629, 2025. Yingxu Wang, Victor Liang, Nan Yin, Siwei Liu, and Eran Segal. Sgac: a graph neural network framework for imbalanced and structure-aware amp classification. Briefings in Bioinformatics , 27 (1):bbag038, 2026b. Yingxu Wang, Kunyu Zhang, Mengzhu Wang, Siyang Gao, and Nan Yin. Usbd: Universal structural basis distillation for source-free graph domain adaptation. In Proceedings of the 32nd ACM SIGKDD Conference on Knowledge Discovery and Data Mining V. 2 , pp. 5125–5136, 2026c. Yu Wang and Yi Chang. Enhancing graph neural networks on spd manifolds via cholesky decomposi-tion. Pattern Recognition , pp. 112763, 2025. Lanning Wei, Huan Zhao, Zhiqiang He, and Quanming Yao. Neural architecture search for gnn-based graph classification. ACM Transactions on Information Systems , 42(1):1–29, 2023. Qitian Wu, Wentao Zhao, Zenan Li, David P Wipf, and Junchi Yan. Nodeformer: A scalable graph structure learning transformer for node classification. Proceedings of the Conference on Neural Information Processing Systems , 35:27387–27401, 2022. Zhenqin Wu, Bharath Ramsundar, Evan N Feinberg, Joseph Gomes, Caleb Geniesse, Aneesh S Pappu, Karl Leswing, and Vijay Pande. Moleculenet: a benchmark for molecular machine learning. 
+
+Chemical science , 9(2):513–530, 2018. Keyulu Xu, Chengtao Li, Yonglong Tian, Tomohiro Sonobe, Ken-ichi Kawarabayashi, and Stefanie Jegelka. Representation learning on graphs with jumping knowledge networks. In Proceedings of the International Conference on Machine Learning , pp. 5453–5462. pmlr, 2018. Keyulu Xu, Weihua Hu, Jure Leskovec, and Stefanie Jegelka. How powerful are graph neural networks? In Proceedings of the International Conference on Learning Representations , 2019. Tianjun Yao, Yingxu Wang, Kun Zhang, and Shangsong Liang. Improving the expressiveness of k-hop message-passing gnns by injecting contextualized substructure information. In Proceedings of the International ACM SIGKDD Conference on Knowledge Discovery & Data Mining , pp. 3070–3081, 2023. Seongjun Yun, Minbyul Jeong, Raehyun Kim, Jaewoo Kang, and Hyunwoo J Kim. Graph transformer networks. Proceedings of the Conference on Neural Information Processing Systems , 32, 2019. Jingyuan Zhang, Xin Wang, Lei Yu, Zhirong Huang, Li Yang, and Fengjun Zhang. Restricted global-aware graph filters bridging gnns and transformer for node classification. In Proceedings of the Conference on Neural Information Processing Systems , 2025. 12 A NOTATION SUMMARY 
+
+As shown in the Table 5, we summarize the key notations of this paper. Table 5: Summary of key notations. 
+
+Symbol Description 
+
+G = ( V, E, X ), A Attributed graph with node set V , edge set E, feature matrix X, and adjacency matrix 
+
+A.
+
+n, F 0, C Numbers of nodes, input features, and classes, respectively. 
+
+ui, U, q Fixed structural signature of node i, signature matrix, and signature dimension. 
+
+N (i), eN (i) Neighborhood of node i and its extension with a self-loop. 
+
+d, B, m Hidden dimension, number of geometric blocks, and block size, with d = Bm .
+
+K, L Numbers of geometric prototypes and recurrent evolution steps. 
+
+ξli , Z li Local feature state and node-wise geometric coordinates at step l.
+
+zli,b = [ ali,b , ℓ li,b ]⊤ Log-triangular coordinates of block b: strictly lower-triangular entries and log-diagonal scales. 
+
+Lli,b , g li,b Block triangular frame and corresponding symmetric positive-definite geometry. 
+
+Lli, g li Node-wise frame and local geometry assembled as block-diagonal matrices. 
+
+Z, ΠZ Admissible coordinate domain with bounds amax , ℓ min , ℓ max , and coordinatewise clip-ping onto it. 
+
+σ+, σ −, κ L Spectral bounds of admissible frames and Lipschitz constant of the frame reconstruction. 
+
+zproto  
+
+> k,b
+
+, α ik Coordinates of prototype k in block b and its structure-conditioned weight for node i.
+
+hli Shared-environment representation hli = Lliξli .
+
+elij , ω lij , τ Squared environment-space distance, normalized neighborhood weight, and tempera-ture. 
+
+ϕ, W ϕ Shared linear message transformation and its learnable weight matrix. 
+
+T lj→i,b Blockwise source-to-target frame map (Lli,b )−1Llj,b .
+
+mlj→i,b , m lj→i Transported block message and the full message concatenated across blocks. 
+
+¯ξli , r li Aligned neighborhood aggregate and elementwise gate for feature updates. 
+
+δlij,b , ¯δli,b Residual between an aligned source message and the transformed target state, and its weighted mean. 
+
+Cli,b , ϵ s Regularized weighted second-moment matrix of residuals and its spectral regularization. 
+
+Rli,b , bzli,b , η Stabilized Cholesky target frame, its log-triangular coordinates, and the numerical jitter. 
+
+qli,b , Γθ Controller input and shared controller predicting task-supervised geometric corrections. 
+
+U li,b , V li,b , d li,b Controller factors for lower-triangular corrections and the log-diagonal correction vector. 
+
+∆zli,b Learned correction to the block log-triangular coordinates. 
+
+λ, γ Mixing weight for the residual target and strength of the learned correction. 
+
+## B PROOF OF LEMMA 1
+
+Lemma 1 (Well-Posed Geometric Parameterization) Let m ≥ 1 and z, z ′ ∈ Z . The frame 
+
+L(z) is lower triangular with det L(z) = exp( P 
+
+> t
+
+ℓt) > 0, so it is invertible and g(z) ∈ SPD( m).There are constants σ+ ≥ σ− > 0 and κL > 0, depending only on m, amax , ℓmin , and ℓmax , such that 
+
+∥L(z)∥2 ≤ σ+, ∥L(z)−1∥2 ≤ σ−1 
+
+> −
+
+, σ2 
+
+> −
+
+Im ⪯ g(z) ⪯ σ2+ Im,
+
+and the reconstruction is Lipschitz: ∥L(z)−L(z′)∥F ≤ κL∥z −z′∥2 and ∥L(z)−1 −L(z′)−1∥2 ≤
+
+σ−2 
+
+> −
+
+κL∥z − z′∥2. All statements carry over to the block-diagonal frames Li = L 
+
+> b
+
+L(zi,b ) and 
+
+gi = L⊤ 
+
+> i
+
+Li, with ∥z − z′∥2 replaced by ∥Zi − Z′
+
+> i
+
+∥F := ( P 
+
+> b
+
+∥zi,b − z′
+
+> i,b
+
+∥22)1/2.
+
+Proof 1 Throughout, ∥ · ∥ 2 denotes the Euclidean norm of a vector and the spectral norm of a matrix, 
+
+∥ · ∥ F the Frobenius norm, and ∥ · ∥ 1, ∥ · ∥ ∞ the induced max-column-sum and max-row-sum norms. Recall from Eq. (1) that a block coordinate z = [ a⊤, ℓ ⊤]⊤ ∈ Z , with a ∈ Rm(m−1) /2 and ℓ ∈ Rm,
+
+13 is reconstructed as 
+
+L(z) = N + D, N := mat sl (a), D := Diag( eℓ), (16) 
+
+so that L(z)rr = eℓr and L(z)rs = ars for r > s , where N is strictly lower triangular with 
+
+|Nrs | ≤ amax and ℓt ∈ [ℓmin , ℓ max ] for all r > s and t. With 
+
+ν := amax 
+
+q m(m−1) 2 , ¯a := amax e−ℓmin , κ0 := min 
+
+n√m (1+¯ a)m−1,
+
+> m−1
+
+X
+
+> k=0
+
+ νe −ℓmin ko
+
+,
+
+(17) 
+
+we set 
+
+σ+ := eℓmax + ν, σ− := eℓmin /κ 0, κL := 1 + eℓmax . (18) 
+
+These constants depend only on m, amax , ℓmin , and ℓmax . Since κ0 ≥ 1 and eℓmax ≥ eℓmin , we have 
+
+σ+ ≥ σ− > 0.
+
+Invertibility. L(z) is lower triangular with diagonal entries eℓt ∈ [eℓmin , e ℓmax ], so det L(z) = Q 
+
+> t
+
+eℓt = exp( P 
+
+> t
+
+ℓt) > 0 and L(z) is invertible. The matrix g(z) = L(z)⊤L(z) is symmetric and, for v̸ = 0 , v⊤g(z)v = ∥L(z)v∥22 > 0; hence g(z) ∈ SPD( m).
+
+Upper bound. Since ∥D∥2 = max t eℓt ≤ eℓmax and N has m(m − 1) /2 entries of magnitude at most amax ,
+
+∥L(z)∥2 ≤ ∥ D∥2 + ∥N ∥2 ≤ eℓmax + ∥N ∥F ≤ eℓmax + amax 
+
+q m(m−1) 2 = σ+. (19) Lower bound. Factor the diagonal out of Eq. (16) : L(z) = D(Im + ˜N ) with ˜N := D−1N , so that L(z)−1 = ( Im + ˜N )−1D−1 and ∥D−1∥2 = max t e−ℓt ≤ e−ℓmin . Left multiplication by 
+
+D−1 scales row r by e−ℓr , so ˜N is strictly lower triangular with | ˜Nrs | = e−ℓr |ars | ≤ ¯a and 
+
+∥ ˜N ∥F ≤ e−ℓmin ∥N ∥F ≤ νe −ℓmin . It suffices to show ∥(Im + ˜N )−1∥2 ≤ κ0. We bound this norm in two ways and take the smaller. (i) Forward substitution. For y ∈ Rm let w = ( Im + ˜N )−1y, i.e. wr = yr − P 
+
+> s<r
+
+˜Nrs ws for 
+
+r = 1 , . . . , m . We claim |wr | ≤ ∥ y∥∞(1 + ¯ a)r−1. This holds for r = 1 since w1 = y1. If it holds for all s < r , then 
+
+|wr | ≤ ∥ y∥∞ + ¯ a X
+
+> s<r
+
+|ws| ≤ ∥ y∥∞
+
+
+
+1 + ¯ a
+
+> r−1
+
+X
+
+> s=1
+
+(1 + ¯ a)s−1
+
+= ∥y∥∞(1 + ¯ a)r−1,
+
+where the last equality uses the geometric sum ¯a Pr−1 
+
+> s=1
+
+(1 + ¯ a)s−1 = (1 + ¯ a)r−1 − 1. Hence 
+
+∥(Im + ˜N )−1∥∞ ≤ (1+¯ a)m−1. For any A ∈ Rm×m, ∥A∥1 ≤ m∥A∥∞ and ∥A∥2 ≤ p∥A∥1∥A∥∞,so ∥(Im + ˜N )−1∥2 ≤ √m (1 + ¯ a)m−1.(ii) Neumann series. Since ˜N is strictly lower triangular, ˜N m = 0 and (Im + ˜N )−1 = Pm−1 
+
+> k=0
+
+(− ˜N )k.With ∥ ˜N ∥2 ≤ ∥ ˜N ∥F ≤ νe −ℓmin ,
+
+∥(Im + ˜N )−1∥2 ≤
+
+> m−1
+
+X
+
+> k=0
+
+∥ ˜N ∥k 
+
+> 2
+
+≤
+
+> m−1
+
+X
+
+> k=0
+
+ νe −ℓmin k.
+
+Combining (i) and (ii) gives ∥(Im + ˜N )−1∥2 ≤ κ0, hence ∥L(z)−1∥2 ≤ ∥ (Im + ˜N )−1∥2∥D−1∥2 ≤
+
+κ0e−ℓmin = σ−1 
+
+> −
+
+.
+
+Metric bounds. The eigenvalues of g(z) = L(z)⊤L(z) are the squared singular values of L(z). Since 
+
+σmax (L(z)) = ∥L(z)∥2 ≤ σ+ and σmin (L(z)) = ∥L(z)−1∥−12 ≥ σ−, we obtain σ2
+
+> −
+
+Im ⪯ g(z) ⪯
+
+σ2+Im.
+
+Lipschitz reconstruction. Write z′ = [ a′⊤ , ℓ ′⊤ ]⊤, D′ = Diag( eℓ′
+
+) and N ′ = mat sl (a′). By Eq. (16) ,
+
+L(z) − L(z′) = ( N − N ′) + ( D − D′).
+
+14 Since mat sl is an isometry onto the strictly lower entries, ∥N − N ′∥F = ∥a − a′∥2. By the mean value theorem on [ℓmin , ℓ max ], |eℓt − eℓ′ 
+
+> t
+
+| ≤ eℓmax |ℓt − ℓ′
+
+> t
+
+| for every t, so ∥D − D′∥F =   P 
+
+> t
+
+(eℓt −
+
+eℓ′ 
+
+> t
+
+)21/2 ≤ eℓmax ∥ℓ − ℓ′∥2. Using the triangle inequality and ∥a − a′∥2, ∥ℓ − ℓ′∥2 ≤ ∥ z − z′∥2,
+
+∥L(z) − L(z′)∥F ≤ ∥ a − a′∥2 + eℓmax ∥ℓ − ℓ′∥2 ≤  1 + eℓmax ∥z − z′∥2 = κL∥z − z′∥2.
+
+For the inverses, L(z)−1 − L(z′)−1 = L(z)−1 L(z′) − L(z)L(z′)−1, so by the spectral bounds and ∥ · ∥ 2 ≤ ∥ · ∥ F ,
+
+∥L(z)−1 − L(z′)−1∥2 ≤ ∥ L(z)−1∥2 ∥L(z′) − L(z)∥F ∥L(z′)−1∥2 ≤ σ−2 
+
+> −
+
+κL∥z − z′∥2.
+
+Block-diagonal frames. Li is block diagonal with lower-triangular blocks L(zi,b ), hence lower triangular with det Li = Q 
+
+> b
+
+det L(zi,b ) > 0, and gi = L 
+
+> b
+
+g(zi,b ) is SPD. The singular values of a block-diagonal matrix are the union of those of its blocks, so the spectral bounds hold for Li and gi
+
+with the same σ±. For the Lipschitz bounds, 
+
+∥Li − L′
+
+> i
+
+∥2 
+
+> F
+
+= X
+
+> b
+
+∥L(zi,b ) − L(z′
+
+> i,b
+
+)∥2 
+
+> F
+
+≤ κ2
+
+> L
+
+X
+
+> b
+
+∥zi,b − z′
+
+> i,b
+
+∥22 = κ2
+
+> L
+
+∥Zi − Z′
+
+> i
+
+∥2 
+
+> F
+
+,
+
+and, since the spectral norm of a block-diagonal matrix is the maximum over its blocks, 
+
+∥L−1 
+
+> i
+
+−L′− 1 
+
+> i
+
+∥2 = max  
+
+> b
+
+∥L(zi,b )−1−L(z′
+
+> i,b
+
+)−1∥2 ≤ σ−2 
+
+> −
+
+κL max  
+
+> b
+
+∥zi,b −z′
+
+> i,b
+
+∥2 ≤ σ−2 
+
+> −
+
+κL∥Zi−Z′
+
+> i
+
+∥F .
+
+## C PROOF OF PROPOSITION 1
+
+Proposition 1 (Frame-Aligned Transport) Fix a recurrent step l with admissible geometric states, and let T lj→i,b = ( Lli,b )−1Llj,b and M lj = Llj Wϕ(Llj )−1. Then mlj→i,b = T lj→i,b (ϕ(ξlj )) b
+
+with ∥T lj→i,b ∥2 ≤ σ+/σ −, and the frame maps satisfy T li→i,b = Im and T lj→i,b T lk→j,b = T lk→i,b ,so their product along any walk depends only on its endpoints. In environment coordinates, the aggregate and the residuals δlij := mlj→i − ϕ(ξli) read 
+
+Lli ¯ξli = X   
+
+> j∈˜N(i)
+
+ωlij M lj hlj , Lliδlij = M lj hlj − M li hli,
+
+where each M lj is similar to Wϕ with ∥M lj ∥2 ≤ (σ+/σ −)∥Wϕ∥2, and M lj = cI d when Wϕ = cI d.
+
+Proof 2 Throughout, ∥ · ∥ 2 denotes the Euclidean norm of a vector and the spectral norm of a matrix. The geometric states are admissible, so Lemma 1 applies to every block frame Lli,b and to every block-diagonal frame Lli.
+
+Weights. For finite ξl and admissible Zl, hli = Lliξli and elij = ∥hli − hlj ∥22 are finite, so every term exp( −elij /τ ) in Eq. (4) is strictly positive and the normalizer is finite. Hence ωlij > 0 and 
+
+P   
+
+> j∈˜N(i)
+
+ωlij = 1 .
+
+Transport. By Lemma 1, Lli,b is invertible, so the triangular solve in Eq. (5) returns the unique 
+
+mlj→i,b with Lli,b mlj→i,b = Llj,b (ϕ(ξlj )) b, i.e. mlj→i,b = ( Lli,b )−1Llj,b (ϕ(ξlj )) b = T lj→i,b (ϕ(ξlj )) b.Submultiplicativity and the spectral bounds of Lemma 1 give ∥T lj→i,b ∥2 ≤ ∥ (Lli,b )−1∥2 ∥Llj,b ∥2 ≤
+
+σ−1 
+
+> −
+
+σ+.
+
+Composition. Directly from the definition, T li→i,b = ( Lli,b )−1Lli,b = Im and 
+
+T lj→i,b T lk→j,b = ( Lli,b )−1Llj,b (Llj,b )−1Llk,b = ( Lli,b )−1Llk,b = T lk→i,b .
+
+For a walk i0 → i1 → · · · → ik, induction on k with this rule gives T lik−1→ik ,b · · · T li0→i1,b =
+
+T li0→ik ,b = ( Llik ,b )−1Lli0,b , which involves only the frames of the two endpoints; for a closed walk it equals Im.
+
+15 Environment-coordinate form. Taking the b-th block of Eq. (6) , multiplying by Lli,b and using linearity, 
+
+Lli,b ( ¯ξli)b = X  
+
+> j∈˜N(i)
+
+ωlij Lli,b mlj→i,b = X  
+
+> j∈˜N(i)
+
+ωlij Llj,b 
+
+ ϕ(ξlj )
+
+> b
+
+.
+
+All nodes share the block partition and Lli is block diagonal, so stacking this identity over 
+
+b = 1 , . . . , B yields Lli ¯ξli = P 
+
+> j
+
+ωlij Llj Wϕξlj . Since ξlj = ( Llj )−1hlj , each summand equals 
+
+ωlij Llj Wϕ(Llj )−1hlj = ωlij M lj hlj , which is the stated form. By construction M lj = Llj Wϕ(Llj )−1 is similar to Wϕ, and ∥M lj ∥2 ≤ ∥ Llj ∥2 ∥Wϕ∥2 ∥(Llj )−1∥2 ≤ (σ+/σ −)∥Wϕ∥2 by Lemma 1. 
+
+Residuals in environment coordinates. For j ∈ ˜N (i), stacking the blocks of Eq. (5) as above gives 
+
+Llimlj→i = Llj Wϕξlj , while Lliϕ(ξli) = LliWϕ(Lli)−1hli = M li hli. Hence 
+
+Lli δlij = Llimlj→i − Lliϕ(ξli) = Llj Wϕ(Llj )−1hlj − M li hli = M lj hlj − M li hli.
+
+Scalar transform. If Wϕ = cI d, then M lj = cL lj (Llj )−1 = cI d.
+
+## D PROOF OF PROPOSITION 2
+
+Proposition 2 (Second-Order Refinement) Fix a step l. Write Rli,b = {(ωlij , δ lij,b )}j∈ ˜N (i) for the residual configuration of node i in block b, with weighted mean ¯δli,b , and call an update 
+
+first-order if it depends on Rli,b only through the weights and ¯δli,b . Let i, i ′ be nodes with ξli = ξli′ ,
+
+Zli = Zli′ , ui = ui′ , and ¯δli,b = ¯δli′,b for all b.(i) Every first-order update, including the mean-only target Cl, mean  
+
+> i,b
+
+= ¯δli,b (¯δli,b )⊤ + ϵsIm, the controller of Eq. (11) , and the feature update of Eq. (7) , returns identical outputs for i and i′;in particular ξl+1  
+
+> i
+
+= ξl+1  
+
+> i′
+
+and ∆zli,b = ∆ zli′,b .(ii) The second-order target is injective in the statistic: Cli,b ̸ = Cli′,b implies ˆzli,b ̸ = ˆ zli′,b . If 
+
+λ ∈ (0 , 1] and Eq. (12) is not clipped in block b, then Zl+1 
+
+> i
+
+̸ = Zl+1  
+
+> i′
+
+, and hl+1 
+
+> i
+
+̸ = hl+1  
+
+> i′
+
+unless 
+
+ξl+1  
+
+> i
+
+∈ ker( Ll+1  
+
+> i
+
+− Ll+1  
+
+> i′
+
+), a proper subspace. (iii) If i has at least two neighbors and Rli′,b ranges over all configurations with the same weights and first moment, those with Cli′,b = Cli,b form a Lebesgue-null set. (iv) The target depends on Rli,b only through Cli,b and is therefore strictly weaker than an injective aggregator: for m = 1 there are distinct three-point residual sets with equal weights, first, and second moments. Conversely, for m ≥ 2 the sets {0, ±v} and {0, ±w} with v =(1 , 1, 0, . . . , 0) ⊤, w = (1 , −1, 0, . . . , 0) ⊤ and equal weights on ±v, ±w share the mean-only and the diagonal target Cl, diag  
+
+> i,b
+
+= Diag   P  
+
+> j
+
+ωlij δlij,b ⊙ δlij,b 
+
+ + ϵsIm, yet Cli,b ̸ = Cli′,b .
+
+Proof 3 Preliminaries. Since the weights sum to one (Proposition 1), 
+
+¯δli,b = X  
+
+> j∈˜N(i)
+
+ωlij mlj→i,b −  ϕ(ξli) 
+
+> b
+
+= ( ¯ξli)b −  ϕ(ξli)
+
+> b
+
+. (20) 
+
+Hence, under ξli = ξli′ , the conditions ¯δli,b = ¯δli′,b for all b and ¯ξli = ¯ξli′ are equivalent. Moreover, 
+
+Zli = Zli′ implies Lli = Lli′ , and the self residual vanishes, δlii,b = 0 , because T li→i,b = Im. By Eq. (8) , Cli,b ⪰ ϵsIm ≻ 0, so the target of Eq. (10) exists for every fixed jitter η ≥ 0. Throughout, the statistics are regarded as functions of the residual configuration Rli,b .
+
+(i) First-order invariance. By definition, a first-order update depends on Rli,b only through the weights and ¯δli,b , which coincide for i and i′; hence its outputs coincide. This covers the three updates listed in the statement: 
+
+• the mean-only target is a function of ¯δli,b alone; 
+
+16 • the controller input qli,b = [( ξli)b∥( ¯ξli)b∥ui] coincides for the two nodes, so Γθ (qli,b ) = Γ θ (qli′,b )
+
+and, by Eq. (11) , ∆zli,b = ∆ zli′,b ;
+
+• the feature update of Eq. (7) is a function of (ξli, ¯ξli) only, so ξl+1  
+
+> i
+
+= ξl+1  
+
+> i′
+
+.
+
+(ii) Injectivity and propagation. For a fixed jitter, C 7 → R = SChol( C) is the Cholesky factor of 
+
+C + ηI m, a bijection between SPD( m) and lower-triangular matrices with positive diagonal (Lin, 2019), hence injective. The map 
+
+R 7 → ˆz =  Svec sl (R)⊤, log(diag R)⊤⊤ (21) 
+
+of Eq. (10) is injective because R is recovered from ˆz as mat sl (ˆ a) + Diag( eˆℓ). Therefore Cli,b ̸ = Cli′,b 
+
+implies ˆzli,b ̸ = ˆ zli′,b .When Eq. (12) is not clipped in block b, the projection acts as the identity. Since zli,b = zli′,b and 
+
+∆zli,b = ∆ zli′,b by (i), 
+
+zl+1  
+
+> i,b
+
+− zl+1  
+
+> i′,b
+
+= λ ˆzli,b − ˆzli′,b 
+
+̸ = 0 for λ > 0, (22) 
+
+so Zl+1 
+
+> i
+
+̸ = Zl+1  
+
+> i′
+
+. The map z 7 → L(z) of Eq. (16) is injective, since ℓr = log Lrr and ars = Lrs 
+
+recover z from L(z); hence Ll+1 
+
+> i,b
+
+̸ = Ll+1  
+
+> i′,b
+
+and, as block-diagonal matrices, Ll+1 
+
+> i
+
+̸ = Ll+1  
+
+> i′
+
+. With 
+
+ξl+1  
+
+> i
+
+= ξl+1  
+
+> i′
+
+,
+
+hl+1  
+
+> i
+
+− hl+1  
+
+> i′
+
+=  Ll+1  
+
+> i
+
+− Ll+1 
+
+> i′
+
+ ξl+1  
+
+> i
+
+, (23) 
+
+which vanishes only if ξl+1  
+
+> i
+
+lies in the kernel of the nonzero matrix Ll+1  
+
+> i
+
+− Ll+1  
+
+> i′
+
+, a proper subspace of Rd.
+
+(iii) Genericity. Let j = 1 , . . . , k with k ≥ 2 index the neighbors of i′ other than itself, fix their weights (ωj )kj=1 , all positive by Proposition 1, and parametrize the residuals of i′ in block b by 
+
+δ = ( δ1, . . . , δ k) ∈ Rmk ; the self residual is zero and does not enter. Equal first moment is the affine constraint kX
+
+> j=1
+
+ωj δj = ¯δli,b , (24) 
+
+which defines an affine subspace A ⊂ Rmk of dimension m(k − 1) . On A the map C(δ) = P 
+
+> j
+
+ωj δj δ⊤ 
+
+> j
+
++ ϵsIm is polynomial, and so is p(δ) := C(δ)aa − (Cli,b )aa for any fixed coordinate a.The polynomial p is not identically zero on A. For δ ∈ A and t ∈ R, the perturbation δ1 7 → δ1 + te a,
+
+δ2 7 → δ2 − (ω1/ω 2)te a keeps P 
+
+> j
+
+ωj δj fixed, hence stays in A, and changes C(δ)aa by 
+
+ω1
+
+(δ1,a + t)2 − δ21,a 
+
+ + ω2
+
+h δ2,a − ω1 
+
+> ω2
+
+t2 − δ22,a 
+
+i
+
+= 2 ω1t (δ1,a − δ2,a ) + 
+
+
+
+ω1 + ω21
+
+ω2
+
+
+
+t2, (25) 
+
+a polynomial in t with positive leading coefficient, hence nonconstant along the line. The zero set of a nonzero polynomial on an affine space has Lebesgue measure zero, so 
+
+{δ ∈ A : C(δ) = Cli,b } ⊆ { δ ∈ A : p(δ) = 0 } (26) 
+
+is a Lebesgue-null subset of A.
+
+(iv) Limits of second-order separation. The target ˆzli,b is a function of Cli,b alone, so any two residual configurations with equal weighted second moments yield equal targets. 
+
+The case m = 1 . Take equal weights 1/3, q ∈ (0 , 1) , and p, r = −q±√4−3q2 
+
+> 2
+
+, which are real since 
+
+4 − 3q2 > 0. Then p and r are the roots of t2 + qt + ( q2 − 1) = 0 , so p + r = −q, pr = q2 − 1, and 
+
+p2 + r2 = ( p + r)2 − 2pr = 2 − q2. The set {q, p, r } therefore has first moment (q + p + r)/3 = 0 
+
+and second moment (q2 + p2 + r2)/3 = 2 /3, as does {− 1, 0, 1}, while its third moment is 
+
+> 13
+
+ q3 +p3 +r3 = 13
+
+ q3 +( p+r)3 −3pr (p+r) = 13
+
+ q3 −q3 +3 q(q2 −1)  = q(q2 −1) ̸ = 0 . (27) 17 The two sets are distinct multisets, so an injective aggregator separates them, whereas the second-order target does not. 
+
+The case m ≥ 2. Consider the configurations {0, ±v} and {0, ±w} with weights (ω0, ω, ω ), ω > 0.In both, the first moment is ω0 · 0 + ωv − ωv = 0 (respectively with w), so the mean-only targets are both ϵsIm. The full statistics are 
+
+Cli,b = 2 ω vv ⊤ + ϵsIm, Cli′,b = 2 ω ww ⊤ + ϵsIm, (28) 
+
+whose (1 , 2) entries are +2 ω and −2ω, so they differ. The diagonal statistics use v ⊙ v = w ⊙ w =(1 , 1, 0, . . . , 0) ⊤ and therefore coincide, Diag  2ω(1 , 1, 0, . . . , 0) ⊤+ϵsIm. Such configurations arise, for instance, from two neighbors whose transformed features differ from ϕ(ξli) by ±v (respectively 
+
+±w) and share the same frame and environment distance to the target. 
+
+## E PROOF OF PROPOSITION 3
+
+Proposition 3 (Stability and Convergence) Fix τ > 0, ϵs > 0, η ≥ 0 and a feature bound Ξ.Let D = {(ξ, Z ) : ∥ξi∥2 ≤ Ξ, z i,b ∈ Z} , let F : ( ξl, Z l) 7 → (ξl+1 , Z l+1 ) denote one recurrent step, and let d∞(S, S ′) = max i
+
+ ∥ξi − ξ′
+
+> i
+
+∥2 + ∥Zi − Z′
+
+> i
+
+∥F
+
+.(i) Eq. (12) is a projected proximal step: ΠZ is the Euclidean projection onto Z, and zl+1  
+
+> i,b
+
+is the unique minimizer over Z of  
+
+> 1−λ
+> 2
+
+∥z − zli,b ∥22 + λ 
+
+> 2
+
+∥z − ˆzli,b ∥22 − γ⟨∆zli,b , z − zli,b ⟩.
+
+It differs from the uncorrected update zl+1 ,0 
+
+> i,b
+
+= Π Z
+
+ (1 − λ)zli,b + λˆzli,b 
+
+ by at most γ∥∆zli,b ∥2.(ii) One step is Lipschitz on D: d∞
+
+ F (S), F (S′) ≤ K d ∞(S, S ′) with K = cξ + (1 − λ) + 
+
+λc ˆZ + γc ∆, where the constants depend only on m, B, σ±, κL, ϵs, η, τ , Ξ, λ, γ, and the norms of Wϕ, Wr , and Γθ , but not on node degrees. (iii) For fixed ξ, let Φξ (Z) = Π Z
+
+ (1 − λ)Z + λ ˆZ(Z; ξ) + γ∆Z(Z; ξ). If Z⋆ is an unclipped fixed point of Φξ whose Jacobian J = ∂Φξ (Z⋆) has spectral radius ρ(J) < 1, then Z⋆ is locally attracting with rate ρ(J): for every ε > 0 there are c > 0 and a neighborhood U of 
+
+Z⋆ such that ∥Zl − Z⋆∥F ≤ c (ρ(J) + ε)l ∥Z0 − Z⋆∥F for all Z0 ∈ U .(iv) If moreover ˆZ(·; ξ) and ∆Z(·; ξ) are Lˆz - and L∆-Lipschitz on ZnB and ρ := (1 − λ) + 
+
+λL ˆz + γL ∆ < 1, the fixed point is unique and ∥Zl+1 − Zl∥F ≤ ρl∥Z1 − Z0∥F from every initialization. 
+
+Proof 4 Throughout, ∥ · ∥ denotes the Euclidean norm of a vector and the spectral norm of a matrix, 
+
+∥ · ∥ F the Frobenius norm, and ∥ · ∥ 1, ∥ · ∥ ∞ the vector ℓ1 and ℓ∞ norms. The constants σ± and κL
+
+are those of Lemma 1. 
+
+(i) Projected proximal step. Z is a product of closed intervals, and the objective 12 ∥z − y∥2 separates over coordinates, so its minimizer over Z is obtained by clipping each coordinate of y to its interval; hence ΠZ is the Euclidean projection. Let u = (1 − λ)zli,b + λˆzli,b and c = ∆ zli,b . Expanding the squares and using (1 − λ) + λ = 1 , 
+
+> 1−λ
+> 2
+
+∥z − zli,b ∥2 + λ 
+
+> 2
+
+∥z − ˆzli,b ∥2 − γ⟨c, z − zli,b ⟩ = 12 ∥z − (u + γc )∥2 + const , (29) 
+
+so the unique minimizer over Z is ΠZ (u + γc ) = zl+1  
+
+> i,b
+
+by Eq. (12) . The projection onto a closed convex set is non-expansive, whence 
+
+∥zl+1  
+
+> i,b
+
+− zl+1 ,0 
+
+> i,b
+
+∥ = ∥ΠZ (u + γc ) − ΠZ (u)∥ ≤ γ∥c∥. (30) (ii) One-step Lipschitz bound. Let S = ( ξ, Z ) and S′ = ( ξ′, Z ′) lie in D, write d := d∞(S, S ′), and let primes denote quantities computed from S′. Set wϕ := ∥Wϕ∥, wr := ∥Wr ∥, ¯U := max i ∥ui∥,
+
+18 ℓΓ := Lip(Γ θ ) ≤ 1.1∥WΓ,2∥∥ WΓ,1∥ (since sup |SiLU ′| < 1.1), and 
+
+H := σ+Ξ, ch := max( κLΞ, σ +), cω := 16 Hc h/τ, ¯M := σ+σ−1 
+
+> −
+
+wϕΞ,cm := wϕ
+
+ σ−2 
+
+> −
+
+σ+κLΞ + σ−1 
+
+> −
+
+κLΞ + σ−1 
+
+> −
+
+σ+
+
+, c¯ξ := ¯M c ω + cm,cξ := 2 + c¯ξ + wr 
+
+> 4
+
+(1 + c¯ξ )( ¯M + Ξ) , ¯D := ¯M + wϕΞ, ¯C := ¯D2 + ϵs,cC := ¯D2cω + 2 ¯D(cm + wϕ), Lchol := ( ¯C + η)1/2
+
+ϵs + η , cz := max 1, (ϵs + η)−1/2 ,c ˆZ := √B c z Lchol cC , ¯G := sup  
+
+> ∥q∥≤ Ξ+ ¯M+ ¯U
+
+∥Γθ (q)∥, c∆ := √3B max( ¯G, 1) ℓΓ(1 + c¯ξ ).
+
+Each bound below is derived for an arbitrary node i; since d majorizes the perturbation of i and of every neighbor, the same d appears throughout. 
+
+Frames. By Lemma 1, ∥Li∥ ≤ σ+, ∥L−1 
+
+> i
+
+∥ ≤ σ−1 
+
+> −
+
+, ∥Li − L′
+
+> i
+
+∥F ≤ κL∥Zi − Z′
+
+> i
+
+∥F ≤ κLd and 
+
+∥L−1 
+
+> i
+
+− L′− 1 
+
+> i
+
+∥ ≤ σ−2 
+
+> −
+
+κLd.
+
+Environment representations and weights. ∥hi∥ = ∥Liξi∥ ≤ σ+Ξ = H and 
+
+∥hi − h′
+
+> i
+
+∥ ≤ ∥ Li − L′
+
+> i
+
+∥ ∥ ξi∥ + ∥L′
+
+> i
+
+∥ ∥ ξi − ξ′
+
+> i
+
+∥ ≤ κLΞ∥Zi − Z′
+
+> i
+
+∥F + σ+∥ξi − ξ′
+
+> i
+
+∥ ≤ chd. (31) 
+
+Since ∥hi − hj ∥ ≤ 2H and | ∥ x∥2 − ∥ y∥2| ≤ (∥x∥ + ∥y∥)∥x − y∥, |eij − e′ 
+
+> ij
+
+| ≤ 4H ∥hi −
+
+h′
+
+> i
+
+∥ + ∥hj − h′ 
+
+> j
+
+∥ ≤ 8Hc hd. The softmax map is 2-Lipschitz from ℓ∞ to ℓ1: its Jacobian at ω is 
+
+Diag( ω) − ωω ⊤, and for any v,
+
+(Diag( ω) − ωω ⊤)v 1 = X
+
+> k
+
+ωk |vk − ⟨ ω, v ⟩| ≤ max  
+
+> k
+
+vk − min  
+
+> k
+
+vk ≤ 2∥v∥∞, (32) 
+
+because ⟨ω, v ⟩ is a convex combination of the vk; the bound extends to finite differences by the integral form of the mean value theorem. Applying it to Eq. (4) , ∥ωi· − ω′
+
+> i·
+
+∥1 ≤ 2 
+
+> τ
+
+max j |eij − e′ 
+
+> ij
+
+| ≤ cω d.
+
+Messages and aggregate. By Proposition 1, mj→i = L−1 
+
+> i
+
+Lj Wϕξj , so ∥mj→i∥ ≤ ¯M . Writing 
+
+mj→i − m′ 
+
+> j→i
+
+= ( L−1 
+
+> i
+
+− L′− 1 
+
+> i
+
+)Lj Wϕξj + L′− 1 
+
+> i
+
+(Lj − L′ 
+
+> j
+
+)Wϕξj + L′− 1 
+
+> i
+
+L′ 
+
+> j
+
+Wϕ(ξj − ξ′ 
+
+> j
+
+) (33) 
+
+and bounding the three terms by σ−2 
+
+> −
+
+κLd · σ+wϕΞ, σ−1 
+
+> −
+
+· κLd · wϕΞ and σ−1 
+
+> −
+
+σ+wϕd gives ∥mj→i −
+
+m′
+
+> j→i
+
+∥ ≤ cmd. Since the weights are nonnegative and sum to one, 
+
+∥ ¯ξi − ¯ξ′
+
+> i
+
+∥ ≤ X
+
+> j
+
+|ωij − ω′ 
+
+> ij
+
+| ∥ mj→i∥ + X
+
+> j
+
+ω′ 
+
+> ij
+
+∥mj→i − m′
+
+> j→i
+
+∥≤ ¯M ∥ωi· − ω′
+
+> i·
+
+∥1 + max  
+
+> j
+
+∥mj→i − m′
+
+> j→i
+
+∥ ≤ c¯ξ d, 
+
+(34) 
+
+and ∥ ¯ξi∥ ≤ ¯M .
+
+Feature update. The sigmoid is 14 -Lipschitz with values in [0 , 1] , so the gate of Eq. (7) satisfies 
+
+∥ri − r′
+
+> i
+
+∥ ≤ wr
+
+> 4
+
+ ∥ξi − ξ′
+
+> i
+
+∥ + ∥ ¯ξi − ¯ξ′
+
+> i
+
+∥ ≤ wr 
+
+> 4
+
+(1 + c¯ξ )d. Writing ξl+1  
+
+> i
+
+= ξi + ri ⊙ ( ¯ξi − ξi),
+
+ξl+1  
+
+> i
+
+− ξ′ l+1  
+
+> i
+
+= ( ξi − ξ′
+
+> i
+
+) + ( ri − r′
+
+> i
+
+) ⊙ ( ¯ξi − ξi) + r′ 
+
+> i
+
+⊙ ( ¯ξi − ¯ξ′
+
+> i
+
+) − (ξi − ξ′
+
+> i
+
+), (35) 
+
+and using ∥a ⊙ b∥ ≤ ∥ a∥ ∥ b∥, ∥r′ 
+
+> i
+
+⊙ b∥ ≤ ∥ b∥ and ∥ ¯ξi − ξi∥ ≤ ¯M + Ξ ,
+
+∥ξl+1  
+
+> i
+
+− ξ′ l+1  
+
+> i
+
+∥ ≤ d + wr 
+
+> 4
+
+(1 + c¯ξ )( ¯M + Ξ) d + ( c¯ξ + 1) d = cξ d. (36) Residual statistic. δij = mj→i − Wϕξi satisfies ∥δij ∥ ≤ ¯D and ∥δij − δ′ 
+
+> ij
+
+∥ ≤ (cm + wϕ)d, and the same bounds hold for each block δij,b . Since ∥δδ ⊤ − δ′δ′⊤ ∥F ≤ 2 ¯D∥δ − δ′∥ and ∥δδ ⊤∥F =
+
+∥δ∥2 ≤ ¯D2, the statistic of Eq. (8) satisfies 
+
+∥Ci,b − C′
+
+> i,b
+
+∥F ≤ ¯D2∥ωi· − ω′
+
+> i·
+
+∥1 + 2 ¯D max  
+
+> j
+
+∥δij,b − δ′
+
+> ij,b
+
+∥ ≤ cC d, (37) 
+
+and ϵsIm ⪯ Ci,b ⪯ ¯CI m because δδ ⊤ ⪯ ∥ δ∥2Im.
+
+19 Cholesky target. Let K = {C : ϵsIm ⪯ C ⪯ ¯CI m}, a compact convex subset of SPD( m), and let 
+
+R(C) denote the lower Cholesky factor of C + ηI m. We bound the two maps C 7 → R and R 7 → ˆz in turn. The map C 7 → R(C) is real-analytic on SPD( m) (Lin, 2019). Differentiating RR ⊤ = C + ηI m
+
+gives R−1 dC R −⊤ = X + X⊤ with X = R−1dR lower triangular, hence 
+
+dR = R Φ R−1 dC R −⊤ , (38) 
+
+where Φ keeps the strictly lower part of its argument and halves the diagonal, so that ∥Φ( Y )∥F ≤∥Y ∥F . On K, ∥R∥2 = λmax (C + ηI m) ≤ ¯C + η and ∥R−1∥2 = λmin (C + ηI m)−1 ≤ (ϵs + η)−1,so 
+
+∥dR ∥F ≤ ∥ R∥ ∥ R−1∥2 ∥dC ∥F ≤ Lchol ∥dC ∥F . (39) 
+
+Since K is convex, the mean value theorem gives ∥R(C) − R(C′)∥F ≤ Lchol ∥C − C′∥F .For the coordinates of Eq. (10) , the strictly lower coordinates are the entries Rrs themselves. The diagonal entries satisfy R2 
+
+> tt
+
+= Ctt − Ct,<t C−1 
+
+> <t,<t
+
+C<t,t , a Schur complement of C + ηI m, hence 
+
+R2 
+
+> tt
+
+≥ ϵs + η and 
+
+| log Rtt − log R′
+
+> tt
+
+| ≤ (ϵs + η)−1/2 |Rtt − R′
+
+> tt
+
+|. (40) 
+
+Collecting all entries in ℓ2,
+
+∥ˆzi,b − ˆz′
+
+> i,b
+
+∥ ≤ cz ∥R − R′∥F ≤ cz Lchol cC d, (41) 
+
+and stacking the B blocks gives ∥ ˆZi − ˆZ′
+
+> i
+
+∥F ≤ √B c z Lchol cC d = c ˆZ d.
+
+Correction. The controller input qi,b = [( ξi)b∥( ¯ξi)b∥ui] satisfies ∥qi,b ∥ ≤ Ξ + ¯M + ¯U and, the signature being fixed, ∥qi,b − q′
+
+> i,b
+
+∥ ≤ ∥ ξi − ξ′
+
+> i
+
+∥ + ∥ ¯ξi − ¯ξ′
+
+> i
+
+∥ ≤ (1 + c¯ξ )d. Γθ is ℓΓ-Lipschitz, and its output on this ball is bounded by ¯G; the reshaped factors therefore satisfy ∥U ∥F , ∥V ∥F , ∥dℓ∥ ≤ ¯G.Using ∥U V ⊤ − U ′V ′⊤ ∥F ≤ ¯G(∥U − U ′∥F + ∥V − V ′∥F ), the correction of Eq. (11) satisfies 
+
+∥∆zi,b − ∆z′
+
+> i,b
+
+∥ ≤ ∥ U V ⊤ − U ′V ′⊤ ∥F + ∥dℓ − d′
+
+> ℓ
+
+∥≤ max( ¯G, 1)  ∥U − U ′∥F + ∥V − V ′∥F + ∥dℓ − d′
+
+> ℓ
+
+∥
+
+≤ √3 max( ¯G, 1) ∥Γθ (qi,b ) − Γθ (q′
+
+> i,b
+
+)∥ ≤ √3 max( ¯G, 1) ℓΓ(1 + c¯ξ ) d, 
+
+(42) 
+
+and stacking the B blocks gives ∥∆Zi − ∆Z′
+
+> i
+
+∥F ≤ c∆d.
+
+Composition. ΠZ acts coordinatewise and is non-expansive in the Frobenius norm, so by Eq. (12) 
+
+∥Zl+1  
+
+> i
+
+−Z′ l+1  
+
+> i
+
+∥F ≤ (1 −λ)∥Zi−Z′
+
+> i
+
+∥F +λ∥ ˆZi− ˆZ′
+
+> i
+
+∥F +γ∥∆Zi−∆Z′
+
+> i
+
+∥F ≤  (1 −λ)+ λc ˆZ +γc ∆
+
+d. 
+
+(43) 
+
+Adding the feature bound and taking the maximum over i, d∞(F (S), F (S′)) ≤  cξ + (1 − λ) + 
+
+λc ˆZ + γc ∆
+
+d = Kd . None of the bounds involves the number of neighbors, so K is independent of node degrees. 
+
+(iii) Local convergence. Write Φξ = Π Z ◦ G with 
+
+G(Z) = (1 − λ)Z + λ ˆZ(Z; ξ) + γ∆Z(Z; ξ). (44) 
+
+The argument has three steps. 
+
+Reduction to G. Since Z⋆ is unclipped, G(Z⋆) = Z⋆ lies in the interior of ZnB . As G is continuous, 
+
+G(Z) stays in the interior for all Z in a neighborhood V of Z⋆, so Φξ = G on V.
+
+Differentiability. On V the map G is continuously differentiable: it is a composition of the frame reconstruction of Eq. (16) , the softmax, the triangular solves, which are rational in the entries of invertible frames, the residual second moment, which is polynomial, the Cholesky factorization and elementwise logarithm on K, and the SiLU network. Let J = ∂G (Z⋆).
+
+Contraction near Z⋆. Fix ε > 0 with ρ(J)+ ε < 1. There is a vector norm ∥·∥ ε whose induced matrix norm satisfies ∥J∥ε ≤ ρ(J) + ε/ 2 (Horn & Johnson, 2012, Lemma 5.6.10). By differentiability, there is a neighborhood U ⊆ V of Z⋆ on which 
+
+∥G(Z) − Z⋆∥ε ≤  ρ(J) + ε∥Z − Z⋆∥ε. (45) 20 Hence G maps U into itself, and iterating gives 
+
+∥Zl − Z⋆∥ε ≤  ρ(J) + εl∥Z0 − Z⋆∥ε for all Z0 ∈ U . (46) 
+
+Equivalence of ∥ · ∥ ε and ∥ · ∥ F on the finite-dimensional space RnB ·m(m+1) /2 yields the constant 
+
+c (Ortega & Rheinboldt, 2000). 
+
+(iv) Global convergence. With ξ fixed, ˆZ(·; ξ) and ∆Z(·; ξ) are Lipschitz on ZnB by part (ii); let Lˆz
+
+and L∆ be their constants. Then 
+
+∥G(Z) − G(Z′)∥F ≤  (1 − λ) + λL ˆz + γL ∆
+
+∥Z − Z′∥F = ρ∥Z − Z′∥F , (47) 
+
+and non-expansiveness of ΠZ gives Lip(Φ ξ ) ≤ ρ. The set ZnB is a nonempty closed subset of a Euclidean space, hence complete, and Φξ maps it into itself. If ρ < 1, the Banach fixed-point theorem yields a unique Z⋆ with Φξ (Z⋆) = Z⋆, and 
+
+∥Zl+1 − Zl∥F = ∥Φξ (Zl) − Φξ (Zl−1)∥F ≤ ρ∥Zl − Zl−1∥F ≤ ρl∥Z1 − Z0∥F . (48) 
+
+## F NUMERICAL OPERATORS FOR LOG -T RIANGULAR TARGETS 
+
+This section defines the operators used to construct the geometric update target in Eq. (10). F.1 STRICTLY LOWER -T RIANGULAR VECTORIZATION 
+
+For A ∈ Rm×m, the operator Svec sl extracts the strictly lower-triangular entries in row-major order, so that [Svec sl (A)] κ(r,s ) = Ars with κ(r, s ) = ( r − 1)( r − 2) /2 + s for 1 ≤ s < r ≤ m:
+
+Svec sl (A) = [ A21 , A 31 , A 32 , . . . , A m1, . . . , A m,m −1]⊤ ∈ Rm(m−1) /2. (49) The reconstruction operator mat sl of Eq. (1) inverts this ordering: for a ∈ Rm(m−1) /2,
+
+ mat sl (a) 
+
+> rs
+
+=
+
+aκ(r,s ), r > s, 
+
+0, r ≤ s. (50) The two operators satisfy Svec sl 
+
+  mat sl (a) = a and mat sl 
+
+  Svec sl (A) = tril( A, −1) , where 
+
+tril( A, −1) retains only the strictly lower-triangular entries of A. In particular, mat sl is an isometry from Rm(m−1) /2 onto the strictly lower-triangular matrices, which is used in the proof of Lemma 1. F.2 STABILIZED CHOLESKY FACTORIZATION 
+
+For a symmetric matrix C ∈ Rm×m, let ϵ0 > 0 be the initial diagonal jitter, β > 1 its growth factor, and Tmax ∈ { 0, 1, . . . } the maximum retry index. Define the jitter schedule 
+
+ϵt = βtϵ0, Ct = C + ϵtIm, t = 0 , . . . , T max , (51) and, whenever the set is nonempty, the first admissible index 
+
+t∗ = min {t ∈ { 0, . . . , T max } : Ct ∈ SPD( m)} . (52) The stabilized factorization returns the Cholesky factor of the first admissible candidate, 
+
+SChol( C; ϵ0, β, T max ) = chol( Ct∗ ), RR ⊤ = C + ϵt∗ Im, (53) where chol returns the unique lower-triangular factor R with positive diagonal. The main text abbreviates this operator as SChol( C) and denotes the selected jitter ϵt∗ by η. The schedule contains 
+
+Tmax + 1 candidate factorizations, including the initial attempt. For the residual second-moment matrix, Eq. (8) gives Cli,b ⪰ ϵsIm with ϵs > 0, hence Cli,b + ϵtIm ⪰
+
+(ϵs + ϵt)Im ≻ 0 for every t. The factorization is therefore well-defined, with t∗ = 0 in exact arithmetic; in floating-point arithmetic, retries are triggered by numerical factorization failure. The jitter ϵt is a numerical safeguard and is separate from the regularization ϵs that enters the statistic itself. 21 Table 6: Statistics of the experimental datasets. Datasets Graphs Avg. Nodes Avg. Edges Classes CiteSeer - 3,327 9,104 6PubMed - 19,717 88,648 3CS - 18,333 163,788 15 Physics - 34,493 495,924 5Photo - 7,650 238,162 8Computers - 13,752 491,722 10 PROTEINS 1,113 39.10 72.80 2NCI1 4,110 29.87 32.30 2Mutagenicity 4,337 30.32 30.77 2FRANKENSTEIN 4,337 16.90 17.88 2BBBP 2,050 23.90 51.60 2ogbg-molhiv 41,127 25.50 27.50 2F.3 CONSTRUCTION OF THE COORDINATE TARGET 
+
+Given Rli,b = SChol( Cli,b ), the target coordinates are 
+
+bzli,b =
+
+"bali,b 
+
+bℓli,b 
+
+#
+
+=
+
+" Svec sl (Rli,b )log 
+
+
+
+diag( Rli,b )
+
+#
+
+∈ Rm(m+1) /2, (54) where diag extracts the diagonal as a column vector and the logarithm acts elementwise; the positive diagonal of Rli,b makes bℓli,b well-defined. With the coordinate ordering of Eq. (1), 
+
+mat sl (bali,b ) + Diag 
+
+
+
+exp( bℓli,b )
+
+
+
+= Rli,b , (55) so bzli,b encodes Rli,b in frame coordinates. Since Cholesky factorization is a bijection be-tween SPD( m) and lower-triangular matrices with positive diagonals, the encoding is lossless: 
+
+Rli,b (Rli,b )⊤ = Cli,b + ϵt∗ Im.The target frame has a direct geometric meaning. For h = Rli,b x,
+
+∥x∥22 = (Rli,b )−1h 22 = h⊤ Cli,b + ϵt∗ Im
+
+−1h, (56) so Rli,b maps the local unit ball onto the residual second-moment ellipsoid in the shared environment, 
+
+Rli,b x : ∥x∥2 ≤ 1 =
+
+n
+
+h : h⊤ Cli,b + ϵt∗ Im
+
+−1h ≤ 1
+
+o
+
+. (57) The singular values of Rli,b are the square roots of the eigenvalues of Cli,b + ϵt∗ Im. Local directions mapped onto high-energy residual axes are therefore stretched more strongly in the environment, where neighborhood weights are computed. 
+
+## G DATASETS 
+
+G.1 DATASET DESCRIPTION 
+
+We conduct node classification, link prediction, and graph classification on a variety of datasets. The statistics of the datasets are summarized in Table 6. The detailed descriptions of these dataset are provided as follows: (1) For node classification and link prediction: • CiteSeer : The CiteSeer dataset Sen et al. (2008) is a widely used benchmark citation network comprising 3,327 nodes and 9,104 edges, designed for multi-class node classification with 6 categories. In this graph, nodes represent scientific publications, while edges correspond to citation relationships between documents, capturing the underlying structure of the citation network. Each node is assigned a class label that indicates the research topic of the corresponding paper. 22 • PubMed : The PubMed dataset Sen et al. (2008) is a large-scale citation network benchmark comprising 19,717 nodes and 88,648 edges, designed for multi-class node classification with 3 categories. In this graph, nodes represent scientific publications related to diabetes research, while edges denote citation relationships between documents, capturing the structural dependencies within the citation network. Each node is assigned a class label corresponding to the type of diabetes discussed in the paper. • CS : The CS dataset Shchur et al. (2018) is a co-authorship network derived from the Microsoft Academic Graph, comprising 18,333 nodes and 163,788 edges for multi-class node classification with 15 categories. In this graph, nodes represent authors in the field of computer science, while edges indicate co-authorship relationships between them, capturing the collaboration structure of the research community. Each node is assigned a class label corresponding to the primary research field of the author. • Physics : The Physics dataset Shchur et al. (2018) is a co-authorship network also derived from the Microsoft Academic Graph, consisting of 34,493 nodes and 495,924 edges for multi-class node classification with 5 categories. In this graph, nodes denote authors in the field of physics, and edges represent co-authorship relationships, reflecting the collaboration patterns within the physics community. Each node is labeled according to the primary research area of the author. • Photo : The Photo dataset Shchur et al. (2018); McAuley et al. (2015) is an Amazon co-purchase network comprising 7,650 nodes and 238,162 edges for multi-class node classification with 8 categories. In this graph, nodes represent products from the Amazon Photo category, while edges indicate that two products are frequently purchased together, capturing the co-purchasing patterns among items. Each node is assigned a class label corresponding to the product category. • Computers : The Computers dataset Shchur et al. (2018); McAuley et al. (2015) is another Amazon co-purchase network consisting of 13,752 nodes and 491,722 edges for multi-class node classification with 10 categories. In this graph, nodes denote products in the Amazon Computers category, and edges represent co-purchase relationships between items, reflecting user purchasing behavior. Each node is labeled according to its product category. (2) For graph classification: • PROTEINS : The PROTEINS dataset Dobson & Doig (2003) is a benchmark graph classifi-cation dataset consisting of 1,113 protein graphs. In this dataset, each graph represents a protein, where nodes correspond to secondary structure elements (e.g., helices and sheets), and edges indicate spatial or sequential adjacency between these elements, capturing the structural organization of proteins. Each graph is assigned a class label indicating whether the protein belongs to a specific functional class. • NCI1 : The NCI1 dataset Wale et al. (2008) is a widely used benchmark for graph classifica-tion, consisting of 4,110 molecular graphs. In this dataset, each graph represents a chemical compound, where nodes correspond to atoms and edges denote chemical bonds, capturing the molecular structure. Each graph is labeled according to its activity against non-small cell lung cancer, indicating whether the compound is active or inactive. • Mutagenicity : The Mutagenicity dataset Kazius et al. (2005) is a benchmark graph classifi-cation dataset comprising 4,337 molecular graphs. In this dataset, each graph represents a chemical compound, where nodes correspond to atoms and edges denote chemical bonds, capturing the molecular structure. Each graph is labeled according to its mutagenic effect on a biological system, indicating whether the compound is mutagenic or non-mutagenic. • FRANKENSTEIN : The FRANKENSTEIN dataset Orsini et al. (2015) is a molecular graph classification benchmark derived from Mutagenicity, consisting of 4,337 graphs. Nodes correspond to atoms whose symbols are replaced by 780-dimensional MNIST digit images as node attributes, and edges denote chemical bonds. Each graph is labeled according to whether the compound is mutagenic. • BBBP : The BBBP dataset Wu et al. (2018) is a molecular graph classification benchmark consisting of 2,050 compounds. In this dataset, each graph represents a molecule, where nodes correspond to atoms and edges denote chemical bonds, capturing the molecular 23 structure. Each graph is labeled according to its ability to penetrate the blood–brain barrier, indicating whether the compound is permeable or non-permeable. • ogbg-molhiv : The ogbg-molhiv dataset Hu et al. (2020) is a large-scale molecular graph benchmark from the Open Graph Benchmark (OGB), consisting of 41,127 molecules. In this dataset, each graph represents a molecule, where nodes correspond to atoms and edges denote chemical bonds, capturing the molecular structure. Each graph is labeled according to its ability to inhibit HIV replication, indicating whether the compound is HIV active or inactive. G.2 DATA PROCESSING 
+
+For node classification and link prediction, we evaluate on standard benchmarks including citation networks (CiteSeer and PubMed), Amazon co-purchasing graphs (Computers and Photo), and Coauthor networks (CS and Physics). All datasets are preprocessed following PyTorch Geometric 1 ,where graphs are converted to undirected forms and node features are row-normalized. To enhance structural awareness, we further construct structural signatures from normalized degree information and Random Walk Structural Encodings (RWSE), which enter the prototype gate and the geometric controller. Specially, we adopt the standard random edge split protocol to construct positive and negative evaluation edges for link prediction. For graph classification, we consider bioinformatics datasets from TUDataset (e.g., PROTEINS and NCI1) and molecular graphs (e.g., BBBP and ogbg-molhiv). 
+
+## H BASELINES 
+
+H.1 BASELINE DESCRIPTION 
+
+In this part, we introduce the details of the compared baselines as follows: (1) General Graph Neural Networks (GNNs). We compare GeoF with seven general GNNs: • GCN Kipf & Welling (2017): GCN is a graph neural network that propagates and transforms node features through normalized neighborhood aggregation, enabling the learning of expressive node representations via layer-wise message passing and smoothing. • GIN Xu et al. (2019): GIN is a graph neural network that employs injective aggregation func-tions to maximally preserve structural information, enabling the learning of highly expressive node representations with discriminative power comparable to the Weisfeiler–Lehman test. • ML 2-GCL Liang et al. (2025): ML 2-GCL is a graph contrastive learning framework that leverages manifold learning principles to construct lightweight augmentations and objectives, enabling effective representation learning by preserving intrinsic geometric structures in graph data. • AMPs Errica et al. (2025): AMPs is a graph neural network framework that adaptively controls message passing to balance information flow, enabling effective mitigation of oversmoothing, oversquashing, and underreaching in deep graph models. • WaveGC Liu et al. (2025): WaveGC is a graph neural network that employs spectral wavelet convolutions via Chebyshev order decomposition, enabling multi-scale feature extraction and effective representation learning over graph structures. • SPARROW Lin et al. (2025): SPARROW is a graph contrastive learning model that eliminates explicit data augmentation by leveraging intrinsic structural signals, enabling effective representation learning through a simplified and efficient contrastive objective. • G2Former Zhang et al. (2025): G 2Former is a graph neural network that integrates restricted global-aware graph filters to bridge GNNs and Transformers, enabling expressive node representation learning by capturing both local and global dependencies. (2) Manifold-based GNNs. We compare GeoF with three Manifold-based GNNs: 
+
+> 1https://pyg.org/
+
+24 • HGCN Chami et al. (2019): HGCN is a graph neural network that operates in hyperbolic space, enabling the learning of hierarchical node representations by performing message passing under non-Euclidean geometry. • D-GCN Sun et al. (2024): D-GCN is a graph neural network that integrates motif-aware Riemannian representations with generative-contrastive learning, enabling expressive node embeddings by capturing higher-order structures and non-Euclidean geometry. • SPDGNN Wang & Chang (2025): SPDGNN is a graph neural network that operates on symmetric positive definite (SPD) manifolds using Cholesky decomposition, enabling stable and expressive representation learning by preserving the geometric structure of covariance features. (3) Adaptive GNNs. We compare GeoF with four adaptive GNNs: • ACE-HGNN Fu et al. (2021):ACE-HGNN is a geometric graph neural network that adap-tively explores manifold curvature, enabling flexible representation learning by capturing heterogeneous geometric structures across graph data. • BEC-GNN Hevapathige et al. (2025): BEC-GNN is a graph neural network that lever-ages learnable Bakry– ´ Emery curvature to adapt message passing depth, enabling flexible representation learning by dynamically controlling information propagation across graph structures. • GNRF Chen et al. (2025): GNRF is a graph neural network that leverages Ricci flow to evolve node features from a curvature perspective, enabling adaptive information propagation by dynamically reshaping the underlying graph geometry. • ARGNN Wang et al. (2026a): ARGNN is a graph neural network that learns anisotropic node-wise Riemannian metric tensors from node features and neighborhood means, enabling geometry-adaptive message passing by tailoring the local metric to each node. H.2 IMPLEMENTATION DETAILS 
+
+We implement GeoF and all baselines in PyTorch 2 and conduct all experiments on NVIDIA A100 GPUs. For the baselines, we use the official implementations released by the authors when available, and otherwise implement them following the original papers; their hyperparameters follow the settings reported in the corresponding papers. GeoF is trained with Adam using a learning rate of 1 × 10 −3
+
+and a weight decay of 5 × 10 −4, with model selection on the validation set. We use B = 8 geometric blocks, K = 4 geometric prototypes, and L = 2 recurrent steps with shared parameters. Structural signatures ui consist of the normalized degree and random-walk return probabilities. The controller 
+
+Γθ has a single hidden layer and outputs factor matrices U li,b , V li,b ∈ Rm×r of rank r = 4 . The log-triangular coordinates are clipped to the admissible domain Z with amax = 2 .0, ℓmin = −5.0,and ℓmax = 5 .0. For the geometric update, we set the residual-target mixing weight λ = 0 .5 and the correction strength γ = 0 .1; the neighborhood weighting temperature is τ = 1 .0. We report accuracy (ACC) for node classification and ROC-AUC for link prediction; for graph classification, we report ACC on PROTEINS, Mutagenicity, NCI1, and FRANKENSTEIN, and ROC-AUC on BBBP and ogbg-molhiv. Results for node classification and link prediction are averaged over 10 random splits, and graph classification uses 10 -fold cross-validation with the mean performance across folds. 
+
+## I ALGORITHM 
+
+The overall training and inference process of the proposed GeoF is shown in Algorithm 1. 
+
+## J COMPLEXITY ANALYSIS 
+
+In this section, we analyze the computational complexity of the proposed GeoF. Let n and |E| denote the numbers of nodes and edges, respectively, K the number of prototypes, L the number of recurrent steps, and d the hidden dimension. We partition the feature space into B blocks of size m such that 
+
+> 2https://pytorch.org/
+
+25 Table 7: Cross-task aggregate comparison across all 18 reported dataset–task settings. Bold indicates the best result.                                                                                                                                              
+
+> Type Model NC Avg. LP Avg. GC Avg. Overall Avg. Avg. Rank Avg. Gain pHolm
+> General GNNs GCN 87.7 90.6 76.3 84.9 13.2 +5 .72.91 ×10 −15
+> GIN 87.1 90.0 78.4 85.2 13.3 +5 .41.82 ×10 −15
+> ML 2-GCL 87.9 96.1 80.6 88.2 9.4 +2 .41.83 ×10 −7
+> AMPs 89.8 96.1 81.9 89.3 5.0 +1 .32.07 ×10 −2
+> WaveGC 89.7 96.6 81.7 89.4 4.4 +1 .24.17 ×10 −2
+> SPARROW 87.8 96.5 81.5 88.6 7.6 +1 .96.45 ×10 −5
+> G2Former 89.2 96.5 81.6 89.1 5.3 +1 .51.55 ×10 −2
+> Manifold GNNs  HGCN 86.5 92.2 78.4 85.7 13.3 +4 .91.82 ×10 −15
+> D-GCN 88.3 94.9 79.9 87.7 10.3 +2 .86.01 ×10 −9
+> SPDGNN 88.4 94.1 80.7 87.7 10.0 +2 .81.76 ×10 −8
+> Adaptive GNNs  ACE-HGNN 88.5 96.4 80.4 88.4 8.5 +2 .13.90 ×10 −6
+> BEC-GNN 89.1 96.6 80.0 88.6 7.4 +2 .01.09 ×10 −4
+> GNRF 88.9 96.1 81.4 88.8 6.9 +1 .73.90 ×10 −4
+> ARGNN 90.1 96.6 81.5 89.4 4.4 +1 .24.17 ×10 −2
+> GeoF 91.3 97.6 82.8 90.5 1.0 ––
+
+(a) BBBP and ogbg-molhiv (b) PubMed and Computers (c) PubMed (d) Mutagenicity 
+
+Figure 2: Ablation studies on BBBP and ogbg-molhiv in (a), and PubMed and Computers in (b); sensitivity to geometric blocks B and atlas prototypes K on PubMed in (c) and Mutagenicity in (d). 
+
+d = Bm . The prototype atlas initialization incurs a complexity of O(n · K · d · m). During the L
+
+recurrent steps, edge-level message passing performs batched triangular solves and residual outer products on block-diagonal frames with a cost of O(L · | E| · d · m), while node-level geometric updates require stabilized Cholesky factorizations of m × m matrices, resulting in O(L · n · d · m2).Together with the O(L · n · d2) cost of the shared feature transformations, the overall computational complexity simplifies to O(L · d · m · | E| + L · d · (d + m2) · n). In particular, the block-diagonal parameterization reduces the node-wise geometric operations from O(d3) to O(d · m2), keeping the cost of GeoF linear in the numbers of nodes and edges. 
+
+## K MORE EXPERIMENTAL RESULTS 
+
+K.1 CROSS -T ASK AGGREGATE ANALYSIS 
+
+We further summarize the cross-task aggregate results in Table 7. Each dataset–task pair is treated as one evaluation setting. NC Avg., LP Avg., and GC Avg. report the average performance within the corresponding task category, while Overall Avg. aggregates all settings. Avg. Rank is computed by ranking the methods within each setting and then averaging their ranks, whereas Avg. Gain measures the mean percentage-point improvement of GeoF over each baseline. The final column reports the Holm-adjusted post-hoc p-value derived from the average-rank differences following the global Friedman test, which yields χ2 = 169 .2 with 14 degrees of freedom and rejects the hypothesis of equal performance across methods. GeoF achieves the strongest average within every task category and overall, together with an average rank of 1.0, since it ranks first in all 18 settings. Its gains over the baselines are positive throughout and grow from the strongest general and adaptive GNNs to the manifold-based and classical GNNs, and all 14 pairwise comparisons are significant at the 0.05 level after Holm correction. The closest baselines, WaveGC and ARGNN, share the smallest rank difference, and their separation from GeoF remains significant. Among the baseline families, adaptive GNNs and the strongest general GNNs 26 Table 8: Time consumption of different methods in the training stage for each epoch (in seconds). Methods PubMed CS Computers NCI1 Mutagenicity ogbg-molhiv GCN 0.0086 0.0167 0.0153 0.2094 0.2312 2.1633 AMPs 0.0393 0.0478 0.0761 0.3170 0.3173 2.8410 G2Former 0.0637 0.0739 0.0640 0.2011 0.2173 2.2996 SPDGNN 0.0277 0.0321 0.0283 0.2073 0.2287 2.3973 ARGNN 0.0902 0.1573 0.4328 0.2437 0.3383 2.5373 GeoF 0.0683 0.1207 0.1810 0.4391 0.5357 6.0456 Table 9: GPU memory consumption of different methods in the training stage (in GB). Methods PubMed CS Computers NCI1 Mutagenicity ogbg-molhiv GCN 0.7 1.3 1.3 0.8 0.8 0.9 AMPs 2.7 4.9 5.0 1.3 1.6 2.0 G2Former 3.3 3.2 3.0 1.5 1.5 1.4 SPDGNN 1.3 2.9 1.9 0.9 1.0 0.9 ARGNN 4.8 8.3 21.3 2.7 2.6 3.8 GeoF 6.4 10.9 15.2 3.5 3.0 4.8 form the leading group, whereas manifold-based GNNs trail on graph classification in particular. Overall, the gains are distributed across tasks and datasets rather than concentrated in a few favorable settings. K.2 MORE ABLATION STUDY 
+
+We further extend the ablation study to PubMed and Computers for node classification and to BBBP and ogbg-molhiv for graph classification, covering different tasks and graph scales. As shown in Fig. 2(a) and (b), the full model achieves the best performance on all four datasets. Freezing the geometric state (w/o GE) causes the largest degradation on every dataset, with more pronounced drops on the molecular benchmarks. Removing second-order feedback (w/o SF) causes the next largest drop on BBBP, ogbg-molhiv, and Computers, whereas on PubMed it is comparable to disabling frame transport (w/o GT). This ordering matches the main ablation and highlights the benefit of adapting propagation geometry during message passing and the contribution of residual statistics beyond task-supervised corrections. Disabling frame transport, removing structural signatures (w/o SA), and removing atlas initialization (w/o AI) yield smaller, dataset-dependent decreases, indicating that these components provide complementary improvements. K.3 MORE SENSITIVITY STUDY 
+
+To assess whether GeoF relies on narrowly tuned geometric capacity, we further vary the number of geometric blocks B and atlas prototypes K on PubMed and Mutagenicity. As shown in Fig. 2(c) and (d), performance remains within a relatively narrow range across moderate values of both hyperpa-rameters. On PubMed, varying B produces modest non-monotonic fluctuations, while performance remains stable over a broad range of K before decreasing at the largest setting. Mutagenicity exhibits an even flatter profile for both B and K, followed by a mild decline under excessive capacity. Overall, increasing geometric granularity or atlas size does not yield systematic improvements, indicating that moderate block partitioning and a compact prototype atlas are sufficient for stable performance across different task settings. K.4 EFFICIENCY AND RESOURCE CONSUMPTION ANALYSIS 
+
+We further evaluate the training efficiency of different methods in terms of per-epoch training time and GPU memory consumption. As shown in Tables 8 and 9, on the three node-classification datasets, GeoF trains faster than ARGNN, and the advantage grows with graph size, reaching its largest margin on Computers, while lightweight GNNs such as GCN and SPDGNN remain the cheapest. On the 27 graph-classification datasets, GeoF requires more time than ARGNN and GCN, and the gap widens with the number of graphs, peaking on ogbg-molhiv. GPU memory consumption follows the same pattern: GeoF uses more memory than the compared baselines on most datasets, while remaining below ARGNN on Computers, and its memory on the graph-classification datasets stays close to that of ARGNN. The additional cost comes from the edge-level transport and residual outer products and the node-level factorizations, which are computed at every recurrent step. Across all datasets, the overhead relative to ARGNN remains a moderate constant factor rather than growing with graph size. 
+
+## L VISUALIZATION    
+
+> (a) ARGNN (b) GeoF (c) Correction Off (d) Correction On
+
+Figure 3: (a), (b) show t-SNE visualizations of node representations learned by ARGNN and GeoF. (c), (d) compare representations with the learned geometric correction disabled and enabled. Figure 3(a), (b) visualize node representations from ARGNN and GeoF on CiteSeer using 2D t-SNE. The highlighted class cluster is elongated under ARGNN and more compact under GeoF, as indicated by the dashed ellipses. To examine the effect of geometric correction, Fig. 3(c), (d) compare representations from the same checkpoint with the correction disabled ( γ = 0 ) and enabled ( γ = 0 .1). Both sets are visualized in a shared 3D t-SNE projection, with marker size encoding log det( Li).Enabling the correction yields clearer class grouping in the highlighted region, providing qualitative support for its role in shaping task-relevant representations. 28 Algorithm 1 Training and inference of GeoF 
+
+Require: Training graph(s) with task-specific supervision, test inputs, hidden dimension d = Bm , number of prototypes K, recurrent steps L, temperature τ , update weights (λ, γ ), spectral regularization ϵs, and admissible coordinate domain Z.
+
+Ensure: Test predictions {pi}, {pG}, or {puv } for node classification, graph classification, or link prediction, respectively. 1: Stage 1: Structural Encoding and Model Initialization 
+
+2: Construct fixed structural signatures U from normalized degree and random-walk return probabilities for each input graph. 3: Initialize the prototype atlas, feature projection, structural gate, message transformation, feature gate, controller Γθ , and task-specific readout. 4: Share all propagation and controller parameters across the L recurrent steps. 5: Stage 2: End-to-End Training 
+
+6: while not converged do 
+
+7: Select training input(s) and supervision for the current task. 8: for each input graph G = ( V, E, X ) do 
+
+9: Initialize ξ0 
+
+> i
+
+, αi, and z0 
+
+> i,b
+
+for all nodes i and blocks b (Eq. (3)). 10: Reconstruct L0 
+
+> i,b
+
+and assemble L0 
+
+> i
+
+(Eqs. (1) and (2)). 11: for l = 0 , . . . , L − 1 do 
+
+12: i. Triangular Frame Transport 
+
+13: Compute hli, elij , and ωlij for j ∈ eN (i) (Eq. (4)). 14: Transform features with ϕ(ξli ) = Wϕξli and obtain aligned messages mlj→i,b by triangular solves (Eq. (5)). 15: Concatenate blockwise messages and compute the aligned aggregate ¯ξli (Eq. (6)). 16: Compute the feature gate rli and update ξl+1  
+
+> i
+
+(Eq. (7)). 17: ii. Second-Order Residual Feedback 
+
+18: Compute the residuals δlij,b = mlj→i,b − (ϕ(ξli )) b and accumulate the regularized second-moment matrix Cli,b with the same weights ωlij (Eq. (8)). 19: Compute Rli,b = SChol( Cli,b ) and construct the log-triangular target bzli,b (Eq. (10)). 20: iii. Task-Guided Geometry Evolution 
+
+21: Form qli,b = [( ξli )b∥( ¯ξli )b∥ui], obtain U li,b , V li,b , and dli,b from Γθ , and construct the geometric correction ∆zli,b (Eq. (11)). 22: Update zl+1  
+
+> i,b
+
+= Π Z
+
+ (1 − λ)zli,b + λbzli,b + γ∆zli,b 
+
+ (Eq. (12)). 23: Reconstruct Ll+1  
+
+> i,b
+
+and assemble Ll+1  
+
+> i
+
+(Eqs. (1) and (2)). 24: end for 
+
+25: Obtain the final environment representations hLi = LLi ξLi .26: Compute pi, pG, or puv using the corresponding task-specific readout (Eqs. (13), (14), and (15)). 27: end for 
+
+28: Evaluate Lnode , Lgraph , or Llink for the selected task using its training supervision. 29: Backpropagate through the L recurrent steps and jointly update all trainable parameters. 30: end while 
+
+31: Stage 3: Inference 
+
+32: Fix the trained model parameters. 33: for each test input graph G do 
+
+34: Apply the initialization, recurrent evolution, and readout in lines 9–26 using the graph’s structural signatures U .35: Retain pi for test nodes, pG for test graphs, or puv for test candidate pairs, according to the task. 36: end for 
+
+37: return {pi}, {pG}, or {puv } for the corresponding test inputs. 
+
+29

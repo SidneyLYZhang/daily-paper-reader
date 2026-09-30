@@ -41,17 +41,17 @@
 <section class="dpr-home-dashboard-card dpr-home-report-card">
   <div class="dpr-home-dashboard-header">
     <div>
-      <span class="dpr-home-dashboard-kicker">2026-09-29</span>
+      <span class="dpr-home-dashboard-kicker">2026-09-30</span>
       <h3 class="dpr-home-dashboard-title">今日汇总</h3>
     </div>
-    <strong class="dpr-home-dashboard-count">共 25 篇</strong>
+    <strong class="dpr-home-dashboard-count">共 14 篇</strong>
   </div>
   <dl class="dpr-home-dashboard-stats">
-    <div class="dpr-home-dashboard-stat"><dt>累计更新</dt><dd>2 次</dd></div>
-    <div class="dpr-home-dashboard-stat"><dt>精读</dt><dd>7</dd></div>
-    <div class="dpr-home-dashboard-stat"><dt>速读</dt><dd>18</dd></div>
+    <div class="dpr-home-dashboard-stat"><dt>累计更新</dt><dd>1 次</dd></div>
+    <div class="dpr-home-dashboard-stat"><dt>精读</dt><dd>2</dd></div>
+    <div class="dpr-home-dashboard-stat"><dt>速读</dt><dd>12</dd></div>
   </dl>
-  <p class="dpr-home-dashboard-body">最近更新：2026-09-29 23:22:18 UTC<br>状态：成功</p>
+  <p class="dpr-home-dashboard-body">最近更新：2026-09-30 23:40:54 UTC<br>状态：成功</p>
 </section>
 <section class="dpr-home-dashboard-card dpr-home-brief-card">
   <div class="dpr-home-dashboard-header">
@@ -62,9 +62,8 @@
     <strong class="dpr-home-dashboard-count">AI</strong>
   </div>
   <div class="dpr-home-dashboard-body">
-<p>今日筛完25篇论文，精读7篇、速读18篇，两篇9分论文领跑。</p>
-<p>最值得先看非凸SGD理论（距离相关矩与Nagaev界）和MA-JEPA多智能体世界模型这两个方向。</p>
-<p>普通读者可先读这两篇精读摘要，再按兴趣扫速读里的在线学习、反向扩散或几何表示学习。</p>
+<p>今天从14篇中精读2篇、速读12篇，重点锁定两篇8.0分工作：两时间尺度随机逼近的有限时间集中与收敛率、质量多样性的行为基础模型。</p>
+<p>最值得看“随机逼近理论保证”</p>
   </div>
 </section>
 <section class="dpr-home-dashboard-card dpr-home-deep-card">
@@ -73,12 +72,12 @@
       <span class="dpr-home-dashboard-kicker">今日累计</span>
       <h3 class="dpr-home-dashboard-title">精读推荐</h3>
     </div>
-    <strong class="dpr-home-dashboard-count">7 篇</strong>
+    <strong class="dpr-home-dashboard-count">2 篇</strong>
   </div>
   <div class="dpr-home-dashboard-body">
-<ul class="dpr-home-dashboard-paper-list"><li><span class="dpr-home-dashboard-paper-title" title="Ordinary Nonconvex SGD under Distance-Dependent Moments: Finite-Horizon Stationarity and Nagaev Bounds">Ordinary Nonconvex SGD under Distance-Dependent Moments: Finite-Horizon Stationarity and Nagaev Bounds</span></li><li><span class="dpr-home-dashboard-paper-title" title="MA-JEPA: Joint-Embedding World Models for Multi-Agent Reinforcement Learning">MA-JEPA: Joint-Embedding World Models for Multi-Agent Reinforcement Learning</span></li><li><span class="dpr-home-dashboard-paper-title" title="Bayesian Optimization with Fisher Information Geometry: Gradient Bounds and Trust-Region Methods">Bayesian Optimization with Fisher Information Geometry: Gradient Bounds and Trust-Region Methods</span></li></ul>
+<ul class="dpr-home-dashboard-paper-list"><li><span class="dpr-home-dashboard-paper-title" title="Finite-Time Concentration and Convergence Rates for Projected Two-Time-Scale Stochastic Approximation with Markov Noise">Finite-Time Concentration and Convergence Rates for Projected Two-Time-Scale Stochastic Approximation with Markov Noise</span></li><li><span class="dpr-home-dashboard-paper-title" title="Behavioral Foundation Models for Quality Diversity">Behavioral Foundation Models for Quality Diversity</span></li></ul>
   </div>
-  <div class="dpr-home-dashboard-tags"><span class="dpr-home-dashboard-tag">rl-semantic <strong>4</strong></span><span class="dpr-home-dashboard-tag">ml-theory <strong>2</strong></span><span class="dpr-home-dashboard-tag">npl-bdl-saig <strong>1</strong></span></div>
+  <div class="dpr-home-dashboard-tags"><span class="dpr-home-dashboard-tag">npl-bdl-saig <strong>1</strong></span><span class="dpr-home-dashboard-tag">rl-semantic <strong>1</strong></span></div>
 </section>
 <section class="dpr-home-dashboard-card dpr-home-skim-card">
   <div class="dpr-home-dashboard-header">
@@ -86,12 +85,12 @@
       <span class="dpr-home-dashboard-kicker">今日累计</span>
       <h3 class="dpr-home-dashboard-title">速读推荐</h3>
     </div>
-    <strong class="dpr-home-dashboard-count">18 篇</strong>
+    <strong class="dpr-home-dashboard-count">12 篇</strong>
   </div>
   <div class="dpr-home-dashboard-body">
-<ul class="dpr-home-dashboard-paper-list"><li><span class="dpr-home-dashboard-paper-title" title="Online Learning via Learned Latent Bayesian Tracking">Online Learning via Learned Latent Bayesian Tracking</span></li><li><span class="dpr-home-dashboard-paper-title" title="First-Order Stationarity of Reverse Diffusions">First-Order Stationarity of Reverse Diffusions</span></li><li><span class="dpr-home-dashboard-paper-title" title="Geometry-Aware Operator Families for Structured Representation Learning">Geometry-Aware Operator Families for Structured Representation Learning</span></li></ul>
+<ul class="dpr-home-dashboard-paper-list"><li><span class="dpr-home-dashboard-paper-title" title="Learning Propagation Geometry from Message-Passing Feedback">Learning Propagation Geometry from Message-Passing Feedback</span></li><li><span class="dpr-home-dashboard-paper-title" title="Elicitation and Decision Geometry in Single-Index Bandits">Elicitation and Decision Geometry in Single-Index Bandits</span></li><li><span class="dpr-home-dashboard-paper-title" title="Reasoning-Preserving Fine-Tuning of Post-RL LLMs with Null-Basis LoRA">Reasoning-Preserving Fine-Tuning of Post-RL LLMs with Null-Basis LoRA</span></li></ul>
   </div>
-  <div class="dpr-home-dashboard-tags"><span class="dpr-home-dashboard-tag">ml-theory <strong>7</strong></span><span class="dpr-home-dashboard-tag">npl-bdl-saig <strong>6</strong></span><span class="dpr-home-dashboard-tag">rl-semantic <strong>5</strong></span></div>
+  <div class="dpr-home-dashboard-tags"><span class="dpr-home-dashboard-tag">ml-theory <strong>5</strong></span><span class="dpr-home-dashboard-tag">npl-bdl-saig <strong>4</strong></span><span class="dpr-home-dashboard-tag">rl-semantic <strong>3</strong></span></div>
 </section>
 </div>
 
