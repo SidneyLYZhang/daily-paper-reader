@@ -1,0 +1,478 @@
+Title: Clifford Sheaf Neural Networks
+
+URL Source: https://arxiv.org/pdf/2610.01322v1
+
+Published Time: Fri, 02 Oct 2026 01:18:01 GMT
+
+Number of Pages: 13
+
+Markdown Content:
+# Clifford Sheaf Neural Networks 
+
+Kotaro Kamiya ∗ Joel Nicholls †
+
+SyntheticGestalt KK 
+
+Abstract 
+
+We introduce the Clifford Sheaf Neural Network (CSNN), an equivariant sheaf neural network for geometric graphs that places a Clifford algebra on each stalk of a cellular sheaf and transports multivector features along edges. The canonical choice of restriction map for sheaves with algebra-valued stalks is algebra homomorphism. Adding the constraint of equivariance, the naive choice becomes versor conjugation. However, versor conjugation is expressively weak, so we drop algebra homomorphism and arrive at the K-term sandwich. The resulting sheaf Laplacian is positive semidefinite by construction, needs no versor constraint, and still mixes grades. Our main contribution characterizes the resulting family of restriction maps along three axes: which grades a map couples, how much of the endomorphism space it reaches, and how well it is conditioned. The K-term sandwich spans half of the endomorphism space, and in Cl(3 , 0, 0) it corresponds to the maps that commute with the central pseudoscalar. The number of terms controls expressivity. CSNN is the reversion member, a first-order model by construction and the grade-mixing corner of this family, developed as a sheaf construction for graph-level equivariant regression. 
+
+Keywords: Clifford algebra, cellular sheaves, sheaf Laplacian, equivariance, geometric deep learning, multivector representations 
+
+# 1 Introduction 
+
+Many learning problems live on geometric graphs, where a spatial position is assigned to each node. Such problems reward architectures that respect the symmetries of space. Two lines of work each supply a powerful inductive bias. Clifford (geometric) algebra represents scalars, vectors, and higher-grade quantities as a single multivector and equips them with an equivariant geometric product, so a network manipulates geometric features of every grade under one operation (Ruhe et al., 2023a; Brehmer et al., 2023). Cellular sheaves ask neighbours to agree only after a learned transport, not directly. The sheaf Laplacian, which generalizes the graph Laplacian, encodes this and lets message passing move beyond homophily (Hansen and Gebhart, 2020; Bodnar et al., 2022). The two can be combined by placing a Clifford algebra on each stalk and transporting multivectors along edges. But the obvious construction runs into two difficulties. Suppose the restriction maps are Clifford-algebra automorphisms, i.e. conjugation by a group element. First, the sheaf Laplacian behaves well only when the restriction maps are co-isometries, and that holds only for versors , an awkward constraint to maintain during learning. Second, conjugation preserves grades: transport cannot move information between them, and wastes much of what the multivector offers.  
+
+> ∗Corresponding author: k.kamiya@syntheticgestalt.com
+> †Work done while at SyntheticGestalt KK.
+
+1arXiv:2610.01322v1 [cs.LG] 1 Oct 2026 We resolve both by changing the learnable family of restriction maps. Generally, the K-term sandwich, and as a specific case the normalized reversion sandwich sc(x) = c x ˜c/q (c) with c an unconstrained multivector. Applied on both sides of each edge, it gives a sheaf Laplacian that stays positive semidefinite by construction, with no versor constraint , and still transports information across grades. We call the resulting architecture the Clifford Sheaf Neural Network (CSNN). Our second contribution characterizes restriction maps along three axes: grade coupling, reach within the endomorphism space, and conditioning. CSNN uses the reversion member, which mixes scalar and vector grades but stays confined to them and has single-ratio conditioning. It is first-order by construction and, to our knowledge, the first sheaf construction aimed at graph-level equivariant regression. The result is both a principled construction and a map of its design space. 
+
+# 2 Background 
+
+2.1 Clifford Algebras 
+
+A Clifford algebra assembles several tensor grades into a single multivector. In Cl(3 , 0, 0), the grades are scalar, vector, bivector, and pseudoscalar, so a node’s scalar feature and its 3D position live in one element, coupled equivariantly by the geometric product. Given a real vector space V = Rn with a quadratic form Q of signature ( p, q, r ), the Clifford algebra Cl( p, q, r ) is the quotient of the tensor algebra of V by the relations v2 = Q(v) for all v ∈ V .Its multiplication is the geometric product . We denote the geometric product of multivectors x and 
+
+y as xy . On an orthogonal basis {e1, . . . , e n} the defining relations read 
+
+eiej + ej ei = 2 gij , (gij ) = diag(+1 , . . .   
+
+> ︸︷︷ ︸
+> p
+
+, −1, . . .   
+
+> ︸︷︷ ︸
+> q
+
+, 0, . . . 
+
+> ︸ ︷︷ ︸
+> r
+
+), (1) and dim Cl( p, q, r ) = 2 n with n = p + q + r. The algebra is graded, Cl( p, q, r ) = 
+
+> n⊕
+> k=0
+
+Cl (k)(p, q, r ), dim Cl (k) =
+
+> (
+
+nk
+
+> )
+
+, (2) where Cl (k) is spanned by the k-blades, which are products of k orthogonal basis vectors. We write [x]k for the projection of a multivector x onto its grade-k component. In particular, [ x]0 is its scalar part. 
+
+Reversion ˜x reverses the order of vectors within each blade, acting as ( −1) k(k−1) /2 on grade k.The grade involution α(x) acts as ( −1) k on grade k, flipping the sign of the odd grades. Reversion defines the Clifford scalar product 
+
+⟨x, y ⟩ := [ ˜x y ]0, (3) the scalar part of ˜x y , with quadratic form q(x) := ⟨x, x ⟩ = [ ˜x x ]0. This is a symmetric bilinear form , not in general an inner product. In the Euclidean Cl(3 , 0, 0) it is a genuine inner product with the blades orthonormal. In the degenerate Cl(3 , 0, 1) the Clifford scalar product is only positive semidefinite, with a nontrivial radical spanned by the blades containing the null generator e0.Positive semidefiniteness is what the sheaf Laplacian needs (Section 2.2), and we use the form throughout to define adjoints. 
+
+2.2 Cellular Sheaves and the Sheaf Laplacian 
+
+We view an undirected graph as a cell poset with vertices below the edges they bound (Figure 1). A cellular sheaf assigns to each cell a vector space, its stalk , and to each incident vertex–edge pair a 21-cell 0-cell 0-cell Figure 1: The cell poset for a single edge, viewed as the base space. The two vertices lie below the edge they bound, and the arrows are the incidence relations along which restriction maps transport features. linear restriction map . The admissible family of restriction maps is a modelling choice. Taking the target to be the category of Clifford algebras would force the maps to be algebra automorphisms, which is too restrictive, so we take the target to be FinVect , the category of finite-dimensional vector spaces. Restriction maps are then arbitrary linear maps between stalks, and the network exploits the multivector structure internally rather than as part of the sheaf formalism. The sheaf Laplacian is L = δ∗δ, where the coboundary δ maps node features to edge features, (δv )e = fj→e(vj ) − fi→e(vi), (4) with fk→e the restriction map from node k into edge e. We take its adjoint δ∗ with respect to the Clifford scalar product on stalks, ⟨δv, ω ⟩E = ⟨v, δ ∗ω⟩V , where ⟨· , ·⟩ V and ⟨· , ·⟩ E aggregate the per-stalk product over nodes and over oriented edges. As a Gram operator the Laplacian is positive semidefinite by construction: 
+
+⟨v, Lv⟩V = ⟨δv, δv ⟩E = ∥δv ∥2 ≥ 0. (5) Two facts give (5). The Gram structure L = δ∗δ yields ⟨v, Lv⟩V = ∥δv ∥2 whenever the restriction maps admit an adjoint under the stalk form, with no orthogonality or versor constraint. In the non-degenerate Cl(3 , 0, 0) every linear map does; in the degenerate Cl(3 , 0, 1), where an adjoint exists only for maps preserving the radical, the normalized reversion sandwiches do (Section 4.3). The non-negativity then holds because the Clifford scalar product is positive semidefinite in both signatures; the orthogonal maps of connection-Laplacian sheaves (Barbero et al., 2022) are one special case. The energy ∥δv ∥2 is the sheaf Dirichlet energy (Bodnar et al., 2022), measuring disagreement after transport , so neighbours need agree only up to a learned transport, which carries sheaf models beyond homophily. 
+
+# 3 The Sandwich Restriction-Map Family 
+
+With the sheaf Laplacian fixed (Section 2.2), the modelling choice is the restriction map. We build restriction maps from the sandwich : the single map x 7 → a x b and, more generally, the K-term sum ∑Kk=1 ak x b k with multivector coefficients ak, b k. Every such map admits an adjoint under the Clifford scalar product, so the sheaf Laplacian (5) is positive semidefinite for the whole family. The member we ultimately use is the normalized reversion sandwich 
+
+sc(x) := c x ˜c / q (c), (6) a linear map in x parameterized by a single multivector c, the restriction element , defined whenever 
+
+q(c)̸ = 0, which is automatic in the positive-definite Cl(3 , 0, 0). When c is a versor (an element of 3conjugation               
+
+> 0123
+> reversion sc
+> 0123
+> γ-sandwich
+> 0123
+> general / K-term
+> 0123
+
+Figure 2: Grade coupling of the sandwich family in Cl(3 , 0, 0). Nodes are the grades 0–3; an arc joins two grades that a map couples. Conjugation is grade-preserving; the reversion sandwich sc
+
+couples {0, 1} and {2, 3}; the γ-sandwich couples {0, 3} and {1, 2}; a general or K-term sandwich couples all six pairs. Reachable dimensions are listed in Figure 3. the Clifford group Γ), sc reduces to the grade-preserving conjugation Ad c. For a general c it is not grade-preserving. This section develops the family from the general sandwich down to sc along axes of grade coupling, reachability, and conditioning; all proofs are in Appendix B. 
+
+3.1 Equivariance 
+
+Sandwich maps are Spin-equivariant when their factors transform with the input. 
+
+Proposition 1 (Equivariance of the sandwich family) . For any unit even versor R ∈ Spin , any multivectors ak, b k, x , and the K-term sandwich T (x) = ∑ 
+
+> k
+
+ak x b k,
+
+> ∑
+> k
+
+(Ra k ˜R) ( Rx ˜R) ( Rb k ˜R) = R T (x) ˜R. 
+
+In particular the normalized reversion sandwich obeys sRc ˜R(Rx ˜R) = R s c(x) ˜R.
+
+In the layer, the network generates the restriction elements covariantly from the inputs (Sec-tion 4.2), so the transport moves with the data. A CSNN layer composes the sandwich transport, the sheaf Laplacian, and Spin-equivariant gates and feed-forward maps. As a composition of equivariant maps it is equivariant, so the network is SO (3)-equivariant in Cl(3 , 0, 0) and SE (3)-equivariant in Cl(3 , 0, 1). 
+
+3.2 Three Axes: Grade Coupling, Reachability, and Conditioning 
+
+Every member of the sandwich family is equivariant, whatever its form (Section 3.1). Which linear maps it can realize, once we lift the versor constraint, is a separate question, answered by three axes: which grades a map couples, how much of the endomorphism space it reaches, and how well it is conditioned. CSNN’s reversion map is one corner of this family, with conditioning set by a single ratio. 
+
+Grade coupling. The first axis asks which grades a map can mix (Figure 2), and three involutions answer it. Besides reversion ˜x = β(x) and the grade involution α, Cl(3 , 0, 0) carries the Clifford conjugation γ = α ◦ β. Each splits the algebra into ±1 eigenspaces, grouping the grades into pairs: 
+
+β into {0, 1} and {2, 3}, γ into {0, 3} and {1, 2}, and α into {0, 2} and {1, 3}. A map preserving an involution’s eigenspaces cannot couple grades across the corresponding boundary. 
+
+Proposition 2 (Grade confinement) . The normalized reversion sandwich sc preserves the β-eigenspaces for every c, as does any composition of reversion sandwiches. In Cl(3 , 0, 0) these eigenspaces are {0, 1} and {2, 3}, so a network seeded in grade 0 stays confined to grades {0, 1} at every depth. 
+
+4The reversion sandwich thus couples only {0 ↔ 1} and {2 ↔ 3}: it mixes grades, unlike grade-preserving conjugation, but not fully. A single general sandwich a x b with independent a, b preserves no involution and couples all six grade pairs. This “full grade mixing” is a property of one map’s support, distinct from the reachability question we turn to next. 
+
+Reachable maps and the reachability ceiling. The second axis asks how much of the endomorphism space the family reaches. In Cl(3 , 0, 0) the pseudoscalar e123 is central and squares to 
+
+−1, so J(x) = e123 x satisfies J2 = −Id and splits End R (dimension 64) into two halves of dimension 32: the maps that commute with J and those that anticommute .
+
+Proposition 3 (Reachability ceiling in Cl(3 , 0, 0)) . In Cl(3 , 0, 0) , every K-term sandwich ∑ 
+
+> k
+
+ak x b k
+
+commutes with J, so the entire sandwich family lies in the commuting half. Reaching the anticom-muting half requires the grade involution, x 7 → a α (x) b.
+
+Within the reachable half the number of terms strictly controls reach: the reachable dimension climbs 14 , 24 , 30 , 32 in Cl(3 , 0, 0) (ceiling 32 at K = 4) and 31 , 60 , 87 , 112 , . . . in Cl(3 , 0, 1) (ceiling 128 at K = 8). 
+
+A signature-independent obstruction. Proposition 3 excludes α from the sandwich family in Cl(3 , 0, 0) through the centrality of the pseudoscalar, which fails in the degenerate Cl(3 , 0, 1); a grade-weighted trace nonetheless settles both signatures at once, since no finite sum ∑ 
+
+> k
+
+ak x b k
+
+can equal α (Appendix B). So the sandwich family fills exactly the pseudoscalar-commuting half of End R in Cl(3 , 0, 0), and in Cl(3 , 0, 1) a direct computation gives 128 of 256, which α enlarges only to 192. This concerns which maps are realizable, not symmetry: every member is equivariant (Section 3.1), with or without α.
+
+Chirality. Telling a shape from its mirror image needs a parity-odd grade-3 feature. By Propo-sition 2 the reversion sandwich never populates grade 3 from scalar and vector inputs, so it is chirality-insensitive, whereas a general or K-term sandwich can express chirality. This rests on the grade-coupling axis and does not arise for the orientation-agnostic regression we target. 
+
+Conditioning. Stability separates the family too. In Cl(3 , 0, 0), write w = ˜cc and r = ∥wvec ∥/w 0.Since w lies in grades {0, 1}, the reversion and γ self-terms have condition number κ = ((1 + r)/(1 −
+
+r))2: a closed form in one ratio, equal to 1 at the versor limit r = 0 and growing as r → 1. The general sandwich, built from two independent elements, has no comparable single-parameter handle, and in the degenerate Cl(3 , 0, 1) the self-term w carries a pseudoscalar component, so the single-ratio form no longer applies. Together these axes place CSNN precisely: the K=1 normalized reversion sandwich, grade-confined to {0, 1} and single-ratio conditioned. It specializes the general family ∑ 
+
+> k
+
+ak x b k to sc by taking K=1 and tying the factors by reversion and normalization ( a = c, b = ˜c/q (c)), recovering (6); a versor c collapses it further to conjugation Ad c. Figure 3 summarizes how the families nest in both signatures. 
+
+# 4 The Clifford Sheaf Neural Network Layer 
+
+We construct the CSNN layer by implementing the normalized reversion sandwich sc together with a self-reference mechanism: the network generates each node’s restriction element from that node’s 5Cl(3 , 0, 0) : rotations SO (3)        
+
+> conjugation (versor) (3) reversion sandwich (7) 1-term sandwich (14)
+> K-term sandwich (32) all linear maps (64)
+> =PSD
+> algebra automorphisms (6)
+> ⊆⊆⊆⊆⊆⊆
+> realized via covariant  c
+> (equivariant)
+
+Cl(3 , 0, 1) : rigid motions SE (3)                   
+
+> conjugation (motor) (6) reversion sandwich (16) 1-term sandwich (31)
+> K-term sandwich (128) PSD (adjoint-admitting) (192) all linear maps (256) algebra automorphisms (16) algebra endomorphisms (16)
+> ⊆⊆⊆⊆⊆⊆⊆⊆
+> realized via covariant  c
+> (equivariant)
+> Edges denote inclusion ( ⊆, lower in higher); numbers are dimensions of the set of realizable linear maps. PSD =all linear maps in Cl(3 ,0,0) , a proper subset in Cl(3 ,0,1) (degenerate q). Versor conjugation lies in both branches. Algebra automorphisms are the invertible endomorphisms, dense among them, so the two coincide in dimension.
+
+Figure 3: Inclusion of restriction-map families in Cl(3 , 0, 0) (rotations, SO (3)) and Cl(3 , 0, 1) (rigid motions, SE (3)). Each edge denotes inclusion ( ⊆, lower in higher), and each number is the dimension of that family in End R. Unnormalized sandwich dimensions are shown, normalizing fixes the overall scale and removes one dimension (reversion 7 → 6 in Cl(3 , 0, 0), 16 → 15 in Cl(3 , 0, 1)). The braced families are equivariant, sRc ˜R(Rx ˜R) = R s c(x) ˜R. Sandwich sums fill exactly half of the linear maps; in Cl(3 , 0, 0) these are the ones commuting with the central pseudoscalar. own features (Section 4.2), and the sheaf Laplacian updates each node against its own transported state (Section 4.3). 
+
+4.1 Architecture Overview 
+
+CSNN operates on geometric graphs whose nodes carry features and 3D positions, embedded directly into the algebra (Figure 4). Scalar node features occupy grade 0, the invariant part, in both signatures. The two signatures differ in how positions enter. In Cl(3 , 0, 0) a position occupies grade 1, transforming as a Euclidean vector. In Cl(3 , 0, 1), the projective algebra whose symmetry group is SE (3), we embed a point ( x, y, z ) as the grade-3 trivector e123 − x e 023 + y e 013 − z e 012 , the standard PGA point with homogeneous component e123 fixed to 1, following Brehmer et al. (2023). 6MVFFN MVFFN Sandwich Sandwich Sheaf Laplacian Node update     
+
+> vi
+> pij
+> vj
+> ci
+> cj
+> sci(vi)
+> scj(vj)
+> ∑
+> j∼i∆vi
+> ∆pi
+
+Figure 4: A single CSNN layer. Node multivector features are transported across each edge by normalized reversion sandwiches, combined through the sheaf Laplacian, and used to update node features and positions, gated by scalar invariants. 
+
+4.2 Generating the Restriction Element 
+
+The restriction elements are not free parameters. The layer generates them from the node and edge features by an abstract map ϕ, so the transport is both learned and Spin-equivariant. For an edge 
+
+{i, j } we write the relative position 
+
+pij = pj − pi, (7) and for each endpoint k ∈ { i, j }, set 
+
+ck = ϕ(Lv vk + Le pij 
+
+), (8) where Lv, L e are equivariant multivector linear maps and ϕ : Cl → Cl is any Spin -equivariant map, 
+
+ϕ(R x ˜R) = R ϕ (x) ˜R for every R ∈ Spin. Each restriction element is then covariant, ck 7 → R c k ˜R,the condition (Proposition 1) that makes the transport sck equivariant. Each ck uses only the node’s 
+
+own feature vk and the edge geometry pij , a translation-invariant quantity read directly from the configuration. We never form a cross-stalk feature difference such as vj − vi: features in different stalks are comparable only after transport, so a raw difference would be the meaningless coboundary of the trivial sheaf. CSNN builds ϕ from multivector neurons (MVN) (Liu et al., 2024b): grade-wise linear maps (Ruhe et al., 2023a) composed around a gated nonlinearity. Every primitive is Spin-equivariant, since grade-wise linear maps commute with the rotor action and the gate uses only invariant scalars, so ϕ
+
+is Spin-equivariant and the same primitives build the message and node-update maps. Appendix D gives the explicit block. 
+
+4.3 The Sheaf Laplacian 
+
+CSNN uses the normalized reversion sandwich (6) as its restriction map on both sides of each edge. For an edge e = {i, j },
+
+fi→e = sci , fj→e = scj , (9) with restriction elements ci, c j produced from the node and edge features by (8) (Section 4.2). Once an orientation is fixed, the general coboundary (4) specialises to ( δv )e = scj (vj ) − sci (vi). The adjoint of the normalized reversion sandwich under the Clifford scalar product (3) is 
+
+s∗ 
+
+> c
+
+(y) = ˜c y c / q (c), (10) 7which yields the boundary ( δ∗ω)k = ∑
+
+> e∋k
+
+[e:k] s∗ 
+
+> ck
+
+(ωe), where the incidence sign [ e:k] is +1 at the head of e and −1 at the tail. The incidence signs cancel in the composition L = δ∗δ, so the sheaf Laplacian is independent of the chosen orientations, and at each node (δ∗δv )i = ∑
+
+> j∼i
+
+s∗
+
+> ci
+> (
+
+sci (vi) − scj (vj )). (11) The layer uses the negative of this Laplacian (“neighbour minus self”) as its message; Appendix C writes the self and cross terms out fully as nested sandwiches. Two special cases anchor the construction. With identity restriction elements, (11) reduces to the standard graph Laplacian 
+
+> ∑
+> j∼i
+
+(vi − vj ); with versor elements ( c ∈ Γ), sc is conjugation, the self term is the identity, and CSNN recovers a grade-preserving connection Laplacian of the kind used by Barbero et al. (2022). For general elements CSNN moves beyond both: the explicit adjoint (10) realizes the Gram form 
+
+L = δ∗δ (5), so the Laplacian stays exactly positive semidefinite with no versor constraint even as the transport mixes grades (Section 3.2). 
+
+# 5 First-Order Representational Placement 
+
+Where does CSNN sit among equivariant models? Grade confinement fixes the answer. Under the rotation action the four grades of Cl(3 , 0, 0) carry familiar irreducibles: grades 0 and 3 are spin-0 (invariant), grades 1 and 2 spin-1. CSNN thus operates entirely with L=0 and L=1 representations and carries no rank-two tensors, placing it with scalar–vector models such as PaiNN (Schütt et al., 2021) rather than higher-order tensor models such as Equiformer (Liao and Smidt, 2023). By Proposition 2 this is structural, not incidental: the reversion CSNN is a first-order model by construction. This grade analysis is specific to Cl(3 , 0, 0); in Cl(3 , 0, 1) reversion preserves the 
+
+β-eigenspaces {0, 1, 4} and {2, 3}, with positions (grade 3) in the latter. 
+
+# 6 Related Work 
+
+Clifford and geometric-algebra networks. Many architectures compute with multivector features and the geometric product: Clifford group-equivariant networks (Ruhe et al., 2023a), geometric Clifford algebra networks (Ruhe et al., 2023b), Clifford neural layers for PDEs (Brandstetter et al., 2023), the geometric algebra transformer (Brehmer et al., 2023), and multivector neurons (Liu et al., 2024b). These fix the message-passing form or constrain transformations to the Clifford group; CSNN instead makes edge-wise transport a learned, versor-free restriction map inside a sheaf Laplacian. 
+
+Sheaf neural networks. Sheaf neural networks (Hansen and Gebhart, 2020) and neural sheaf diffusion (Bodnar et al., 2022) attach real vector-space stalks to a graph and learn restriction maps; connection Laplacians (Barbero et al., 2022) force these orthogonal, all for node-level tasks. CSNN gives the stalks Clifford structure and normalized reversion sandwiches that lift orthogonality while keeping an exact positive-semidefinite Laplacian, and targets graph-level regression, where the sheaf-Laplacian kernel becomes a genuine constraint (Section 7). 
+
+Equivariant models for molecules. Scalar–vector ( L=1) models such as EGNN (Satorras et al., 2021) and PaiNN (Schütt et al., 2021), and first-order attention models such as the equivariant transformer (Thölke and De Fabritiis, 2022), share CSNN’s representational class; the higher-order 8tensor models SEGNN (Brandstetter et al., 2022), tensor field networks (Thomas et al., 2018), MACE (Batatia et al., 2022), and Equiformer (Liao and Smidt, 2023) use L≥2 features. 
+
+Gauge equivariance and topological message passing. Reading restriction maps as parallel transport connects CSNN to gauge-equivariant networks (Cohen et al., 2019; de Haan et al., 2021), and its cell-poset formulation to simplicial and topological message passing (Bodnar et al., 2021; Eijkelboom et al., 2023; Liu et al., 2024a). 
+
+# 7 Conclusion 
+
+CSNN combines Clifford multivector stalks with a sheaf Laplacian, built from normalized reversion sandwiches and positive semidefinite by construction, with no versor constraint. Characterizing the sandwich family shows that these maps span exactly half of End R, expressivity grows with the number of terms, and CSNN’s reversion member is the first-order, single-ratio-conditioned corner of the family. A structural caveat concerns the sheaf-Laplacian kernel, where transported configurations agree and the relational signal vanishes. Since CSNN only approximates diffusion, this bounds the linear core rather than the model. 
+
+# References 
+
+Federico Barbero, Cristian Bodnar, Haitz Sáez de Ocáriz Borde, Michael Bronstein, Petar Veličković, and Pietro Liò. Sheaf neural networks with connection laplacians. In Topological, Algebraic and Geometric Learning Workshops , volume 196 of Proceedings of Machine Learning Research . PMLR, 2022. Ilyes Batatia, Dávid Péter Kovács, Gregor N C Simm, Christoph Ortner, and Gábor Csányi. MACE: Higher order equivariant message passing neural networks for fast and accurate force fields. In 
+
+Advances in Neural Information Processing Systems , volume 35, 2022. Cristian Bodnar, Fabrizio Frasca, Yuguang Wang, Nina Otter, Guido Montufar, Pietro Liò, and Michael Bronstein. Weisfeiler and Lehman go topological: Message passing simplicial networks. In International Conference on Machine Learning , pages 1026–1037. PMLR, 2021. Cristian Bodnar, Francesco Di Giovanni, Benjamin Paul Chamberlain, Pietro Liò, and Michael M Bronstein. Neural sheaf diffusion: A topological perspective on heterophily and oversmoothing in GNNs. In Advances in Neural Information Processing Systems , volume 35, 2022. Johannes Brandstetter, Rob Hesselink, Elise van der Pol, Erik J Bekkers, and Max Welling. Geometric and physical quantities improve E(3) equivariant message passing. In International Conference on Learning Representations , 2022. Johannes Brandstetter, Rianne van den Berg, Max Welling, and Jayesh K Gupta. Clifford neural layers for PDE modeling. In International Conference on Learning Representations , 2023. Johann Brehmer, Pim de Haan, Sönke Behrends, and Taco Cohen. Geometric algebra transformer. In Advances in Neural Information Processing Systems , volume 36, 2023. 9Taco S Cohen, Maurice Weiler, Berkay Kicanaoglu, and Max Welling. Gauge equivariant convo-lutional networks and the icosahedral CNN. In International Conference on Machine Learning ,pages 1321–1330. PMLR, 2019. Pim de Haan, Maurice Weiler, Taco Cohen, and Max Welling. Gauge equivariant mesh CNNs: Anisotropic convolutions on geometric graphs. In International Conference on Learning Repre-sentations , 2021. Floor Eijkelboom, Rob Hesselink, and Erik J Bekkers. E(n) equivariant message passing simplicial networks. In International Conference on Machine Learning , pages 9071–9081. PMLR, 2023. Jakob Hansen and Thomas Gebhart. Sheaf neural networks. In NeurIPS Workshop on Topological Data Analysis and Beyond , 2020. Yi-Lun Liao and Tess Smidt. Equiformer: Equivariant graph attention transformer for 3D atomistic graphs. In International Conference on Learning Representations , 2023. Cong Liu, David Ruhe, Floor Eijkelboom, and Patrick Forré. Clifford group equivariant simplicial message passing networks. In International Conference on Learning Representations , 2024a. Cong Liu, David Ruhe, and Patrick Forré. Multivector neurons: Better and faster O(n)-equivariant clifford graph neural networks. In ICML 2024 Workshop on Geometry-grounded Representation Learning and Generative Modeling , 2024b. David Ruhe, Johannes Brandstetter, and Patrick Forré. Clifford group equivariant neural networks. In Advances in Neural Information Processing Systems , volume 36, 2023a. David Ruhe, Jayesh K Gupta, Steven de Keninck, Max Welling, and Johannes Brandstetter. Geometric clifford algebra networks. In International Conference on Machine Learning , pages 29306–29337. PMLR, 2023b. Víctor Garcia Satorras, Emiel Hoogeboom, and Max Welling. E(n) equivariant graph neural networks. In International Conference on Machine Learning , pages 9323–9332. PMLR, 2021. Kristof T Schütt, Oliver T Unke, and Michael Gastegger. Equivariant message passing for the prediction of tensorial properties and molecular spectra. In International Conference on Machine Learning , pages 9377–9388. PMLR, 2021. Philipp Thölke and Gianni De Fabritiis. TorchMD-NET: Equivariant transformers for neural network based molecular potentials. In International Conference on Learning Representations , 2022. Nathaniel Thomas, Tess Smidt, Steven Kearnes, Lusann Yang, Li Li, Kai Kohlhoff, and Patrick Riley. Tensor field networks: Rotation-and translation-equivariant neural networks for 3D point clouds. arXiv preprint arXiv:1802.08219 , 2018. 
+
+# A Notation and Definitions 
+
+For reference, this appendix collects the notation and main definitions used in the paper, grouped by topic. All conventions match the body. 10 Symbol Term Definition 
+
+Clifford algebra 
+
+Cl( p, q, r ) Clifford algebra Signature ( p, q, r ) on Rn, n = p+q +r: the quotient of the tensor algebra by v2 = Q(v); real dimension 2n.Cl(3 , 0, 0) Euclidean case n = 3, dimension 8; symmetry group SO (3). Cl(3 , 0, 1) projective case, PGA n = 4, dimension 16; symmetry group SE (3); de-generate scalar product with an 8-dimensional rad-ical. 
+
+gij metric Defined by eiej + ej ei = 2 gij .Cl (k) grade-k subspace Spanned by the k-blades, the products of k orthog-onal basis vectors; dimension (nk
+
+> )
+
+.[x]k grade projection The grade-k component of x; [ x]0 is the scalar part. 
+
+ω pseudoscalar The top-grade blade: e123 in Cl(3 , 0, 0), the null grade-4 blade in Cl(3 , 0, 1). 
+
+Involutions and the scalar product 
+
+α grade involution Acts as ( −1) k on grade k.
+
+> ˜
+
+x = β(x) reversion Acts as (−1) k(k−1) /2 on grade k; an anti-automorphism. 
+
+γ Clifford conjugation The composition γ = α ◦ β.
+
+⟨x, y ⟩ Clifford scalar product ⟨x, y ⟩ = [ ˜x y ]0; a symmetric bilinear form, positive definite in Cl(3 , 0, 0) and positive semidefinite in Cl(3 , 0, 1). 
+
+q(x) quadratic form q(x) = ⟨x, x ⟩.
+
+Groups and equivariance 
+
+versor A multivector formed as the geometric product of invertible vectors, each a non-null grade-1 element with inverse v−1 = v/q (v). Γ Clifford group The group of versors. Spin spin group The unit even versors; acts by x 7 → Rx ˜R with 
+
+> ˜
+
+RR = 1. Ad c conjugation x 7 → c x c −1; grade-preserving. sc reduces to Ad c
+
+when c is a versor. 
+
+SO (3) , SE (3) rotation, rigid-motion groups Realized in Cl(3 , 0, 0) and Cl(3 , 0, 1) respectively. 
+
+Restriction maps 
+
+a x b sandwich map The single sandwich; the K-term sandwich is  
+
+> ∑Kk=1
+
+ak x b k.
+
+sc normalized reversion sandwich 
+
+sc(x) = c x ˜c/q (c), the restriction map CSNN uses; 
+
+c is the restriction element (Section 3). 
+
+s∗ 
+
+> c
+
+adjoint s∗ 
+
+> c
+
+(y) = ˜c y c/q (c), the adjoint of sc under ⟨· , ·⟩ .
+
+J pseudoscalar multiplica-tion 
+
+J(x) = e123 x in Cl(3 , 0, 0); J2 = −Id. 11 Symbol Term Definition 
+
+End R endomorphism algebra Real-linear maps of the stalk; dimension 64 for Cl(3 , 0, 0), 256 for Cl(3 , 0, 1). 
+
+w, r, κ conditioning For the reversion self-term in Cl(3 , 0, 0): w = ˜cc ,
+
+r = ∥wvec ∥/w 0, and κ = ((1 + r)/(1 − r)) 2 (Sec-tion 3.2). 
+
+Sheaf machinery 
+
+cellular sheaf Assigns a stalk to each cell and a restriction map to each incident vertex–edge pair (Section 2.2). stalk The vector space attached to a cell. 
+
+fk→e restriction map The linear map from node k’s stalk into edge e’s stalk. 
+
+δ coboundary (δv )e = fj→e(vj ) − fi→e(vi). 
+
+L sheaf Laplacian L = δ∗δ; positive semidefinite by construction. Dirichlet energy ⟨v, Lv⟩ = ∥δv ∥2; the disagreement between node features after transport. 
+
+Layer components 
+
+MVN multivector neuron Multivector-valued unit of Liu et al. (2024b): agrade-preserving linear map with a gated nonlin-earity. MVFFN feed-forward block CSNN’s choice for the generator ϕ: an MVN-MLP-style block L2(σ(L1x)) (Section 4.2). 
+
+L multivector linear map One shared scalar weight per grade, no bias; grade-preserving and equivariant. 
+
+L=0 , L =1 spin-0, spin-1 The irreducibles CSNN uses; the model is first-order (Section 5). 
+
+# B Proofs 
+
+Proof of Proposition 1. Since ˜RR = 1, each term satisfies (Ra k ˜R)( Rx ˜R)( Rb k ˜R) = R a kxb k ˜R, 
+
+and summing over k preserves the identity. For sc, reversion is an anti-automorphism, so ˜
+
+Rc ˜R =
+
+R ˜c ˜R, and q is Spin-invariant, q(Rc ˜R) = q(c); hence 
+
+sRc ˜R(Rx ˜R) = Rc ˜R Rx ˜R R ˜c ˜R/q (c)= R c x ˜c ˜R/q (c) = R s c(x) ˜R. 
+
+Proof of Proposition 2. For v with β(v) = ±v, β(c v ˜c) = β(˜c)β(v)β(c) = c(±v)˜c = ± c v ˜c, so sc(v)lies in the same eigenspace; composition preserves the property. 
+
+Proof of Proposition 3. Since e123 is central, a(e123 x)b = e123 (axb ), so x 7 → axb commutes with J,and so does any sum of such maps. Since α(e123 ) = −e123 , the map x 7 → a α (x) b anticommutes with J instead. 12 α is not a finite sandwich sum. For T ∈ End(Cl) the functional tr( α T ) is linear in T . Ashort computation shows that, for a single sandwich S : x 7 → a x b , tr( α S ) depends only on the pseudoscalar coefficients of a and b: it is a multiple of aωbω (with ω the pseudoscalar), and that multiple vanishes when n is odd and is proportional to q(ω) when n is even. In both our signatures it is therefore 0: Cl(3 , 0, 0) has odd n = 3, and in Cl(3 , 0, 1) the pseudoscalar is null. By linearity the functional vanishes on every sandwich sum, whatever its length; but tr( α α ) = tr(Id) = dim Cl ̸ = 0. Hence no finite sum ∑ 
+
+> k
+
+ak x b k can equal α, in either signature. 
+
+# C Expanding the Sheaf Laplacian in the Restriction Elements 
+
+Substituting the normalized reversion sandwich sc(x) = c x ˜c/q (c) and its adjoint s∗ 
+
+> c
+
+(y) = ˜c y c/q (c)into the node Laplacian (11) yields the nested-sandwich form (12). On an edge {i, j } the two transports are 
+
+sci (vi) = ci vi ˜ci
+
+q(ci) , scj (vj ) = cj vj ˜cj
+
+q(cj ) .
+
+Apply the adjoint s∗ 
+
+> ci
+
+(y) = ˜ci y c i/q (ci) to each, and use associativity of the geometric product to drop the inner brackets: 
+
+s∗
+
+> ci
+
+(sci (vi)) = ˜ci
+
+(ci vi ˜ci
+
+) ci
+
+q(ci) q(ci) = ˜ci ci vi ˜ci ci
+
+q(ci)2 ,s∗
+
+> ci
+
+(scj (vj )) = ˜ci
+
+(cj vj ˜cj
+
+) ci
+
+q(ci) q(cj ) = ˜ci cj vj ˜cj ci
+
+q(ci) q(cj ) .
+
+Because s∗ 
+
+> ci
+
+is linear, s∗
+
+> ci
+
+(sci (vi) − scj (vj )) is the difference of these two terms. Summing over the neighbours j ∼ i gives the nested-sandwich form (δ∗δv )i = ∑
+
+> j∼i
+
+[ ˜ci ci vi ˜ci ci
+
+q(ci)2 − ˜ci cj vj ˜cj ci
+
+q(ci) q(cj )
+
+]
+
+. (12) 
+
+# D The Multivector-Neuron Block 
+
+For ϕ we take a multivector feed-forward block, MVFFN, an MVN-MLP-style composition of two grade-wise linear maps around a gated nonlinearity σ, with L1 widening and L2 projecting, MVFFN( x) = L2
+
+(σ(L1x)). (13) A grade-wise linear map applies one shared scalar weight per grade with no bias and commutes with the rotor action. For σ we use a sigmoid-smoothed form of the MVN rejection nonlinearity: with q = Lqx and k = Lkx,
+
+σ(x) = τ q + (1 − τ )
+
+(
+
+q − ⟨q,k ⟩∥k∥2 k
+
+)
+
+, τ = sigmoid( ⟨q, k ⟩). (14) The gates ⟨q, k ⟩ and ∥k∥2 are invariant scalars multiplying equivariant multivectors, so σ is equiv-ariant. Sums and compositions of equivariant maps stay equivariant, so ϕ = MVFFN is Spin-equivariant. 13
