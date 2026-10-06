@@ -1,0 +1,3291 @@
+Title: Optimizer Geometry Sets the Pace: Spectral Learning Dynamics in Matrix Factorization
+
+URL Source: https://arxiv.org/pdf/2610.04249v1
+
+Published Time: Tue, 06 Oct 2026 00:39:32 GMT
+
+Number of Pages: 48
+
+Markdown Content:
+Preprint 
+
+# OPTIMIZER GEOMETRY SETS THE PACE : SPECTRAL 
+
+# LEARNING DYNAMICS IN MATRIX FACTORIZATION 
+
+Mahalakshmi Sabanayagam Simon Lucey 
+
+Australian Institute for Machine Learning, Adelaide University 
+
+{mahalakshmi.sabanayagam, simon.lucey }@adelaide.edu.au 
+
+## ABSTRACT 
+
+Recent successes of matrix- and curvature-based optimizers have renewed interest in how update geometry shapes learning. These methods normalize or precondi-tion updates, changing how different components progress during training. In deep matrix factorization, the geometry that slows gradient descent (GD) favors low-rank solutions by delaying the emergence of small singular modes. This raises the question of what remains of that spectral bias when normalization or curvature correction weakens or removes the slowdown. We study how optimizer geometry and depth jointly govern this behavior through a common framework for singular mode dynamics. Under explicit balance and alignment assumptions, we derive birth, saturation, and decay laws for Euclidean GD, coordinate-wise updates of SignGD and an instantaneous Adam approximation, spectral updates of Muon and cumulative Shampoo, and a block curvature model of K-FAC. The resulting pic-ture is not a simple ordering from stronger to weaker low-rank bias. To highlight, SignGD and ideal Muon eliminate the divergent birth barrier and drive unsup-ported modes to zero in finite time. Cumulative Shampoo initially retains GD’s depth-dependent barrier, then accumulated gradients produce a catch-up phase while making previously active modes increasingly persistent. Undamped K-FAC cancels the factorization-induced slowdown while preserving the ordering of the target singular values, whereas positive damping introduces a spectral threshold below which the slow GD phase laws reappear. These results give normalization, accumulated state, damping, and depth a direct interpretation as controls deter-mining when modes emerge, persist, and disappear during training. 
+
+## 1 INTRODUCTION 
+
+For much of modern deep learning, large scale optimization was dominated by SGD and Adam-like coordinate-wise methods, while matrix preconditioning and approximate curvature methods remained comparatively limited in practice. Their additional memory, numerical, and systems re-quirements made their advantages difficult to realize at scale (Martens & Grosse, 2015; Gupta et al., 2018). This landscape is beginning to change. Recent foundation models with multi-billion and trillion parameters (Team et al., 2025; Liu et al., 2025; Khona et al., 2026; Ji et al., 2026) are effec-tively trained with spectral optimizers such as Muon (Jordan et al., 2024) and SOAP (Vyas et al., 2025) at substantially large model, data, and batch scales. This empirical shift raises a theoretical question. The implicit bias analysis of gradient descent (GD) shows that Euclidean geometry slows the progress of weak singular modes and thereby promotes low-rank solutions in deep matrix factor-ization (Arora et al., 2019; Li et al., 2021). Whereas spectral normalization and curvature correction are designed to reduce precisely this kind of anisotropy, in idealized limits they can weaken or even cancel the singular value dependent slowdown. Their recent success therefore raises the question of whether GD’s spectral bias induced by depth is lost, preserved in a weaker form, or replaced by a qualitatively different mechanism of mode selection. More broadly, we ask: 
+
+When do modern optimizers merely accelerate a common learning trajectory, and when do they change which spectral components emerge, persist, or disappear? 
+
+We investigate these questions in deep linear networks, where depth changes the parameterization and optimization dynamics without changing the end-to-end linear functions. This makes it a partic-1arXiv:2610.04249v1 [cs.LG] 3 Oct 2026 Preprint 0 20 40 60 80 100          
+
+> Time t
+> 0.00.20.40.60.81.0
+> Learned fraction  σ/μ
+> μ1= 1
+> μ2= 0 .8
+> μ3= 0 .6
+> μ4= 0 .45
+> μ5= 0 .32
+> μ6= 0 .24
+> μ7= 0 .18
+> μ8= 0 .12
+
+(a) GD 0.0 0.5 1.0 1.5 2.0 2.5  
+
+> Time t
+> 0.00.20.40.60.81.0
+> Learned fraction  σ/μ
+
+(b) Muon 10 −3 10 −2 10 −1 10 0 10 1 10 2    
+
+> Time t
+> 10 −4
+> 10 −3
+> 10 −2
+> 10 −1
+> 10 0
+> Mode amplitude  σ μ1= 1
+> μ9= 0
+> GD Muon
+
+(c) GD vs Muon: Birth and decay 
+
+Figure 1: Optimizer geometry sets the pace of spectral learning. In balanced aligned deep matrix factorization, GD and Muon produce distinct spectral learning trajectories (experimental details in Sec. F). (a) Under GD, larger target modes are learned earlier, while smaller modes remain sup-pressed for longer. (b) Under Muon, factor amplitudes grow at a common speed, allowing smaller targets to reach full recovery earlier. (c) From the same initial amplitude 0.01 , Muon accelerates the growth of a positive target mode (red) and, importantly, removes the zero target mode in finite time (blue). GD instead exhibits delayed growth and slow decay. Thus, faster emergence of weak modes does not imply weaker removal of unsupported modes. Optimizer geometry determines which spec-tral components emerge, persist, and disappear. Other optimizers are discussed in later sections. ularly clean setting for separating optimizer-induced dynamics from parameterization-induced bias. Our theoretical analysis focuses on deep matrix factorization, a canonical special case in which the evolution of singular modes can be characterized explicitly. Specifically, in full observation re-gression, it exposes transient singular mode learning (Saxe et al., 2013; Soudry et al., 2018), while in underdetermined matrix sensing and completion, it permits direct study of which interpolating matrix is selected (Arora et al., 2019; Li et al., 2021; Rhee et al., 2026; Parviz et al., 2026). In contrast to the Euclidean geometry of GD, non-Euclidean optimizers transform the factorization-induced geometry in qualitatively different ways. SignGD and Adam apply coordinate-wise adaptive scaling (Bernstein et al., 2018; Kingma & Ba, 2014); Muon acts directly on the spectrum of matrix updates (Jordan et al., 2024) while Shampoo introduces history-dependent matrix preconditioning (Gupta et al., 2018); and K-FAC attempts to compensate for the parameterization through curvature using approximate natural gradients (Martens & Grosse, 2015). In our study, we categorize these geometries based on their updates into Euclidean (GD), coordinate-wise (SignGD and Adam), spec-tral (Muon and Shampoo) and curvature based (K-FAC). These methods can reach nearly identical training losses while producing weights with different spectra, representations, and performance. Recent studies have begun to identify optimizer-dependent feature and simplicity biases, including differences between Adam and GD in nonlinear models (Cattaneo et al., 2023; Zhang et al., 2024; Xie & Li, 2024) and between spectral and Euclidean updates in deep linear networks (Dragutinovi´ c& Ranganath, 2026). These findings further motivate the central question we posed, and answering this requires distinguishing how quickly modes emerge from how they settle or disappear, since an optimizer can affect these phases differently. Our approach separates the geometry induced by the factorization from the update rule and state maintained by the optimizer. The product dynamics first express how each layer updates combine into the dynamics of the effective matrix. Under explicit balance, target alignment, and state com-patibility assumptions, this description reduces to a common equation for each singular mode. The factorization determines how factor dynamics changes the mode amplitude, while the optimizer de-termines the update through its normalization, accumulated statistics, and damping. This gives a controlled setting in which these mechanisms can be compared without attributing differences to changing singular directions. Our analysis separates three aspects of spectral learning that are often conflated: the birth of initially small nonzero modes to reach a prescribed amplitude, saturation near their targets, and decay of unsupported modes whose target is zero. These phases need not respond to an optimizer in the same way. A method can permit rapid emergence while retaining a slow decay tail, and accumulated gradient history can change the rate at which an already learned component settles. Consequently, the emergence of small modes alone does not describe the spectral bias of an entire trajectory as studied in prior works. Our results make these distinctions explicit as shown in Fig. 1. Moreover, it also brings out how optimizer state parameters, including adaptive stabilization and curvature damping, interpolate between distinct rank selection regimes, and verifies that these 2Preprint differences persist in underdetermined matrix factorization and regression. Our contributions are: 
+
+(1) A common framework for spectral learning. We express effective matrix dynamics through the layer updates and derive an exact mode reduction under explicit balance and alignment assump-tions. The reduction separates the contribution of the factorization from the optimizer update states. 
+
+(2) Phase laws revealing how optimizer settings shape the bias of depth. We derive birth, satu-ration, and decay laws that distinguish normalization, accumulated history, and damping. GD and SignGD dynamics establish contrasting reference behaviors. Instantaneous Adam identifies how a positive stabilizer restores slow dynamics at small gradient magnitudes. Ideal Muon accelerates both emergence and removal of modes in finite time. For cumulative Shampoo, an exact accumulator identity quantifies the transition from initialization dominated to history dominated dynamics. For the specified K-FAC block model, an exact birth time decomposition separates an undamped contri-bution from a damping-weighted GD contribution. Together, these results identify when optimizer geometry preserves, modifies, or cancels the suppression of small modes induced by depth. 
+
+(3) Numerical validation of phase laws and regime transitions. Controlled experiments in deep matrix factorization and regression verify the derived phase laws. These experiments demonstrate that settings commonly associated with numerical stability can change relative spectral progress, determining which components emerge, persist, and disappear during training. 
+
+## 2 RELATED WORK 
+
+Optimization geometry and solution bias. Optimization geometry influences which solution is selected among those that fit the training data (Wilson et al., 2017; Gunasekar et al., 2018). For Adam, implicit bias analyses establish margin characterizations in separable classification under specified optimizer and learning rate assumptions (Zhang et al., 2024; Gronich & Vardi, 2026). Nat-ural gradient provides another illustration of the role of geometry: under suitable rank conditions, its effective matrix dynamics can eliminate the dependence on depth that arises under Euclidean gradient flow (Kerekes et al., 2021; Bernacchia et al., 2018). These results motivate examining both the symmetries respected by an optimizer and the trajectory it induces. Our framework comple-ments this perspective by expressing changes in unobserved matrix directions through accumulated optimizer induced motion, while using mode dynamics to isolate the effects of different optimizers. 
+
+Training dynamics in matrix factorization. Analyses of gradient flow and gradient descent con-nect spectral dynamics to low rank recovery and incremental rank growth under specified initializa-tion and measurement assumptions (Gunasekar et al., 2017; Arora et al., 2019; Li et al., 2021; Jin et al., 2023). While depth strengthens the tendency of low rank bias, it is not always equivalent to minimizing a single Schatten norm, indicating that trajectory-level geometry is essential (Razin & Cohen, 2020). Recent Muon analyses characterize how polar normalization changes spectral learn-ing and simplicity bias in deep linear networks and linear attention (Dragutinovi´ c & Ranganath, 2026), and establish approximately uniform singular value growth under assumptions on LoRA fac-torization (Kang et al., 2026). For fully observed bilinear matrix factorization, Rhee et al. (2026) derive uniform factor singular value growth after alignment, and analyze oscillations caused by finite optimization steps. Complementary empirical comparisons show that Muon’s relative performance depends on the factorization problem and hyperparameter tuning (Parviz et al., 2026). Shampoo has been interpreted as an adapted version of spectral descent that retains information about stochastic-ity and the parameter trajectory (Eschenhagen et al., 2026). Building on these results, we compare mode birth, decay, and saturation within a common balanced aligned model. While most analyses study one optimizer in isolation, our analysis includes SignGD and simplified Adam, derives an exact accumulator identity for cumulative Shampoo, and quantifies the effect of additive damping in K-FAC. We give a broader discussion on related works in Sec. A. 
+
+## 3 PRELIMINARIES 
+
+Notations. For matrices X and Y of the same dimensions, ⟨X, Y ⟩F = tr( X⊤Y ) denotes the Frobenius inner product. We use ∥ · ∥ F for the Frobenius norm of a matrix, which reduces to the Euclidean norm for a vector, and matrix Id denotes the identity matrix of size d × d. The notation 
+
+∇W f (W ) denotes the gradient of f with respect to W . The symbols ⊙ and ⊘ denote entrywise multiplication and division, respectively, with H⊙2 = H ⊙ H. In entrywise expressions, square roots are also applied entrywise. A dot denotes differentiation with respect to time, so ˙a = da/dt .3Preprint 
+
+Optimizer Zℓ Update category 
+
+GD Hℓ Euclidean SignGD (Bernstein et al., 2018) sign( Hℓ) Coordinate-wise Adam (Kingma & Ba, 2014) mℓ ⊘ (√vℓ + ϵ) with 
+
+τm ˙mℓ = Hℓ − mℓ, τ v ˙vℓ = H⊙2 
+
+> ℓ
+
+− vℓ
+
+Coordinate-wise (adaptive) Ideal Muon (Jordan et al., 2024) UℓV ⊤ 
+
+> ℓ
+
+where Hℓ = UℓΣℓV ⊤ 
+
+> ℓ
+
+Spectral Shampoo (Gupta et al., 2018) 
+
+C−1/4 
+
+> ℓ
+
+HℓD−1/4 
+
+> ℓ
+
+with λSh > 0,Cℓ(t) = λSh I + R t 
+
+> 0
+
+Hℓ(u)Hℓ(u)⊤ du, Dℓ(t) = λSh I + R t 
+
+> 0
+
+Hℓ(u)⊤Hℓ(u) du 
+
+Spectral K-FAC (Martens & Grosse, 2015) vec( Zℓ) = ( Fℓ + λKF I)−1 vec( Hℓ),
+
+Fℓ = ( AℓA⊤ 
+
+> ℓ
+
+) ⊗ (B⊤ 
+
+> ℓ
+
+Bℓ), λKF ≥ 0 Curvature based 
+
+Table 1: Layer update directions in the flow ˙Wℓ = −Zℓ, where Hℓ = B⊤ 
+
+> ℓ
+
+GA ⊤ 
+
+> ℓ
+
+. SignGD and Adam applies coordinate-wise updates, Muon uses polar normalization, Shampoo uses cumulative statistics, and K-FAC uses additive block damping. Detailed account of these optimizers is in Sec. B. 
+
+Deep matrix factorization. Let Wℓ ∈ Rdℓ×dℓ−1 denote the parameters of layer ℓ in a depth L
+
+linear network with L ≥ 2. The effective matrix is 
+
+W = WLWL−1 · · · W2W1. (1) We assume dℓ ≥ min( d0, d L) for every hidden layer, so that the architecture does not impose a rank bottleneck. Let S1, . . . , S m ∈ RdL×d0 be known measurement matrices and let y = ( y1, . . . , y m) ∈
+
+Rm be the observed values. We define A(W ) = ( ⟨Sj , W ⟩F )mj=1 , and 
+
+L(W ) = 12
+
+> m
+
+X
+
+> j=1
+
+(( A(W )) j − yj )2, G = ∇W L(W ) = 
+
+> m
+
+X
+
+> j=1
+
+(( A(W )) j − yj )Sj .
+
+The model is trained by minimizing the mean squared loss L(W ). In noiseless recovery, M ∈
+
+RdL×d0 denotes the unknown target matrix and yj = ⟨Sj , M ⟩F . Matrix completion corresponds to selecting individual entries of M through the measurement matrices. Full observation gives 
+
+L(W ) = ∥W − M ∥2 
+
+> F
+
+/2. The gradient with respect to the effective matrix is G. In particular, 
+
+G = W − M under full observation. Define the prefix and suffix products 
+
+Aℓ = Wℓ−1 · · · W1, Bℓ = WL · · · Wℓ+1 , A1 = Id0 , BL = IdL . (2) The chain rule gives the layer gradient 
+
+Hℓ = ∇Wℓ L(W ) = B⊤ 
+
+> ℓ
+
+GA ⊤ 
+
+> ℓ
+
+. (3) For full observation, L(W ) = ∥W − M ∥2 
+
+> F
+
+/2 has the unique minimizer M for any depth. Con-sequently, different spectra at finite time describe transient learning and cannot establish different interpolating solutions. However, the training trajectories differ across optimizers. Therefore, we focus on how depth and optmizer geometry affect the spectrum before convergence in the full obser-vation setting and distinguish finite time spectral bias from asymptotic solution selection throughout. 
+
+Optimizer conventions. We study deterministic flows driven by the full gradient, without weight decay or explicit regularization. For each layer, the continuous time dynamics of the matrix Wℓ is 
+
+˙Wℓ(t) = −Zℓ(t),
+
+where t is continuous time, a dot denotes its derivative, The flow uses unit learning rate, with any constant common learning rate absorbed into time and the stated memory times. All moment ma-trices have the same dimensions as Wℓ. The equations for Zℓ for all the optimizers analyzed in this paper are given in Table 1 and each optimizer is discussed in detail in Sec. B. We present the exact effective matrix dynamics in Proposition 1 (proof in Sec. C) which is the main object in our analysis. 
+
+Proposition 1 (Exact effective matrix W dynamics) . Using the definitions of Aℓ and Bℓ from Eq. (2) , for every layer trajectory satisfying ˙Wℓ = −Zℓ, the effective matrix satisfies 
+
+˙W = −
+
+> L
+
+X
+
+> ℓ=1
+
+BℓZℓAℓ.
+
+4Preprint 
+
+## 4 A C OMMON FRAMEWORK FOR OPTIMIZER GEOMETRY 
+
+We develop a common framework to compare how optimizer geometry controls the emergence, growth, and decay of singular modes. To derive explicit phase laws, we adopt the training dynamics analysis that connects low rank learning to the evolution of the effective matrix spectrum and con-sider a balanced, aligned setting in which singular directions remain fixed (Gunasekar et al., 2017; Arora et al., 2019; Li et al., 2021). This construction follows the exact mode analysis of deep linear networks (Saxe et al., 2013) and isolates the effects of different optimizer geometries. We consider full observation with L(W ) = 12 ∥WL · · · W1 − M ∥2 
+
+> F
+
+, and the gradient G = W − M. 
+
+While the minimizer is unique, this setting fixes the target of every mode and allows its learning time to be compared across optimizers. We make the following assumptions. 
+
+Assumption 1 (Balanced initialization) . The factors are balanced at initialization: 
+
+Wℓ(0) Wℓ(0) ⊤ = Wℓ+1 (0) ⊤Wℓ+1 (0) , for ℓ = 1 , . . . , L − 1.
+
+Balanced initialization is a standard condition in the analysis of deep matrix factorization (Arora et al., 2019; Rhee et al., 2026). For Euclidean gradient flow, Wℓ(t)Wℓ(t)⊤ − Wℓ+1 (t)⊤Wℓ+1 (t) is conserved for all t, so initial balance persists throughout training. For the other optimizers, preser-vation follows within the aligned construction from the compatibility condition stated below. 
+
+Assumption 2 (Alignment with the target) . There exist orthogonal matrices Q0, . . . , Q L with Qℓ ∈
+
+Rdℓ×d where d = min( d0, d L) such that 
+
+M = QL diag( μ1, . . . , μ d)Q⊤ 
+
+> 0
+
+, and Wℓ(0) = Qℓ diag( aℓ1(0) , . . . , a ℓd (0)) Q⊤
+
+> ℓ−1
+
+.
+
+where μi ≥ 0 and aℓi (0) > 0. Q0, . . . , Q L remain the reference bases for the mode analysis. 
+
+Together, Assumptions 1 and 2 imply aℓi (0) 2 = aℓ+1 ,i (0) 2, and positivity therefore gives a common initial amplitude aℓi (0) = ai(0) across layers. While equal layer strengths and decoupled singular directions underlie the explicit learning curves of Saxe et al. (2013), fixing the directions gives every optimizer the same initial spectral configuration, so differences in mode evolution can be attributed to their update geometry and state. 
+
+Assumption 3 (Compatible optimizer state and updates) . All layers use the same optimizer hyper-parameters and have identical initial states when expressed in their respective mode bases. The joint evolution of factors Wℓ and optimizer states preserves the aligned form. In particular, whenever the factor amplitudes and mode states agree across layers, the update directions satisfy 
+
+Zℓ = Qℓ diag( z1, . . . , z d)Q⊤
+
+> ℓ−1
+
+, ℓ = 1 , . . . , L, 
+
+This condition makes the reduction a property of a specified optimizer flow. It is satisfied by GD, Muon, and cumulative Shampoo in the aligned setting. For Adam and SignGD, diagonality must hold in the actual parameter coordinates, which can be imposed by taking Qℓ = I for every ℓ.For K-FAC, we use the full observation block curvature model with common additive damping. These choices retain the moment and preconditioner states responsible for the phase behavior studied below and shown in Sec. D. Under Assumption 3, equal initial amplitudes have equal updates across layers. Consequently, the factors remain balanced and admit the representation 
+
+Wℓ(t) = Qℓ diag( a1(t), . . . , a d(t)) Q⊤
+
+> ℓ−1
+
+.
+
+The following reduction proved in Sec. D applies on intervals where the relevant amplitudes remain positive. At a zero crossing, any continuation is specified in the corresponding optimizer result. 
+
+Theorem 1 (Exact dynamics of aligned modes) . Under Assumptions 1 to 3, define σi = aLi , q =1 − 1
+
+L , p = 2 q = 2 − 2
+
+L , r i = σi − μi. Then W and every layer gradient Hℓ has the form 
+
+W = QL diag( σ1, . . . , σ d)Q⊤ 
+
+> 0
+
+, Hℓ = Qℓ diag( g1, . . . , g d)Q⊤
+
+> ℓ−1
+
+, where gi = riσqi .
+
+The effective singular amplitudes satisfy ˙σi = −Lσ qi zi. Here, i labels a fixed mode and does not require the amplitudes to remain sorted by magnitude. 
+
+The proof follows by substituting the aligned factors into the layer gradient and differentiating 
+
+σi = aLi , as detailed in Sec. D. The coefficient Lσ qi is common to every optimizer and comes 5Preprint from the factorization. The optimizer determines zi through the current gradient and its evolving state. For example, GD uses zi = gi and yields ˙σi = −Lσ pi (σi − μi) as also shown in Arora et al. (2019), whereas normalization and preconditioning modify this dependence. 
+
+Comparisons across depth. Unless stated otherwise, we compare by fixing the target matrix M and initial effective mode amplitudes σi(0) = si, implying balanced mode amplitudes ai(0) = s1/L i . Op-timizer settings and initial states are specified separately for each comparison. A common rescaling of time is used only to distinguish uniform acceleration from changes in relative mode evolution. 
+
+## 5 OPTIMIZER SPECIFIC RESULTS 
+
+In this section, we ignore mode index i for better readability. For a positive target μ, birth is the first passage from σ(0) = s > 0 to a fixed threshold b ∈ (s, μ ). We denote it by T birth opt (s, b ). Saturation is the time required for the residual r(t) = |σ(t) − μ| to enter and remain below a tolerance τ > 0. For an unsupported mode μ = 0 , decay is the passage from σ(0) = s > 0 to a tolerance δ ∈ (0 , s ), and is denoted by T decay opt (s, δ ). Exact extinction means that the mode reaches σ = 0 in finite time and remains there. Birth always refers to escape from a positive seed, rather than spontaneous activation of an exactly zero factor mode. From Theorem 1, for s < b , time is Topt (s, b ) = − 1
+
+> L
+
+R bsx−q 
+
+> z
+
+dx .
+
+Birth and decay exponents. Suppose the mode dynamics satisfies ˙σ = cσ α, where c > 0. Then 
+
+T (a, b ) = 1
+
+> c
+
+R ba x−α dx with 0 < a < b . Consequently, 
+
+T (a, b ) = 1
+
+c log |b||a| for α = 1 , and T (a, b ) = b1−α − a1−α
+
+c(1 − α) for α̸ = 1 . (4) All the optimizers birth dynamics near σ(0) = s = 0 satisfies ˙σ ∼ cbσαb , with cb > 0 for a target mode μ > 0. Thus, T birth (s, b ) from Eq. (4) as s → 0, αb < 1 gives finite escape from a vanishing positive seed, αb = 1 gives a logarithmic birth barrier, and αb > 1 gives a polynomial birth barrier. Similarly, the decay dynamics for an unsupported mode μ = 0 satisfies ˙σ ∼ − cdσαd , with cd > 0.Thus, T decay (s, δ ) can be similarly computed. It gives that αd < 1 reaches zero in finite time, αd = 1 
+
+has exponential decay time, αd > 1 has algebraic decay and zero is reached only asymptotically. 
+
+Saturation exponent. Suppose that near a nonzero target, the residual is r0 = |σ(t0) − μ| at time 
+
+t0, satisfies ˙r = −βr γ with β > 0. For γ = 0 , r(t) = max {0, (r0 − βt )}, thus saturates (decreases) linearly at rate β. For γ = 1 , r(t) = exp ( −βt )r0 saturates (decreases) exponentially at rate β.We derive the phase laws for the optimizers and present them using these exponents in Theorem 2. All proofs are provided in Sec. E. 
+
+Theorem 2 (Optimizer phase laws) . Based on the layer updates Zℓ in Table 1, the singular mode dynamics ˙σ for each optimizer are derived, and the following table summarizes them with the phase laws expressing the birth, decay, and saturation exponents σb, σd, and γ, respectively. 
+
+Optimizer Dynamics Birth 
+
+˙σ ∼ cbσαb
+
+Decay 
+
+˙σ ∼ − cdσαd
+
+Saturation 
+
+˙r ∼ − βr γ
+
+GD ˙σ = Lσ p(μ − σ)
+
+αb = pcb = Lμ 
+
+Time: Finite for L = 1 ,Asymptotic for L > 1
+
+αd = p + 1 
+
+cd = L
+
+Time: Asymptotic 
+
+γ = 1 
+
+β = Lμ p
+
+Exponential SignGD & Muon ˙σ = Lσ q sign( μ − σ)
+
+αb = qcb = L
+
+Time: Finite 
+
+αd = qcd = L
+
+Time: Finite 
+
+γ = 0 
+
+β = Lμ q
+
+Linear Adam 
+
+˙σ = L(μ − σ)σp
+
+|μ − σ|σq + ϵκ = μq+1 qq
+
+(q + 1) q+1 
+
+h(σ) = ( μ − σ)σq
+
+σdA = ϵ1/(q+1) 
+
+If h(σ)/ϵ → 0
+
+αb = pcb = Lμ/ϵ 
+
+Time: GD-like If ϵ < κ & ϵ/h (σ) → 0
+
+αb = qcb = L
+
+Time: SignGD-like If σ(t) ≪ σdA,
+
+αd = p + 1 
+
+cd = L/ϵ 
+
+Time: GD-like If σ(t) ≫ σdA
+
+αd = qcd = L
+
+Time: SignGD-like If rμ q ≪ ϵ,
+
+γ = 1 
+
+β = Lμ p/ϵ 
+
+GD-like Else 
+
+γ = 0 
+
+β = Lμ q
+
+SignGD-like 
+
+6Preprint 
+
+Shampoo 
+
+˙σ = Lσ p(μ − σ)
+
+dd(t) = pλSh + h(t)
+
+h(t) = R t 
+
+> 0
+
+g(u)2du h(0) = 0 , d (0) = √λSh 
+
+ν(σ) = (σ−s)(2 μ−σ−s)4L
+
+d0 = d(0) 
+
+d(σ) = d0 + ν(σ)
+
+Initial phase: ν(σ) ≪ d0 Final decay: 
+
+αb = pcb = Lμ d0
+
+Time: GD-like 
+
+αd = p + 1 
+
+cd = 4L2
+
+4Ld 0 + s2
+
+Time: GD-like 
+
+γ = 1 
+
+β = Lμ p
+
+d0 + (μ−s)2
+
+> 4L
+
+GD-like 
+
+Accumulator phase: s ≪ σ ≪ μ & 2Ld 0 ≪ μσ αb = p − 1 ( < q )
+
+cb = 2 L2
+
+Time: Finite across this interval If s ≪ μ & d0 ≪ (μ−s)2
+
+> 4L
+
+β ≈ 4L2μp−2
+
+GD-like, β ∝ μp−2:order can reverse K-FAC ˙σ = Lσ p(μ − σ)
+
+σp + λKF 
+
+Undamped: When λKF = 0 or when λKF > 0 & if σp ≫ λKF 
+
+αb = 0 
+
+cb = Lμ 
+
+Time: Finite 
+
+αd = 1 
+
+cd = L
+
+Time: Asymptotic 
+
+γ = 1 
+
+β = L
+
+GD-like 
+
+Damped: When λKF > 0 & if σp ≪ λKF 
+
+αb = pcb = Lμ/λ KF 
+
+Time: GD-like 
+
+αd = p + 1 
+
+cd = L/λ KF 
+
+Time: GD-like 
+
+γ = 1 
+
+β = Lμ p
+
+μp + λKF 
+
+GD-like 
+
+Interpretation of Theorem 2 and insights. Let’s start with Euclidean GD . The birth time 
+
+T birth GD (s, b ) for 0 < s < b < μ , and decay time T decay GD (s, δ ) for μ = 0 are 
+
+T birth GD (s, b ) = 
+
+
+
+log μ−sμ−b , L = 1 , 
+
+> 12μ
+
+log b(μ−s) 
+
+> s(μ−b)
+
+, L = 2 , 
+
+> s1−p−b1−p
+> Lμ (p−1)
+
++ O(1) , L > 2.T decay GD (s, δ ) = 
+
+(log sδ , L = 1 , 
+
+> δ−p−s−p
+> Lp
+
+, L > 1.
+
+Consequently, as s → 0, birth time T birth GD (s, b ) diverges for L ≥ 2, and as δ → 0, decay time 
+
+T decay GD (s, δ ) diverges for all L. T birth GD (s, b ) clearly shows that L = 1 has no initialization-dependent birth barrier, whereas L = 2 introduces a logarithmic delay, while L > 2 a polynomial delay. From the decay time, decay is logarithmic for L = 1 , and algebraic for L > 1, with the polynomial tail becoming slower as depth increases. No unsupported mode reaches zero in finite time. The exponential saturation implies that modes with smaller target singular values converge slowly. 
+
+GD delays the growth of small positive modes while it removes zero target modes only asymp-totically. Depth promotes low effective rank primarily by suppressing the birth of new modes, not by rapidly pruning active ones. 
+
+For SignGD , the birth time T birth SignGD (s, b ) for μ > 0, and decay time T decay SignGD (s, δ ) for μ = 0 are 
+
+T birth SignGD (s, b ) = b1/L − s1/L T decay SignGD (s, δ ) = s1/L − δ1/L .
+
+Since the time to reach any target μ is |s1/L − μ1/L |, birth, saturation and decay occur in finite time. For μ = 0 , the mode becomes exactly zero at time s1/L . The birth time remains bounded as s → 0.
+
+Adam updates are considered under a quasi-steady approximation to isolate the effect of coordinate normalization, with m = g and v = g2 giving the instantaneous state approximation. If |σ −
+
+μ|σq ≫ ϵ then ˙σ = −Lσ q sign( σ − μ), thus behaving like SignGD. If |σ − μ|σq ≪ ϵ then 
+
+˙σ = −Lσ p(σ −μ)/ϵ , thus behaving like GD upto 1/ϵ factor. This approximation explains a possible transition between normalized and GD-type motion, but it is not used as an exact theorem for Adam. 
+
+SignGD exhibits birth, saturation and decay of all modes in finite time for every depth. In-stantaneous Adam inherits this behavior only when the gradient magnitude dominates ϵ. For sufficiently small birth modes, unsupported modes and final saturation, it behaves like GD. 
+
+Muon in the aligned model gives ˙σ = −Lσ q sign( σ−μ), reducing it to a scalar sign rule as in SignGD updates. The disappearance of slow sequential learning under this idealization has been studied in Dragutinovi´ c & Ranganath (2026); Rhee et al. (2026). However, our phase laws highlight that the same normalization that accelerates weak mode emergence also removes zero target modes in finite time, so faster learning of small components can coexist with faster removal of unsupported ones. 7Preprint For cumulative Shampoo , based on the common scalar gradient accumulator h(t), and d(t) defined in Theorem 2, along a nonstationary aligned mode starting at σ(0) = s > 0 with d(0) > 0, we have 
+
+d(σ) = d(0) + μ(σ − s) − (σ2 − s2)/22L = d0 + ν(σ).
+
+Shampoo’s dynamics result in two distinct regimes: Initial phase: When the accumulator has barely changed, d0 ≫ ν(σ), its dynamics satisfy ˙σ ≈ Lσ p(μ − σ)/d (0) , recovering GD dynamics with 1/d 0
+
+factor. Accumulator phase: An intermediate regime arises on an interval σa ≤ σ ≤ b satisfying 
+
+s ≪ σa, b ≪ μ, and 2Ld 0 ≪ μσ a. Throughout this interval, accumulated history dominates and 
+
+˙σ ≈ 2L2σp−1, T birth Sh (σa, b ) ≈ (b2/L − σ2/L a )/(4 L). In this regime, the growth law is independent of μ, although total birth times retain target dependent ordering. Ideal Muon instead has target independent birth times to a common absolute threshold from the outset. Saturation near a positive target follows a separate local law, with γ = 1 , β = Lμ p 
+
+> d0+( μ−s)2/(4 L)
+
+. If s ≪ μ and 4Ld 0 ≪ (μ−s)2,then β ≈ 4L2μ−2/L , so larger targets can have smaller local saturation rates. For zero target modes, the decay dynamics in this phase is ˙σ = − Ld(σ) σp+1 , which is dominated by the p + 1 exponent as shown in Sec. E, similar to GD. Thus unsupported modes approach zero only asymptotically. At fixed initial amplitude and decay tolerance, a larger inherited denominator d0 increases the decay passage time. Ideal Muon instead removes unsupported aligned modes in finite time. 
+
+Cumulative Shampoo has a two phase emergence behavior: GD like target sensitive birth first, followed by history adapted target independent catch-up phase. It has increasing his-torical inertia, making larger modes harder to remove, whereas Muon has finite time decay. 
+
+K-FAC updates each layer with the per-layer Fisher curvature block using a damping parameter 
+
+λKF . From the dynamics, we get two cases: Undamped case ( λKF = 0 ): the dynamics near zero initialization reduces to ˙σ = L(μ − σ), thus T birth KFAC (s, b ) = 1 
+
+> L
+
+log μ−sμ−b , resulting in finite bar-rier escape time with target-dependent mode ordering. Whereas Muon removes both the factor-ization barrier and target-amplitude ordering during aligned birth, distinguishing it from K-FAC. 
+
+Damped case ( λKF > 0): When the damped factor dominates, λKF ≫ σp, ˙σ = Lσ p(μ−σ) 
+
+> λKF
+
+, thus re-covering GD-like behavior with 1/λ KF factor. Therefore, λKF defines a spectral mobility threshold. For a zero target, undamped K-FAC removes unwanted modes exponentially, but not in finite time, whereas damped K-FAC does it significantly slower, at only a polynomial rate. 
+
+Undamped K-FAC updates cancel the depth-dependent mobility barrier, while positive addi-tive damping restores the GD birth asymptotic and a polynomial zero target tail. 
+
+## 6 EXPERIMENTS 
+
+We numerically verify the phase laws in Theorem 2 and examine how optimizer-state parameters determine the active spectral regime in deep matrix factorization. Unless varied explicitly, we use the same balanced, aligned depth L = 4 factorization, effective initialization, and target modes across optimizers. Note that p = 1 .5 and q = 0 .75 . We estimate the local birth and decay exponents from the trajectory slopes αb(σ) = d log ˙ σd log σ , α d(σ) = d log( − ˙σ)   
+
+> dlog σ
+
+. For saturation, we fit the local residual law 
+
+˙r = −βr γ , r = |σ−μ|, where β is an exponential rate when γ = 1 and a constant residual speed when 
+
+γ = 0 . Implementation details, hyperparameters and additional experiments are in Sec. F and G. 
+
+Verification of the phase laws in Theorem 2. Fig. 2 compares quantities measured from the tra-jectories with the theoretical predictions. For birth, GD retains exponent p, ideal Muon follows q,instantaneous Adam interpolates between the Euclidean and normalized regimes, cumulative Sham-poo moves from p toward its history-adapted exponent p − 1, and undamped K-FAC removes the singular-magnitude dependence with αb = 0 . The decay curves distinguish finite extinction under ideal Muon, exponential decay under undamped K-FAC, and the polynomial tails of GD and cumu-lative Shampoo. The saturation experiment further reveals optimizer-dependent mode ordering: GD and Adam converge faster for larger targets; undamped K-FAC is approximately target independent while Muon shows dependence; history-dominated Shampoo reverses the GD ordering. Thus the optimizers change relative spectral progress rather than merely rescaling a common trajectory. 8Preprint 10 −3 10 −2 10 −1
+
+Current mode amplitude σ(t)  
+
+> −0.25 0.00 0.25 0.50 0.75 1.00 1.25 1.50
+> Birth exponent  αb p= 1 .50
+> q= 0 .75
+> p−1 = 0 .50
+> 10 −2
+> 10 −1
+
+Current mode amplitude σ(t)       
+
+> 0123456
+> Decay exponent  αd
+> p+1 = 2 .50
+> q= 0 .75 decay →
+> GD Adam Muon Shampoo K-FAC Theory Empirical
+> 0.2 0.3 0.4 0.6 1
+
+Target mode μ
+
+> 10 0
+> 10 1
+> 10 2
+> Saturation rate  β Saturation order reversed
+
+Figure 2: Verification of the phase laws in Theorem 2 at depth L = 4 . (a) The birth exponent αb
+
+separates Euclidean, normalized, history adapted, and curvature corrected dynamics. (b) The decay exponent αd distinguishes finite extinction of Muon ( αd = q < 1) from the other optimizers. (c) The saturation coefficient β reveals target dependent mode ordering. 10 −5 10 −4 10 −3 10 −2 10 −1
+
+Current mode amplitude σ(t)        
+
+> 0.70.80.91.01.11.21.31.41.5
+> Birth exponent  αb = 10 −2
+> = 10 −3
+> = 10 −4
+> = 10 −6
+> GD αb= 1 .50
+> SignGD αb= 0 .75
+
+(a) Adam ϵ controls the regime 10 −4 10 −3 10 −2 10 −1
+
+Current mode amplitude σ(t)          
+
+> 0.60.81.01.21.4
+> Birth exponent  αb
+> λSh = 10 −2
+> λSh = 10 −3
+> λSh = 10 −4
+> λSh = 10 −6
+> history ≈damping initial p=1.50 accumulator p−1 = 0.50
+
+(b) Two phases of Shampoo 10 −4 10 −3 10 −2 10 −1
+
+Current mode amplitude σ(t)          
+
+> −0.25 0.00 0.25 0.50 0.75 1.00 1.25 1.50
+> Birth exponent  αb
+> λKF = 10 −2
+> λKF = 10 −3
+> λKF = 10 −4
+> λKF = 10 −6
+> GD αb= 1 .50
+> K-FAC ( λKF = 0 )αb= 0
+
+(c) K-FAC λKF > 0 restores barrier 
+
+Figure 3: Optimizer state parameters control the local birth regime. Adam’s stability parameter 
+
+ϵ shifts the GD-to-SignGD crossover; Shampoo damping delays the transition from p to p − 1; and K-FAC damping restores the GD exponent below its curvature threshold. 
+
+Optimizer state controls spectral crossovers. Fig. 3 varies the state parameters determined in Theorem 2 that separate the local regimes. For instantaneous Adam, decreasing ϵ moves the tran-sition from the GD exponent p to the SignGD exponent q toward smaller modes. Large ϵ retains the Euclidean exponent over a wider range of mode amplitudes, whereas small ϵ yields the normal-ized exponent q almost immediately. For cumulative Shampoo, decreasing λSh causes accumulated history to dominate earlier, advancing the transition from p to p − 1. For K-FAC, positive damp-ing restores the GD exponent when σp ≪ λKF , whereas curvature correction removes the barrier when σp ≫ λKF . As λKF → 0, this transition moves toward smaller amplitudes, recovering the undamped K-FAC regime. These experiments confirm that stabilization, accumulated state, and damping determine which phase law governs a mode at a given spectral scale. 
+
+## 7 CONCLUSION 
+
+Our analysis shows that the spectral bias of depth depends on optimizer geometry and the stage of training. A surprising consequence is that rapid learning of weak components can coexist with rapid removal of unsupported ones, as illustrated by the Muon analysis. Conversely, accumulated history can accelerate the emergence of a mode while prolonging its persistence. These effects make a single ordering of optimizers by stronger or weaker low-rank bias inadequate. A further implication is that parameters associated with numerical stability also shape learning bias. In the analyzed models, Adam’s stabilizer, Shampoo’s accumulator initialization, and K-FAC’s damping determine where normalization, history, or curvature correction governs spectral progress. They can therefore change how strongly depth suppresses small modes, even within the same opti-mizer. Although the phase laws rely on balance and alignment assumptions, they identify concrete mechanisms to understand optimizer behavior. This perspective motivates evaluating optimizers through which components they accelerate, suppress, or preserve alongside the training loss, since comparable fit can conceal differences in their dynamics. The resulting framework provides a basis for understanding and testing how faster optimizers change the complexity of intermediate models. 9Preprint AI USE STATEMENT 
+
+Generative AI tools were used to assist with language polishing, related work discovery, and se-lected coding and debugging tasks. They were not used to draft complete sections or to generate mathematical proofs. All proofs were developed by the authors, although AI tools were occasion-ally used to check arguments and suggest clearer formulations. Example use cases include code for plotting, logging, and refactoring the functions which were all verified to do what was intended. All references, code, and final text were independently verified and thoroughly reviewed by the authors, who take full responsibility for the content. ETHICS STATEMENT 
+
+This work is theoretical and empirical research on optimization dynamics in deep matrix factoriza-tion. It does not involve human participants, personal or sensitive data, or deployment in high-stakes decision-making settings. The experiments primarily use controlled synthetic matrix factorization and regression problems designed to derive deeper insights about the optimizer behavior. Thus, we believe the potential benefits of this research outweigh its risks. Additionally, we do not see any immediate risk stemming from our work. REPRODUCIBILITY STATEMENT 
+
+We state all assumptions, optimizer conventions, continuous-time update rules, and initialization conditions used in the theoretical analysis. Complete derivations and proofs are provided in the appendix, including the effective-matrix dynamics, aligned-mode reduction, and birth, decay, and saturation laws. For the experiments, we specify the data, depth, balanced initialization, optimizer hyperparameters, damping and stabilization parameters, stopping criteria, and procedures used to estimate the local phase exponents in Sec. F and G. We provide the source code and experiment configurations needed to reproduce the reported figures and tables in the supplementary material as a zip file. ACKNOWLEDGMENTS 
+
+This work was carried out in partnership with the support of the Commonwealth Bank of Australia. 
+
+## REFERENCES 
+
+Sanjeev Arora, Nadav Cohen, and Elad Hazan. On the optimization of deep networks: Implicit acceleration by overparameterization. In International conference on machine learning , pp. 244– 253. PMLR, 2018. Sanjeev Arora, Nadav Cohen, Wei Hu, and Yuping Luo. Implicit regularization in deep matrix factorization. Advances in neural information processing systems , 32, 2019. Anas Barakat and Pascal Bianchi. Convergence and dynamical behavior of the adam algorithm for nonconvex stochastic optimization. SIAM Journal on Optimization , 31(1):244–274, 2021. Alberto Bernacchia, M´ at´ e Lengyel, and Guillaume Hennequin. Exact natural gradient in deep linear networks and its application to the nonlinear case. Advances in Neural Information Processing Systems , 31, 2018. Jeremy Bernstein, Yu-Xiang Wang, Kamyar Azizzadenesheli, and Animashree Anandkumar. signsgd: Compressed optimisation for non-convex problems. In International conference on machine learning , pp. 560–569. PMLR, 2018. Matias D Cattaneo, Jason M Klusowski, and Boris Shigida. On the implicit bias of adam. arXiv preprint arXiv:2309.00079 , 2023. Lizhang Chen, Jonathan Li, and Qiang Liu. Muon optimizes under spectral norm constraints. arXiv preprint arXiv:2506.15054 , 2025. 10 Preprint Sara Dragutinovi´ c and Rajesh Ranganath. To use or not to use muon: How simplicity bias in optimizers matters. arXiv preprint arXiv:2603.00742 , 2026. Simon S Du, Wei Hu, and Jason D Lee. Algorithmic regularization in learning deep homogeneous models: Layers are automatically balanced. Advances in neural information processing systems ,31, 2018. Runa Eschenhagen, Anna Cai, Tsung-Hsien Lee, and Hao-Jun Michael Shi. Clarifying sham-poo: Adapting spectral descent to stochasticity and the parameter trajectory. arXiv preprint arXiv:2602.09314 , 2026. Chen Fan, Mark Schmidt, and Christos Thrampoulidis. Implicit bias of spectral descent and muon on multiclass separable data. Advances in Neural Information Processing Systems , 38:39622–39669, 2026. Rhys Gould and Hidenori Tanaka. Continuous-time analysis of adaptive optimization and normal-ization. arXiv preprint arXiv:2411.05746 , 2024. Eitan Gronich and Gal Vardi. The implicit bias of adam and muon on smooth homogeneous neural networks. arXiv preprint arXiv:2602.16340 , 2026. Suriya Gunasekar, Blake E Woodworth, Srinadh Bhojanapalli, Behnam Neyshabur, and Nati Sre-bro. Implicit regularization in matrix factorization. Advances in neural information processing systems , 30, 2017. Suriya Gunasekar, Jason Lee, Daniel Soudry, and Nathan Srebro. Characterizing implicit bias in terms of optimization geometry. In International Conference on Machine Learning , pp. 1832– 1841. PMLR, 2018. Vineet Gupta, Tomer Koren, and Yoram Singer. Shampoo: Preconditioned stochastic tensor opti-mization. In International Conference on Machine Learning , pp. 1842–1850. PMLR, 2018. Arthur Jacot, Franck Gabriel, and Cl´ ement Hongler. Neural tangent kernel: Convergence and gen-eralization in neural networks. Advances in neural information processing systems , 31, 2018. Yiping Ji, Mahalakshmi Sabanayagam, Peyman Moghadam, Hemanth Saratchandran, and Simon Lucey. The quantization benefits of residual-free transformers. arXiv preprint arXiv:2605.25880 ,2026. Jikai Jin, Zhiyuan Li, Kaifeng Lyu, Simon Shaolei Du, and Jason D Lee. Understanding incre-mental learning of gradient descent: A fine-grained analysis of matrix sensing. In International Conference on Machine Learning , pp. 15200–15238. PMLR, 2023. Keller Jordan, Yuchen Jin, Vlado Boza, You Jiacheng, Franz Cesista, Laker Newhouse, and Jeremy Bernstein. Muon: An optimizer for hidden layers in neural networks, 2024. URL https://kellerjordan. github. io/posts/muon , 6(3):4, 2024. Changmin Kang, Jihun Yun, Baekrok Shin, Yeseul Cho, and Chulhee Yun. Uniform spectral growth and convergence of muon in lora-style matrix factorization. arXiv preprint arXiv:2602.06385 ,2026. Anna Kerekes, Anna M´ esz´ aros, and Ferenc Husz´ ar. Depth without the magic: Inductive bias of natural gradient descent. arXiv preprint arXiv:2111.11542 , 2021. Mikail Khona, Aditya Vavre, Boxiang Wang, Deyu Fu, Hao Wu, Mike Chrzanowski, Bryan Catan-zaro, Dheevatsa Mudigere, Jeff Pool, Michael Lightstone, et al. Soap, muon, and beyond: Pushing llm pretraining scales. arXiv preprint arXiv:2607.20548 , 2026. Diederik P Kingma and Jimmy Ba. Adam: A method for stochastic optimization. arXiv preprint arXiv:1412.6980 , 2014. Jaehoon Lee, Lechao Xiao, Samuel Schoenholz, Yasaman Bahri, Roman Novak, Jascha Sohl-Dickstein, and Jeffrey Pennington. Wide neural networks of any depth evolve as linear models under gradient descent. Advances in neural information processing systems , 32, 2019. 11 Preprint Zhiyuan Li, Yuping Luo, and Kaifeng Lyu. Towards resolving the implicit bias of gradient descent for matrix factorization: Greedy low-rank learning. In International Conference on Learning Representations , 2021. URL https://openreview.net/forum?id=AHOs7Sm5H7R .Jingyuan Liu, Jianlin Su, Xingcheng Yao, Zhejun Jiang, Guokun Lai, Yulun Du, Yidao Qin, Weixin Xu, Enzhe Lu, Junjie Yan, et al. Muon is scalable for llm training. arXiv preprint arXiv:2502.16982 , 2025. James Martens and Roger Grosse. Optimizing neural networks with kronecker-factored approximate curvature. In International conference on machine learning , pp. 2408–2417. PMLR, 2015. Ali Parviz, Gal Mishne, and Alex Cloninger. Reassessing muon for matrix factorization. arXiv preprint arXiv:2607.13246 , 2026. Noam Razin and Nadav Cohen. Implicit regularization in deep learning may not be explainable by norms. Advances in neural information processing systems , 33:21174–21187, 2020. Mark Rhee, Jamie Simon, and Dhruva Karkada. Muon learns balanced solutions in matrix factor-ization without slow saddle-to-saddle dynamics. arXiv preprint arXiv:2606.30509 , 2026. Mahalakshmi Sabanayagam, Pascal Esser, and Debarghya Ghoshdastidar. Analysis of convolutions, non-linearity and depth in graph neural networks using neural tangent kernel. arXiv preprint arXiv:2210.09809 , 2022. Andrew M Saxe, James L McClelland, and Surya Ganguli. Exact solutions to the nonlinear dynam-ics of learning in deep linear neural networks. arXiv preprint arXiv:1312.6120 , 2013. Daniel Soudry, Elad Hoffer, Mor Shpigel Nacson, Suriya Gunasekar, and Nathan Srebro. The im-plicit bias of gradient descent on separable data. Journal of Machine Learning Research , 19(70): 1–57, 2018. Kimi Team, Yifan Bai, Yiping Bao, Y Charles, Cheng Chen, Guanduo Chen, Haiting Chen, Huarong Chen, Jiahao Chen, Ningxin Chen, et al. Kimi k2: Open agentic intelligence. arXiv preprint arXiv:2507.20534 , 2025. Bhavya Vasudeva, Jung Lee, Vatsal Sharan, and Mahdi Soltanolkotabi. The rich and the simple: On the implicit bias of adam and sgd. Advances in neural information processing systems , 38: 161725–161761, 2026. Nikhil Vyas, Depen Morwani, Rosie Zhao, Itai Shapira, David Brandfonbrener, Lucas Janson, and Sham Kakade. Soap: Improving and stabilizing shampoo using adam for language modeling. In 
+
+International Conference on Learning Representations , volume 2025, pp. 93423–93444, 2025. Bohan Wang, Qi Meng, Wei Chen, and Tie-Yan Liu. The implicit bias for adaptive optimization algorithms on homogeneous neural networks. In International Conference on Machine Learning ,pp. 10849–10858. PMLR, 2021. Ashia C Wilson, Rebecca Roelofs, Mitchell Stern, Nati Srebro, and Benjamin Recht. The marginal value of adaptive gradient methods in machine learning. Advances in neural information process-ing systems , 30, 2017. Shuo Xie and Zhiyuan Li. Implicit bias of adamw: ℓinf ty norm constrained optimization. arXiv preprint arXiv:2404.04454 , 2024. Chenyang Zhang, Difan Zou, and Yuan Cao. The implicit bias of adam on separable data. Advances in Neural Information Processing Systems , 37:23988–24021, 2024. 12 Preprint 
+
+## CONTENTS 
+
+1 Introduction 12 Related Work 33 Preliminaries 34 A Common Framework for Optimizer Geometry 55 Optimizer Specific Results 66 Experiments 87 Conclusion 9A Extended Related Work 15 B Optimizers 16 C Effective Matrix W Dynamics 18 D Aligned Singular Mode Dynamics 18 
+
+D.1 Balance under Euclidean Gradient Flow . . . . . . . . . . . . . . . . . . . . . . . 19 D.2 Consequences of Balance and Alignment . . . . . . . . . . . . . . . . . . . . . . 19 D.3 The Aligned Manifold Before Imposing Balance . . . . . . . . . . . . . . . . . . 20 D.4 Preservation of Balance for Compatible Optimizer Flows . . . . . . . . . . . . . . 20 D.5 Why the Alignment Assumption is Appropriate . . . . . . . . . . . . . . . . . . . 21 D.6 Proof of Theorem 1 . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 22 
+
+E Optimizer Specific Phase Laws 23 
+
+E.1 Birth, Decay, and Saturation times . . . . . . . . . . . . . . . . . . . . . . . . . . 23 E.2 Birth and Decay Exponents . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 24 E.3 Saturation Exponent . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 25 E.4 Euclidean Gradient Descent Phase Laws . . . . . . . . . . . . . . . . . . . . . . . 26 E.5 SignGD Phase Laws . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 28 E.6 Instantaneous Adam Phase Laws . . . . . . . . . . . . . . . . . . . . . . . . . . . 29 E.7 Muon Phase Laws . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 31 E.8 Cumulative Shampoo Phase Laws . . . . . . . . . . . . . . . . . . . . . . . . . . 32 E.9 K-FAC Phase Laws . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 36 
+
+F Experimental Settings 39 G Additional Experimental Results 41 
+
+13 Preprint G.1 Matrix Factorization . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 41 G.1.1 Role of Depth . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 43 G.1.2 Adam Phase Transitions . . . . . . . . . . . . . . . . . . . . . . . . . . . 46 G.1.3 Shampoo Phase Transitions . . . . . . . . . . . . . . . . . . . . . . . . . 46 G.1.4 K-FAC Phase Transitions . . . . . . . . . . . . . . . . . . . . . . . . . . . 47 G.2 Linear Regression . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 47 14 Preprint 
+
+## A EXTENDED RELATED WORK 
+
+Deep linear dynamics and balancedness. Saxe et al. (2013) derive exact learning dynamics for deep linear networks under structured initial conditions, including a decoupled mode representation and equal strengths across layers. Their analysis supplies the direct precedent for our aligned phase model. Arora et al. (2018) show that linear overparameterization changes the effective optimization geometry and can act as a preconditioner. Du et al. (2018) study balancing properties of gradient flow in homogeneous models, while Arora et al. (2019) use balanced initialization to derive effective matrix and singular value dynamics for deep matrix factorization. These GD results motivate our setup, but conservation of the GD balance invariant generally does not hold for other optimizers. 
+
+Low-rank bias and the limits of norm descriptions. Gunasekar et al. (2017) investigate implicit regularization in two-layer matrix factorization and conjecture a nuclear-norm characterization in a restricted commuting setting. Arora et al. (2019) extend the analysis to depth and derive singular-value-dependent mobility under balanced gradient flow, showing that depth strengthens the tendency toward low-rank solutions. Razin & Cohen (2020) construct matrix-completion problems in which norms diverge as the loss vanishes, demonstrating the limits of a universal norm-minimization ac-count. Li et al. (2021) instead develop a greedy low-rank learning interpretation under explicit assumptions. A complementary trajectory perspective is provided by Neural Tangent Kernel and lazy-training analyses, which characterize sufficiently wide networks through a linearization around initialization and an approximately fixed kernel governing function-space evolution (Jacot et al., 2018; Lee et al., 2019; Sabanayagam et al., 2022). In contrast, our analysis retains the nonlinear multiplicative parameterization and its evolving, optimizer-dependent spectral mobility, allowing us to compare the birth, saturation, and decay of singular modes before convergence. 
+
+Optimization geometry and implicit bias. Wilson et al. (2017) demonstrate that adaptive opti-mization can select solutions with substantially different generalization from GD even when training fit is good. Gunasekar et al. (2018) characterize implicit bias for several optimization geometries in underdetermined linear regression and separable classification. These results establish the broader principle that optimization geometry affects solution selection. Deep factorization adds a parameter dependent product differential, so the geometry acting on the effective matrix changes with both the factors and optimizer state captured by our general trajectory identity in Proposition 1. 
+
+Implicit bias of Adam and related adaptive methods. Cattaneo et al. (2023) use backward error analysis to characterize corrections to Adam and RMSProp dynamics, relating implicit regulariza-tion to hyperparameters and training stage. The classification literature builds on the maximum margin characterization of GD for separable data (Soudry et al., 2018). Wang et al. (2021) study limiting parameter directions in homogeneous classification under their adaptive flow assumptions. Zhang et al. (2024) establish a maximum ℓ∞ margin result for full batch Adam in separable lin-ear classification. Xie & Li (2024) connect AdamW, which includes decoupled weight decay, to 
+
+ℓ∞-norm constrained optimization under full-batch assumptions. Vasudeva et al. (2026) analyze a difference in feature learning between Adam and GD in a Gaussian classification model with two layer ReLU networks. These results concern distinct losses, optimizer conventions, or notions of bias. Our squared loss analysis studies finite singular amplitudes and phase times without weight decay, so classification margin results do not directly determine its birth or saturation laws. 
+
+Analysis of spectral descent, Shampoo, Muon and K-FAC. Fan et al. (2026) characterize spec-tral descent and Muon through margin maximization in multiclass linear classification. Chen et al. (2025) connect Muon with decoupled weight decay to spectral-norm-constrained optimization. Es-chenhagen et al. (2026) interpret Shampoo as spectral descent adapted to stochasticity and the pa-rameter trajectory. History dependence is therefore an established feature of this geometry. Our contribution is the exact first integral of the specified cumulative accumulator in the aligned fac-torization model and its consequences for phase times. That identity does not extend unchanged to exponential averages or different inverse powers. Kerekes et al. (2021) explicitly study natural gradient implicit bias in deep linear classification and matrix factorization. Under their Gaussian model and Jacobian rank condition, natural gradient flow for matrix completion matches direct op-timization of the effective matrix, leaving unobserved entries unchanged. This is a direct precedent for connecting geometry to motion outside the observed coordinates. Our block curvature analysis 15 Preprint quantifies the effect of additive damping on mode birth and decay, and distinguishes it from both full curvature and factored damping. These works provide important geometry and momentum prece-dents, while our phase laws concern squared loss, explicit stabilization or damping factors, and finite targets in factorized models. 
+
+Analysis of Muon in matrix factorization. Kang et al. (2026) analyze spectral gradient flow in a simplified LoRA factorization setting, proving approximately equal spectral growth rates and con-vergence results under stated conditions. Dragutinovi´ c & Ranganath (2026) derive dynamics for simplified Muon in deep linear networks and linear attention and investigate how avoiding slow sequential learning changes simplicity bias. Rhee et al. (2026) analyze bilinear factorization with full observation, including uniform factor growth after alignment, a conserved quantity distinct from GD’s, and finite step oscillations near solutions. They also study alignment in simplified settings. These results already establish much of the ideal polar growth baseline. Our treatment places it alongside memory dependent adaptive flows and damped curvature flows, with separate statements for birth, saturation, and zero target decay. Parviz et al. (2026) report controlled optimizer com-parisons showing that Muon’s relative performance in factorization depends on the problem and hyperparameter tuning. This motivates separating exact polar flow predictions from practical imple-mentation effects and comparing recovery at a common training fit. 
+
+## B OPTIMIZERS 
+
+As we detailed in Sec. 3, we study deterministic flows driven by the full gradient, without weight decay or explicit regularization. For each layer, the continuous time dynamics of the matrix Wℓ is 
+
+˙Wℓ(t) = −Zℓ(t), Wℓ,k +1 = Wℓ,k − ηZ ℓ,k ,
+
+where t is continuous time, a dot denotes its derivative, k is a discrete iteration index, and η > 0
+
+is the step size. The second expression is the corresponding factor update once the optimizer states have been specified. The flow uses a unit learning rate, with any constant common learning rate absorbed into time and the stated memory times. All moment matrices have the same dimensions as 
+
+Wℓ. The equations for Zℓ for all the optimizers analyzed in this paper are discussed in detail below. 
+
+Euclidean GD. From our setting, recollect that Hℓ is the layer gradient Hℓ = ∇Wℓ L(W ). Gradi-ent descent uses the layer gradient directly, giving 
+
+Zℓ = Hℓ, ˙Wℓ = −B⊤ 
+
+> ℓ
+
+GA ⊤ 
+
+> ℓ
+
+.
+
+This gradient flow is the baseline for the established analysis of deep matrix factorization (Arora et al., 2019; Li et al., 2021). 
+
+SignGD. SignGD applies sign function entrywise to the layer gradient (Bernstein et al., 2018). Therefore, ˙Wℓ = −Zℓ = − sign( Hℓ).
+
+Adam. Adam maintains entrywise exponential averages of the first moment mℓ and second mo-ment vℓ (Kingma & Ba, 2014). In discrete time, the decay coefficients β1, β 2 ∈ [0 , 1) specify the fraction of the previous moment retained: 
+
+mℓ,k +1 = β1mℓ,k + (1 − β1)Hℓ,k , vℓ,k +1 = β2vℓ,k + (1 − β2)H⊙2 
+
+> ℓ,k
+
+.
+
+Both states start at zero. The continuous dynamics of Adam with its normalization and moment states are established in Barakat & Bianchi (2021); Gould & Tanaka (2024), which are described below. 
+
+τm ˙mℓ = Hℓ − mℓ, τv ˙vℓ = H⊙2 
+
+> ℓ
+
+− vℓ, ˙Wℓ = −Zℓ = −mℓ ⊘ (√vℓ + ϵ).
+
+The constant ϵ > 0 in the denominator is the stabilizer. At t = 0 , for the uncorrected moment flow, take mℓ(0) = 0 and vℓ(0) = 0 . The displayed differential equations describe these uncorrected mo-ments. The phase laws below instead concern the separately specified instantaneous approximation 
+
+mℓ = Hℓ and vℓ = H⊙2 
+
+> ℓ
+
+. The finite memory limit scales the discrete decay coefficients with the step size, and is distinct from a limit holding those coefficients fixed. 16 Preprint 
+
+Muon. Muon orthogonalizes a momentum matrix before applying the update (Jordan et al., 2024). We use exact polar normalization: if X = UX ΣX V ⊤ 
+
+> X
+
+is a compact singular value decomposition retaining only positive singular values, define polar( X) = UX V ⊤ 
+
+> X
+
+and polar(0) = 0 . We consider an ideal setting without momentum, which reduces to the following update. 
+
+˙Wℓ = −Zℓ = − polar( Hℓ),
+
+The variant with momentum replaces polar( Hℓ) with polar( mℓ). Approximate polar computation, Nesterov momentum, and shape dependent update scaling are additional choices in practical Muon implementations. 
+
+Shampoo. For matrix parameters, the original Shampoo geometry applies inverse fourth roots of left and right gradient statistics (Gupta et al., 2018). Our cumulative flow is 
+
+˙Cℓ = HℓH⊤ 
+
+> ℓ
+
+, ˙Dℓ = H⊤ 
+
+> ℓ
+
+Hℓ, ˙Wℓ = −Zℓ = −C−1/4 
+
+> ℓ
+
+HℓD−1/4 
+
+> ℓ
+
+,
+
+with Cℓ(0) = λSh Idℓ , Dℓ(0) = λSh Idℓ−1 , and λSh > 0. Here Cℓ ∈ Rdℓ×dℓ and Dℓ ∈ Rdℓ−1×dℓ−1
+
+accumulate gradient history, and λSh specifies their initial regularization. From the state equations, we get 
+
+Cℓ(t) = λSh Idℓ +
+
+Z t
+
+> 0
+
+Hℓ(u)Hℓ(u)⊤ du, and Dℓ(t) = λSh Idℓ−1 +
+
+Z t
+
+> 0
+
+Hℓ(u)⊤Hℓ(u) du. 
+
+K-FAC. K-FAC approximates layer curvature by a Kronecker product of activation and backward signal statistics (Martens & Grosse, 2015). First, to get the Kronecker product form of Hℓ, let’s remind the vectorization identity vec( AXB ) = ( B⊤ ⊗ A) vec( X), using which we obtain 
+
+vec( Hℓ) = ( Aℓ ⊗ B⊤ 
+
+> ℓ
+
+) vec( G) = J ⊤ 
+
+> ℓ
+
+vec( G).
+
+Note that Jℓ is the Jacobian of the end to end matrix with respect to layer ℓ. For squared loss, the Hessian with respect to the end to end prediction is the identity. Therefore, the generalized Gauss Newton block associated with layer ℓ is 
+
+FGN  
+
+> ℓ
+
+= J ⊤ 
+
+> ℓ
+
+Jℓ
+
+= ( Aℓ ⊗ B⊤ 
+
+> ℓ
+
+)( A⊤ 
+
+> ℓ
+
+⊗ Bℓ)= ( AℓA⊤ 
+
+> ℓ
+
+) ⊗ (B⊤ 
+
+> ℓ
+
+Bℓ). (5) The block curvature is therefore already in Kronecker factored form in the full observation deep linear model. Note that the same block is obtained from the expected Fisher under an isotropic Gaussian obser-vation model. Briefly, let’s consider y given x and parameters Θ is isotropic Gaussian, that is, 
+
+y | x, Θ ∼ N  W x, τ 2I . Let hℓ−1(x) = Aℓx denote the input activation to the layer ℓ. The Jacobian of the output with respect to Wℓ is Jℓ(x) = hℓ−1(x)⊤ ⊗ Bℓ. The expected Fisher block is 
+
+FF 
+
+> ℓ
+
+= 1
+
+τ 2 Ex
+
+Jℓ(x)⊤Jℓ(x)
+
+= 1
+
+τ 2 Ex
+
+hℓ−1(x)hℓ−1(x)⊤ ⊗ (B⊤ 
+
+> ℓ
+
+Bℓ)= 1
+
+τ 2 (AℓE[xx ⊤]A⊤ 
+
+> ℓ
+
+) ⊗ (B⊤ 
+
+> ℓ
+
+Bℓ) ; whitened full observations E[xx ⊤] = I
+
+= 1
+
+τ 2 (AℓA⊤ 
+
+> ℓ
+
+) ⊗ (B⊤ 
+
+> ℓ
+
+Bℓ).
+
+After absorbing the constant τ −2 into the learning rate or damping, Fℓ = FF 
+
+> ℓ
+
+= FGN  
+
+> ℓ
+
+. Thus the generalized Gauss Newton block and expected Fisher block coincide under the observation model used here. We use additive damping on the complete per layer curvature block: 
+
+vec( Zℓ) = ( Fℓ + λKF I)−1 vec( Hℓ).
+
+The continuous update is ˙Wℓ = −Zℓ. When λKF = 0 and the factors are invertible, the Kronecker identity gives 
+
+Zℓ = ( B⊤ 
+
+> ℓ
+
+Bℓ)−1Hℓ(AℓA⊤ 
+
+> ℓ
+
+)−1.
+
+17 Preprint For positive damping, it is preferable to retain the block form (Fℓ + λKF I)−1 , because additive damping of the full block is not generally equal to damping the two Kronecker factors separately. The undamped case is considered only where the inverse is defined, or with an explicitly specified pseudoinverse. For general matrix sensing, the measurement loss does not automatically yield these regression curvature factors, so a Kronecker approximation must be specified separately. 
+
+## C EFFECTIVE MATRIX W DYNAMICS 
+
+Consider the setting described in Sec. 3, where the deep linear network is 
+
+W = WLWL−1 · · · W1.
+
+Here W is the effective matrix and each Wℓ ∈ Rdℓ×dℓ−1 . Loss for matrix factorization: 
+
+L(W ) = 12 ∥W − M ∥2
+
+> F
+
+where M is the matrix whose entries are known and to be factorized. Gradient of the loss L(W )
+
+with respect to W is 
+
+G = ∇W L(W ) = W − M. 
+
+Layer gradients Hℓ. We compute the layer gradients Hℓ, which are the gradients of the loss with respect to layer ℓ. That is Hℓ = ∇Wℓ L(W ). From the definition of prefix and suffix products, we have 
+
+Aℓ = Wℓ−1 · · · W1, A1 = Id0
+
+Bℓ = WL · · · Wℓ+1 , BL = IdL
+
+This implies, 
+
+W = BℓWℓAℓ
+
+Therefore, applying the chain rule, we get 
+
+Hℓ = ∇Wℓ L(W ) = B⊤ 
+
+> ℓ
+
+GA ⊤
+
+> ℓ
+
+Proof of Proposition 1: Effective matrix dynamics. 
+
+Proof. Since the effective matrix is the product of all Wℓ, we derive its continuous time dynamics using the above. 
+
+W = WLWL−1 · · · W1
+
+˙W =
+
+> L
+
+X
+
+> ℓ=1
+
+WL · · · ˙WℓW1
+
+=
+
+> L
+
+X
+
+> ℓ=1
+
+Bℓ ˙WℓAℓ (6) 
+
+˙Wℓ in Eq. (6) changes depending on the optimizer. For each optimizer, we give the updates Zℓ in Sec. B and summarize it in Table 1. Thus, eventually ˙Wℓ = −Zℓ.
+
+## D ALIGNED SINGULAR MODE DYNAMICS 
+
+In this section, we prove Theorem 1 by restricting these dynamics to the balanced and aligned mode manifold introduced in the main text. We first explain when balance is preserved, then show how balance and alignment produce a common layer amplitude, and finally derive the effective singular-mode dynamics. Throughout this section, let d ≤ min ℓ=0 ,...,L dℓ denote the active mode dimension. For each layer, let there be an orthogonal matrix Qℓ ∈ Rdℓ×d, Q ⊤ 
+
+> ℓ
+
+Qℓ = Id. All matrix identities below are understood on these active subspaces. Components in the orthogonal complements are initialized at zero and remain absent under the compatible aligned updates considered here. 18 Preprint D.1 BALANCE UNDER EUCLIDEAN GRADIENT FLOW 
+
+We first recall why balancedness is an exact invariant of Euclidean gradient flow. For adjacent layers, define the imbalance matrix 
+
+Dℓ = WℓW ⊤ 
+
+> ℓ
+
+− W ⊤
+
+> ℓ+1
+
+Wℓ+1 , ℓ = 1 , . . . , L − 1.
+
+Lemma 1 (Balancedness invariant for Euclidean gradient flow) . Let the loss be any differentiable function of the end-to-end product W = WL · · · W1. Under Euclidean gradient flow ˙Wℓ = −Hℓ,
+
+the imbalance matrices satisfy 
+
+ddt Dℓ = 0 .
+
+Consequently, Dℓ(t) = Dℓ(0) for every time at which the flow exists. Proof. Fix ℓ ∈ { 1, . . . , L − 1} and define Rℓ = B⊤
+
+> ℓ+1
+
+GA ⊤ 
+
+> ℓ
+
+with G = ∇W L(W ). Since 
+
+Bℓ = Bℓ+1 Wℓ+1 , and Aℓ+1 = WℓAℓ,
+
+the adjacent layer gradients can be written as 
+
+Hℓ = W ⊤
+
+> ℓ+1
+
+Rℓ, and Hℓ+1 = RℓW ⊤ 
+
+> ℓ
+
+.
+
+Under Euclidean gradient flow, ˙Wℓ = −Hℓ, ˙Wℓ+1 = −Hℓ+1 . Therefore, 
+
+ddt 
+
+ WℓW ⊤
+
+> ℓ
+
+ = −HℓW ⊤ 
+
+> ℓ
+
+− WℓH⊤
+
+> ℓ
+
+= −W ⊤
+
+> ℓ+1
+
+RℓW ⊤ 
+
+> ℓ
+
+− WℓR⊤ 
+
+> ℓ
+
+Wℓ+1 .
+
+Similarly, 
+
+ddt 
+
+ W ⊤
+
+> ℓ+1
+
+Wℓ+1 
+
+ = −H⊤
+
+> ℓ+1
+
+Wℓ+1 − W ⊤
+
+> ℓ+1
+
+Hℓ+1 
+
+= −WℓR⊤ 
+
+> ℓ
+
+Wℓ+1 − W ⊤
+
+> ℓ+1
+
+RℓW ⊤ 
+
+> ℓ
+
+.
+
+The two derivatives are identical. Hence 
+
+ddt 
+
+ WℓW ⊤ 
+
+> ℓ
+
+− W ⊤
+
+> ℓ+1
+
+Wℓ+1 
+
+ = 0 .
+
+Lemma 1 holds without alignment and without specializing the loss to full observation. It is an exact property of continuous time Euclidean gradient flow. This conservation is also showed in (Saxe et al., 2013; Gunasekar et al., 2017; Arora et al., 2019). For finite-step gradient descent, the first-order terms still cancel, but an imbalance of order equal to the square of the step size can be introduced at each update. For non-Euclidean optimizers, the matrix identity ddt Dℓ = 0 does not hold in general. Balance is instead preserved in our analysis because Assumptions 1 to 3 define an invariant aligned manifold on which all layers have equal mode amplitudes, equal optimizer states, and equal mode updates. We establish this property below. D.2 CONSEQUENCES OF BALANCE AND ALIGNMENT 
+
+Under Assumption 2, the target and the layer factors at initialization have the forms 
+
+M = QL diag( μ1, . . . , μ d)Q⊤ 
+
+> 0
+
+, μi ≥ 0, and 
+
+Wℓ(0) = Qℓ diag ( aℓ1(0) , . . . , a ℓd (0)) Q⊤
+
+> ℓ−1
+
+, aℓi (0) > 0.
+
+The corresponding adjacent Gram matrices are 
+
+Wℓ(0) Wℓ(0) ⊤ = Qℓ diag  aℓ1(0) 2, . . . , a ℓd (0) 2 Q⊤ 
+
+> ℓ
+
+, and 
+
+Wℓ+1 (0) ⊤Wℓ+1 (0) = Qℓ diag  aℓ+1 ,1(0) 2, . . . , a ℓ+1 ,d (0) 2 Q⊤ 
+
+> ℓ
+
+.
+
+19 Preprint Assumption 1 states that these matrices are equal. Multiplying this equality by Q⊤ 
+
+> ℓ
+
+on the left and by Qℓ on the right gives 
+
+aℓi (0) 2 = aℓ+1 ,i (0) 2
+
+for every mode i and every adjacent pair of layers. The positivity assumption removes the sign ambiguity, yielding aℓi (0) = aℓ+1 ,i (0) . Applying this relation across the network gives a common initial mode amplitude 
+
+aℓi (0) = ai(0) for every ℓ. 
+
+Thus Assumptions 1 and 2 together imply more than equal layer norms. They imply equality of the corresponding aligned mode amplitudes across all layers. D.3 THE ALIGNED MANIFOLD BEFORE IMPOSING BALANCE 
+
+It is useful first to compute the layer gradients for aligned factors without assuming that their ampli-tudes are equal. Suppose that at some time t,
+
+Wℓ = Qℓ diag ( aℓ1, . . . , a ℓd ) Q⊤
+
+> ℓ−1
+
+.
+
+Then the end-to-end matrix W is 
+
+W = QL diag ( σ1, . . . , σ d) Q⊤ 
+
+> 0
+
+where σi =
+
+> L
+
+Y
+
+> k=1
+
+aki .
+
+As a result, the effective gradient is 
+
+G = W − M = QL diag ( r1, . . . , r d) Q⊤ 
+
+> 0
+
+, where ri = σi − μi.
+
+For layer ℓ, define the prefix and suffix mode products 
+
+π− 
+
+> ℓi
+
+=
+
+> ℓ−1
+
+Y
+
+> k=1
+
+aki , and π+ 
+
+> ℓi
+
+=
+
+> L
+
+Y
+
+> k=ℓ+1
+
+aki .
+
+The empty products are equal to one. On the active subspaces, 
+
+Aℓ = Qℓ−1 diag  π−
+
+> ℓ1
+
+, . . . , π −
+
+> ℓd
+
+ Q⊤ 
+
+> 0
+
+, and Bℓ = QL diag  π+
+
+> ℓ1
+
+, . . . , π +
+
+> ℓd
+
+ Q⊤ 
+
+> ℓ
+
+.
+
+Using the layer gradient formula Hℓ = B⊤ 
+
+> ℓ
+
+GA ⊤ 
+
+> ℓ
+
+, we obtain 
+
+Hℓ = Qℓ diag  π+
+
+> ℓ1
+
+, . . . , π +
+
+> ℓd
+
+ Q⊤ 
+
+> L
+
+QL diag ( r1, . . . , r d) Q⊤ 
+
+> 0
+
+Q0 diag  π−
+
+> ℓ1
+
+, . . . , π −
+
+> ℓd
+
+ Q⊤
+
+> ℓ−1
+
+= Qℓ diag ( gℓ1, . . . , g ℓd ) Q⊤
+
+> ℓ−1
+
+,
+
+where 
+
+gℓi = riπ− 
+
+> ℓi
+
+π+ 
+
+> ℓi
+
+= ri
+
+Y 
+
+> k̸=ℓ
+
+aki .
+
+Thus alignment of the factors with the target implies alignment of every layer gradient with the corresponding pair of layer bases. This statement does not yet require balance. D.4 PRESERVATION OF BALANCE FOR COMPATIBLE OPTIMIZER FLOWS 
+
+We now explain the role of Assumption 3. Suppose that, at some time, the amplitudes of mode i
+
+agree across layers: aℓi = ai for every ℓ. Then 
+
+σi = aLi , and gℓi = riaL−1 
+
+> i
+
+,
+
+which is independent of ℓ. Hence all layers receive the same scalar gradient for mode i. Assump-tion 3 requires that the optimizer use identical hyperparameters and identical initial mode states in every layer. It also requires that equal mode gradients and equal mode states produce equal mode up-dates and equal state derivatives. Consequently, whenever aℓi = ai and the corresponding optimizer states agree across layers, the update has the form 
+
+Zℓ = Qℓ diag ( z1, . . . , z d) Q⊤
+
+> ℓ−1
+
+,
+
+20 Preprint with the same coefficient zi in every layer. Since ˙Wℓ = −Zℓ, we have ˙aℓi = −zi for every layer. Therefore ddt (aℓi − aℓ+1 ,i ) = 0 .
+
+Equal amplitudes remain equal, and the aligned factorization remains balanced: WℓW ⊤ 
+
+> ℓ
+
+=
+
+W ⊤
+
+> ℓ+1
+
+Wℓ+1 . The same argument applies to the optimizer states. Equal states receive equal state derivatives because the gradients and hyperparameters are equal. Thus equality of both amplitudes and states is preserved by the joint optimizer flow. Equivalently, the set 
+
+Mbal ,align = Wℓ = Qℓ diag( a1, . . . , a d)Q⊤ 
+
+> ℓ−1
+
+for every ℓ ,
+
+together with equal mode states across layers, is an invariant manifold of every optimizer satisfying Assumption 3. This conclusion holds on intervals where the optimizer vector field is well defined and the relevant amplitudes remain positive. For nonsmooth updates at zero, the continuation is specified separately in the corresponding optimizer result. 
+
+Compatibility of the optimizers considered in this work. The compatibility condition is exact for the idealized optimizer flows studied in the main text. For Euclidean GD, zi = gi, so equal layer gradients immediately give equal updates. For coordinatewise SignGD, zi = sign( gi). Because elementwise sign is not invariant under general orthogonal changes of basis, the aligned bases must coincide with the actual parameter coordinates. We therefore take Qℓ = I for SignGD, up to signed coordinate permutations. The same restriction applies to coordinatewise Adam and to the instantaneous Adam approximation. With Qℓ = I, di-agonal gradients preserve diagonal first- and second-moment states. Identical moment initialization and common hyperparameters then give identical states and updates across layers. For ideal Muon without momentum, the layer gradient in the aligned model Hℓ =
+
+Qℓ diag( g1, . . . , g d)Q⊤ 
+
+> ℓ−1
+
+gives polar( Hℓ) = Qℓ
+
+ sign( g1), . . . , sign( gd)Q⊤ 
+
+> ℓ−1
+
+where sign(0) = 0 .Therefore, it preserves equality of the scalar states gi across layers. For cumulative Shampoo, let the left and right accumulators be initialized isotropically. An aligned gradient Hℓ = Qℓ diag( g1, . . . , g d)Q⊤ 
+
+> ℓ−1
+
+gives 
+
+HℓH⊤ 
+
+> ℓ
+
+= Qℓ diag( g21 , . . . , g 2
+
+> d
+
+)Q⊤ 
+
+> ℓ
+
+, and H⊤ 
+
+> ℓ
+
+Hℓ = Qℓ−1 diag( g21 , . . . , g 2
+
+> d
+
+)Q⊤
+
+> ℓ−1
+
+.
+
+The accumulator eigenvalues therefore remain aligned and equal across layers. The preconditioned update consequently has the compatible form Zℓ = Qℓ diag( z1, . . . , z d)Q⊤
+
+> ℓ−1
+
+.
+
+For the block-curvature model of K-FAC, the curvature eigenvalue of mode i in every layer is σ2−2/L i
+
+under balance. Common additive damping therefore produces the same preconditioned scalar update in every layer. These statements concern the idealized flows specified in the main text. They do not imply that arbitrary practical implementations preserve balance away from the aligned manifold. In particu-lar, coordinatewise methods are generally basis dependent, and practical K-FAC damping applied separately to the two Kronecker factors need not preserve the same layer symmetry. D.5 WHY THE ALIGNMENT ASSUMPTION IS APPROPRIATE 
+
+Assumption 2 does not claim that arbitrary training trajectories become aligned with the target. It restricts the analysis to a canonical invariant subspace in which exact mode dynamics can be derived. This restriction is standard in analyses of deep linear networks and deep matrix factorization (Saxe et al., 2013; Gunasekar et al., 2017; Arora et al., 2019; Li et al., 2021). It has three useful properties. First, full-observation regression fixes a target basis through the singular directions of M . If the factors and optimizer states are initialized in compatible chain bases, the layer gradients remain in those bases. Second, fixing the same initial spectral configuration for every optimizer ensures that differences in mode evolution arise from the optimizer update and its state, rather than from different initial singular directions. Third, the aligned model retains the nonlinear multiplicative dependence of the effective modes on the factors. It therefore preserves the depth-dependent mobility responsible for the phase laws while removing singular-vector rotation from the comparison. 21 Preprint For spectral and curvature-based optimizers, the aligned subspace is preserved by their matrix-equivariant updates. For coordinatewise methods, the same construction is exact when the aligned basis is the parameter coordinate basis. The general matrix dynamics outside this invariant subspace are given in the previous appendix section. If the target contains repeated singular values, the singular basis is not unique within the corre-sponding degenerate subspace. Any fixed orthonormal basis in that subspace may be chosen as the reference basis. The theorem tracks modes in these fixed reference bases and does not require their amplitudes to remain sorted by magnitude. D.6 PROOF OF THEOREM 1
+
+Proof. By Assumptions 1 and 2, the layer amplitudes agree at initialization: aℓi (0) = ai(0) . By Assumption 3 and the invariant-manifold argument above, this equality persists throughout training: 
+
+aℓi (t) = ai(t) for every layer ℓ and every time before a mode reaches zero. Hence 
+
+Wℓ(t) = Qℓ diag ( a1(t), . . . , a d(t)) Q⊤
+
+> ℓ−1
+
+.
+
+Multiplying the factors gives 
+
+W = WL · · · W1
+
+= QL diag( a1, . . . , a d)Q⊤
+
+> L−1
+
+QL−1 diag( a1, . . . , a d)Q⊤ 
+
+> L−2
+
+· · · Q1 diag( a1, . . . , a d)Q⊤
+
+> 0
+
+= QL diag  aL 
+
+> 1
+
+, . . . , a Ld
+
+ Q⊤ 
+
+> 0
+
+.
+
+We can rewrite it as 
+
+W = QL diag ( σ1, . . . , σ d) Q⊤ 
+
+> 0
+
+, where σi = aLi .
+
+For the full-observation loss, 
+
+G = W − M = QL diag ( r1, . . . , r d) Q⊤ 
+
+> 0
+
+, where ri = σi − μi.
+
+Under the common layer amplitudes, 
+
+Aℓ = Qℓ−1 diag  aℓ−11 , . . . , a ℓ−1
+
+> d
+
+ Q⊤ 
+
+> 0
+
+, and Bℓ = QL diag  aL−ℓ 
+
+> 1
+
+, . . . , a L−ℓd
+
+ Q⊤ 
+
+> ℓ
+
+.
+
+Using Hℓ = B⊤ 
+
+> ℓ
+
+GA ⊤ 
+
+> ℓ
+
+, we obtain 
+
+Hℓ = Qℓ diag  aL−ℓ 
+
+> 1
+
+, . . . , a L−ℓd
+
+ diag ( r1, . . . , r d) diag  aℓ−11 , . . . , a ℓ−1
+
+> d
+
+ Q⊤
+
+> ℓ−1
+
+= Qℓ diag  r1aL−11 , . . . , r daL−1
+
+> d
+
+ Q⊤
+
+> ℓ−1
+
+.
+
+Let q = 1 − 1 
+
+> L
+
+, then aL−1 
+
+> i
+
+=  aLi
+
+(L−1) /L = σqi , and the layer gradient has the form 
+
+Hℓ = Qℓ diag ( g1, . . . , g d) Q⊤
+
+> ℓ−1
+
+, where gi = riσqi . (7) The coefficient gi is independent of the layer index ℓ.By Assumption 3, the optimizer update is Zℓ = Qℓ diag ( z1, . . . , z d) Q⊤
+
+> ℓ−1
+
+, with the same zi in every layer. Since ˙Wℓ = −Zℓ, comparison of the aligned coefficients gives 
+
+˙ai = −zi.
+
+Differentiate σi = aLi . This yields 
+
+˙σi = La L−1 
+
+> i
+
+˙ai
+
+= −La L−1 
+
+> i
+
+zi
+
+= −Lσ qi zi.
+
+Therefore ˙σi = −Lσ qi zi. The same result follows directly from the effective-matrix dynamics de-rived in Sec. C: 
+
+˙W = −
+
+> L
+
+X
+
+> ℓ=1
+
+BℓZℓAℓ
+
+= −
+
+> L
+
+X
+
+> ℓ=1
+
+QL diag  aL−ℓ 
+
+> 1
+
+, . . . , a L−ℓd
+
+ diag ( z1, . . . , z d) diag  aℓ−11 , . . . , a ℓ−1
+
+> d
+
+ Q⊤
+
+> 0
+
+= −LQ L diag  aL−11 z1, . . . , a L−1 
+
+> d
+
+zd
+
+ Q⊤
+
+> 0
+
+= QL diag ( ˙ σ1, . . . , ˙σd) Q⊤ 
+
+> 0
+
+.
+
+22 Preprint Finally, define p = 2 q = 2 − 2 
+
+> L
+
+. This exponent appears whenever the optimizer update contains one additional factor of the layer gradient gi = riσqi . For example, Euclidean GD has zi = gi, and therefore ˙σi = −Lσ qi gi = −Lσ pi (σi − μi).
+
+## E OPTIMIZER SPECIFIC PHASE LAWS 
+
+In this section, we prove the phase laws for all the optimizers discussed in Sec. 5. Theorem 1 reduces every compatible optimizer to a scalar evolution for each aligned mode. Suppressing the mode index, the effective singular amplitude satisfies 
+
+˙σ = −Lσ q z(σ, S (σ)) , q = 1 − 1
+
+L ,
+
+where z is the optimizer update coefficient and S denotes any associated optimizer state. The state 
+
+S(σ) may include momentum, adaptive moments, accumulated gradient covariances, or curvature estimates. Before deriving the individual optimizer results, we establish a common passage time calculus for birth, decay, and saturation. Each optimizer specific phase law then follows by iden-tifying the local form of z, or equivalently the local power law of ˙σ. This separates the universal passage time argument from the optimizer specific evolution of its internal state. We use asymptotic notations o(.) and O(.) when taking limits in the asymptotic analysis. E.1 BIRTH , D ECAY , AND SATURATION TIMES 
+
+As discussed in Sec. 5, for a positive target μ > 0, let a mode begin at σ(0) = s > 0. For a fixed threshold s < b < μ, the birth time is the first passage time 
+
+T birth opt (s, b ) = inf {t ≥ 0 : σ(t) = b} .
+
+Birth always refers to escape from a positive seed s → 0+. It does not refer to spontaneous activation of an exactly zero factor mode. For an unsupported mode with μ = 0 , and a tolerance 0 < δ < s, 
+
+the decay time is 
+
+T decay opt (s, δ ) = inf {t ≥ 0 : σ(t) = δ} .
+
+For a nonzero target, define the residual r(t) = |σ(t) − μ|. Given a tolerance τ > 0 and r(t0) = r0,the saturation time is 
+
+T sat opt (r0, τ ) = inf {u ≥ 0 : r(t0 + v) ≤ τ for every v ≥ u} .
+
+The requirement that the mode remain inside the tolerance is relevant for optimizers with momentum or relay dynamics, which may cross the target and subsequently leave the tolerance region. For a monotone first order flow, this definition reduces to the first time at which r(t) = τ. 
+
+We first state the passage time formula directly in terms of the optimizer update coefficient. 
+
+Proposition 2 (Passage times from the common mode dynamics) . Suppose that a positive target mode increases monotonically from s to b and satisfies z(σ, S (σ)) < 0 for σ ∈ [s, b ]. Then 
+
+T birth opt (s, b ) = − 1
+
+L
+
+Z bs
+
+x−q
+
+z(x, S (x)) dx. 
+
+Suppose that an unsupported mode decreases monotonically from s to δ and satisfies z(σ, S (σ)) > 0
+
+for σ ∈ [δ, s ]. Then 
+
+T decay opt (s, δ ) = 1
+
+L
+
+Z sδ
+
+x−q
+
+z(x, S (x)) dx. 
+
+If the residual decreases monotonically and satisfies ˙r = −Ψ( r), and Ψ( r) > 0, then the time required to reduce the residual from r0 to τ is 
+
+T sat opt (r0, τ ) = 
+
+Z r0
+
+> τ
+
+dr 
+
+Ψ( r) .
+
+23 Preprint 
+
+Proof. During birth, ˙σ = −Lσ q z(σ, S ) > 0. Since the trajectory is monotone, the optimizer state can be viewed locally as a function of σ. Separating variables gives 
+
+dt = − 1
+
+Lσ−q
+
+z(σ, S (σ)) dσ. 
+
+Integrating from σ = s to σ = b proves the birth formula. During decay, ˙σ = −Lσ q z(σ, S ) < 0.
+
+Thus 
+
+dt = − 1
+
+Lσ−q
+
+z(σ, S (σ)) dσ. 
+
+Integrating from σ = s down to σ = δ and reversing the integral limits proves the decay formula. The saturation formula follows similarly from 
+
+dt = − dr 
+
+Ψ( r)
+
+and integration from r0 to τ .For a stateful optimizer, Proposition 2 is exact but need not be closed. The notation S(x) denotes the optimizer state along the particular monotone trajectory. A closed phase law requires either solving the coupled state equations or eliminating the state through an invariant. Cumulative Shampoo admits such an elimination through its accumulator identity. Full Adam and momentum Muon generally retain coupled state dynamics. E.2 BIRTH AND DECAY EXPONENTS 
+
+We now classify passage times using the local power of the complete singular mode dynamics. The exponent is defined from ˙σ, rather than from the factor update z alone. 
+
+Definition 1 (Birth and decay exponents) . A positive target mode has birth exponent αb and birth coefficient cb > 0 if 
+
+˙σ = cbσαb (1 + o(1)) as σ → 0+,
+
+where o(1) denotes a quantity tending to zero in the stated limit. An unsupported mode has decay exponent αd and decay coefficient cd > 0 if 
+
+˙σ = −cdσαd (1 + o(1)) as σ → 0+.
+
+The coefficients cb and cd may depend on the target, depth, optimizer parameters, and limiting op-timizer state. The exponent records only the leading dependence on the current singular amplitude. A stateful optimizer may have different exponents in different phases. The following elementary calculation determines whether the corresponding passage time remains finite or diverges. 
+
+Proposition 3 (Birth and decay times) . Suppose that an increasing mode satisfies ˙σ = cσ α, with 
+
+c > 0. Then the time required to move from s to b > s is 
+
+T birth (s, b ) = 
+
+
+
+1
+
+c log bs , α = 1 ,b1−α − s1−α
+
+c(1 − α) , α̸ = 1 .
+
+Suppose that a decreasing mode satisfies ˙σ = −cσ α, with c > 0. Then the time required to move from s to δ < s is 
+
+T decay (s, δ ) = 
+
+
+
+1
+
+c log sδ , α = 1 ,s1−α − δ1−α
+
+c(1 − α) , α̸ = 1 .
+
+Proof. For birth, dt = 1 
+
+> c
+
+σ−αdσ. Therefore 
+
+T birth (s, b ) = 1
+
+c
+
+Z bs
+
+x−α dx. 
+
+24 Preprint The integral is logarithmic when α = 1 and gives the stated power law when α̸ = 1 . For decay, 
+
+dt = − 1 
+
+> c
+
+σ−αdσ. Integrating from s down to δ gives 
+
+T decay (s, δ ) = 1
+
+c
+
+Z sδ
+
+x−α dx, 
+
+which yields the stated formula. The same classifications hold when the dynamics are only asymptotically proportional to a power. 
+
+Corollary 1 (Birth time classification) . Suppose ˙σ = cbσαb (1 + o(1)) as σ → 0+. For fixed b > 0,the birth time satisfies 
+
+T birth (s, b ) = 
+
+
+
+T birth (0 , b ) − s1−αb
+
+cb(1 − αb) (1 + o(1)) , αb < 1,
+
+1
+
+cb
+
+log 1
+
+s (1 + o(1)) , αb = 1 ,s1−αb
+
+cb(αb − 1) (1 + o(1)) , αb > 1.
+
+If αb < 1 gives finite escape from a vanishing positive seed. If αb = 1 gives a logarithmic birth barrier. If αb > 1 gives a polynomial birth barrier. 
+
+Finite escape as s → 0+ does not imply spontaneous activation from σ(0) = 0 . If the vector field vanishes at zero and the optimizer takes zero to be absorbing, an exactly zero mode remains zero even when αb < 1. The birth exponent concerns the limit from positive initialization. 
+
+Corollary 2 (Decay time classification) . Suppose ˙σ = −cdσαd (1 + o(1)) as σ → 0+. For fixed 
+
+s > 0, the decay time satisfies 
+
+T decay (s, δ ) = 
+
+
+
+T decay (s, 0) − δ1−αd
+
+cd(1 − αd) (1 + o(1)) , αd < 1,
+
+1
+
+cd
+
+log 1
+
+δ (1 + o(1)) , αd = 1 ,δ1−αd
+
+cd(αd − 1) (1 + o(1)) , αd > 1.
+
+If αd < 1, the mode reaches zero in finite time under the absorbing continuation. If αd = 1 , the mode decays exponentially: σ(t) = exp ( −cdt + o(t)) 
+
+If αd > 1, the mode decays algebraically: σ(t) ∼ (cd (αd − 1) t)−1/(αd−1) .
+
+In the final two cases, zero is reached only asymptotically. 
+
+The terms finite, logarithmic, and polynomial refer to the dependence of the passage time on s or 
+
+δ. The terms exponential and algebraic refer to the trajectory as a function of training time. For example, αd = 1 gives logarithmic tolerance time and exponential trajectory decay. E.3 SATURATION EXPONENT 
+
+Birth and decay describe behavior near σ = 0 . Saturation instead describes the local approach to a nonzero target μ.
+
+Definition 2 (Saturation exponent) . Let r(t) = |σ(t) − μ|. The mode has saturation exponent γ and coefficient β > 0 if 
+
+˙r = −βr γ (1 + o(1)) as r → 0+.
+
+25 Preprint 
+
+Proposition 4 (Saturation times) . Suppose that the residual satisfies ˙r = −βr γ , β > 0. The time required to reduce the residual from r0 to τ ∈ (0 , r 0) is 
+
+T sat (r0, τ ) = 
+
+
+
+1
+
+β log r0
+
+τ , γ = 1 ,r1−γ 
+
+> 0
+
+− τ 1−γ
+
+β(1 − γ) , γ̸ = 1 .
+
+If γ < 1, the target is reached in finite time. If γ = 0 , the residual decreases linearly: r(t) = ( r0 − βt )+ , and β is the constant residual speed. If γ = 1 , the residual decreases exponentially: r(t) = r0e−βt , and β is the exponential saturation rate. If γ > 1, the residual has an algebraic tail: r(t) ∼ (β(γ − 1) t)−1/(γ−1) .
+
+Proof. Separating variables gives dt = − 1 
+
+> β
+
+r−γ dr. Integrating from r0 down to τ yields 
+
+T sat (r0, τ ) = 1
+
+β
+
+Z r0
+
+> τ
+
+r−γ dr. 
+
+Evaluating the integral gives the passage time formula. Solving the same separated equation for r(t)
+
+yields the stated trajectory laws. For γ = 0 , the coefficient β is a speed rather than an exponential rate. For γ = 1 , it is the usual local exponential rate. For general γ, we refer to β as the saturation coefficient. The scalar saturation exponent is most useful for monotone first order flows. If the optimizer state introduces overshoot or oscillation, the residual may not satisfy a closed first order equation. In that case, saturation must be analyzed through the full state dynamics, and the enter and remain definition distinguishes true saturation from a temporary crossing of the tolerance band. The optimizer specific proofs that follow therefore have two steps. First, we derive or eliminate the relevant optimizer state to identify z along the phase. Second, we apply Propositions 3 and 4 to obtain the corresponding birth, decay, and saturation times. E.4 EUCLIDEAN GRADIENT DESCENT PHASE LAWS 
+
+The update step of Euclidean GD is Zℓ = Hℓ, and so in the aligned model zi = gi = riσq from Eq. (7). Therefore, each mode evolves as 
+
+˙σ = Lσ p(μ − σ).
+
+Note that this is the established GD baseline (Arora et al., 2019). 
+
+Proposition 5 (Euclidean GD phase laws) . The birth time T birth GD (s, b ) for 0 < s < b < μ with b
+
+and μ fixed is 
+
+T birth GD (s, b ) = 
+
+
+
+log 
+
+ μ − sμ − b
+
+
+
+, L = 1 ,
+
+12μ log b(μ − s)
+
+s(μ − b) , L = 2 ,s−(L−2) /L − b−(L−2) /L 
+
+μ(L − 2) + O(1) , L > 2.
+
+For μ = 0 , decay time T decay GD (s, δ ) with s fixed is 
+
+T decay GD (s, δ ) = 
+
+
+
+log sδ , L = 1 ,δ−p − s−p
+
+Lp , L > 1.
+
+26 Preprint 
+
+Near a nonzero target μ,
+
+T sat GD (r0, δ ) = 1
+
+Lμ p log r0
+
+δ + O(1) .
+
+For nonzero target modes μ > 0, the birth exponent αb = p and coefficient cb = Lμ with exponen-tial local saturation γ = 1 at rate β = Lμ p near target μ. As s → 0, birth time T birth GD (s, b ) diverges for L ≥ 2. For zero target modes μ = 0 , the decay exponent αd = p + 1 and coefficient cd = L. As 
+
+δ → 0, decay time T decay GD (s, δ ) diverges for all L.Proof. 
+
+Birth and decay times. From the mode dynamics ˙σ = Lσ p(μ − σ), the exact birth and decay times are 
+
+T birth GD (s, b ) = 1
+
+L
+
+Z bs
+
+x−p
+
+μ − x dx, T decay GD (s, δ ) = − 1
+
+L
+
+Z δs
+
+x−(p+1) dx. 
+
+For birth time, especially for L > 2, we can decompose it to, 
+
+T birth GD (s, b ) = 1
+
+L
+
+Z bs
+
+x−p
+
+μ − x dx 
+
+= 1
+
+L
+
+Z bs
+
+μx −p − x1−p + x1−p
+
+μ(μ − x) dx 
+
+= 1
+
+Lμ 
+
+Z bs
+
+x−p dx + 1
+
+Lμ 
+
+Z bs
+
+x1−p
+
+μ − x dx 
+
+= 1
+
+Lμ 
+
+Z bs
+
+x−p dx + O(1) 
+
+Integrating the birth and decay times using Proposition 3 give the times in Proposition 5. From the dynamics and Corollaries 1 and 2, we get the birth and decay exponents: αb = p with cb = Lμ and 
+
+αd = p + 1 with cd = L.From birth time T birth GD and Corollary 1, as s → 0+, L = 1 has no initialization-dependent birth barrier and escapes in finite time as p = 2 − 2/L = 0 . Thus the mode can escape from an arbitrarily small initialization in a uniformly bounded amount of time. In the corresponding birth approxima-tion, ˙σ ≈ μi, so the mode grows linearly: σ(t) ≈ ϵ + μit. On the other hand, L = 2 introduces a logarithmic delay as p = 1 . The corresponding mode trajectory is exponential: ˙σ ≈ 2μσ and hence 
+
+σ(t) ≈ ϵe 2μit, therefore the singular mode itself grows exponentially in time. Similarly, L > 2
+
+produces a polynomial delay as p > 1.As δ → 0+, T decay GD diverges from Corollary 2, since αd = p + 1 ≥ 1. Equality holds for L = 1 ,while αd > 1 for L > 1. Thus GD does not kill zero-target singular values in finite time. For L = 1 , αd = 1 , therefore the corresponding σ(t) trajectory is exponential and the decay time is logarithmic in 1/δ . The state decays exponentially in time. It never reaches zero at a finite time. For L > 1, it is a polynomial divergence in 1/τ . The exact trajectory is σ(t) =  σ−p 
+
+> 0
+
++ Lp t −1/p .
+
+Therefore, at late times, σ(t) ∼ (Lp t )−1/p . So decay is algebraic rather than exponential. 
+
+Saturation near target. Suppose σ(t) ≈ μ > 0. Let r(t) = μ − σ(t), therefore ˙r = − ˙σ. Then, from the dynamics 
+
+˙r = −Lσ pr. 
+
+For approach to a positive target from below and above, respectively, 
+
+T sat GD ,−(r0, δ ) = 1
+
+L
+
+Z r0
+
+> δ
+
+dr 
+
+(μ − r)pr , and T sat GD ,+(r0, δ ) = 1
+
+L
+
+Z r0
+
+> δ
+
+dr 
+
+(μ + r)pr .
+
+The first formula requires 0 < δ < r 0 < μ . For fixed r0,
+
+T sat GD ,±(r0, δ ) = 1
+
+Lμ p log r0
+
+δ + O(1) as δ → 0.
+
+27 Preprint Thus, the convergence is exponential with rate Lμ p from Proposition 4. The larger μ gives a larger local saturation rate only for L > 1. At L = 1 , the rate is one for every target. The exponential saturation implies that modes with smaller target singular values also converge slowly. 
+
+Role of depth. Depth strongly suppresses the birth of new modes, strengthening the initialization barrier. For L > 2, the divergence of birth time is polynomial. Thus an infinitesimally initialized singular mode takes polynomially longer to become macroscopically active. This is the primary mechanism behind sequential low-rank learning. Depth does not rapidly eliminate existing modes. Decay time diverges for all depth. Indeed: L = 1 
+
+gives an exponential tail; L > 1 gives the slower polynomial tail. Thus Euclidean GD does not produce exact finite-time rank reduction. Its low-rank bias comes mainly from preventing weak modes from being born, rather than from rapidly pruning modes that are already active. E.5 SIGN GD P HASE LAWS 
+
+SignGD updates each factor using Zℓ = sign( Hℓ). Therefore, in the balanced aligned model, this gives zi = sign( gi) = sign( riσq ) = sign( ri) since σ is positive. Therefore, for each mode 
+
+˙σ = −Lσ q sign( σ − μ).
+
+Thus, each factor amplitude moves toward its target at unit speed, independently of the gradient magnitude. 
+
+Proposition 6 (SignGD phase laws) . The birth time T birth SignGD (s, b ) for 0 < s < b < μ , and decay time T decay SignGD (s, δ ) for μ = 0 are 
+
+T birth SignGD (s, b ) = b1/L − s1/L , T decay SignGD (s, δ ) = s1/L − δ1/L .
+
+If a mode approaches a nonzero target from above and below and its residual decreases from r0 to 
+
+δ, then 
+
+T sat SignGD ,−(r0, δ ) = ( μ−δ)1/L −(μ−r0)1/L and T sat SignGD ,+(r0, δ ) = ( μ+r0)1/L −(μ+δ)1/L .
+
+In particular, T sat SignGD ,±(r0, 0) < ∞. The same finite-time conclusion holds when the target is approached from above. The birth and decay exponents are αb = αd = q and coefficients cb =
+
+cd = L. The saturation is linear γ = 0 , with rate β = Lμ q .Proof. 
+
+Birth, saturation and decay times. From the dynamics, ˙σ = −Lσ q sign( σ − μ), when 0 < s < b < μ , sign( σ − μ) = −1. Therefore, ˙σ = Lσ q . When μ = 0 , sign( σ − μ) = 1 since we consider infinitesimal positive initialization. Therefore, ˙σ = −Lσ q . Thus 
+
+T birth SignGD (s, b ) = 1
+
+L
+
+Z bs
+
+x−q dx T decay SignGD (s, δ ) = − 1
+
+L
+
+Z δs
+
+x−q dx. 
+
+Integrating these give the times in Proposition 6. From the dynamics and Corollaries 1 and 2, we get the birth and decay exponents: αb = q with cb = L and αd = q with cd = L. Note that the coefficients are target independent. Since the exponent q < 1 and the time to reach any target μ is |s1/L − μ1/L |, birth, saturation and decay occur in finite time. For μ = 0 , the mode becomes exactly zero at time s1/L . The birth time remains bounded as s → 0. Therefore, SignGD weakens the birth barrier for nonzero modes, but it can be more aggressively sparsifying for modes whose target is exactly zero. It still slows small singular values through σ1−1/L but much less than GD. The exact saturation times from below and above are 1
+
+L
+
+Z r0
+
+> δ
+
+dr 
+
+(μ ± r)q .
+
+T sat SignGD ,−(r0, δ ) = ( μ−δ)1/L −(μ−r0)1/L and T sat SignGD ,+(r0, δ ) = ( μ+r0)1/L −(μ+δ)1/L .
+
+28 Preprint Locally, ˙r = −Lμ q +O(r). Thus γ = 0 and β = Lμ q . For L > 1, the residual is only asymptotically linear near the hitting time from Proposition 4. E.6 INSTANTANEOUS ADAM PHASE LAWS 
+
+Adam updates are considered under a quasi-steady approximation and a diagonal aligned model to isolate the effect of coordinate normalization, with m = g and v = g2 giving the instantaneous state approximation where 
+
+˙σ = − Lσ p(σ − μ)
+
+|σ − μ|σq + ϵ
+
+for each mode. Note that, if |σ −μ|σq ≫ ϵ then ˙σ = −Lσ q sign( σ −μ), thus behaving like SignGD. If |σ − μ|σq ≪ ϵ then ˙σ = −Lσ p(σ − μ)/ϵ , thus behaving like GD upto 1/ϵ factor. 
+
+Proposition 7 (Instantaneous Adam phase laws) . Let 0 < s < b < μ . The birth time is 
+
+T birth IAdam (s, b ) = b1/L − s1/L + ϵ T birth GD (s, b ).
+
+Let hμ(σ) = ( μ − σ)σq , when ϵ < μ q+1 qq
+
+(q + 1) q+1 and hμ(σ)/ϵ → 0, Adam behaves GD-like, and ϵ/h μ(σ) → 0 it behaves like SignGD-like. For an unsupported mode with μ = 0 , the decay time from s to δ ∈ (0 , s ) is 
+
+T decay IAdam (s, δ ) = s1/L − δ1/L + ϵ T decay GD (s, δ ).
+
+Let σdA ≍ ϵ1/(q+1) , the final decay satisfies σ(t) < σ dA and behaves like GD. Suppose a nonzero mode approaches its target from below and its residual decreases from r0 to δ,where 0 < δ < r 0 < μ. Then 
+
+T sat IAdam (r0, δ ) = ( μ − δ)1/L − (μ − r0)1/L + ϵL
+
+Z μ−δμ−r0
+
+x−p
+
+μ − x dx. 
+
+An analogous expression holds when the mode approaches the target from above. Near saturation, it behaves like GD with rate Lμ p/ϵ .Proof. 
+
+Birth of a positive mode. From the dynamics, ˙σ = − Lσ p(σ − μ)
+
+|σ − μ|σq + ϵ , the birth time for 0 < s < b < μ is 
+
+T birth IAdam (s, b ) = 1
+
+L
+
+Z bs
+
+x−q dx + ϵL
+
+Z bs
+
+x−p
+
+μ − x dx 
+
+= T birth SignGD (s, b ) + ϵT birth GD (s, b )
+
+Therefore, birth time is the sum of a finite SignGD contribution and an ϵ-dependent Euclidean contribution. For fixed ϵ > 0, b, and μ, as s → 0+,
+
+T birth IAdam (s, b ) = 
+
+
+
+Θ(1) , L = 1 ,ϵ
+
+2μ log 1
+
+s + O(1) , L = 2 ,ϵμ(L − 2) s−(L−2) /L + O(1) , L > 2.
+
+Thus a fixed positive ϵ restores the Euclidean GD birth classification in the extreme small-initialization regime: birth remains finite for L = 1 , is logarithmically delayed for L = 2 , and is polynomially delayed for L > 2.29 Preprint For L > 1, for 0 < σ < μ define 
+
+hμ(σ) = ( μ − σ)σq , hmax = μq+1 qq
+
+(q + 1) q+1 .
+
+If 0 < ϵ < h max , the equation hμ(σ) = ϵ has two roots 
+
+0 < σ − < qμ q + 1 < σ + < μ. 
+
+Then hμ(σ) > ϵ exactly on (σ−, σ +). An accurate approximation with SignGD requires the stronger condition hμ(σ) ≫ ϵ.If ϵ ≥ hmax , no interval satisfies hμ(σ) > ϵ . If ϵ ≫ hmax , the entire birth trajectory is uniformly approximated by GD divided by ϵ.As ϵ/μ q+1 → 0, σ− = ( ϵ/μ )1/q (1 + o(1)) , μ − σ+ = ( ϵ/μ q )(1 + o(1)) .
+
+For L = 1 , hμ(σ) = μ − σ, so the two root description does not apply. The early-growth crossover is approximately 
+
+σbA ≍
+
+ ϵμ
+
+1/q 
+
+,
+
+while the crossover near saturation satisfies μ − σsA ≍ ϵμq .
+
+Modes far below σbA initially follow the Euclidean birth law. Modes between the two crossovers move approximately according to SignGD. Modes sufficiently close to the target return to an ϵ-dominated regime. 
+
+Decay of an unsupported mode. For μ = 0, the mode dynamics equation becomes ˙σ =
+
+−L σp+1 
+
+σq+1 + ϵ . When σq+1 ≫ ϵ, the mode follows the SignGD-like law ˙σ ≈ −Lσ q . When 
+
+σq+1 ≪ ϵ, the final decay satisfies ˙σ ≈ − Lϵ σp+1 . The crossover scale is therefore 
+
+σdA ≍ ϵ1/(q+1) .
+
+For μ = 0 , similar to birth time, 
+
+T decay IAdam (s, δ ) = T decay SignGD (s, δ ) + ϵT decay GD (s, δ ).
+
+Therefore, 
+
+T decay IAdam (s, δ ) = 
+
+
+
+s − δ + ϵ log sδ , L = 1 ,s1/L − δ1/L + ϵLp (δ−p − s−p) , L > 1.
+
+For fixed ϵ > 0 and fixed initial value s, as δ → 0+,
+
+T decay IAdam (s, δ ) = 
+
+
+
+ϵ log 1
+
+δ + O(1) , L = 1 ,ϵLp δ−p + O(1) , L > 1.
+
+Thus instantaneous Adam does not remove an unsupported mode in finite time when ϵ > 0. For 
+
+L = 1 , the final trajectory decays exponentially: σ(t) ≍ e−t/ϵ . For L > 1, it has the algebraic tail 
+
+σ(t) ≍
+
+ Lp ϵ t
+
+−1/p 
+
+. The SignGD finite-time decay is therefore replaced by a logarithmic tolerance time at depth one and a polynomial tolerance time at greater depth. 30 Preprint 
+
+Saturation at a nonzero target. Following the above analysis, for approach to a positive target from either side, 
+
+T sat IAdam ,±(r0, δ ) = T sat Sign ,±(r0, δ ) + ϵT sat GD ,±(r0, δ ).
+
+These identities are exact. For fixed r0,
+
+T sat IAdam ,±(r0, δ ) = ϵLμ p log r0
+
+δ + O(1) .
+
+Thus the outer approach is approximately linear, but the final approach is exponential with rate 
+
+β = Lμ p 
+
+> ϵ
+
+. Unlike ideal SignGD, instantaneous Adam reaches a nonzero target only asymptotically when ϵ > 0.
+
+Depth and the order of limits. The two exponents q and p play different roles. The expo-nent q controls the SignGD-like motion in the factor-amplitude coordinate and the locations of the crossover scales. The exponent p controls the ϵ-dominated birth barrier, the final decay tail, and the local exponential saturation rate. For fixed ϵ > 0, increasing depth changes the birth asymptotics from logarithmic at L = 2 to polynomial at L > 2, with exponent p − 1 = L−2 
+
+> L
+
+. The unsupported-mode decay tail has exponent 
+
+p = 2 − 2 
+
+> L
+
+, which also increases with depth. Thus deeper factorizations make the extreme small-gradient regimes increasingly resistant both to the emergence of infinitesimal positive modes and to the complete removal of already active modes. For L ≥ 2, the limits ϵ → 0 and s → 0 do not commute. For every fixed s > 0,
+
+lim  
+
+> ϵ→0
+
+T birth IAdam (s, b ) = T birth SignGD (s, b ).
+
+In contrast, for every fixed ϵ > 0, the limit s → 0 reveals the Euclidean GD birth barrier. Therefore an Adam-like update may appear SignGD-like at practical mode scales while remaining mathemat-ically GD-like in the infinitesimal limit. For L = 1 , both iterated limits equal b.
+
+Takeaway. Ideal SignGD makes σ1/L a constant-speed coordinate: positive modes are born, un-supported modes disappear, and nonzero targets are reached in finite time for every depth. The instantaneous Adam approximation inherits this behavior only over the range in which the gradi-ent magnitude dominates ϵ. For fixed ϵ > 0, sufficiently small birth modes recover GD’s finite– logarithmic–polynomial depth transition, unsupported modes develop logarithmic or polynomial decay tails, and final saturation becomes exponential. Thus coordinate normalization controls the phase crossovers. 
+
+E.7 MUON PHASE LAWS 
+
+Muon updates each factor by orthogonalizing matrix updates, that is Zℓ = UℓV ⊤ 
+
+> ℓ
+
+. In the diagonal aligned singular mode model, G = diag( gi). Therefore, zi = sign( gi). Thus, for each mode 
+
+˙σ = −Lσ q sign( g)= −Lσ q sign(( σ − μ)σq )= −Lσ q sign( σ − μ)
+
+reducing it to a scalar sign rule as in SignGD updates. Therefore, Proposition 6 holds for Muon as well. Note that this is a spectral update in matrix space even though the aligned model reduces it to a scalar sign rule as in SignGD updates, and this does not mean Muon has the same global bias as coordinate SignGD. Coordinate SignGD is coordinate-basis dependent. Muon is matrix-basis / spectral-geometry dependent. But in an aligned diagonal model, both reduce to sign dynamics on singular modes. Therefore, Muon weakens low rank bias in the diagonal mode. It controls spectral geometry, not rank directly. A spectral-norm ball constrains the largest singular value, but it does not penalize the number of nonzero singular values. So Muon should not be expected to behave like nuclear-norm minimization. 31 Preprint E.8 CUMULATIVE SHAMPOO PHASE LAWS 
+
+Shampoo updates each factor using Zℓ = C−1/4 
+
+> ℓ
+
+HℓD−1/4 
+
+> ℓ
+
+where Cℓ and Dℓ are the accumulated left and right gradient-covariance matrices defined in Table 1. In the balanced aligned model, the two covariance factors reduce to the same scalar accumulator. In the aligned diagonal model, H =diag( gi), therefore HH ⊤ = H⊤H = diag( g2 
+
+> i
+
+). For the common scalar accumulator, let 
+
+h(t) = 
+
+Z t
+
+> 0
+
+g(u)2 du, and d(t) = pλSh + h(t), d (0) = pλSh .
+
+For a fresh isotropic Shampoo state, d0 = d(0) = √λSh , although the analysis below also permits 
+
+d0 to include gradient history accumulated before the phase under consideration. The scalar factor update C−1/4 
+
+> ℓ
+
+HℓD−1/4 
+
+> ℓ
+
+= diag( gi/d ). Thus 
+
+˙a = − gd .
+
+Since ˙σ = Lσ q ˙a, each singular mode satisfies 
+
+˙σ = −L (σ − μ)σp
+
+d = L (μ − σ)σp
+
+d .
+
+The accumulator obeys ˙h = g2 = ( σ − μ)2σp.
+
+Therefore 
+
+˙d = ˙h
+
+2d = (σ − μ)2σp
+
+2d .
+
+An exact first integral. Along any nonstationary monotone segment, divide ˙d by ˙σ:
+
+dd dσ = (σ − μ)2σp/(2 d)
+
+−L(σ − μ)σp/d = − σ − μ
+
+2L .
+
+Integrating from an initial effective singular value σ(0) = s gives 
+
+d(σ) = d0 + μ(σ − s) − 12 (σ2 − s2)2L . (8) This relation exactly eliminates the accumulator from the aligned scalar dynamics. In particular, cumulative Shampoo is not simply an instantaneous approximation to SignGD or Muon: its current mobility is determined by the distance already travelled by the mode. 
+
+Proposition 8 (Cumulative Shampoo phase laws) . Let a nonstationary aligned mode begin at 
+
+σ(0) = s > 0 with denominator d0 > 0. Consider d(σ) in Eq. (8) . For 0 < s < b < μ , the birth time is exactly 
+
+T birth Sh (s, b ) = 1
+
+L
+
+Z bs
+
+d(x)
+
+xp(μ − x) dx. 
+
+For an unsupported mode with μ = 0 , define cs = d0 + s2
+
+4L . The decay time from s to δ ∈ (0 , s ) is 
+
+T decay Sh (s, δ ) = 
+
+
+
+cs log sδ − s2 − δ2
+
+8 L = 1 ,cs
+
+Lp (δ−p − s−p) − s2−p − δ2−p
+
+4L2(2 − p) L > 1.
+
+For fixed d0 > 0, the birth asymptotics from a vanishing positive seed have exponent αb = p and coefficient cb = Lμ/d 0. On an intermediate interval σa ≤ σ ≤ b satisfying s ≪ σa, b ≪ μ, and 
+
+2Ld 0 ≪ μσ a, the leading birth law instead has exponent αb = p − 1 and coefficient cb = 2 L2.The uniform approximation and its error bound are stated below. For an unsupported mode with fixed s > 0 and d0 > 0, the final decay as σ → 0 has exponent αd = p + 1 and coefficient 
+
+cd = L/ (d0 + s2/(4 L)) .
+
+32 Preprint 
+
+For a nonzero target approached monotonically from above and below, let the residual move from 
+
+r0 to δ. Then local saturation is exponential at rate β = Lμ p
+
+d⋆
+
+with 
+
+T sat Sh ,±(r0, δ ) = d⋆
+
+Lμ p log r0
+
+δ + O(1) , where d⋆ = d(μ) = d0 + (μ − s)2
+
+4L .
+
+Proof. 
+
+Birth of a positive mode. The exact first integral d(σ) reveals two distinct birth regimes. For fixed positive damping, every mode initially experiences a GD-like phase. After sufficient gradient history has accumulated, the dynamics can enter a history-adapted phase with a different singular-value exponent. 
+
+Initial damping dominated phase. Let’s define 
+
+νs(x) = (x − s)(2 μ − x − s)4L .
+
+The exact birth time decomposition is 
+
+T birth Sh (s, b ) = d0T birth GD (s, b ) + Rs(b), where Rs(b) = 1
+
+L
+
+Z bs
+
+νs(x)
+
+xp(μ − x) dx. 
+
+Since 0 ≤ νs(x) ≤ μx/ (2 L) and p < 2, 0 ≤ Rs(b) ≤ μ
+
+2L2
+
+Z b
+
+> 0
+
+x1−p
+
+μ − x dx < ∞. Thus, for fixed 
+
+d0 > 0 and b < μ ,
+
+T birth Sh (s, b ) = 
+
+
+
+T birth Sh (0 , b ) + o(1) , L = 1 ,d0
+
+2μ log(1 /s ) + O(1) , L = 2 ,d0s1−p
+
+Lμ (p − 1) + O(1) , L > 2.
+
+The depth one limit is 
+
+T birth Sh (0 , b ) = 
+
+
+
+d0 + μ2
+
+4
+
+
+
+log μμ − b − μb 
+
+4 + b2
+
+8 .
+
+Thus the initial Shampoo birth exponent αb = p, which is exactly the Euclidean GD exponent and its coefficient cb = Lμ/d 0. Therefore, cumulative Shampoo with fixed positive damping retains the Euclidean GD birth classification: the birth time is finite at depth one, logarithmic at depth two, and polynomial for L > 2. This conclusion is important because the later adapted phase does not remove the infinitesimal barrier created by the initial denominator. The adapted phase changes how a mode grows after sufficient history has accumulated, but a mode starting arbitrarily close to zero must first traverse the damping-dominated GD-like regime. 
+
+Crossover to the history adapted phase. The accumulator becomes comparable to its initial value when 
+
+d0 ≍ μ(σ − s) − 12 (σ2 − s2)2L .
+
+An interior point satisfying νs(σc) = d0 exists if and only if 4Ld 0 < (μ − s)2. It is σbSh = μ −p(μ − s)2 − 4Ld 0. If 4Ld 0/(μ − s)2 → 0, then 
+
+σbSh − s = 2Ld 0
+
+μ − s
+
+
+
+1 + O
+
+ Ld 0
+
+(μ − s)2
+
+ 
+
+.
+
+The approximation σbSh ≈ s + 2 Ld 0/μ additionally requires s ≪ μ.33 Preprint A substantial history adapted birth interval exists only when this crossover occurs well before the target. Equivalently, the total history accumulated by the target must be large relative to the initial denominator, that is, d0 ≪ (μ − s)2
+
+4L . If this condition fails, the mode remains predominantly in the GD-like regime throughout its approach to μ.At fixed d0 and μ, the crossover scale increases with depth. Thus deeper factorizations require a larger effective singular value before accumulated Shampoo history dominates the initial damping. 
+
+History-adapted accumulator phase. Consider an interval σa ≤ σ ≤ b < μ with s < σ a. Define 
+
+E = sσa
+
++ bμ + 2Ld 0
+
+μσ a
+
+.
+
+For fixed L and E → 0, uniformly on this interval, d(σ) = μσ 
+
+2L (1 + O(E)) , that is accumulated history is dominating. Then, 
+
+˙σ = 2 L2σp−1(1 + O(E)) .
+
+Hence the adapted Shampoo birth exponent in this phase αb = p − 1 = 1 − 2
+
+L .If the adapted phase begins at σa and ends at b ≪ μ, its duration is 
+
+T birth Sh (σa, b ) = 1 + O(E)2L2
+
+Z bσa
+
+x−(p−1) dx = b2/L − σ2/L a
+
+4L (1 + O(E)) 
+
+from Proposition 3 and corollary 1. This intermediate approximation cannot be extended to σa = 0 
+
+at fixed d0 > 0. The target amplitude μ has disappeared from this law. Thus, after enough gradient history has accumulated, Shampoo no longer orders growing modes by their target amplitudes. The initial and adapted Shampoo exponents lie on opposite sides of Muon’s exponent q = 1 − 1/L .For L > 1, p > q , so initial Shampoo suppresses small modes more strongly than Muon. In contrast, p − 1 = q − 1/L < q , so the adapted phase has weaker singular magnitude dependence than Muon. Cumulative Shampoo therefore changes from a GD-like, target sensitive birth law to a history-adapted, target independent catch-up law. This catch-up law is reached only after the accumulator crosses the damping controlled threshold. 
+
+Decay of an unsupported mode. For μ = 0 , the first integral reduces to 
+
+d(σ) = d0 + s2 − σ2
+
+4L = cs − σ2
+
+4L , where cs = d0 + s2
+
+4L .
+
+The decay dynamics are ˙σ = −L σp+1 
+
+d(σ) . Therefore, 
+
+T decay Sh (s, δ ) = − cs
+
+L
+
+Z δs
+
+x−(p+1) dx + 14L2
+
+Z δs
+
+x−(p−1) dx 
+
+= csT decay GD (s, δ ) + 14L2
+
+Z δs
+
+x−(p−1) dx 
+
+Note that p − 1 = 1 − 2/L is less than 1, thus the second term results in finite limit as δ → 0 from Proposition 3. So, the decay is determined by the first term, and so the decay exponent is αd = p+1 ,which is the same as Euclidean GD, and cd = L/c s. The full solution of the decay time is derived from Corollary 2 and proposition 3: 
+
+T decay Sh (s, δ ) = 
+
+
+
+cs log sδ − s2 − δ2
+
+8 L = 1 ,cs
+
+Lp (δ−p − s−p) − s2−p − δ2−p
+
+4L2(2 − p) L > 1.
+
+The mode consequently decays exponentially for L = 1 : σ(t) ≍ e−t/c s , and algebraic for L > 1:
+
+σ(t) ∼
+
+ Lp cs t
+
+−1/p 
+
+.
+
+34 Preprint Thus cumulative Shampoo never removes an unsupported mode in finite time. Its decay has the same logarithmic-versus-polynomial classification as Euclidean GD, but its coefficient retains the mode’s accumulated gradient history. This produces a historical inertia effect. At fixed s, δ, and L,
+
+∂∂d 0
+
+T decay Sh (s, δ ) = T decay GD (s, δ ) > 0.
+
+Thus a larger inherited denominator increases every decay passage time when the initial amplitude is held fixed. Therefore, a mode that has previously received larger gradients begins the decay phase with a larger denominator d0, and therefore a larger limiting constant cs. Such a mode takes proportionally longer to remove. Muon has no corresponding cumulative denominator and can drive an unsupported aligned mode to zero in finite time. Cumulative Shampoo instead makes previously active modes increasingly persistent. Depth strengthens the late decay tail. For L > 1, p = 2 − 2
+
+L increases toward two as L increases. Accordingly, the tolerance time diverges as δ−p, and the trajectory decays as t−1/p , whose exponent decreases toward 1/2 with depth. 
+
+Saturation at a nonzero target. At the target σ = μ,
+
+d⋆ = d(μ) = d0 + (μ − s)2
+
+4L .
+
+Near the target, for a residual interval traversed by the trajectory, 
+
+T sat Sh ,−(r0, δ ) = 1
+
+L
+
+Z r0
+
+> δ
+
+d⋆ − r2/(4 L)(μ − r)pr dr, and T sat Sh ,+(r0, δ ) = 1
+
+L
+
+Z r0
+
+> δ
+
+d⋆ − r2/(4 L)(μ + r)pr dr. 
+
+Consequently, 
+
+T sat Sh ,±(r0, δ ) = d⋆
+
+Lμ p log r0
+
+δ + O(1) .
+
+From Proposition 4, Cumulative Shampoo consequently saturates monotonically and exponentially 
+
+γ = 1 with local rate β = Lμ p
+
+d⋆
+
+. Thus Shampoo approaches a nonzero target only asymptotically. Unlike Muon or SignGD in their ideal memoryless forms, it does not reach the target in finite time. The dependence of the saturation rate on the target amplitude changes with accumulated history. If the initial denominator dominates, d0 ≫ (μ − s)2
+
+4L , then β ≈ Lμ p
+
+d0
+
+. This has the same target ordering as GD: larger target singular values saturate faster. If accumulated history dominates, d0 ≪ (μ − s)2
+
+4L , then β ≈ 4L2μp
+
+(μ − s)2 . When s ≪ μ, this simplifies to 
+
+β ≈ 4L2μp−2 = 4 L2μ−2/L .
+
+For modes compared at common s and d0 with μ > s ,
+
+ddμ log β = pμ − 2( μ − s)4Ld 0 + ( μ − s)2 .
+
+Thus the rate now decreases with the target singular value μ precisely when 4Lp d 0 < (μ − s) (2 −
+
+p)μ+ps . Thus sufficiently adapted Shampoo can reverse the GD saturation ordering: larger modes, which generated larger cumulative preconditioners, can converge more slowly near their targets. As depth increases, the exponent − 2 
+
+> L
+
+approaches zero. Hence the history dominated saturation rate becomes less sensitive to the target amplitude, even though its overall depth-dependent prefactor remains. 35 Preprint 
+
+Depth dependent phase structure. Cumulative Shampoo has no single birth exponent valid throughout training. At fixed positive damping, an infinitesimal mode first follows ˙σ ∝ μσ p, with the GD exponent p = 2 − 2/L. After the cumulative state dominates, it follows ˙σ ∝ σp−1, with adapted exponent p − 1 = 1 − 2/L. 
+
+For L = 1 , the adapted exponent is −1. For L = 2 , it is zero and the adapted singular value grows approximately at constant speed. For L > 2, it lies strictly between zero and one, so the adapted phase has a finite hitting time from a vanishing positive mode. Nevertheless, for any fixed d0 > 0,the complete birth time as s → 0+ remains governed by the preceding GD-like phase. The decay exponent remains p + 1 in the mode equation and produces a polynomial tolerance time of order δ−p for L > 1. The saturation rate is β = Lμ p
+
+d⋆
+
+, which is approximately 4L2μ−2/L 
+
+at saturation. Thus, it can make larger singular modes saturate more slowly, reversing the order during saturation. Saturation depends jointly on depth, target amplitude, damping, and the mode’s accumulated history. 
+
+Takeaway. Cumulative Shampoo is a two-stage spectral optimizer rather than a fixed interpola-tion between GD and Muon. A newly emerging mode first obeys the GD birth law and therefore retains the finite–logarithmic–polynomial depth barrier under fixed damping. After sufficient gra-dient history has accumulated, the mode enters a target-independent catch-up phase with exponent 
+
+p − 1, weaker singular-magnitude dependence than Muon, and finite adapted-phase hitting time. The same accumulated state acts as inertia during decay: unsupported modes vanish only asymp-totically, and previously active modes become harder to remove. Near a nonzero target, Shampoo saturates monotonically and exponentially, but strong accumulation can reverse GD’s mode order-ing by making larger target modes converge more slowly. 
+
+E.9 K-FAC P HASE LAWS 
+
+K-FAC updates each layer with the per-layer Fisher or Gauss Newton curvature block. As detailed in Sec. B from Eq. (5), Fℓ = ( AℓA⊤ 
+
+> ℓ
+
+)⊗(B⊤ 
+
+> ℓ
+
+Bℓ) where Aℓ = Wℓ−1 · · · W1 and Bℓ = WL · · · Wℓ+1 .Therefore, from Sec. D.2 based on the balanced aligned model, the corresponding eigenvalue of the layerwise Gauss Newton block is 
+
+κℓ =  aℓ−12  aL−ℓ2 = a2L−2 = σp.
+
+The curvature eigenvalue is independent of the layer index ℓ. Consequently, every layer receives the same scalar update, and balancedness is preserved within this aligned idealization. The damped layer update is 
+
+˙aℓ = − gℓ
+
+κℓ + λKF 
+
+= − (σ − μ)σq
+
+σp + λKF 
+
+.
+
+Recall that ˙σ = Lσ q ˙a. Hence, the singular value dynamics in the aligned model for each mode is 
+
+˙σ = Lσ p(μ − σ)
+
+σp + λKF 
+
+.
+
+Relation to exact joint Gauss Newton. The preceding derivation uses a block diagonal curvature model that inverts each layer block separately. It should be distinguished from exact Gauss Newton over all layers jointly. For one balanced scalar mode, the full product Jacobian with respect to the L
+
+layer amplitudes is 
+
+J = aL−1 [1 · · · 1] .
+
+Hence the predictor space curvature is JJ ⊤ = La 2L−2 = Lσ p. Exact damped Gauss Newton therefore gives 
+
+˙σGN = η Lσ p
+
+Lσ p + λGN 
+
+(μ − σ).
+
+Comparing with the K-FAC dynamics derived above, we observe that when damping is zero, both cancel the factorization-induced power σp. They differ only by a common factor L. With positive damping, the two filters are not identical unless their damping parameters are scaled consistently. 36 Preprint 
+
+K-FAC phase laws. From the dynamics ˙σ = Lσ p(μ − σ)
+
+σp + λKF 
+
+, the factor σp
+
+σp + λKF 
+
+determines how much of the depth-dependent factorization mobility is cancelled. When λKF = 0 and σ > 0, the mobility factor cancels: ˙σ = L(μ − σ). Thus undamped K-FAC behaves like direct gradient flow on the effective singular value, up to the common factor L. When 
+
+λKF > 0, the cancellation is incomplete for sufficiently small modes. 
+
+Proposition 9 (K-FAC phase laws) . Let 0 < s < b < μ . The time required for a positive mode initialized at σ(0) = s to reach b is 
+
+T birth KFAC (s, b ) = 1
+
+L log μ − sμ − b + λKF T birth GD (s, b )
+
+For an unsupported mode with μ = 0 , the time required to decay from s to δ ∈ (0 , s ) is 
+
+T decay KFAC (s, δ ) = 
+
+
+
+(1 + λKF ) log sδ , L = 1 ,
+
+1
+
+L log sδ + λKF 
+
+Lp (δ−p − s−p) , L > 1.
+
+For a nonzero target, the time required to reduce the residual from a fixed r0 to δ satisfies from either side satisfies, 
+
+T sat KF ,±(r0, δ ) = 1
+
+L log r0
+
+δ + λKF T sat GD ,±(r0, δ ).
+
+Consequently, 
+
+T sat KF ,±(r0, δ ) = μp + λKF 
+
+Lμ p log r0
+
+δ + O(1) .
+
+Proof. 
+
+Birth of a positive mode. From the dynamics, we get 
+
+T birth KFAC (s, b ) = 1
+
+L
+
+Z bs
+
+(μ − x)−1 dx + λKF 
+
+L
+
+Z bs
+
+σ−p
+
+(μ − x) dx 
+
+= 1
+
+L log μ − sμ − b + λKF T birth GD (s, b ).
+
+Thus, the K-FAC birth time decomposes into two terms. 
+
+Undamped K-FAC. When λKF = 0 , the mode dynamics reduce to ˙σ = L(μ − σ). The birth time is T birth KFAC (s, b ) = 1
+
+L log μ − sμ − b , thus finite time emergence. The exact trajectory is σ(t) = 
+
+μ − (μ − s)e−Lt .
+
+The near-zero birth dynamics are ˙σ ≈ Lμ. Hence the undamped K-FAC birth exponent αb is zero. The initial velocity does not vanish with σ. Undamped K-FAC therefore removes the depth-dependent small-mode barrier. For a common absolute threshold b and seed s, ideal Muon has target independent birth time when-ever μ > b . Undamped curvature flow instead has birth time 
+
+1
+
+L log μ − sμ − b ,
+
+which decreases with μ.The target amplitude nevertheless remains in the velocity. This distinguishes undamped K-FAC from ideal Muon. Muon removes both the factorization barrier and target-amplitude ordering during aligned birth, whereas undamped K-FAC removes the barrier but preserves target ordering. The cancellation at exactly σ = 0 requires care. At an exactly zero mode, the undamped Fisher block is singular, so the update depends on the inverse or pseudoinverse convention. The finite birth statement above concerns the limit from a positive seed s → 0+.37 Preprint 
+
+Damped K-FAC. For λKF > 0, define the spectral curvature threshold σbKF = λ1/p  
+
+> KF
+
+, L > 1. This is the scale at which σp ≍ λKF . When σ ≪ σbKF , the preconditioning factor is approximately σp
+
+λKF 
+
+.
+
+For a small positive mode with σ ≪ μ, ˙σ ≈ Lμ λKF 
+
+σp. Thus damped K-FAC recovers the Euclidean GD birth exponent αb = p.When σ ≫ σbKF , the preconditioning factor approaches one. The mode then follows ˙σ ≈ L(μ − σ),
+
+and behaves like direct optimization of the effective matrix. Damped K-FAC therefore has a two-regime birth law: GD-like below σbKF , and curvature-corrected above σbKF . Thus any fixed positive damping restores the Euclidean finite–logarithmic–polynomial birth classification in the infinitesimal limit. For L ≥ 2, the limits λKF → 0 and s → 0 do not commute. For every fixed s > 0,
+
+lim  
+
+> λKF →0
+
+T birth KFAC (s, b ) = 1
+
+L log μ − sμ − b .
+
+In contrast, for every fixed λKF > 0, the limit s → 0+ is logarithmically divergent at L = 2 and polynomially divergent for L > 2. A numerically small damping can therefore be asymptotically decisive for sufficiently small spectral modes. For L = 1 , ˙σ = μ − σ
+
+1 + λKF 
+
+, so damping only changes the speed. For L > 1, an exactly zero mode satisfies ˙σ = 0 under every fixed positive damping because the numerator contains σp. Damped K-FAC therefore also requires a positive seed to initiate growth. 
+
+Decay of an unsupported mode. For zero target mode μ = 0 , the K-FAC mode dynamics equa-tion becomes ˙σ = −L σp+1 
+
+σp + λKF 
+
+.
+
+When λKF = 0 , this reduces to ˙σ = −Lσ. Hence 
+
+T decay KFAC ,0(s, δ ) = 1
+
+L log sδ , and σ(t) = se −Lt .
+
+Undamped K-FAC removes an unsupported mode exponentially in time, but the mode reaches zero only asymptotically. Its tolerance time is logarithmic. When λKF > 0 and σ ≫ σbKF , the decay is still approximately exponential: ˙σ ≈ − Lσ. Once 
+
+σ ≪ σbKF , the damping term dominates and ˙σ ≈ − LλKF σp+1 .
+
+For L = 1 , p = 0 and damping only rescales the exponential rate: ˙σ = − 11+ λKF σ, so 
+
+T decay KFAC (s, δ ) = (1 + λKF ) log sδ .
+
+For L > 1, the final decay is algebraic as shown in Proposition 9. Equivalently, the singular value evolves as σ(t) ∼
+
+ Lp λKF 
+
+t
+
+−1/p 
+
+. Thus positive damping converts the undamped exponential decay into a polynomial tail for every depth L > 1.The curvature threshold governs both birth and decay. Above σbKF , K-FAC behaves like direct effective-matrix optimization. Below it, damping restores the same small-mode mobility that ap-pears under Euclidean GD. 
+
+Saturation at a nonzero target. The exact saturation times from below and above are, 
+
+T sat KF ,±(r0, δ ) = 1
+
+L log r0
+
+δ + λKF T sat GD ,±(r0, δ ).
+
+Consequently, T sat KF ,±(r0, δ ) = μp + λKF 
+
+Lμ p log r0
+
+δ + O(1) .
+
+38 Preprint Therefore, the residual dynamics is ˙r ≈ − L μp
+
+μp + λKF 
+
+r. This implies K-FAC saturates monotoni-cally and exponentially, with the rate β = L μp
+
+μp + λKF 
+
+.
+
+In the undamped case, β = L. The rate is independent of the target singular value and of the mobility exponent p. Under the present time normalization it is proportional to depth; after rescaling time by the common factor L, every mode has unit saturation rate. With positive damping, the saturation rate has two regimes. If μp ≫ λKF , then β ≈ L, so the mode behaves like undamped K-FAC. If μp ≪ λKF , then β ≈ LλKF 
+
+μp. Small target modes therefore recover the GD-like target sensitivity and saturate more slowly. K-FAC always approaches a nonzero target asymptotically in this model. It does not have the finite-time relay behavior of ideal Muon. 
+
+Role of depth. Undamped K-FAC removes the depth-dependent factorization exponent from all three phases. Positive modes have finite birth time, unsupported modes decay exponentially, and nonzero targets saturate exponentially. Depth remains only through the common multiplicative rate 
+
+L under the present time convention. Positive damping restores depth dependence through p. For birth, the asymptotic delay changes from finite at L = 1 to logarithmic at L = 2 and polynomial for L > 2, with exponent p − 1. For unsupported modes, damping produces a polynomial tolerance time for L > 1. For saturation, small target modes have rate LλKF 
+
+μp, whereas sufficiently large modes approach the undamped rate L.Thus damping does more than stabilize curvature inversion. It determines which spectral modes experience natural-gradient-like cancellation and which retain the depth-dependent mobility of Eu-clidean GD. 
+
+Takeaway. Undamped K-FAC cancels the factorization-induced small-mode barrier while preserv-ing target-amplitude ordering: positive modes are born in finite time, unsupported modes decay exponentially, and all nonzero targets share the same normalized saturation rate. Additive damping introduces the spectral threshold σbKF = λ1/p  
+
+> KF
+
+. Above this threshold, K-FAC remains curvature cor-rected; below it, the Euclidean depth laws return. Consequently, any fixed positive damping restores logarithmic or polynomial birth delays, produces a polynomial zero-target tail for L > 1, and slows the saturation of small target modes. Damping is therefore an inductive-bias parameter, not merely a numerical regularizer. 
+
+## F EXPERIMENTAL SETTINGS 
+
+We use synthetic deep linear models to isolate the effects of optimizer geometry from nonlinear representation effects. Unless stated otherwise, the effective predictor is W = WLWL−1 · · · W1,
+
+and all hidden layers have width equal to the input dimension. We use deterministic full batch optimization and do not use weight decay or explicit regularization. All experiments use double precision. We report continuous optimization time as t = kη , where k is the optimization step and 
+
+η is the step size or learning rate. For comparisons between optimizers, the learning rate is selected separately for each method be-cause the update magnitudes induced by Euclidean, normalized, spectral, and curvature based meth-ods are not directly comparable. For each optimizer, we sweep the learning rate over a logarithmic grid and select the largest value that gives stable monotone progress without numerical divergence or persistent finite step oscillations away from the target, as well as reaches a similar loss within an admissible range for all optimizers. We then adjust the training horizon so that all optimizers reach approximately the same final training loss. In general, we aim to train for 5000 steps or lower, with each optimizer attaining similar losses. This prevents differences in optimization progress from being interpreted as differences in spectral bias. We plot comparisons of spectra, effective rank, and mode trajectories over time. 39 Preprint 
+
+Spectral diagnostics. Write W = U ΣV ⊤ for a singular value decomposition, with singular val-ues σ1 ≥ · · · ≥ σr ≥ 0, where r = min( d0, d L). We measure stable rank and effective rank using 
+
+srank( W ) = 
+
+P 
+
+> i
+
+σ2
+
+> i
+
+σ21
+
+, erank( W ) = exp − X
+
+> k
+
+pk log pk
+
+!
+
+, p k = σk
+
+P 
+
+> i
+
+σi
+
+.
+
+These quantities measure different aspects of spectral concentration and are reported together with the training loss. Thresholds and conventions at W = 0 are fixed before comparison. 
+
+Matrix Factorization. The first setting directly matches the full observation model used in the phase analysis. The input and output dimensions are both 16 , and the network has depth L =
+
+{2, 4, 8} with hidden width 16 . The target matrix is diagonal in the initialization basis, 
+
+M = diag (1 .00 , 0.80 , 0.60 , 0.45 , 0.32 , 0.24 , 0.18 , 0.12 , 0, . . . , 0) ,
+
+and therefore has rank 8. This choice gives several positive target modes with distinct amplitudes together with unsupported modes whose target is zero. We use balanced aligned initialization. For the phase law experiments, positive target modes are ini-tialized at effective amplitude 10 −3 while zero target modes are initialized at 0.2. The corresponding factor amplitudes are initialized as ai(0) = s1/L i , so that σi(0) = ai(0) L = si for every depth. This initialization preserves the aligned construction used in the theoretical analysis and allows birth and decay to be observed within the same run. The phase statistics are evaluated every optimization step. For birth, we track the local mode dy-namics over 10 −3 ≤ σ ≤ 10 −1. For decay, we follow a zero target mode from its initial active value toward zero. For saturation, we estimate the residual dynamics r(t) = |μ − σ(t)| for every positive target mode. Local exponents are estimated by linear regression over a short sliding window in logarithmic coordinates. The default window contains 21 recorded points. For instantaneous Adam, we set β1 = β2 = 0 so that the update isolates the normalization mech-anism studied in the phase analysis. For Muon, we use exact compact polar normalization and no momentum. For cumulative Shampoo, the left and right statistics are accumulated without expo-nential forgetting, the initial accumulator is λSh I, and the preconditioner is refreshed at every step. For K-FAC, we use the additive block Gauss Newton model analyzed in the theory. No update norm clipping is applied to K-FAC. The reported learning rates are numerical integration parameters rather than quantities used to establish optimizer rankings. We train all the optimizers for 5000 steps or lower, and the hyperparameters are given in Table 2. Table 2: Optimizer settings used for the full observation matrix factorization experiments using depths L = {2, 4, 8}. The learning rates are chosen to keep the discrete trajectories close to the corresponding continuous flows while allowing all methods to reach comparable final training loss. Each optimizer is trained for a maximum of 5000 steps. Optimizer Learning rate Main state parameter State value Depth GD 5 × 10 −2 none none L = {2, 4}
+
+GD 8 × 10 −2 none none L = {8}
+
+Adam 1 × 10 −3 (β1, β 2, ϵ ) (0 , 0, 0.02) L = {2, 4}
+
+Adam 2 × 10 −3 (β1, β 2, ϵ ) (0 , 0, 0.02) L = {8}
+
+Muon 5 × 10 −4 momentum 0 L = {2, 4, 8}
+
+Shampoo 2 × 10 −4 λSh 10 −6 L = {2, 4, 8}
+
+K-FAC, undamped 5 × 10 −4 λKF 0 L = {2, 4, 8}
+
+K-FAC, damped 5 × 10 −4 λKF 5 × 10 −3 L = {4, 8}
+
+K-FAC, damped 8 × 10 −4 λKF 5 × 10 −3 L = {2}
+
+Linear Regression. The second setting studies optimizer behavior when the observations do not uniquely determine the effective matrix. We generate noiseless multivariate linear regression 40 Preprint Table 3: Optimizer settings used for underdetermined linear regression with depth L = 4 . The learning rates were selected over a different grid for different optimizers to obtain stable training and comparable final data loss. Optimizer Learning rate Main state parameter State value GD 3 none none Adam 0.05 (β1, β 2, ϵ ) (0 , 0, 0.02) 
+
+Muon 0.00025 momentum 0
+
+Shampoo 0.003 λSh 10 −6
+
+K-FAC 0.0005 λKF 10 −4
+
+data according to Y = Wtrue X, and train the deep linear predictor by minimizing L(W ) = 
+
+> 12n
+
+∥W X − Y ∥2 
+
+> F
+
+.
+
+We use input output data dimensions as 64 and number of training samples 32 , so the regression problem is underdetermined. The teacher has rank 8. Its nonzero singular values are the same as M
+
+in matrix factorization. The left and right singular directions of the teacher are sampled once from random orthogonal bases and are kept fixed across all optimizer runs. The entries of X ∈ R64 ×32 are sampled independently from a standard Gaussian distribution. We do not whiten the data. Consequently, ΣX = 1
+
+n XX ⊤ has rank at most 32 and is not proportional to the identity. The effective gradient is therefore G = ( W − Wtrue )Σ X , rather than W − Wtrue .This setting intentionally leaves the balanced aligned scalar regime and tests whether the optimizer dependent spectral behavior persists when the data covariance couples target modes. The network has depth L = 4 and hidden width 64 . Each layer is initialized with a scaled orthog-onal matrix. The initialization scale is 0.1, giving a small but full rank initial effective predictor while avoiding the extremely slow escape observed for much smaller deep products. The same initialization is used for all optimizers. For this experiment, we use similar optimizers as in the matrix factorization experiment. The specific learning rates are selected for this finite sample problem rather than transferred from the aligned full observation experiments. Because the optimizers have substantially different effective step sizes, a common iteration count does not imply a common degree of optimization. We therefore use the final training loss as the primary tuning criterion. For each optimizer, the learning rate is selected from a different grid for different optimizers, particularly smaller values for strongly preconditioned methods when neces-sary. Configurations that diverge or produce persistent numerical instability are discarded. Among the stable configurations, we select the largest learning rate for which the final training loss is within a factor of two of the lowest final loss attained by the compared methods. We obtain the hyperpa-rameters in Table 3 such that the training loss for all optimizers is within a range when trained for 
+
+5000 steps or lower. Unless stated otherwise, all reported curves use the same random data realization and the same model initialization across optimizers. 
+
+Hardware and Code. Each experiment is run on 1 NVIDIA GeForce RTX 4090 and takes about 5-10 minutes to complete for each optimizer. A functioning code repository is provided as a zip file in the supplementary material. 
+
+## G ADDITIONAL EXPERIMENTAL RESULTS 
+
+G.1 MATRIX FACTORIZATION 
+
+We first evaluate the optimizer dependent spectral dynamics in the full observation matrix factoriza-tion setting described in Sec. F, where the theoretical phase laws apply most directly. 41 Preprint 10 −4 10 −3 10 −2 10 −1 10 0 10 1 10 2 10 3                 
+
+> Time t
+> 0.00.20.40.60.81.0
+> Learned frac.  σ(t)/μ (a) Same mode, different emergence
+> GD Adam Muon Shampoo K-FAC
+> 0.20.40.60.81.0
+> Target mode μ
+> 10 −2
+> 10 −1
+> 10 0
+> 10 1
+> 10 2
+> Birth time to  0.03
+> (b) Optimizers differ in target sensitivity
+> 10 −410 −310 −210 −110 010 110 210 3
+> Time t
+> 10 −3
+> 10 −2
+> 10 −1
+> Mode amplitude  σ
+> (c) Unsupported modes decay differently
+
+Figure 4: Optimizer geometry sets the pace of spectral learning evaluation in matrix factoriza-tion. (a) Evolution of a weak target mode with μ = 0 .18 , shown as the learned fraction σ(t)/μ . GD exhibits the factorization induced small mode barrier, whereas normalization and preconditioning substantially accelerate emergence. (b) Birth time to the common amplitude b = 0 .03 as the target mode μ varies. While ideal Muon is independent of the target mode ordering during birth, other optimizers are target sensitive. (c) Decay trajectories for an unsupported mode with target μ = 0 .Ideal Muon removes the mode in finite time, undamped K-FAC produces exponential decay, while GD, instantaneous Adam with fixed stabilization, and cumulative Shampoo retain increasingly slow tails near zero. Optimizer geometry therefore determines which spectral components emerge, per-sist, and disappear. Fig. 4 provides a broader validation of the theory in addition to the theoretical evaluation done in Sec. 6. Fig. 5 compares the optimization and rank dynamics. Although the methods eventually reach similar losses and effective ranks, their trajectories differ substantially. GD learns the target modes sequentially and retains a low effective rank for longer, consistent with the small mode mobility factor σp. Adam reduces this separation and activates weaker modes much earlier. Muon produces an even more rapid redistribution of spectral mass, reflecting its normalized spectral update. Cu-mulative Shampoo initially behaves more like GD but quickly changes regime as its accumulated preconditioner adapts. K-FAC exhibits a smoother evolution in which curvature correction reduces the factorization induced separation between mode time scales. The stable and effective rank curves therefore mainly differ during the transient phase, while their later agreement reflects the unique full observation target rather than identical optimization dynamics. 
+
+Figure 5: Optimization and rank dynamics in matrix factorization. All optimizers train the same depth L = 4 deep linear factorization toward the same rank eight target and reach comparable final training loss. Left: training loss over optimization steps. Middle: stable rank of W . Right: 
+
+effective rank of W . The optimizers exhibit markedly different transient rank dynamics despite converging toward similar final spectra. GD retains a lower rank representation for longer, whereas Adam, Muon, cumulative Shampoo, and K-FAC alter the rate at which spectral mass is distributed across modes. The singular value trajectories in Fig. 6 make these differences more explicit. Under GD, larger target modes emerge first and weaker modes remain close to initialization for substantially longer times. This sequential emergence is the dynamical mechanism underlying its transient low rank bias. Adam substantially compresses these mode dependent delays, while Muon causes the positive modes to follow nearly the same spectral clock until they encounter their different target amplitudes. Cumulative Shampoo exhibits the predicted two stage behavior: early growth remains separated across modes, after which accumulated gradient history accelerates the weaker modes and reduces target amplitude dependence. K-FAC produces the weakest separation between mode trajectories, consistent with curvature correction compensating for the factorization induced mobility barrier. These trajectories illustrate that optimizers reaching similar final solutions can nevertheless pass through very different spectral representations during training. 42 Preprint 
+
+(a) GD (b) Adam (c) Muon 
+
+(d) Shampoo (e) K-FAC 
+
+Figure 6: Singular mode trajectories reveal optimizer dependent spectral clocks. GD exhibits strongly sequential learning;Adam reduces these delays, while Muon makes the modes evolve on nearly the same clock until they approach their respective targets. Cumulative Shampoo shows a faster history adapted growth of weaker modes. K-FAC further reduces the factorization induced separation between mode time scales through curvature correction. The common final amplitudes are determined by the unique full observation target, whereas the transient trajectories expose the distinct inductive biases of the optimizers. G.1.1 ROLE OF DEPTH 
+
+Finally, we vary the factorization depth while keeping the target matrix and effective initialization fixed. Fig. 7 focuses on Adam, cumulative Shampoo, and K-FAC for depths = {2, 4, 8} because their state dependent transitions make this interaction particularly explicit. For Adam, increasing depth raises both the GD like and normalized exponents and changes the location of the ϵ controlled crossover. For Shampoo, depth changes both the initial exponent p and the history adapted exponent 
+
+p − 1, while also shifting the point at which accumulated history overtakes the initial damping. For damped K-FAC, increasing depth strengthens the GD like small mode regime through p, whereas the curvature corrected regime continues to approach exponent zero. The corresponding depth de-pendence for GD and Muon follows directly from their fixed exponents p and q and is consistent with the phase laws reported in the main text. 10 −3 10 −2 10 −1           
+
+> Current mode amplitude σ(t)
+> 0.60.81.01.21.41.6
+> Birth exponent  αb Adam L= 2
+> L= 4
+> L= 8
+> 10 −310 −210 −1
+> Current mode amplitude σ(t)
+> 0.00 0.25 0.50 0.75 1.00 1.25 1.50 1.75
+> Cumulative Shampoo
+> 10 −310 −210 −1
+> Current mode amplitude σ(t)
+> 0.00 0.25 0.50 0.75 1.00 1.25 1.50 1.75
+> K-FAC
+
+Figure 7: Depth changes both the spectral exponents and the optimizer state transitions. Left: 
+
+for instantaneous Adam, increasing depth changes both the GD like exponent p = 2 − 2/L and the normalized exponent q = 1 − 1/L . Middle: for cumulative Shampoo, depth changes the initial GD like exponent p, the history adapted exponent p − 1, and the amplitude at which accumulated history begins to dominate. Right: for damped KFAC, deeper factorizations strengthen the small mode GD like barrier while curvature correction still drives the exponent toward zero above the damping controlled mobility threshold. 43 Preprint Fig. 8 studies the decay exponent of unsupported modes and focuses on Shampoo saturation, where mode order reversal can happen theoretically. For decay, increasing depth changes the small mode geometry through p = 2 − 2/L . Empirically, GD, Adam, and cumulative Shampoo follow the predicted increase αd = p + 1 = 3 − 2 
+
+> L
+
+, so deeper factorizations produce a steeper polynomial tail near zero. In contrast, undamped K-FAC remains close to αd = 1 , reflecting its exponential decay law, while Muon exhibits a much weaker depth dependence, consistent with its normalized geometry. Thus depth does not affect all optimizers uniformly: it strengthens the Euclidean style barrier for GD like methods, but has much less impact on normalized or curvature corrected decay. For saturation, we focus on cumulative Shampoo because it is the optimizer for which mode reversal can happen and depth also affects it. Its asymptotic saturation coefficient depends on both target size and accumulated history, βSh (μ) = Lμ p
+
+D⋆(μ) . As a result, the ordering of saturation rates across target modes need not agree with GD. The right panel shows precisely this effect. For L = 2 , β
+
+decreases with μ, so smaller target modes saturate faster than larger ones. For L = 8 , the trend reverses and larger target modes saturate faster. The case L = 4 lies near the transition and becomes weakly nonmonotone. This depth driven change in ordering is the clearest empirical instance of the Shampoo mode reversal predicted by the theory. 2 4 8                         
+
+> Depth L
+> 0.00.51.01.52.02.5
+> Decay exponent  αd
+> GD Adam Muon Shampoo K-FAC 10 02×10 −13×10 −14×10 −16×10 −1
+> Target mode μ
+> 10 2
+> 2×10 1
+> 3×10 1
+> 4×10 1
+> 6×10 1
+> 2×10 2
+> 3×10 2
+> Saturation coefficient  β
+> Shampoo
+> L=2 L=4 L=8
+
+Figure 8: Effect of depth on decay laws and Shampoo saturation order. Left: empirical decay exponents αd for unsupported modes as depth varies. All optimizers closely follow the theoretical predictions in general. Right: Shampoo saturation coefficient β as a function of the positive target mode μ for L ∈ { 2, 4, 8}. Shampoo is singled out here because its saturation phase is where mode order reversal can happen theoretically. At L = 2 , β decreases with μ, so smaller target modes saturate faster. At L = 8 , the ordering reverses and larger target modes saturate faster, while L = 4 
+
+lies near the transition. These results show that depth influences not only the size of the phase law exponents, but also the ordering of mode fitting under optimizer state dynamics. Figs. 9 and 11 show the evolution of training loss and ranks throughout training for depths L = 2 
+
+and 8, respectively. In both cases, all optimizers converge to similar rank and loss solutions. But their trajectory shows the difference. Similarly, Figs. 10 and 12 show the singular mode trajectories for L = 2 and 8, respectively. In both cases, we observe that GD exhibits strong sequential learning and at the same time other optimizers also begin to show stronger bias with depth. 
+
+Figure 9: Optimization and rank dynamics in full observation matrix factorization. All opti-mizers train the same depth L = 2 deep linear factorization toward the same rank eight target and reach comparable final training loss. 44 Preprint    
+
+> (a) GD (b) Adam (c) Muon
+> (d) Shampoo (e) K-FAC (damped)
+
+Figure 10: Singular mode trajectories show optimizer dependent spectral clocks for L = 2 .
+
+Figure 11: Optimization and rank dynamics in full observation matrix factorization. All opti-mizers train the same depth L = 8 deep linear factorization toward the same rank eight target and reach comparable final training loss.    
+
+> (a) GD (b) Adam (c) Muon
+> (d) Shampoo (e) K-FAC (damped)
+
+Figure 12: Singular mode trajectories show optimizer dependent spectral clocks for L = 8 .
+
+45 Preprint G.1.2 ADAM PHASE TRANSITIONS 
+
+In addition to the birth exponent plot in Fig. 3a, here we provide the validation of the theoretical decay exponent and saturation rate in Fig. 13. Both align well with the theory. For saturation rate, we choose to plot normalized residual x = rμ q
+
+ϵ vs normalized saturation rate βLμ p/ϵ for ease of representation. Theoretically, near the saturation σ ≈ μ, so β = Lμ p
+
+rμ q + ϵ . Therefore, the normalized saturation rate reduces to ϵrμ q + ϵ = 11 + x .
+
+The normalized representation also clarifies why comparing the raw saturation rates can be mis-leading. The limiting rate scales as 1/ϵ , so changing ϵ by several orders of magnitude produces the same change in the vertical scale even when the underlying dynamics are identical after rescaling. In contrast, the normalized variables remove this trivial dependence. 10 −5 10 −4 10 −3 10 −2 10 −1
+
+Current mode amplitude σ(t)        
+
+> 0.70.80.91.01.11.21.31.41.5
+> Birth exponent  αb = 10 −2
+> = 10 −3
+> = 10 −4
+> = 10 −6
+> GD αb= 1 .50
+> SignGD αb= 0 .75 10 −5
+> 10 −4
+> 10 −3
+> 10 −2
+
+Current mode amplitude σ(t)            
+
+> 0.75 1.00 1.25 1.50 1.75 2.00 2.25 2.50
+> Decay exponent  αd
+> = 10 −2
+> = 10 −3
+> = 10 −4
+> = 10 −6
+> SignGD αd= 0 .75
+> GD αd= 2 .50 10 −310 −110 110 310 5
+
+x = rμ q/ (normalized)       
+
+> 10 −5
+> 10 −4
+> 10 −3
+> 10 −2
+> 10 −1
+> 10 0
+> βLμ p/  (normalized)
+> rμ q ' 
+> = 10 −2
+> = 10 −3
+> = 10 −4
+> = 10 −6
+> Theory 1/(1 + x)
+
+Figure 13: Birth, decay and normalized saturation dynamics of Adam. Dotted and solid lines mark the theoretical and empirical values for L = 4 , respectively. These values align in both the decay and saturation rate plots across different values of ϵ.G.1.3 SHAMPOO PHASE TRANSITIONS 
+
+Fig. 14 examines how the cumulative Shampoo state changes the birth, decay, and saturation dynam-ics. The birth transition from the initial GD exponent p toward the history adapted exponent p − 1 is discussed in the main text. Here we focus on the corresponding decay and saturation behavior. For an unsupported mode with μ = 0 , different values of λSh produce different finite amplitude trajec-tories, but all curves approach the common asymptotic exponent p + 1 = 2 .5 for L = 4 . Even in the case of smaller damping, the deviation from 2.5 is only in the second decimal place. Thus Shampoo retains a polynomial tail near zero rather than the finite time extinction of ideal Muon. For a positive target mode, the right panel shows each damping level approaches a distinct constant rate, with the empirical curves closely following the finite amplitude prediction. The limiting rate depends on the entire accumulated gradient history and this distinguishes Shampoo from memoryless spectral normalization and explains why modes with similar current residuals can saturate at different rates. 10 −4 10 −3 10 −2 10 −1
+
+Current mode amplitude σ(t)                  
+
+> 0.60.81.01.21.4
+> Birth exponent  αb
+> λSh = 10 −2
+> λSh = 10 −3
+> λSh = 10 −4
+> λSh = 10 −6
+> history ≈damping initial p=1.50 accumulator p−1 = 0.50 10 −22×10 −3
+> 3×10 −3
+> 4×10 −3
+> 6×10 −3
+
+Current mode amplitude σ(t)      
+
+> 2.500 2.502 2.504 2.506 2.508 2.510 2.512 2.514
+> Decay exponent  αd λSh = 10 −2
+> λSh = 10 −3
+> λSh = 10 −4
+> λSh = 10 −6
+> Theory Empirical Asymptotic p+ 1 = 2 .50 10 −3
+> 10 −2
+> 10 −1
+
+Residual r(t) = |μ − σ(t)|            
+
+> 10 1
+> 2×10 1
+> 3×10 1
+> 4×10 1
+> 6×10 1
+> Saturation rate  β
+> λSh = 10 −2
+> λSh = 10 −3
+> λSh = 10 −4
+> λSh = 10 −6
+> Theory Empirical
+
+Figure 14: Phase transitions induced by cumulative Shampoo state. Solid curves show empirical dynamics and dashed curves show the corresponding aligned theory for depth L = 4 . Together, the panels show that cumulative Shampoo changes its effective spectral geometry during training while retaining explicit memory of earlier gradient activity. 46 Preprint G.1.4 K-FAC P HASE TRANSITIONS 
+
+Fig. 15 illustrates how additive damping in K-FAC controls the spectral dynamics across all three phases. For birth, positive damping restores the small mode barrier. Reducing λKF shifts this transition toward smaller mode amplitudes, recovering the undamped KFAC regime. For an unsupported mode, the middle panel confirms that stronger damping causes the polynomial regime to appear at larger amplitudes, following the theory. Near a positive target, K-FAC’s saturation rate is nearly constant along the final approach to the target and approaches the undamped value L = 4 as λKF → 0. Thus, K-FAC damping controls not only numerical regularization of the curvature inverse, but also the spectral scale below which GD-like dynamics reappear. 10 −4 10 −3 10 −2 10 −1
+
+Current mode amplitude σ(t)         
+
+> −0.25 0.00 0.25 0.50 0.75 1.00 1.25 1.50
+> Birth exponent  αb
+> λKF = 10 −2
+> λKF = 10 −3
+> λKF = 10 −4
+> λKF = 10 −6
+> GD αb= 1 .50
+> K-FAC ( λKF = 0 )αb= 0 10 −4
+> 10 −3
+> 10 −2
+> 10 −1
+
+Current mode amplitude σ(t)        
+
+> 1.01.21.41.61.82.02.22.4
+> Decay exponent  αd
+> λKF = 10 −2
+> λKF = 10 −3
+> λKF = 10 −4
+> λKF = 10 −6
+> Undamped K-FAC αd= 1
+> GD αd= 2 .50 10 −3
+> 10 −2
+> 10 −1
+
+Residual r(t) = |μ − σ(t)|              
+
+> 3.96 ×10 0
+> 3.97 ×10 0
+> 3.98 ×10 0
+> 3.99 ×10 0
+> 4×10 0
+> Saturation rate  β
+> λKF = 10 −2
+> λKF = 10 −3
+> λKF = 10 −4
+> λKF = 10 −6
+> Theory Empirical
+
+Figure 15: Additive K-FAC damping controls the spectral phase transitions. Solid curves show empirical dynamics and dashed curves show the corresponding aligned theory for depth L = 4 . It shows that λKF defines a spectral mobility threshold separating curvature corrected dynamics from GD-like behavior. G.2 LINEAR REGRESSION 
+
+We next consider a less structured setting in which the effective predictor is trained by underdeter-mined linear regression as described in Sec. F. This experiment tests whether the qualitative predic-tions persist once our simplifying assumptions Assumptions 1 to 3 are removed. Fig. 16 shows that the optimizers reach comparable training losses and converge to nearly identical final singular spectra. This agreement is important: the pronounced differences observed during training are not simply consequences of one method converging to a substantially different level of fit. Nevertheless, the stable and effective ranks evolve differently. Thus similar terminal predictors need not imply similar spectral learning dynamics. The singular value trajectories in Fig. 17 make this distinction particularly clear. GD exhibits pro-nounced separation between the emergence times of successive singular values, consistent with the factorization induced small mode barrier derived in the aligned setting. Adam substantially compresses these delays. Muon produces a markedly more synchronized growth of the singular spectrum, consistent with normalization reducing mode dependent mobility differences. Cumula-tive Shampoo also accelerates weaker spectral components after its preconditioner has accumulated sufficient history, while K-FAC produces comparatively smooth growth across the spectrum through curvature correction. These effects remain visible even though the singular vectors are not fixed and the data covariance couples the modes. The experiment therefore supports the interpretation of the theoretical phase laws as mechanisms governing transient spectral learning rather than merely properties of the special aligned model. Exact exponents depend on the aligned reduction, but the resulting qualitative distinctions persist in the more practical underdetermined regression problem. 47 Preprint 
+
+Figure 16: Optimizer dependent dynamics persist in underdetermined linear regression. We train the same deep linear predictor on an underdetermined, nonwhitened regression problem using GD, Adam, Muon, cumulative Shampoo, and KFAC. All methods reach comparable final loss and final spectra of W despite substantially different transient dynamics shown by the stable rank and effective rank throughout training. The optimizer geometry strongly changes how quickly spectral mass concentrates.    
+
+> (a) GD (b) Adam (c) Muon
+> (d) Shampoo (e) K-FAC
+
+Figure 17: Singular value trajectories in nonaligned underdetermined linear regression. Al-though all methods approach similar final singular spectra, their transient spectrum differ substan-tially. The qualitative optimizer dependent dynamics predicted by the aligned phase analysis remain visible even when the empirical data covariance couples singular directions and the exact scalar mode reduction no longer holds. 48

@@ -1,0 +1,4579 @@
+Title: Fast Regularized Policy Mirror Descent with One-Step TD Updates
+
+URL Source: https://arxiv.org/pdf/2609.39837v1
+
+Published Time: Thu, 01 Oct 2026 01:53:02 GMT
+
+Number of Pages: 30
+
+Markdown Content:
+# Fast Regularized Policy Mirror Descent with One-Step TD Updates 
+
+## Qipei Chen 1, Wenye Li 2, Yule Sun 2, and Ke Wei 21School of Mathematical Sciences, Fudan University 
+
+> 2
+
+## School of Data Science, Fudan University October 1, 2026 
+
+Abstract 
+
+Policy mirror descent (PMD) enjoys fast convergence in regularized Markov decision processes (MDPs), but existing guarantees often rely on exact or increasingly accurate policy evaluation. We analyze PMD coupled with a persistent critic advanced by one temporal-difference (TD) update. For finite discounted MDPs, we establish global linear convergence in value for exact coordinate-wise Bellman updates, with any positive constant actor stepsize and arbitrary finite critic initialization. The proof combines a resolvent-based auxiliary distribution with a decaying Bellman-violation correction and a potential weighted by inverse coordinate weights. We then study stochastic TD–PMD with general strongly convex mirror maps under a single off-policy Markov trajectory. With suitably chosen constant stepsizes and a finite-batch TD update, the method achieves an expected value gap of ϵ after eO
+
+ 1(1 −γ)5 eσbϵ
+
+
+
+transitions. The stochastic analysis relies on the trajectory-wise Lipschitz continuity of the regularizer, derived from uniform bounds on vertex Bregman divergences, together with a visitation-weighted resolvent estimate for signed critic-error propagation that yields an inverse-linear dependence on behavior coverage 
+
+eσb. In contrast to many prior guarantees for regularized policy optimization, our sample-complexity guarantee holds without trajectory resets, generative-model access, or nested policy-evaluation loops. Numerical results are consistent with the theoretical convergence analysis. 
+
+# 1 Introduction 
+
+Regularization is a fundamental design principle in reinforcement learning (RL). In large-scale problems with complex dynamics, maintaining sufficient randomness in the policy iterates helps sustain exploration and reduces the risk of committing too early to a suboptimal policy [Husain et al., 2021]. A variety of policy regularizers have been studied in RL, including those based on Shannon entropy, Kullback–Leibler divergence, the squared ℓ2 norm, and Tsallis entropies [Geist et al., 2019; Lan, 2023; Chow et al., 2018; Lee et al., 2018; 2019]. Regularizers can also promote sparse or structured policies and incorporate information from a reference policy. Therefore, regularized formulations are very useful for robust, cost-constrained, and safety-aware decision making [Husain et al., 2021; Lan, 2023; Ying et al., 2022]. A general optimization framework for regularized RL is the regularized form of policy mirror descent (PMD). In this formulation, PMD improves the policy through a statewise Bregman-proximal step and, depending on the choice of mirror geometry, includes softmax natural policy gradient (NPG) and projected Q-ascent (PQA) as representative instances corresponding to KL and Euclidean geometries, respectively [Kakade, 2001; Xiao, 2022; Lan, 2023]. Entropy-regularized NPG and regularized PMD enjoy global geometric convergence [Cen et al., 2022; Lan, 2023]. The framework has since been extended in several directions. Generalized PMD (GPMD) accommodates broad classes of convex, possibly nonsmooth regularizers and controlled evaluation and update errors [Zhan et al., 2023]. Homotopic, lookahead, implicit-exploration, 1arXiv:2609.39837v1 [cs.LG] 30 Sep 2026 policy-convergence, and strongly-polynomial variants further extend PMD in terms of convergence guarantees and computational properties [Li et al., 2024; Protopapas and Barakat, 2024; Li and Lan, 2025; Li and Wei, 2026; Ju and Lan, 2026]. For strongly convex mirror maps, regularized stochastic PMD can attain an 
+
+eO(ϵ−1) dependence on the target accuracy [Lan, 2023]. In this paper, we focus on regularized PMD. For the algorithmic and theoretical developments of unregularized PMD or its specific instances, see Xiao [2022]; Johnson et al. [2023]; Agarwal et al. [2021]; Liu et al. [2024; 2025a]; Lin and Zhang [2022]; Khodadadian et al. [2021]; Alfano et al. [2023]; Alfano and Rebeschini [2022]; Chelu and Precup [2024]; Feng et al. [2024] and references therein. Existing analyses of regularized PMD, however, generally rely on exact or sufficiently accurate evaluation of the current policy before each policy improvement step. For example, exact analyses assume access to the current policy’s action values [Cen et al., 2022; Lan, 2023; Johnson et al., 2023], while inexact analyses assume an evaluation oracle that returns action-value estimates with controlled error [Zhan et al., 2023]. Under generative-model access, samples are used at each policy iteration to estimate the current action values to a prescribed accuracy [Lan, 2023; Li et al., 2024; Johnson et al., 2023]; under Markovian sampling, a temporal-difference or Monte Carlo evaluator is run for a fixed current policy before the next policy improvement step [Lan, 2023; Li and Lan, 2025]. Thus, across these settings, the critic is required to track the action-value function of the current policy sufficiently accurately before the next actor update is performed. In contrast, temporal-difference (TD) learning provides a natural way to update the critic incrementally from its current estimate, without solving the Bellman equation for each newly updated policy to a prescribed accuracy before the next policy update [Sutton, 1988; Sutton and Barto, 2018]. A related idea appears in regularized modified policy iteration [Geist et al., 2019], where only finitely many Bellman evaluation steps are performed between successive policy improvements. With a single evaluation step, the resulting recursion is closely related to one-step TD–PMD. More recently, one-step TD–PMD has been analyzed for unregularized MDPs in the exact and generative-model settings [Liu et al., 2025b], and subsequently under online Markov data [Li et al., 2025]. In the exact setting, under a one-sided Bellman initialization, a monotonicity property of TD–PMD with constant stepsizes is established and used to derive last-iterate sublinear convergence, and a shifting argument then extends the result to arbitrary initializations [Liu et al., 2025b]. Regularized settings have also been studied with single-loop methods that do not require each intermediate policy to be evaluated to a prescribed accuracy. For entropy-regularized zero-sum Markov games, a single-loop actor–critic method uses optimistic NPG for the policy step and updates the value estimate at each iteration [Cen et al., 2023]. Another related approach for regularized MDPs is value mirror descent (VMD), which takes a value-iteration approach: it computes a mirror-based policy update from the current value estimate and then applies a Bellman value update under the resulting policy [Jia and Lan, 2026]. In the exact setting, linear convergence of VMD is established with an increasing, epoch-dependent stepsize schedule for one-sided Bellman initialization. The proof also uses a monotonicity property of the value iterates, similar to the analysis developed in Liu et al. [2025b]. Despite these developments, for standard regularized PMD with only one TD update per policy step, a fast convergence rate in the exact setting remains unavailable, while the corresponding convergence theory under Markov data is still lacking. Existing one-step TD–PMD results focus on unregularized MDPs, covering the exact, generative-model, and online Markov-data settings [Liu et al., 2025b; Li et al., 2025]. In regularized settings, the single-loop method of Cen et al. [2023] is developed specifically for the entropy regularizer corresponding to NPG, and its discounted analysis is full-information, requires sufficiently small actor stepsizes, and uses a full-support evaluation distribution. Value mirror descent (VMD) [Jia and Lan, 2026] considers regularized MDPs from a different algorithmic perspective: it replaces the classical PMD recursion with an epochwise value-iteration scheme and achieves linear convergence in the exact setting with increasing, epoch-dependent policy stepsizes under a one-sided Bellman initialization. Its stochastic variant, SVMD, further relies on generative-model samples to construct increasingly accurate estimates of the transition kernel and performs variance-reduced Bellman updates on the estimated models, making it model-based rather than model-free TD. Thus, a general convergence theory for standard regularized PMD with one-step TD updates is still missing. The online setting is further complicated by the need to track a changing target from a single off-policy Markov trajectory. This gap motivates the central question of this paper: 2Can the fast convergence of standard regularized PMD be retained when the critic is updated by only one TD step, even along a single off-policy Markov trajectory? 
+
+We answer this question affirmatively. The main contributions of this paper are summarized as follows. See Table 1 for a comparison with existing regularized PMD results. • Linear convergence for regularized TD–PMD with coordinate-wise critic updates. We study regularized TD–PMD with coordinate-wise Bellman updates, allowing any fixed diagonal update matrix W
+
+satisfying 0 < W ≤ I. For a general convex mirror map, we establish its global linear convergence in value. When the mirror map is strongly convex, policy convergence is further obtained. The results allow arbitrary finite critic initialization, any admissible initial policy, every positive constant actor stepsize, and any state distribution used to evaluate performance, including distributions without full support. The analysis relies on a decaying Bellman-violation correction for arbitrary critic initialization, a change-of-distribution argument that avoids full-support requirements, and a potential function with inverse coordinate weights for nonuniform critic updates. • Stochastic convergence under a single off-policy Markov trajectory. With a constant actor stepsize and a finite-batch TD update per policy step, regularized TD–PMD with a strongly convex mirror map achieves an expected value gap of at most ϵ after 
+
+eO
+
+ 1(1 − γ)5 eσbϵ
+
+
+
+observed transitions, where eσb > 0 is the smallest stationary state–action visitation probability under the behavior policy. The method uses neither trajectory resets nor generative-model access and requires no nested policy-evaluation loop. A key step in the analysis is to establish trajectory-wise Lipschitz continuity of the regularizer from uniform bounds on vertex Bregman divergences, which in turn controls the policy drift and the variation of Qπk 
+
+> τ
+
+. We then use a signed critic-error decomposition and geometric output weighting to handle the resulting moving-target and Markov-sampling errors. Table 1: Comparison of regularized PMD results. Here, eσb is the smallest stationary visitation probability over state–action pairs; under near-uniform coverage, eσb = Θ(( |S||A| )−1).                                             
+
+> Algorithm Iteration complexity Stochastic access Sample complexity
+> Cen et al. [2022] NPG O
+> 
+> log (1 −ητ )−1(ϵ−1)
+> 
+> ——Cen et al. [2023] TD–NPG O
+> 
+> log [1 −(1 −γ)ητ
+> 4]−1(ϵ−1)
+> 
+> ——Zhan et al. [2023] PMD O
+> 
+> log [1 −ητ
+> 1+ ητ (1 −γ)] −1(ϵ−1)
+> 
+> ——Lan [2023] PMD O
+> 
+> log γ−1(ϵ−1)
+> 
+> Generative model eO
+> |S||A|
+> (1 −γ)5ϵ
+> 
+> Jia and Lan [2026] VMD O (1 −γ)−1log 2([(1 −γ)ϵ]−1)Generative model eO
+> |S||A|
+> (1 −γ)5ϵ
+> 
+> This work TD–PMD O
+> 
+> log [1 −wmin {1−γ, ητ
+> 1+ ητ }]−1(ϵ−1)
+> Off-policy Markov data eO
+> 1(1 −γ)5eσbϵ
+> 
+
+The rest of the paper is organized as follows. Section 2 introduces the problem setup and necessary preliminaries. Section 3 studies regularized TD–PMD with deterministic coordinate-wise Bellman updates. Section 4 extends the analysis to off-policy Markov data. Section 5 presents numerical results that are consistent with the theoretical convergence analysis, and Section 6 concludes the paper with directions for future work. The proofs of the main results and technical lemmas are deferred to the appendices. 32 Problem Setting and Preliminaries 
+
+## 2.1 Regularized MDPs and Bellman preliminaries 
+
+Model and objective. Consider a finite discounted Markov decision process (MDP) M = ( S, A, P, r, γ ),where S and A are finite state and action spaces, P (· | s, a ) is the transition kernel, r(s, a ) is the immediate reward, and γ ∈ [0 , 1) is the discount factor. Letting ∆( A) be the probability simplex over A, the space of stationary Markov policies is 
+
+Π := {π : π(· | s) ∈ ∆( A), s ∈ S} .
+
+Under a policy π, a trajectory evolves according to at ∼ π(· | st) and st+1 ∼ P (· | st, a t).
+
+Assumption 2.1 (Reward and regularization parameters) . For simplicity, assume 0 ≤ r(s, a ) ≤ 1 for every 
+
+(s, a ) ∈ S × A . Unless otherwise specified, we also assume τ > 0 throughout the paper. Let h : R|A| → R ∪ { +∞} be a convex policy regularizer and write hπ (s) := h(π(· | s)) . For a policy π, its regularized state- and action-value functions are 
+
+V πτ (s) := E
+
+" ∞X
+
+> t=0
+
+γt r(st, a t) − τ h π (st) s0 = s
+
+#
+
+,Qπτ (s, a ) := E
+
+"
+
+r(s0, a 0) + 
+
+> ∞
+
+X
+
+> t=1
+
+γt r(st, a t) − τ h π (st) (s0, a 0) = ( s, a )
+
+#
+
+.
+
+It follows directly from the definitions that 
+
+V πτ (s) = Ea∼π(·| s)[Qπτ (s, a )] − τ h π (s), Qπτ (s, a ) = r(s, a ) + γEs′∼P (·| s,a )[V πτ (s′)] .
+
+For μ ∈ ∆( S), we abbreviate V πτ (μ) := Es∼μ[V πτ (s)] .
+
+Bellman representation. The Bellman operators acting on state- and action-value vectors are 
+
+T πτ V (s) := E a∼π(·| s) 
+
+> s′∼P(·| s,a )
+
+[r(s, a ) + γV (s′) − τ h π (s)] ,
+
+Fπτ Q(s, a ) := Es′∼P (·| s,a )
+
+> a′∼π(·| s′)
+
+[r(s, a ) + γQ (s′, a ′) − τ γh π (s′)] .
+
+Equivalently, 
+
+T πτ V = rπ + γP π 
+
+> S
+
+V − τ h π 
+
+> S
+
+,
+
+Fπτ Q = r + γP π
+
+> S×A
+
+Q − τ γh π
+
+> S×A
+
+,
+
+where rπ (s) := P 
+
+> a
+
+π(a | s)r(s, a ), hπ 
+
+> S
+
+(s) := hπ (s), hπ
+
+> S×A
+
+(s, a ) := P 
+
+> s′
+
+P (s′ | s, a )hπ (s′). The state and state–action transition matrices are defined by 
+
+P π 
+
+> S
+
+(s, s ′) := X
+
+> a∈A
+
+π(a | s)P (s′ | s, a ),P π
+
+> S×A
+
+(( s, a ), (s′, a ′)) := P (s′ | s, a )π(a′ | s′).
+
+The following standard properties, which can be verified directly, identify policy evaluation with a contractive fixed-point problem. 
+
+Lemma 2.1 (Bellman fixed points and contractions) . For any π ∈ Π, the regularized values are the unique fixed points 
+
+T πτ V πτ = V πτ , Fπτ Qπτ = Qπτ .
+
+Moreover, T πτ and Fπτ are monotone and are γ-contractions in the supremum norm: for all conformable V, V ′
+
+and Q, Q ′,
+
+∥T πτ V − T πτ V ′∥∞ ≤ γ∥V − V ′∥∞, ∥F πτ Q − F πτ Q′∥∞ ≤ γ∥Q − Q′∥∞.
+
+4The optimal Bellman operators are 
+
+Tτ V (s) := max 
+
+> p∈∆( A)
+
+(X
+
+> a
+
+p(a) r(s, a ) + γEs′∼P (·| s,a )V (s′) − τ h (p)
+
+)
+
+,
+
+Fτ Q(s, a ) := r(s, a ) + γEs′∼P (·| s,a )
+
+
+
+max 
+
+> p∈∆( A)
+
+{⟨ p, Q (s′, ·)⟩ − τ h (p)}
+
+
+
+.
+
+Under the mirror-map conditions below, an optimal stationary policy exists for the finite discounted MDP [Puterman, 1994; Geist et al., 2019]. We fix one such policy π∗ 
+
+> τ
+
+and write 
+
+V ∗ 
+
+> τ
+
+(s) := V π∗ 
+
+> τ
+> τ
+
+(s) = max  
+
+> π∈Π
+
+V πτ (s), Q∗ 
+
+> τ
+
+(s, a ) := Qπ∗ 
+
+> τ
+> τ
+
+(s, a ) = max  
+
+> π∈Π
+
+Qπτ (s, a ).
+
+Distributional notation and policy comparison. A stationary distribution of P π 
+
+> S
+
+, denoted νπ , is any distribution satisfying (νπ )⊤P π 
+
+> S
+
+= ( νπ )⊤. The associated stationary state–action distribution is σπ (s, a ) := 
+
+νπ (s)π(a | s), which satisfies (σπ )⊤P π 
+
+> S×A
+
+= ( σπ )⊤. For an initial distribution μ ∈ ∆( S), the discounted state-visitation measure is 
+
+dπμ(s) := (1 − γ)E
+
+" ∞X
+
+> t=0
+
+γt1{st = s} s0 ∼ μ
+
+#
+
+.
+
+For the fixed optimal policy π∗ 
+
+> τ
+
+, write d∗ 
+
+> μ
+
+:= dπ∗ 
+
+> τ
+> μ
+
+, and let ν∗ denote any stationary distribution of P π∗ 
+
+> τ
+> S
+
+.We do not assume that ν∗ is unique or has full support. The following performance difference lemma converts a policy comparison into an average one-step Bellman advantage. 
+
+Lemma 2.2 (Performance difference lemma [Kakade and Langford, 2002]) . For any π, π ′ ∈ Π and μ ∈ ∆( S),
+
+V πτ (μ) − V π′ 
+
+> τ
+
+(μ) = 11 − γ Es∼dπμ
+
+T πτ V π′ 
+
+> τ
+
+(s) − V π′ 
+
+> τ
+
+(s)
+
+= 11 − γ Es∼dπμ
+
+h
+
+⟨π(· | s) − π′(· | s), Q π′ 
+
+> τ
+
+(s, ·)⟩ − τ  hπ (s) − hπ′
+
+(s)i
+
+.
+
+## 2.2 Mirror geometry and policy mirror descent 
+
+Mirror map and standing conditions. The following condition is standard for mirror maps. 
+
+Assumption 2.2 (Mirror map) . The function h : R|A| → R ∪ { +∞} is proper, closed, and convex, with 
+
+dom h ⊇ [0 , 1] |A| . It is differentiable on intdom h and essentially smooth: if pn ∈ intdom h and pn → p ∈
+
+bd dom h, then ∥∇ h(pn)∥∞ → ∞ .Essential smoothness ensures that a Bregman-proximal update initialized in rint(dom h) remains in this set. This boundary condition is automatically satisfied when dom h = R|A| , since the domain has no boundary, as in the quadratic mirror map used by PQA. The negative-entropy mirror map h(p) = P 
+
+> a
+
+p(a) log p(a) on 
+
+[0 , ∞)|A| is also essentially smooth because 1 + log p(a) → −∞ as p(a) ↓ 0.Assumption 2.2 implies that h is bounded on the simplex. Indeed, since h is closed, it attains a finite minimum on the compact set ∆( A), while convexity gives 
+
+h(p) ≤ X
+
+> a
+
+p(a)h(ea) ≤ max  
+
+> a
+
+h(ea),
+
+where ea is the a-th vertex of the simplex. Hence, throughout the paper, we set 
+
+Hh := max  
+
+> p∈∆( A)
+
+|h(p)| < ∞.
+
+It follows immediately that all regularized value functions admit uniform bounds. 5Lemma 2.3 (Bounded regularized values) . Under Assumptions 2.1 and 2.2, for every π ∈ Π,
+
+|V πτ (s)| ≤ 1 + τ H h
+
+1 − γ , |Qπτ (s, a )| ≤ 1 + τ γH h
+
+1 − γ .
+
+Policy-distance guarantees and the stochastic analysis additionally use the following condition. 
+
+Assumption 2.3 (Strong convexity) . The mirror map h is λ-strongly convex on ∆( A) with respect to the 
+
+ℓ1-norm for some λ > 0.
+
+Bregman geometry and the PMD update. For q ∈ rint(dom h), let 
+
+Dh(p ∥ q) := h(p) − h(q) − ⟨∇ h(q), p − q⟩
+
+be the Bregman divergence generated by h. We use the statewise and distribution-averaged notation 
+
+Dππ′ (s) := Dh(π(· | s) ∥ π′(· | s)) , Dππ′ (μ) := Es∼μ[Dππ′ (s)] .
+
+Assumption 2.4 (Policy initialization) . Every PMD scheme considered below is initialized with a target policy satisfying 
+
+π0(· | s) ∈ rint(dom h) ∩ ∆( A), s ∈ S .
+
+For quadratic geometry, Assumption 2.4 is automatic because dom h = R|A| . For negative entropy, it requires a full-support initial target policy. Given a critic Qkτ and a policy stepsize η > 0, PMD updates every state according to 
+
+πk+1 (· | s) ∈ arg max 
+
+> p∈∆( A)
+
+
+
+⟨p, Q kτ (s, ·)⟩ − τ h (p) − 1
+
+η Dh(p ∥ πk(· | s)) 
+
+
+
+. (1) Note that a maximizer exists under Assumption 2.2. Moreover, when Assumption 2.3 holds, the maximizer is unique, and otherwise πk+1 (· | s) denotes any maximizer. With negative entropy, Dh is the Kullback–Leibler divergence and the update recovers the geometry of entropy-regularized natural policy gradient [Kakade, 2001; Cen et al., 2022]; with a quadratic h, it is a Euclidean proximal policy update. Classical PMD typically constructs Qkτ by exact or controlled-inexact policy evaluation. In this paper, Qkτ
+
+is instead a TD critic and need not equal Qπk 
+
+> τ
+
+. The critic therefore evolves together with the policy sequence, rather than serving as an exact evaluator of each current policy. The main technical tool is the three-point inequality associated with the statewise PMD subproblem. 
+
+Lemma 2.4 (Three-point inequality [Xiao, 2022; Lan, 2023; Jia and Lan, 2026]) . Suppose Assumption 2.2 holds and πk(· | s) ∈ rint(dom h) ∩ ∆( A). Then the update (1) satisfies πk+1 (· | s) ∈ rint(dom h) ∩ ∆( A) and, for every p ∈ ∆( A),
+
+⟨πk+1 (· | s) − p, Q kτ (s, ·)⟩ − τ  hπk+1 (s) − h(p) ≥ η−1h
+
+Dπk+1  
+
+> πk
+
+(s) + (1 + ητ )Dpπk+1 (s) − Dpπk (s)
+
+i
+
+,
+
+where Dpπ (s) := Dh(p ∥ π(· | s)) .
+
+# 3 Exact TD–PMD with Coordinate-Wise Bellman Updates 
+
+Regularized TD–PMD with coordinate-wise critic updates is given in Algorithm 1. At each iteration, after the policy update, the critic is advanced by a single Bellman update rather than being evaluated to its fixed point. The weight matrix W allows different update magnitudes across state–action coordinates and satisfies 
+
+W := diag( w(s, a ) : ( s, a ) ∈ S × A ) , 0 < w := min  
+
+> s,a
+
+w(s, a ) ≤ w := max  
+
+> s,a
+
+w(s, a ) ≤ 1. (2) 6It is evident that W = I corresponds to the full one-step Bellman update, whereas a general diagonal W
+
+allows coordinate-wise partial updates. Moreover, since W is invertible, for every fixed policy π,
+
+Q = Q + W (Fπτ Q − Q) ⇐⇒ Fπτ Q = Q. (3) Thus coordinate-wise weighting changes the dynamics and the rate, but not the policy-evaluation fixed point 
+
+Qπτ or the optimal fixed point Q∗ 
+
+> τ
+
+.
+
+Algorithm 1 Exact Regularized TD–PMD with Coordinate-Wise Bellman Updates 
+
+Input: Iterations K, initial finite critic Q0 
+
+> τ
+
+, policy π0, policy stepsize η > 0, and diagonal update matrix W
+
+satisfying (2). 
+
+for k = 0 , 1, . . . , K − 1 do (Policy update) For every s ∈ S , set 
+
+πk+1 (· | s) ∈ arg max 
+
+> p∈∆( A)
+
+n
+
+⟨p, Q kτ (s, ·)⟩ − τ h (p) − η−1Dh(p ∥ πk (· | s)) 
+
+o
+
+.
+
+(Critic update) Set 
+
+Qk+1  
+
+> τ
+
+= Qkτ + W
+
+
+
+Fπk+1  
+
+> τ
+
+Qkτ − Qkτ
+
+
+
+.
+
+end for Output: Last-iterate policy πK and critic QKτ .
+
+The value-convergence guarantee of Algorithm 1 is stated in Theorem 3.4, followed by the action-value, policy, and unregularized corollaries. To prepare for the proof of Theorem 3.4, we first isolate three technical lemmas. Lemma 3.1 handles an arbitrary initial critic, Lemma 3.2 allows the error to be evaluated under an arbitrary state distribution, and Lemma 3.3 combines the critic and policy errors into a single potential recursion. Iterating this recursion gives the value bound in Theorem 3.4 under the basic mirror-map condition. The Bellman representation then gives the action-value bound in Corollary 3.5, while the additional strong-convexity condition converts the Bregman term into the policy-distance bound in Corollary 3.6. Throughout the rest of this section, assume that Assumptions 2.2 and 2.4 hold, W satisfies (2), and Q0 
+
+> τ
+
+is finite. The following Bellman violation quantity plays an important role in the analysis: 
+
+δk := W [Qkτ − F πk 
+
+> τ
+
+Qkτ ]+ ∞
+
+w(1 − γ) , k ≥ 0. (4) It measures how far the current critic is from being a Bellman subsolution for πk that satisfies Qkτ ≤ F πk 
+
+> τ
+
+Qkτ ,corresponding to δk = 0 . Lemma 3.1 shows that δk decays linearly and can be used to characterize the difference between Qkτ and Qπk 
+
+> τ
+
+.
+
+Lemma 3.1 (Bellman violation and critic comparison) . For every k ≥ 0,
+
+0 ≤ δk+1 ≤ [1 − w(1 − γ)] δk, Qkτ − δk1 ≤ Qπk 
+
+> τ
+
+≤ Q∗ 
+
+> τ
+
+. (5) 
+
+Moreover, Qkτ − δk1 ≤ Qπk+1  
+
+> τ
+
+.
+
+In order to handle a general μ ∈ ∆( S), we need to introduce an auxiliary distribution that is tied to μ:
+
+(ν∗ 
+
+> μ,ξ
+
+)⊤ := 
+
+
+
+1 − γξ
+
+ ∞X
+
+> t=0
+
+ γξ
+
+t
+
+μ⊤ P π∗
+
+> τ
+> S
+
+t,
+
+where ξ ∈ (γ, 1) is fixed. Define 
+
+γμ,ξ := ξ − (ξ − γ) min   
+
+> s:ν∗
+> μ,ξ (s)>0
+
+μ(s)
+
+ν∗ 
+
+> μ,ξ
+
+(s) .
+
+7Then γμ,ξ ∈ [γ, ξ ]. The next lemma gives the relations between μ and ν∗ 
+
+> μ,ξ
+
+. The first relation shows exactly how one transition under π∗ 
+
+> τ
+
+links ν∗ 
+
+> μ,ξ
+
+back to itself and to μ, and this is the identity that replaces stationarity. The scalar γμ,ξ records the loss incurred when comparing their weights, as quantified by the second relation. 
+
+Lemma 3.2 (Change of distribution) . For every s ∈ S , the preceding definitions satisfy 
+
+γ(ν∗ 
+
+> μ,ξ
+
+)⊤P π∗ 
+
+> τ
+> S
+
+= ξ(ν∗ 
+
+> μ,ξ
+
+)⊤ − (ξ − γ)μ⊤, (ξ − γ)μ(s) ≥ (ξ − γμ,ξ )ν∗ 
+
+> μ,ξ
+
+(s) (6) Define the potential function 
+
+Lk := X
+
+> s,a
+
+ν∗ 
+
+> μ,ξ
+
+(s)π∗ 
+
+> τ
+
+(a | s)
+
+w(s, a )
+
+ Q∗ 
+
+> τ
+
+(s, a ) − Qkτ (s, a ) + δk
+
+ + max {γμ,ξ (η−1 + τ ), η −1}Dπ∗ 
+
+> τ
+> πk
+
+(ν∗ 
+
+> μ,ξ
+
+), (7) and, for brevity, set 
+
+ρ := 1 − w · min 
+
+
+
+1 − γμ,ξ , ητ 
+
+1 + ητ 
+
+
+
+. (8) 
+
+Lemma 3.3 (Potential recursion) . For every k ≥ 0,
+
+Lk+1 ≤ ρLk + (1 − γ) 1 − w X
+
+> s,a
+
+ν∗ 
+
+> μ,ξ
+
+(s)π∗ 
+
+> τ
+
+(a | s)
+
+w(s, a )
+
+!
+
+δk. (9) For k ≥ 0, define 
+
+Ck := ρkL0 + (1 − γ) 1 − w X
+
+> s,a
+
+ν∗ 
+
+> μ,ξ
+
+(s)π∗ 
+
+> τ
+
+(a | s)
+
+w(s, a )
+
+! k−1X
+
+> j=0
+
+ρk−1−j δj . (10) Furthermore, for any finite set X and distributions ζ, ν ∈ ∆( X ) satisfying supp( ζ) ⊆ supp( ν), define 
+
+ζν ∞
+
+:= max 
+
+> x∈supp( ν)
+
+ζ(x)
+
+ν(x) . (11) We are now ready to present the main result of this section. 
+
+Theorem 3.4 (Value convergence under arbitrary evaluation distributions) . Suppose Assumptions 2.1, 2.2, and 2.4 hold, let W satisfy (2) , and let Q0 
+
+> τ
+
+be finite. Fix μ ∈ ∆( S) and ξ ∈ (γ, 1) . For every k ≥ 0,
+
+0 ≤ V ∗ 
+
+> τ
+
+(μ) − V πk+1  
+
+> τ
+
+(μ) ≤ μν∗ 
+
+> μ,ξ ∞
+
+Ck. (12) 
+
+In particular, 
+
+0 ≤ V ∗ 
+
+> τ
+
+(ν∗) − V πk+1  
+
+> τ
+
+(ν∗) ≤ C k.
+
+Here Ck is evaluated with μ = ν∗, so that ν∗ 
+
+> μ,ξ
+
+= ν∗ and γμ,ξ = γ.
+
+Structure and decay of Ck. The bound Ck consists of the initial-error term ρkL0 and a term accumulating the Bellman violations. The coefficient of the latter term measures variation in the coordinate weights under 
+
+ν∗ 
+
+> μ,ξ
+
+(s)π∗ 
+
+> τ
+
+(a | s), as seen from the identity 
+
+1 − w X
+
+> s,a
+
+ν∗ 
+
+> μ,ξ
+
+(s)π∗ 
+
+> τ
+
+(a | s)
+
+w(s, a ) = X
+
+> s,a
+
+ν∗ 
+
+> μ,ξ
+
+(s)π∗ 
+
+> τ
+
+(a | s)
+
+
+
+1 − ww(s, a )
+
+
+
+.
+
+8This coefficient is nonnegative and vanishes when all coordinate weights are equal, in which case Ck = ρkL0.For general coordinate weights, Lemma 3.1 yields δj ≤ [1 − w(1 − γ)] j δ0. Since 1 − w(1 − γ) ≤ ρ < 1, it follows that 
+
+Ck =
+
+(
+
+O(ρk), if 1 − w(1 − γ) < ρ, O(( k + 1) ρk), if 1 − w(1 − γ) = ρ. 
+
+Thus the bound enjoys linear convergence for every finite initial critic. For W = I, the contraction factor reduces to 
+
+ρ = max {γμ,ξ , (1 + ητ )−1}.
+
+Moreover, the Bellman-violation term vanishes, so Ck = ρkL0. If, μ = ν∗, where ν∗ is stationary under π∗ 
+
+> τ
+
+,then γμ,ξ = γ, and the density-ratio factor equals one. The value bound therefore simplifies to 
+
+0 ≤ V ∗ 
+
+> τ
+
+(ν∗) − V πk+1  
+
+> τ
+
+(ν∗) ≤ ρkL0, ρ = max γ, (1 + ητ )−1 .
+
+For 1 + ητ ≥ γ−1, this factor equals γ, matching the rate in the strongly convex PMD theorem of Lan [2023]. For smaller stepsizes, the factor is governed by (1+ ητ )−1. Thus the bound covers every η > 0. For comparison, Zhan et al. [2023] obtain the linear-convergence factor 1 − ητ (1 − γ)/(1 + ητ ) ≥ max {γ, (1 + ητ )−1}.
+
+Choice of ξ. First note that the density-ratio factor in Theorem 3.4 is bounded even when μ lacks full support. Indeed, by the definition of ν∗ 
+
+> μ,ξ
+
+, we have ν∗ 
+
+> μ,ξ
+
+(s) ≥ (1 − γ/ξ )μ(s) for every state, and hence 
+
+μν∗ 
+
+> μ,ξ ∞
+
+≤ ξξ − γ < ∞. (13) Moreover, the bounds display a finite-time tradeoff. The inequality γμ,ξ ≤ ξ gives 
+
+ρ ≤ 1 − w · min 
+
+
+
+1 − ξ, ητ 
+
+1 + ητ 
+
+
+
+.
+
+Choosing ξ closer to γ decreases the critic term in this upper bound. On the other hand, the universal density-ratio bound ξ/ (ξ − γ) decreases as ξ increases and diverges as ξ ↓ γ. The midpoint choice ξ = (1 + γ)/2
+
+gives the simple bounds 
+
+γμ,ξ ≤ 1 + γ
+
+2 , μν∗ 
+
+> μ,ξ ∞
+
+≤ 1 + γ
+
+1 − γ .
+
+Coordinate weighting can improve convergence. Although W = I yields the smallest contraction factor in the theoretical bound, nonuniform coordinate weights can nevertheless lead to faster convergence on certain MDPs. The following example illustrates this. Consider a two-state, two-action MDP with 
+
+S = {s1, s 2} and A = {a1, a 2}. Both actions move deterministically to the other state, and, for i = 1 , 2, let 
+
+r(si, a 1) = 12 , r(si, a 2) = 0 , γ = 12 , τ = η = 1 , h(p) = 12 ∥p∥22.
+
+For a policy π, write p(si) = π(a1 | si). The regularized one-step reward at si is 
+
+p(si)2 − 12
+
+p(si)2 + (1 − p(si)) 2 = 116 −
+
+
+
+p(si) − 34
+
+2
+
+.
+
+Since transitions do not depend on the action, the optimal policy is π∗ 
+
+> τ
+
+(· | si) = (3 /4, 1/4) at both states. For evaluation distribution μ = (1 /2, 1/2) , the value gap is V ∗ 
+
+> τ
+
+(μ) − V πτ (μ) = P2
+
+> i=1
+
+ p(si) − 34
+
+2. Let πk and π′
+
+> k
+
+denote the policy sequences generated by Algorithm 1 with 
+
+W = diag(3 /4, 3/4, 1, 1) , W ′ = I, (14) 9respectively. Write pk(si) = πk(a1 | si) and p′
+
+> k
+
+(si) = π′
+
+> k
+
+(a1 | si) for their respective probabilities of choosing 
+
+a1 at si. Both runs use the same initialization: 
+
+Q0 
+
+> τ
+
+=
+
+3/4 01 0
+
+
+
+, p0(si) = p′
+
+> 0
+
+(si) = 12 , i = 1 , 2. (15) Both actions at each state lead to the same next state, so their Bellman targets differ only in the immediate reward. At each state, the two actions have equal update weights in each run, so subtracting the critic updates gives 
+
+Qk+1  
+
+> τ
+
+(si, a 1) − Qk+1  
+
+> τ
+
+(si, a 2) =  1 − w(si, a 1) Qkτ (si, a 1) − Qkτ (si, a 2) + 12 w(si, a 1). (16) The policy update along these trajectories is 
+
+pk+1 (si) = 12 pk(si) + 14 + 14
+
+Qkτ (si, a 1) − Qkτ (si, a 2).
+
+Applying (16) with (14) and (15), we obtain, for every k ≥ 1,
+
+pk(s1) = 34 − 14 4−k, p′
+
+> k
+
+(s1) = 34 − 18 2−k, pk(s2) = p′
+
+> k
+
+(s2) = 34 . (17) Substituting (17) into the value gap gives, for every k ≥ 1,
+
+V ∗ 
+
+> τ
+
+(μ) − V πk 
+
+> τ
+
+(μ) = 116 16 −k, V ∗ 
+
+> τ
+
+(μ) − V π′ 
+
+> k
+> τ
+
+(μ) = 164 4−k.
+
+Thus W gives a strictly smaller value gap than W ′ for every k ≥ 2 and improves its exact exponential factor from 1/4 to 1/16 .Fix (s, a ) and set μ = P (· | s, a ). By the Bellman equations, one has 
+
+Q∗ 
+
+> τ
+
+(s, a ) − Qπk+1  
+
+> τ
+
+(s, a ) = γV ∗ 
+
+> τ
+
+(μ) − V πk+1  
+
+> τ
+
+(μ).
+
+Applying Theorem 3.4 establishes the convergence of the action values. 
+
+Corollary 3.5 (Action-value convergence) . Suppose Assumptions 2.1, 2.2, and 2.4 hold, let W satisfy (2) ,and let Q0 
+
+> τ
+
+be finite. Fix (s, a ) ∈ S × A , ξ ∈ (γ, 1) , and set μ = P (· | s, a ). With ν∗ 
+
+> μ,ξ
+
+, γμ,ξ , and Ck evaluated at this choice of μ, we obtain 
+
+0 ≤ Q∗ 
+
+> τ
+
+(s, a ) − Qπk+1  
+
+> τ
+
+(s, a ) ≤ γ μν∗ 
+
+> μ,ξ ∞
+
+Ck. (18) If we further assume the strong convexity of h (Assumption 2.3), then by the definition of Lk,
+
+λ
+
+2 Es∼ν∗
+
+> μ,ξ
+
+∥πk(· | s) − π∗ 
+
+> τ
+
+(· | s)∥21
+
+ ≤ Dπ∗ 
+
+> τ
+> πk
+
+(ν∗ 
+
+> μ,ξ
+
+) ≤ η
+
+max {γμ,ξ (1 + ητ ), 1} Lk.
+
+Using μ(s) ≤ ∥ μ/ν ∗ 
+
+> μ,ξ
+
+∥∞ν∗ 
+
+> μ,ξ
+
+(s) for every state transfers this estimate to the expectation under μ. The proof of Theorem 3.4 establishes the bound Lk ≤ C k in (52), which immediately yields the policy convergence of Algorithm 1. 
+
+Corollary 3.6 (Policy convergence under strong convexity) . Fix μ ∈ ∆( S) and ξ ∈ (γ, 1) . Suppose in addition that Assumption 2.3 holds. Then, for every k ≥ 0,
+
+Es∼μ
+
+∥πk(· | s) − π∗ 
+
+> τ
+
+(· | s)∥21
+
+ ≤ 2ηλ max {γμ,ξ (1 + ητ ), 1}
+
+μν∗ 
+
+> μ,ξ ∞
+
+Ck. (19) 10 The argument used to prove Theorem 3.4 also applies when τ = 0 , and yields two types of convergence: a constant stepsize gives an averaged sublinear rate, whereas geometrically increasing stepsizes give a last-iterate linear rate. This agrees with the behavior established for unregularized one-step TD–PMD by Liu et al. [2025b]. For clarity, the proof of the following result is also included in Appendix A. 
+
+Corollary 3.7 (Unregularized exact TD–PMD) . Consider the variable-stepsize variant of Algorithm 1 with 
+
+τ = 0 and W = I, where the policy stepsize at iteration k is ηk > 0, and omit the subscript τ . Fix an unregularized optimal policy π∗ and a stationary distribution ν∗ of P π∗S , and let δk be defined by (4) with 
+
+τ = 0 and W = I. If ηk ≡ η > 0, then, for every K ≥ 1,
+
+1
+
+K
+
+> K−1
+
+X
+
+> k=0
+
+[V ∗(ν∗) − V πk+1 (ν∗)] ≤
+
+P 
+
+> s,a
+
+ν∗(s)π∗(a | s) Q∗(s, a ) − Q0(s, a ) + δ0
+
+ + η−1Dπ∗ 
+
+> π0
+
+(ν∗)(1 − γ)K , (20) 
+
+where V π and V ∗ denote the unregularized value function of π and optimal value function, respectively. If instead the positive stepsizes satisfy ηk+1 ≥ ηk/γ for every k ≥ 0, then the last iterate satisfies 
+
+V ∗(ν∗) − V πk+1 (ν∗) ≤ γk
+
+(X
+
+> s,a
+
+ν∗(s)π∗(a | s) Q∗(s, a ) − Q0(s, a ) + δ0
+
+ + η−10 Dπ∗ 
+
+> π0
+
+(ν∗)
+
+)
+
+. (21) 
+
+# 4 Regularized TD–PMD under Off-Policy Markov Data 
+
+In this section, we consider the sample complexity of regularized TD–PMD under off-policy Markov data. The method is summarized in Algorithm 2 and maintains a target policy πk and a critic Qkτ , while all data are generated by a fixed behavior policy πb. At iteration k, after updating the target policy from πk to πk+1 ,the algorithm collects a batch of Bk consecutive transitions 
+
+τk = {(skt , a kt , r kt , s kt+1 )}Bk −1
+
+> t=0
+
+along the behavior trajectory, where akt ∼ πb(· | skt ) and skt+1 ∼ P (· | skt , a kt ). The trajectory is not reset between iterations: the terminal state of the current batch becomes the initial state of the next one, sk+1 0 = skBk .For each sampled transition, we form a coordinate-wise TD increment whose target is 
+
+rkt + γEa∼πk+1 (·| skt+1 )
+
+Qkτ (skt+1 , a ) − τ γh πk+1 (skt+1 ).
+
+The resulting TD increments are aggregated using deterministic weights {ckt }Bk −1 
+
+> t=0
+
+, and their weighted average is used to perform one critic update with stepsize αk.
+
+Assumption 4.1 (Behavior-policy coverage and ergodicity) . The behavior policy has full support: πb(a |
+
+s) > 0 for every (s, a ) ∈ S × A . The transition matrix P πb 
+
+> S
+
+is irreducible and aperiodic. Under Assumption 4.1, the behavior chain has a unique stationary distribution νπb ∈ ∆( S) with strictly positive entries [Levin and Peres, 2017, Corollary 1.17 and Proposition 1.19], satisfying 
+
+(νπb )⊤P πb 
+
+> S
+
+= ( νπb )⊤, νπb (s) > 0 (s ∈ S ). (23) Moreover, by Levin and Peres [2017, Theorem 4.9], there exist constants mb > 0 and κb ∈ (0 , 1) such that 
+
+dTV 
+
+ P πb
+
+> S
+
+t(s, ·), ν πb
+
+
+
+≤ mbκtb, s ∈ S , t ≥ 0. (24) We also assume the following standard conditions on the initialization, critic stepsizes, batch lengths, and within-batch averaging weights. Note that the restriction Q0 
+
+> τ
+
+= 0 in the assumption is made only to simplify the displayed constants. 11 Algorithm 2 Finite-Batch Off-Policy Expected TD–PMD 
+
+Input: Iterations K, initial action-value vector Q0 
+
+> τ
+
+= 0 , initial policy π0, critic stepsizes {αk }, constant policy stepsize η > 0, initial state s0, batch sizes {Bk }, and averaging weights {ckt }.Set s00 = s0.
+
+for k = 0 , 1, . . . , K − 1 do (Policy update) Update the target policy by 
+
+∀ s ∈ S : πk+1 (·| s) = arg max 
+
+> p∈∆( A)
+
+D
+
+p, Q kτ (s, ·)
+
+E
+
+− τ h (p) − 1
+
+η Dpπk (s)
+
+
+
+.
+
+(Sampling) Starting from sk 
+
+> 0
+
+, collect the consecutive batch τk under the behavior policy πb,
+
+τk = {(skt , a kt , r kt , s kt+1 )}Bk −1 
+
+> t=0
+
+, where rkt = r(skt , a kt ), akt ∼ πb(·| skt ), skt+1 ∼ P (·| skt , a kt ),
+
+and set sk+1 0 = skBk .
+
+(Critic update) Construct the expected TD error, 
+
+δkt (s, a ) := 1[( skt , a kt ) = ( s, a )] ·
+
+h
+
+rkt + γEa∼πk+1 (·| skt+1 )
+
+h
+
+Qkτ (skt+1 , a )
+
+i
+
+− τ γh πk+1 (skt+1 ) − Qkτ (skt , a kt )
+
+i
+
+,
+
+¯δk (s, a ) :=  
+
+> Bk−1
+
+X
+
+> t=0
+
+ckt · δkt (s, a ).
+
+Update the critic by 
+
+Qk+1  
+
+> τ
+
+(s, a ) = Qkτ (s, a ) + αk · ¯δk (s, a ).
+
+end for 
+
+Independently sample bK ∈ { 0, . . . , K − 1} according to 
+
+P( bK = k) = (1 − ρ)ρK−k−1
+
+1 − ρK , k = 0 , . . . , K − 1, ρ = (1 + ητ )−1. (22) Output π bK .
+
+Assumption 4.2 (Algorithmic conditions) . The critic initialization and parameters satisfy Q0 
+
+> τ
+
+= 0 , 0 <αk = α ≤ 1, and Bk ≥ 1. The weights {ckt }Bk −1 
+
+> t=0
+
+are deterministic and satisfy ckt ≥ 0 and PBk −1 
+
+> t=0
+
+ckt = 1 .To proceed, define the following quantities based on the stationary distribution νπb :
+
+σπb (s, a ) := νπb (s)πb(a | s), Σb := diag( σπb (s, a ) : s, a ) ,
+
+eσb := min  
+
+> s,a
+
+σπb (s, a ) > 0, σb := max  
+
+> s,a
+
+σπb (s, a ). (25) If each sampled TD increment is replaced by its expectation under the stationary behavior distribution, it is not hard to see that the critic update reduces to the coordinate-wise update in Algorithm 1 with W = αΣb,where the coordinate weights are determined by the stationary state–action visitation probabilities. Thus Theorem 3.4 immediately yields a noise-free value-convergence benchmark. 
+
+Corollary 4.1 (Noise-free behavior-weighted value convergence) . Suppose the assumptions of Theorem 3.4 and Assumption 4.1 hold. Fix ξ ∈ (γ, 1) , and let W = αΣb with 0 < ασ b ≤ 1. Consider the stationary distribution ν∗ of P π∗ 
+
+> τ
+> S
+
+for simplicity. Since ν∗ 
+
+> ν∗,ξ
+
+= ν∗ and γν∗,ξ = γ, a direct application of Theorem 3.4 gives 
+
+0 ≤ V ∗ 
+
+> τ
+
+(ν∗) − V πk+1  
+
+> τ
+
+(ν∗) ≤ C k,
+
+where Ck in (10) is evaluated with μ = ν∗ and W = αΣb, so that w = αeσb and w = ασ b.
+
+12 Next, we are going to show that the stochastic variant (i.e., Algorithm 2) attains an expected value gap of at most ϵ after eO
+
+ 1(1 −γ)5 eσbϵ
+
+
+
+observed transitions. The analysis requires bounds on the additional errors caused by finite batches, temporal dependence, and nonstationary batch initialization. As in the previous section, we first present the technical results used in the proof of the main result. The first result shows that the critic iterates are uniformly bounded. 
+
+Lemma 4.2 (Bounded critic iterates) . Under Assumption 4.2, for every k ≥ 0,
+
+|Qkτ (s, a )| ≤ 1 + τ γH h
+
+1 − γ , (s, a ) ∈ S × A .
+
+Because the target policy changes from one batch to the next, we also need to control the variation of the policy iterates and the exact action-value targets along the PMD trajectory. The following lemma derives this trajectory-local regularity from the Bregman geometry of the iterates, without imposing a global Lipschitz condition on the regularizer or its gradient. 
+
+Lemma 4.3 (Trajectory regularity along the PMD iterates) . Define 
+
+Lh := Hh + 12 max 
+
+
+
+max  
+
+> s∈S , a ∈A
+
+Dh(ea ∥ π0(· | s)) , 2(1 + τ H h)
+
+τ (1 − γ)
+
+
+
+. (26) 
+
+For every k ≥ 0 and s ∈ S ,
+
+|hπk+1 (s) − hπk (s)| ≤ Lh ∥πk+1 (· | s) − πk(· | s)∥1 . (27) 
+
+Moreover, 
+
+∥πk+1 − πk∥1,∞ ≤ ηλ
+
+ 1 + τ γH h
+
+1 − γ + τ L h
+
+
+
+, (28) 
+
+where ∥π − π′∥1,∞ := max s∈S ∥π(· | s) − π′(· | s)∥1, and 
+
+∥Qπk+1  
+
+> τ
+
+− Qπk 
+
+> τ
+
+∥∞ ≤ γ
+
+1 − γ
+
+ 1 + τ γH h
+
+1 − γ + τ L h
+
+
+
+∥πk+1 − πk∥1,∞. (29) We also need to separate the deterministic benchmark from the error caused by Markov sampling. Identify 
+
+δkt and ¯δk with vectors in R|S||A| and define the centered errors 
+
+ωkt := δkt − Σb
+
+ Fπk+1  
+
+> τ
+
+Qkτ − Qkτ
+
+, ¯ωk :=  
+
+> Bk−1
+
+X
+
+> t=0
+
+ckt ωkt . (30) The critic recursion is therefore given by 
+
+Qk+1  
+
+> τ
+
+= Qkτ + αkΣb
+
+ Fπk+1  
+
+> τ
+
+Qkτ − Qkτ
+
+ + αk ¯ωk. (31) Let 
+
+Hk := σ s00, (sℓt , a ℓt , r ℓt , s ℓt+1 ) : 0 ≤ ℓ < k, 0 ≤ t < B ℓ
+
+ (32) be the information available before the k-th batch is sampled. In particular, sk 
+
+> 0
+
+, Qkτ , and πk+1 are Hk-measurable. The conditional sampling-bias can be bounded as follows. 
+
+Lemma 4.4 (Conditional bias of the stochastic critic error) . Under Assumption 4.2, for every k ≥ 0 and 
+
+(s, a ) ∈ S × A ,
+
+|E[¯ ωk(s, a ) | H k]| ≤ 2mb(1 + τ γH h)1 − γ 
+
+> Bk−1
+
+X
+
+> t=0
+
+ckt κtb. (33) 
+
+Equivalently, the same bound holds for ∥E[¯ ωk | H k]∥∞, and consequently it also holds for |E[¯ ωk(s, a )] |.
+
+13 The factor κtb measures how much dependence on the initial state remains after t steps of the behavior chain, while ckt records how much weight the critic assigns to that sample. Their weighted sum therefore quantifies the conditional bias of one batch. The bias is reduced when the weighting scheme places sufficient mass on later, better-mixed samples. The exponential weights used in Theorem 4.5 make this dependence decay geometrically with the batch length. 
+
+Theorem 4.5 (Expected value-gap bound) . Suppose Assumptions 2.1, 2.2, 2.3, 2.4, 4.1, and 4.2 hold. Fix 
+
+ϑ ∈ [0 , κ b) and run Algorithm 2 with αk = α, Bk = B, and 
+
+ckt := ϑB−t−1
+
+PB−1 
+
+> ℓ=0
+
+ϑℓ , t = 0 , . . . , B − 1, (34) 
+
+where 00 := 1 . Let ρ := (1 + ητ )−1 ∈ (0 , 1) and assume 0 < η ≤ α(1 −γ)eσb  
+
+> τ[2 −α(1 −γ)eσb]
+
+. Then, for every integer 
+
+K ≥ ⌈ log(2) / log(1 /ρ )⌉, the output (22) satisfies 
+
+EV ∗ 
+
+> τ
+
+(μ) − V πcK 
+
+> τ
+
+(μ) ≤ C1
+
+ρ−K − 1 + C2η + C3
+
+κBb
+
+κb − ϑ . (35) 
+
+where C1 := τ D π∗  
+
+> τπ0(d∗
+> μ)1−γ
+
++ 4ητ (1+ τ γH h)  
+
+> α(1 −γ)3eσb
+
+, C2 := 4τ (1+ τ H h)(1 −γ)2 + 2(1+ τ γH h)2 
+
+> λ(1 −γ)4
+
++ 2(1+ τ γH h)
+
+1+ τ γH h+τ (1 −γ)Lh
+
+  
+
+> λα (1 −γ)4eσb
+
++
+
+> 2γ
+
+1+ τ γH h+τ (1 −γ)Lh
+
+ 9(1+ τ γH h)+ τ (1 −γ)Lh
+
+  
+
+> λα (1 −γ)5eσb
+
+, and C3 := 4mb(1+ τ γH h)(1 −γ)3 eσb .
+
+Corollary 4.6 (ϵ-accuracy and sample complexity) . Assume that the conditions of Theorem 4.5 hold. For any 0 < ϵ ≤ 1, choose 
+
+ηϵ := ϵλα (1 − γ)5 eσb
+
+12 1 + λτ (1 + τ H h) 1 + τ γH h + τ (1 − γ)Lh
+
+ 9(1 + τ γH h) + τ (1 − γ)Lh
+
+ . (36) 
+
+Set 
+
+Kϵ := 
+
+&
+
+2
+
+ηϵτ log 1 + max 
+
+(
+
+1, 3
+
+ϵ
+
+" τ D π∗ 
+
+> τ
+> π0
+
+(d∗
+
+> μ
+
+)1 − γ + 4(1 + τ γH h)(1 − γ)2
+
+#)!' 
+
+(37) 
+
+and 
+
+Bϵ := max 
+
+1,
+
+
+
+log 
+
+
+
+max 
+
+n
+
+1, 12 mb(1+ τ γH h) 
+
+> ϵ(1 −γ)3eσb(κb−ϑ)
+
+o 
+
+log(1 /κ b)
+
+ . (38) 
+
+With η = ηϵ, K = Kϵ, and B = Bϵ, the total number of observed transitions satisfies Nϵ := KϵBϵ =
+
+eO [(1 − γ)5 eσbϵ]−1, where α, τ, λ, H h, max s,a Dh(ea ∥ π0(· | s)) , mb, κ b, and ϑ are treated as fixed constants. These transitions suffice to ensure 
+
+EV ∗ 
+
+> τ
+
+(μ) − V πcK 
+
+> τ
+
+(μ) ≤ ϵ. (39) The terms C1/(ρ−K − 1) , C2η, and C3κBb /(κb − ϑ) in (35) are, respectively, the decaying optimization error, the constant-stepsize tracking bias, and the finite-batch Markov mixing bias. Increasing K reduces the first term, while decreasing η reduces the tracking bias but slows the contraction ρ = (1 + ητ )−1. Increasing B
+
+reduces the mixing bias exponentially as κBb . The choice ϑ = 0 uses only the last sample in each batch; every fixed ϑ ∈ [0 , κ b) retains this exponential decay in B, with the additional factor (κb − ϑ)−1. The critic stepsize 
+
+α and the coverage eσb determine how quickly the behavior-weighted critic tracks its target. Corollary 4.6 balances these effects by taking η = Θ( ϵ), K = eO(1 /ϵ ), and B = O(log(1 /ϵ )) while the remaining problem parameters are fixed. Under near-uniform behavior coverage, eσb = Θ(( |S||A| )−1). Thus, Corollary 4.6 yields the sample complexity eO
+
+ |S||A| 
+
+> ϵ(1 −γ)5
+
+
+
+. This matches the leading-order dependence on |S| , |A| , 1 − γ, and ϵ
+
+of strongly convex SVMD [Jia and Lan, 2026], while our result is established using only a single off-policy Markov trajectory, without trajectory resets or generative-model access. 14 5 Numerical Experiments 
+
+We use a randomly generated MDP with |S| = 50 and |A| = 10 to illustrate the behavior of exact coordinate-wise TD–PMD and its finite-batch stochastic counterpart under off-policy Markov data. Each reward r(s, a )
+
+is drawn independently from Unif[0 , 1] . For each state–action pair (s, a ), we generate P (· | s, a ) by drawing i.i.d. samples from Unif[0 , 1] across the next states, followed by normalization. Both the initial policy π0 and the evaluation distribution μ are uniform. The behavior policy is generated independently as πb(a | s) ∝ us,a ,where us,a ∼ Unif[0 .5, 1.5] . We consider two standard regularizers: 
+
+hNPG (p) = X
+
+> a∈A
+
+p(a) log p(a), hPQA (p) = 12 ∥p∥22, (40) For each regularizer h, the optimal policy π∗ 
+
+> τ,h
+
+and value function V ∗ 
+
+> τ,h
+
+are computed via regularized value iteration with the termination condition ∥V k+1 − V k∥∞ ≤ 10 −13 . We then measure the value gap and the mean squared ℓ1 policy error of exact coordinate-wise TD–PMD relative to the corresponding optimum: 
+
+EV (π) := V ∗
+
+> τ,h
+
+(μ) − V πτ,h (μ), Eπ (π) := Es∼μ
+
+∥π(· | s) − π∗
+
+> τ,h
+
+(· | s)∥21
+
+ . (41) 
+
+## 5.1 Exact coordinate-wise update experiments 
+
+The exact experiment illustrates convergence from two critic initializations under the coordinate-wise updates. We use γ = 0 .95 , τ = 0 .1, and η = 0 .5, and run each experiment for 1000 iterations with fixed weights 
+
+W = αΣb and α = 250 . For the generated environment and behavior policy, eσb = 9 .565 × 10 −4 and 
+
+σb = 3 .436 × 10 −3, giving w(s, a ) = ασ πb (s, a ) ∈ [0 .239 , 0.859] .The solid curves use Q0 
+
+> τ
+
+= 0 , which satisfies the one-sided Bellman condition Fπ0 
+
+> τ
+
+Q0 
+
+> τ
+
+− Q0 
+
+> τ
+
+≥ 0 in this instance. For the dashed curves, a bounded random critic is shifted by the same constant across all state–action pairs so that Fπ0 
+
+> τ
+
+Q0 
+
+> τ
+
+− Q0 
+
+> τ
+
+≤ − 1. The left panel reports EV (πk), and the right panel reports Eπ (πk).
+
+Figure 1: Exact coordinate-wise TD–PMD with different critic initializations. Solid curves correspond to initialization that satisfies the one-sided Bellman condition Fπ0 
+
+> τ
+
+Q0 
+
+> τ
+
+− Q0 
+
+> τ
+
+≥ 0 while dashed curves correspond to general initialization. It can be observed that both initializations lead to approximately geometric decay of the value gap and policy error after an initial transient. The initialization that violates the one-sided Bellman condition leads to an initial increase in error before the subsequent geometric decay. These observations are consistent with Theorem 3.4 and Corollary 3.6, which control the value gap and policy error, respectively, for arbitrary finite critic initializations. It is also worth noting that the one-sided Bellman condition does not guarantee a monotonic decrease in the policy error, as illustrated in Figure 1 (right). 15 5.2 Finite-batch stochastic experiment 
+
+The stochastic experiment uses the same problem setup as the exact experiment. We use sampled transitions with Q0 
+
+> τ
+
+= 0 and set γ = 0 .5, τ = 0 .7, η = 4 × 10 −7, α = 1 , and B = 10 . The batch weights are given by (34) with ϑ = 0 .1. For x ∈ { V, π }, each run reports the conditional average 
+
+bEx(K) = 
+
+PK−1 
+
+> k=0
+
+ρ−kEx(πk)
+
+PK−1 
+
+> k=0
+
+ρ−k , ρ := (1 + ητ )−1. (42) For each regularizer, we perform five independent runs for K = 5 × 10 7 iterations ( 5 × 10 8 transitions per run). The error are evaluated and accumulated at every iteration and the resulting weighted metrics are recorded every 10 5 iterations. Figure 2 reports the five-run mean together with the range of the five trajectories. 
+
+Figure 2: Finite-batch stochastic TD–PMD over five independent Markov trajectories. The value metric shows an initial approximately exponential decrease, followed by slower improvement, which is qualitatively consistent with the three-term bound (35) of Theorem 4.5. The policy metric exhibits a similar empirical pattern. The five independent runs remain close to each other throughout the experiment. 
+
+# 6 Conclusion and Future Directions 
+
+The present paper develops a convergence theory for regularized TD–PMD with a persistent critic updated through one-step TD recursions. In the exact setting, we establish global linear convergence for coordinate-wise Bellman updates under general convex mirror geometry. We then extend the analysis to a single off-policy Markov trajectory and show that, under strong convexity, finite-batch TD–PMD attains an expected value gap of at most ϵ with eO(ϵ−1) observed transitions. Numerical experiments illustrate the predicted behavior in both the exact and Markov-sampling settings. Several questions remain open. First, it is interesting to analyze an online variant that performs one critic update and one policy update for every observed transition. Such a result would require controlling the interaction between Markov dependence, critic noise, and policy drift without relying on within-batch mixing. Second, one may consider a stochastic variant in which the conditional expectation over actions in the TD target is replaced by a single action sampled from the current target policy. In this case, the resulting additional sampling noise needs to be controlled jointly with the Markov dependence and the drift of the target policy. It would also be interesting to develop stochastic TD–PMD schemes with more flexible output rules and stepsize schedules, as well as parameter choices that require less prior knowledge of the behavior-chain mixing and coverage properties. 16 References 
+
+Alekh Agarwal, Sham M. Kakade, Jason D. Lee, and Gaurav Mahajan. On the theory of policy gradient methods: Optimality, approximation, and distribution shift. Journal of Machine Learning Research , 22 (98):1–76, 2021. Carlo Alfano and Patrick Rebeschini. Linear convergence for natural policy gradient with log-linear policy parametrization. arXiv:2209.15382 , 2022. Carlo Alfano, Rui Yuan, and Patrick Rebeschini. A novel framework for policy mirror descent with general parameterization and linear convergence. In Advances in Neural Information Processing Systems , 2023. Shicong Cen, Chen Cheng, Yuxin Chen, Yuting Wei, and Yuejie Chi. Fast global convergence of natural policy gradient methods with entropy regularization. Operations Research , 70(4):2563–2578, 2022. Shicong Cen, Yuejie Chi, Simon S Du, and Lin Xiao. Faster last-iterate convergence of policy optimization in zero-sum markov games. In International Conference on Learning Representations , 2023. Veronica Chelu and Doina Precup. Functional acceleration for policy mirror descent. arXiv preprint arXiv:2407.16602 , 2024. Yinlam Chow, Ofir Nachum, and Mohammad Ghavamzadeh. Path consistency learning in Tsallis entropy regularized MDPs. In Proceedings of the 35th International Conference on Machine Learning , volume 80, pages 979–988, 2018. Jie Feng, Ke Wei, and Jinchi Chen. Global convergence of natural policy gradient with hessian-aided momentum variance reduction. Journal of Scientific Computing , 101(2):44, 2024. Matthieu Geist, Bruno Scherrer, and Olivier Pietquin. A theory of regularized markov decision processes. In 
+
+Proceedings of the 36th International Conference on Machine Learning , pages 2160–2169, 2019. Hisham Husain, Kamil Ciosek, and Ryota Tomioka. Regularized policies are reward robust. In Proceedings of the 24th International Conference on Artificial Intelligence and Statistics , volume 130, pages 64–72, 2021. Zhichao Jia and Guanghui Lan. Value mirror descent for reinforcement learning. arXiv preprint arXiv:2604.06039 , 2026. Emmeran Johnson, Ciara Pike-Burke, and Patrick Rebeschini. Optimal convergence rate for exact policy mirror descent in discounted markov decision processes. In Advances in Neural Information Processing Systems , 2023. Caleb Ju and Guanghui Lan. Strongly-polynomial time and validation analysis of policy gradient methods. 
+
+Mathematical Programming , pages 1–45, 2026. Sham Kakade. A natural policy gradient. In Advances in Neural Information Processing Systems , pages 1531–1538, 2001. Sham M. Kakade and John Langford. Approximately optimal approximate reinforcement learning. In 
+
+International Conference on Machine Learning , pages 267–274, 2002. Sajad Khodadadian, Prakirt Raj Jhunjhunwala, Sushil Mahavir Varma, and Siva Theja Maguluri. On the linear convergence of natural policy gradient algorithm. In IEEE Conference on Decision and Control ,pages 3794–3799, 2021. Guanghui Lan. Policy mirror descent for reinforcement learning: Linear convergence, new sampling complexity, and generalized problem classes. Mathematical Programming , 198(1):1059–1106, 2023. 17 Kyungjae Lee, Sungjoon Choi, and Songhwai Oh. Sparse Markov decision processes with causal sparse Tsallis entropy regularization for reinforcement learning. IEEE Robotics and Automation Letters , 3(3):1466–1473, 2018. Kyungjae Lee, Sungyub Kim, Sungbin Lim, Sungjoon Choi, and Songhwai Oh. Tsallis reinforcement learning: A unified framework for maximum entropy reinforcement learning. arXiv preprint arXiv:1902.00137 , 2019. URL https://arxiv.org/abs/1902.00137 .David A Levin and Yuval Peres. Markov chains and mixing times , volume 107. American Mathematical Soc., 2017. Wenye Li and Ke Wei. On the policy convergence of policy mirror descent methods. arXiv preprint arXiv:2607.11626 , 2026. Wenye Li, Hongxu Chen, Jiacai Liu, and Ke Wei. Policy mirror descent with temporal difference learning: sample complexity under online Markov data. arxiv preprint arXiv:2512.24056 , 2025. Yan Li and Guanghui Lan. Policy mirror descent inherently explores action space. SIAM Journal on Optimization , 35(1):116–156, 2025. Yan Li, Guanghui Lan, and Tuo Zhao. Homotopic policy mirror descent: Policy convergence, algorithmic regularization, and improved sample complexity. Mathematical Programming , 207:457–513, 2024. Dachao Lin and Zhihua Zhang. On the convergence of policy in unregularized policy mirror descent. arxiv preprint arXiv:2205.08176 , 2022. Jiacai Liu, Wenye Li, and Ke Wei. Elementary analysis of policy gradient methods. arxiv:2404.03372 , 2024. Jiacai Liu, Wenye Li, Dachao Lin, Ke Wei, and Zhihua Zhang. On the convergence of projected policy gradient for any constant step sizes. Journal of Machine Learning Research , 26:1–35, 2025a. Jiacai Liu, Wenye Li, and Ke Wei. On the convergence of policy mirror descent with temporal difference evaluation. arXiv preprint arXiv:2509.18822 , 2025b. Kimon Protopapas and Anas Barakat. Policy mirror descent with lookahead. Advances in Neural Information Processing Systems , 37:26443–26481, 2024. Martin L Puterman. Markov decision processes: discrete stochastic dynamic programming . Wiley Series in Probability and Statistics, 1994. Richard S. Sutton. Learning to predict by the methods of temporal differences. Machine Learning , 3:9–44, 1988. Richard S. Sutton and Andrew G. Barto. Reinforcement Learning: An Introduction . MIT Press, Cambridge, 2018. Lin Xiao. On the convergence rates of policy gradient methods. Journal of Machine Learning Research , 23 (282):1–36, 2022. Donghao Ying, Yuhao Ding, and Javad Lavaei. A dual approach to constrained markov decision processes with entropy regularization. In Proceedings of the 25th International Conference on Artificial Intelligence and Statistics , volume 151, pages 1887–1909, 2022. Wenhao Zhan, Shicong Cen, Baihe Huang, Yuxin Chen, Jason D. Lee, and Yuejie Chi. Policy mirror descent for regularized reinforcement learning: A generalized framework with linear convergence. SIAM Journal on Optimization , 33(2):1061–1091, 2023. 18 A Proofs for Section 3 
+
+## A.1 Proof of Lemma 3.1 
+
+By setting p = πk(· | s), Lemma 2.4 implies the following actor-improvement inequality 
+
+Fπk+1  
+
+> τ
+
+Qkτ ≥ F πk 
+
+> τ
+
+Qkτ . (43) Let Rk := Fπk 
+
+> τ
+
+Qkτ − Qkτ and Pk+1 := P πk+1  
+
+> S×A
+
+, and set bRk := Fπk+1  
+
+> τ
+
+Qkτ − Qkτ . By (43), there holds bRk ≥ Rk.Additionally, the matrix I − W + γP k+1 W is nonnegative since 0 < W ≤ I. Leveraging the affine identity 
+
+Fπk+1  
+
+> τ
+
+Q′ − F πk+1  
+
+> τ
+
+Q = γP k+1 (Q′ − Q) and the critic update Qk+1  
+
+> τ
+
+− Qkτ = W bRk, we obtain that 
+
+Rk+1 = bRk − (Qk+1  
+
+> τ
+
+− Qkτ ) + γP k+1 (Qk+1  
+
+> τ
+
+− Qkτ )= bRk − W bRk + γP k+1 W bRk
+
+= ( I − W + γP k+1 W ) bRk
+
+≥ (I − W + γP k+1 W )Rk. (44) Taking positive parts after multiplying by −1,
+
+[−Rk+1 ]+ ≤ (I − W + γP k+1 W )[ −Rk]+. (45) Since W is diagonal, we have W (I−W +γP k+1 W ) = ( I−W +γW P k+1 )W , and the row sum of I−W +γW P k+1 
+
+corresponding to coordinate (s, a ) is 1 − w(s, a )(1 − γ) ≤ 1 − w(1 − γ). Therefore 
+
+∥W [−Rk+1 ]+∥∞ ≤ [1 − w(1 − γ)] ∥W [−Rk]+∥∞,
+
+which proves δk+1 ≤ [1 − w(1 − γ)] δk.We next prove the critic comparisons in (5). By the definition of δk, for every (s, a ),
+
+w(s, a )[ −Rk(s, a )] + ≤ ∥ W [−Rk]+∥∞ = w(1 − γ)δk,
+
+and hence 
+
+[−Rk(s, a )] + ≤ ww(s, a ) (1 − γ)δk ≤ (1 − γ)δk.
+
+Thus Rk ≥ − (1 − γ)δk1. By the definition of the Bellman operator, 
+
+Fπk 
+
+> τ
+
+(Qkτ − δk1) − (Qkτ − δk1) = Rk + (1 − γ)δk1 ≥ 0.
+
+Iterating the monotone γ-contraction operator Fπk 
+
+> τ
+
+to its fixed point proves Qkτ − δk1 ≤ Qπk 
+
+> τ
+
+, while Qπk 
+
+> τ
+
+≤ Q∗
+
+> τ
+
+follows from the optimality of Q∗ 
+
+> τ
+
+. Finally, (43) implies 
+
+Fπk+1  
+
+> τ
+
+(Qkτ − δk1) − (Qkτ − δk1) = bRk + (1 − γ)δk1 ≥ Rk + (1 − γ)δk1 ≥ 0.
+
+Iterating Fπk+1  
+
+> τ
+
+to its fixed point gives the inequality Qkτ − δk1 ≤ Qπk+1  
+
+> τ
+
+, which completes the proof. 
+
+## A.2 Proof of Lemma 3.2 
+
+Since γ/ξ ∈ (0 , 1) , the distribution ν∗ 
+
+> μ,ξ
+
+is a convex combination of probability distributions. Shifting its series by one index gives 
+
+γξ (ν∗ 
+
+> μ,ξ
+
+)⊤P π∗ 
+
+> τ
+> S
+
+= ( ν∗ 
+
+> μ,ξ
+
+)⊤ −
+
+
+
+1 − γξ
+
+
+
+μ⊤.
+
+Multiplying by ξ proves the first identity in (6). Let m := min s: ν∗  
+
+> μ,ξ (s)>0
+
+μ(s)/ν ∗ 
+
+> μ,ξ
+
+(s) ≥ 0. Noting that the support of μ is contained in that of ν∗ 
+
+> μ,ξ
+
+, there holds 
+
+1 = X  
+
+> s:ν∗
+> μ,ξ (s)>0
+
+ν∗ 
+
+> μ,ξ
+
+(s) μ(s)
+
+ν∗ 
+
+> μ,ξ
+
+(s) ≥ m X  
+
+> s:ν∗
+> μ,ξ (s)>0
+
+ν∗ 
+
+> μ,ξ
+
+(s) = m, 
+
+so m ≤ 1. Since γμ,ξ = ξ − (ξ − γ)m, we have (ξ − γ)μ(s) ≥ (ξ − γ)mν ∗ 
+
+> μ,ξ
+
+(s) = ( ξ − γμ,ξ )ν∗ 
+
+> μ,ξ
+
+(s) for every state. This also proves γμ,ξ ∈ [γ, ξ ].19 A.3 Proof of Lemma 3.3 
+
+For brevity, define the first term of (7) by 
+
+Bk := X
+
+> s,a
+
+ν∗ 
+
+> μ,ξ
+
+(s)π∗ 
+
+> τ
+
+(a | s)
+
+w(s, a )
+
+ Q∗ 
+
+> τ
+
+(s, a ) − Qkτ (s, a ) + δk
+
+.
+
+Lemma 3.1 implies Bk ≥ 0. We first derive a critic inequality for an arbitrary fixed β ∈ [γμ,ξ , 1) and specify its value at the end of the proof. 
+
+Step 1: Policy estimate. Define the value estimate V k+1  
+
+> τ
+
+(s) := ⟨πk+1 (· | s), Q kτ (s, ·)⟩ − τ h πk+1 (s).Expanding the two values statewise, applying Lemma 2.4 with p = π∗ 
+
+> τ
+
+(· | s), and immediately dropping the nonnegative term Dπk+1  
+
+> πk
+
+(s) gives 
+
+V ∗ 
+
+> τ
+
+(ν∗ 
+
+> μ,ξ
+
+) − V k+1  
+
+> τ
+
+(ν∗ 
+
+> μ,ξ
+
+) + ( η−1 + τ )Dπ∗ 
+
+> τ
+> πk+1
+
+(ν∗ 
+
+> μ,ξ
+
+) ≤ E s∼ν∗ 
+
+> μ,ξ
+> a∼π∗
+> τ(·| s)
+
+Q∗ 
+
+> τ
+
+(s, a ) − Qkτ (s, a ) + η−1Dπ∗ 
+
+> τ
+> πk
+
+(ν∗ 
+
+> μ,ξ
+
+). (46) 
+
+Step 2: Distribution comparison. By Lemma 3.1 we have Qkτ − δk1 ≤ Qπk+1  
+
+> τ
+
+. Hence, by the definition of V k+1  
+
+> τ
+
+,
+
+∀ s ∈ S : V k+1  
+
+> τ
+
+(s) − δk = πk+1 (· | s), Q kτ (s, ·) − δk1 − τ h πk+1 (s)
+
+≤ ⟨ πk+1 (· | s), Q πk+1  
+
+> τ
+
+(s, ·)⟩ − τ h πk+1 (s) = V πk+1  
+
+> τ
+
+(s) ≤ V ∗ 
+
+> τ
+
+(s).
+
+Thus V ∗ 
+
+> τ
+
+− V k+1  
+
+> τ
+
++ δk1 ≥ 0. Together with the second componentwise relation in (6) and the fact that 
+
+(ξ − γ)μ(s) ≥ (ξ − γμ,ξ )ν∗ 
+
+> μ,ξ
+
+(s) ≥ (ξ − β)ν∗ 
+
+> μ,ξ
+
+(s), this gives 
+
+(ξ − γ) V ∗ 
+
+> τ
+
+(μ) − V k+1  
+
+> τ
+
+(μ) ≥ (ξ − β) V ∗ 
+
+> τ
+
+(ν∗ 
+
+> μ,ξ
+
+) − V k+1  
+
+> τ
+
+(ν∗ 
+
+> μ,ξ
+
+) − (β − γ)δk. (47) By the Bellman equation, 
+
+∀ (s, a ) ∈ S × A : Q∗ 
+
+> τ
+
+(s, a ) − F πk+1  
+
+> τ
+
+Qkτ (s, a ) = γ X
+
+> s′
+
+P (s′ | s, a )V ∗ 
+
+> τ
+
+(s′) − V k+1  
+
+> τ
+
+(s′).
+
+Taking expectation with respect to ν∗ 
+
+> μ,ξ
+
+(s)π∗ 
+
+> τ
+
+(a | s) and then applying the first identity in (6), we obtain 
+
+E s∼ν∗ 
+
+> μ,ξ
+> a∼π∗
+> τ(·| s)
+
+Fπk+1  
+
+> τ
+
+Qkτ (s, a ) − Qkτ (s, a ) = E s∼ν∗ 
+
+> μ,ξ
+> a∼π∗
+> τ(·| s)
+
+Q∗ 
+
+> τ
+
+(s, a ) − Qkτ (s, a ) − γ(ν∗ 
+
+> μ,ξ
+
+)⊤P π∗ 
+
+> τ
+> S
+
+(V ∗ 
+
+> τ
+
+− V k+1  
+
+> τ
+
+)= E s∼ν∗ 
+
+> μ,ξ
+> a∼π∗
+> τ(·| s)
+
+Q∗ 
+
+> τ
+
+(s, a ) − Qkτ (s, a ) − ξ V ∗ 
+
+> τ
+
+(ν∗ 
+
+> μ,ξ
+
+) − V k+1  
+
+> τ
+
+(ν∗ 
+
+> μ,ξ
+
+) + ( ξ − γ) V ∗ 
+
+> τ
+
+(μ) − V k+1  
+
+> τ
+
+(μ)
+
+≥ E s∼ν∗ 
+
+> μ,ξ
+> a∼π∗
+> τ(·| s)
+
+Q∗ 
+
+> τ
+
+(s, a ) − Qkτ (s, a ) − ξ V ∗ 
+
+> τ
+
+(ν∗ 
+
+> μ,ξ
+
+) − V k+1  
+
+> τ
+
+(ν∗ 
+
+> μ,ξ
+
+) + ( ξ − β) V ∗ 
+
+> τ
+
+(ν∗ 
+
+> μ,ξ
+
+) − V k+1  
+
+> τ
+
+(ν∗ 
+
+> μ,ξ
+
+) − (β − γ)δk.
+
+The last inequality follows from (47). Substituting (46) yields 
+
+E s∼ν∗ 
+
+> μ,ξ
+> a∼π∗
+> τ(·| s)
+
+Fπk+1  
+
+> τ
+
+Qkτ (s, a ) − Qkτ (s, a ) ≥ (1 − β)E s∼ν∗ 
+
+> μ,ξ
+> a∼π∗
+> τ(·| s)
+
+Q∗ 
+
+> τ
+
+(s, a ) − Qkτ (s, a )
+
+− βη −1Dπ∗ 
+
+> τ
+> πk
+
+(ν∗ 
+
+> μ,ξ
+
+) + β(η−1 + τ )Dπ∗ 
+
+> τ
+> πk+1
+
+(ν∗ 
+
+> μ,ξ
+
+) − (β − γ)δk. (48) 
+
+Step 3: Critic update. The inverse weight in Bk cancels the corresponding coordinate weight w(s, a ) in the critic update. Thus 
+
+Bk+1 = Bk − E s∼ν∗ 
+
+> μ,ξ
+> a∼π∗
+> τ(·| s)
+
+Fπk+1  
+
+> τ
+
+Qkτ (s, a ) − Qkτ (s, a ) + ( δk+1 − δk) X
+
+> s,a
+
+ν∗ 
+
+> μ,ξ
+
+(s)π∗ 
+
+> τ
+
+(a | s)
+
+w(s, a ) . (49) 20 Since every shifted critic coordinate is nonnegative and w(s, a ) ≥ w,
+
+0 ≤ wBk ≤ E s∼ν∗ 
+
+> μ,ξ
+> a∼π∗
+> τ(·| s)
+
+Q∗ 
+
+> τ
+
+(s, a ) − Qkτ (s, a ) + δk. (50) Substituting (48) into (49), using δk+1 − δk ≤ − w(1 − γ)δk, and then applying (50), we obtain 
+
+Bk+1 ≤ [1 − w(1 − β)] Bk + βη −1Dπ∗ 
+
+> τ
+> πk
+
+(ν∗ 
+
+> μ,ξ
+
+) − β(η−1 + τ )Dπ∗ 
+
+> τ
+> πk+1
+
+(ν∗ 
+
+> μ,ξ
+
+)+ (1 − γ) 1 − w X
+
+> s,a
+
+ν∗ 
+
+> μ,ξ
+
+(s)π∗ 
+
+> τ
+
+(a | s)
+
+w(s, a )
+
+!
+
+δk. (51) Now choosing 
+
+β = max {γμ,ξ , (1 + ητ )−1} ∈ [γμ,ξ , 1) ,
+
+we obtain β(η−1 + τ ) = max {η−1, γ μ,ξ (η−1 + τ )} and 1 − w(1 − β) = ρ. Thus the potential in (7) is 
+
+Lk = Bk + β(η−1 + τ )Dπ∗ 
+
+> τ
+> πk
+
+(ν∗ 
+
+> μ,ξ
+
+). Adding the Bregman component of Lk+1 to both sides of (51), the definition of Lk and the fact that (1 + ητ )−1 ≤ ρ gives that 
+
+Lk+1 ≤ ρLk + (1 − γ) 1 − w X
+
+> s,a
+
+ν∗ 
+
+> μ,ξ
+
+(s)π∗ 
+
+> τ
+
+(a | s)
+
+w(s, a )
+
+!
+
+δk,
+
+which completes the proof. 
+
+## A.4 Proof of Theorem 3.4 
+
+By Lemma 3.1 there holds δk ≤ [1 − w(1 − γ)] kδ0. Iterating (9) and using the definition of Ck yields 
+
+Lk ≤ C k. (52) The first term of the resolvent series shows that ν∗ 
+
+> μ,ξ
+
+assigns positive mass wherever μ(s) > 0. Hence, for every nonnegative f : S → R, there holds 
+
+μ⊤f ≤ μν∗ 
+
+> μ,ξ ∞
+
+(ν∗ 
+
+> μ,ξ
+
+)⊤f. 
+
+Write the first term of Lk as Bk. The policy estimate (46) and the comparison V πk+1  
+
+> τ
+
+≥ V k+1  
+
+> τ
+
+− δk1 imply that 
+
+V ∗ 
+
+> τ
+
+(ν∗ 
+
+> μ,ξ
+
+) − V πk+1  
+
+> τ
+
+(ν∗ 
+
+> μ,ξ
+
+) ≤ V ∗ 
+
+> τ
+
+(ν∗ 
+
+> μ,ξ
+
+) − V k+1  
+
+> τ
+
+(ν∗ 
+
+> μ,ξ
+
+) + δk
+
+> (a)
+
+≤ E s∼ν∗ 
+
+> μ,ξ
+> a∼π∗
+> τ(·| s)
+
+Q∗ 
+
+> τ
+
+(s, a ) − Qkτ (s, a ) + δk
+
+ + η−1Dπ∗ 
+
+> τ
+> πk
+
+(ν∗ 
+
+> μ,ξ
+
+)
+
+> (b)
+
+≤ wBk + η−1Dπ∗ 
+
+> τ
+> πk
+
+(ν∗ 
+
+> μ,ξ
+
+)
+
+> (c)
+
+≤ L k. (53) Here (a) follows from (46) after dropping the nonnegative Bregman term, (b) uses Q∗ 
+
+> τ
+
+− Qkτ + δk1 ≥ 0 and 
+
+w(s, a ) ≤ w, and (c) follows directly from w ≤ 1 and the definition of Lk. Since the value gap is pointwise nonnegative, we apply the preceding inequality for nonnegative f with f = V ∗ 
+
+> τ
+
+− V πk+1  
+
+> τ
+
+. Combining the resulting bound with (53) and (52) proves (12). Moreover, stationarity gives ν∗ 
+
+> ν∗,ξ
+
+= ν∗ for every ξ ∈ (γ, 1) ,which implies γν∗,ξ = γ and ∥ν∗/ν ∗ 
+
+> ν∗,ξ
+
+∥∞ = 1 . Substituting these identities into the definition of Ck gives the stated value bound and contraction factor. 21 A.5 Proof of Corollary 3.7 
+
+Let 
+
+Bk := X
+
+> s,a
+
+ν∗(s)π∗(a | s) Q∗(s, a ) − Qk(s, a ) + δk
+
+ ≥ 0.
+
+Taking μ = ν∗, β = γ, τ = 0 , and W = I in the first inequality of (51), and replacing η by ηk > 0, yields 
+
+Bk+1 + γηk
+
+Dπ∗ 
+
+> πk+1
+
+(ν∗) ≤ γ
+
+
+
+Bk + 1
+
+ηk
+
+Dπ∗ 
+
+> πk
+
+(ν∗)
+
+
+
+. (54) The same three-point argument, together with V πk+1 ≥ V k+1 − δk1, yields 
+
+V ∗(ν∗) − V πk+1 (ν∗) + η−1 
+
+> k
+
+Dπ∗ 
+
+> πk+1
+
+(ν∗) ≤ Bk + η−1 
+
+> k
+
+Dπ∗ 
+
+> πk
+
+(ν∗). (55) When ηk = η, summing (54) from k = 0 to K − 1 provides the bound for PK−1 
+
+> k=0
+
+Bk. Furthermore, summing (55) and then telescoping the Bregman terms gives (20). Now consider the increasing-stepsize case and set Φk := Bk + η−1 
+
+> k
+
+Dπ∗ 
+
+> πk
+
+(ν∗). Since η−1 
+
+> k+1
+
+≤ γη −1 
+
+> k
+
+, (54) gives 
+
+Φk+1 ≤ γΦk. Moreover, (55) gives V ∗(ν∗) − V πk+1 (ν∗) ≤ Φk. Therefore Φk ≤ γkΦ0, which proves (21). 
+
+# B Proofs for Section 4 
+
+## B.1 Proof of Lemma 4.2 
+
+For each sample, define its TD target by 
+
+Y kt := rkt + γEa′∼πk+1 (·| skt+1 )
+
+Qkτ (skt+1 , a ′) − τ γh πk+1 (skt+1 ).
+
+For each (s, a ), let 
+
+bσk(s, a ) :=  
+
+> Bk−1
+
+X
+
+> t=0
+
+ckt 1[( skt , a kt ) = ( s, a )] ∈ [0 , 1] .
+
+The normalized weighted target is then defined as 
+
+byk(s, a ) := 
+
+
+
+1
+
+bσk(s, a ) 
+
+> Bk−1
+
+X
+
+> t=0
+
+ckt 1[( skt , a kt ) = ( s, a )] Y kt , bσk(s, a ) > 0,
+
+0, bσk(s, a ) = 0 .
+
+With this notation, the coordinate critic update becomes 
+
+Qk+1  
+
+> τ
+
+(s, a ) =  1 − αk bσk(s, a )Qkτ (s, a ) + αk bσk(s, a )byk(s, a ).
+
+If ∥Qkτ ∥∞ ≤ (1 + τ γH h)/(1 − γ), Assumptions 2.1 and 2.2 give 
+
+|byk(s, a )| ≤ 1 + γ 1 + τ γH h
+
+1 − γ + τ γH h = 1 + τ γH h
+
+1 − γ .
+
+Thus Qk+1  
+
+> τ
+
+(s, a ) is a convex combination of two points in [−(1 + τ γH h)/(1 − γ), (1 + τ γH h)/(1 − γ)] . Induction from Q0 
+
+> τ
+
+= 0 proves the claim. 22 B.2 Proof of Lemma 4.3 
+
+Step 1: Bounded vertex divergences. Fix k ≥ 0, s ∈ S , and a ∈ A . By Lemma 2.4 with p = ea,
+
+πk+1 (· | s) − ea, Q kτ (s, ·) − τ [hπk+1 (s) − h(ea)] 
+
+≥ η−1[Dh(πk+1 (· | s) ∥ πk(· | s)) + (1 + ητ )Dh(ea ∥ πk+1 (· | s)) − Dh(ea ∥ πk(· | s))] .
+
+Using Lemma 4.2 to bound the critic, 
+
+(1 + ητ )Dh(ea ∥ πk+1 (· | s)) ≤ Dh(ea ∥ πk(· | s)) + 2η(1 + τ H h)1 − γ , (56) where we drop the nonnegative divergence term Dh(πk+1 (·| s) ∥ πk(·| s)) and use the bounds ∥πk+1 (· | s)−ea∥1 ≤
+
+2 and |h| ≤ Hh on ∆( A). Equivalently, 
+
+Dh(ea ∥ πk+1 (· | s)) ≤ Dh(ea ∥ πk(· | s)) 1 + ητ +
+
+
+
+1 − 11 + ητ 
+
+ 2(1 + τ H h)
+
+τ (1 − γ) .
+
+The right-hand side is a convex combination of the preceding divergence and the displayed constant. By induction we have 
+
+Dh(ea ∥ πk(· | s)) ≤ max 
+
+
+
+max  
+
+> s′∈S , b ∈A
+
+Dh(eb ∥ π0(· | s′)) , 2(1 + τ H h)
+
+τ (1 − γ)
+
+
+
+.
+
+The initial divergences are finite because Assumption 2.2 ensures ea ∈ dom h, and Assumption 2.4 ensures 
+
+π0(· | s) ∈ rint(dom h).
+
+Step 2: Trajectory-wise Lipschitz continuity. For any a, b ∈ A we have 
+
+∇ah(πk(· | s)) − ∇ bh(πk(· | s)) = h(ea) − h(eb) − Dh(ea ∥ πk(· | s)) + Dh(eb ∥ πk(· | s)) .
+
+The vertex divergences are nonnegative and satisfy the preceding bound as |h(ea) − h(eb)| ≤ 2Hh. Thus, 
+
+max  
+
+> a∈A
+
+∇ah(πk(· | s)) − min  
+
+> a∈A
+
+∇ah(πk(· | s)) ≤ 2Hh + max 
+
+
+
+max  
+
+> s′∈S , c ∈A
+
+Dh(ec ∥ π0(· | s′)) , 2(1 + τ H h)
+
+τ (1 − γ)
+
+
+
+= 2 Lh.
+
+(57) For p ∈ { πk(· | s), π k+1 (· | s)}, let cp := 12 [max a∈A ∇ah(p) + min a∈A ∇ah(p)] . Leveraging the convexity of h
+
+and (57) yields 
+
+hπk+1 (s) − hπk (s) ≤ ∇h(πk+1 (· | s)) − cπk+1 (·| s)1, π k+1 (· | s) − πk(· | s) ≤ Lh∥πk+1 (· | s) − πk(· | s)∥1.
+
+Interchanging the two policies gives the reverse inequality and proves (27). 
+
+Step 3: Policy increments. By setting p = πk(· | s), Lemma 2.4 implies that 
+
+πk+1 (· | s) − πk(· | s), Q kτ (s, ·) − τ [hπk+1 (s) − hπk (s)] 
+
+≥ η−1[Dh(πk+1 (· | s) ∥ πk(· | s)) + (1 + ητ )Dh(πk(· | s) ∥ πk+1 (· | s))] .
+
+Using Assumption 2.3, together with Hölder’s inequality, Lemma 4.2, and (27), we obtain 
+
+λ∥πk+1 (· | s) − πk(· | s)∥21 ≤ η
+
+ 1 + τ γH h
+
+1 − γ + τ L h
+
+
+
+∥πk+1 (· | s) − πk(· | s)∥1,
+
+from which (28) follows immediately. 23 Step 4: Action-value variation. For every state s ∈ S , the Bellman representation gives 
+
+V πk+1  
+
+> τ
+
+(s) − V πk 
+
+> τ
+
+(s) = ⟨πk+1 (· | s), Q πk+1  
+
+> τ
+
+(s, ·) − Qπk 
+
+> τ
+
+(s, ·)⟩
+
++ ⟨πk+1 (· | s) − πk(· | s), Q πk 
+
+> τ
+
+(s, ·)⟩ − τ [hπk+1 (s) − hπk (s)] . (58) By Hölder’s inequality, Lemma 2.3, and (27), 
+
+∥V πk+1  
+
+> τ
+
+− V πk 
+
+> τ
+
+∥∞ ≤ ∥ Qπk+1  
+
+> τ
+
+− Qπk 
+
+> τ
+
+∥∞ +
+
+ 1 + τ γH h
+
+1 − γ + τ L h
+
+
+
+∥πk+1 − πk∥1,∞. (59) Additionally, the Bellman equations give 
+
+∥Qπk+1  
+
+> τ
+
+− Qπk 
+
+> τ
+
+∥∞ ≤ γ∥V πk+1  
+
+> τ
+
+− V πk 
+
+> τ
+
+∥∞. (60) Combining the last two inequalities proves (29) by rearranging terms. 
+
+## B.3 Proof of Lemma 4.4 
+
+Fix k, (s, a ), and condition on Hk. By the Markov property and the definition of the regularized TD sample, 
+
+Eδkt (s, a ) | H k
+
+ = P(skt = s | sk 
+
+> 0
+
+)πb(a | s) Fπk+1  
+
+> τ
+
+Qkτ − Qkτ
+
+ (s, a ). (61) The corresponding stationary mean of the sampled increment is 
+
+νπb (s)πb(a | s) Fπk+1  
+
+> τ
+
+Qkτ − Qkτ
+
+ (s, a ) = Σb
+
+ Fπk+1  
+
+> τ
+
+Qkτ − Qkτ
+
+ (s, a ).
+
+Hence the definition of ωkt yields the exact identity 
+
+Eωkt (s, a ) | H k
+
+ = P(skt = s | sk 
+
+> 0
+
+) − νπb (s) πb(a | s) Fπk+1  
+
+> τ
+
+Qkτ − Qkτ
+
+ (s, a ). (62) Lemma 4.2 and Assumptions 2.1–2.2 imply that both Qkτ (s, a ) and Fπk+1  
+
+> τ
+
+Qkτ (s, a ) belong to [−(1+ τ γH h)/(1 −
+
+γ), (1 + τ γH h)/(1 − γ)] . Therefore, the mixing estimate in (24) gives 
+
+Eωkt (s, a ) | H k
+
+ ≤ 2(1 + τ γH h)1 − γ dTV 
+
+ P(skt = · | sk 
+
+> 0
+
+), ν πb
+
+ ≤ 2mb(1 + τ γH h)1 − γ κtb. (63) Finally, the nonnegativity of the batch weights and ¯ωk = PBk −1 
+
+> t=0
+
+ckt ωkt imply 
+
+∥E[¯ ωk | H k]∥∞ ≤ 
+
+> Bk−1
+
+X
+
+> t=0
+
+ckt Eωkt | H k
+
+ 
+
+> ∞
+
+≤ 2mb(1 + τ γH h)1 − γ 
+
+> Bk−1
+
+X
+
+> t=0
+
+ckt κtb, (64) which yields (33). 
+
+## B.4 Proof of Theorem 4.5 
+
+We begin by reducing the performance guarantee to a weighted sum of signed critic errors. For s ∈ S , define 
+
+B(k) 
+
+> k
+
+(s) := π∗ 
+
+> τ
+
+(· | s) − πk(· | s), Q πk 
+
+> τ
+
+(s, ·) − Qkτ (s, ·) . (65) 
+
+Lemma B.1 (Weighted value-gap reduction) . For every K ≥ 1,
+
+E V ∗ 
+
+> τ
+
+(μ) − V πcK 
+
+> τ
+
+(μ) ≤ τ D π∗ 
+
+> τ
+> π0
+
+(d∗
+
+> μ
+
+)(1 − γ)( ρ−K − 1) + 2( ρ−1 − 1) ρ−(K−1) (1 + τ H h)(1 − γ)2(ρ−K − 1) + 2η(1 + τ γH h)2
+
+λ(1 − γ)4
+
++ ρ−1 − 1(1 − γ)( ρ−K − 1) 
+
+> K−1
+
+X
+
+> k=0
+
+ρ−kE
+
+h
+
+Es∼d∗
+
+> μ
+
+h
+
+B(k) 
+
+> k
+
+(s)
+
+ii 
+
+. (66) 24 Proof. Fix k ≥ 0 and condition on Hk. Applying Lemma 2.2 to (π∗ 
+
+> τ
+
+, π k) and then isolating the signed critic error gives 
+
+V ∗ 
+
+> τ
+
+(μ) − V πk 
+
+> τ
+
+(μ) = 11 − γ Es∼d∗
+
+> μ
+
+h
+
+⟨π∗ 
+
+> τ
+
+(· | s) − πk(· | s), Q πk 
+
+> τ
+
+(s, ·)⟩ − τ
+
+
+
+hπ∗ 
+
+> τ
+
+(s) − hπk (s)
+
+i 
+
+= 11 − γ Es∼d∗
+
+> μ
+
+h
+
+π∗ 
+
+> τ
+
+(· | s) − πk(· | s), Q kτ (s, ·) − τ
+
+
+
+hπ∗ 
+
+> τ
+
+(s) − hπk (s)
+
+
+
++ B(k) 
+
+> k
+
+(s)
+
+i
+
+. (67) Lemma 2.4 with p = π∗ 
+
+> τ
+
+(· | s) yields 
+
+η
+
+h
+
+π∗ 
+
+> τ
+
+(· | s) − πk+1 (· | s), Q kτ (s, ·) − τ
+
+
+
+hπ∗ 
+
+> τ
+
+(s) − hπk+1 (s)
+
+i 
+
+≤ Dπ∗ 
+
+> τ
+> πk
+
+(s) − ρ−1Dπ∗ 
+
+> τ
+> πk+1
+
+(s) − Dπk+1  
+
+> πk
+
+(s). (68) By Young’s inequality, 
+
+η ∥πk+1 (· | s) − πk(· | s)∥1 Qkτ − Qπk  
+
+> τ∞
+
+− λ
+
+2 ∥πk+1 (· | s) − πk(· | s)∥21 ≤ η2
+
+2λ Qkτ − Qπk 
+
+> τ
+> 2
+> ∞
+
+.
+
+Combining this inequality with (68), 
+
+π∗ 
+
+> τ
+
+(· | s) − πk(· | s), Q kτ (s, ·) − τ
+
+
+
+hπ∗ 
+
+> τ
+
+(s) − hπk (s)
+
+
+
+(69) 
+
+≤ Dπ∗ 
+
+> τ
+> πk
+
+(s) − ρ−1Dπ∗ 
+
+> τ
+> πk+1
+
+(s)
+
+η + η
+
+2λ Qkτ − Qπk 
+
+> τ
+> 2
+> ∞
+
++ ⟨πk+1 (· | s) − πk(· | s), Q πk 
+
+> τ
+
+(s, ·)⟩ − τ (hπk+1 (s) − hπk (s)) .
+
+(70) On the other hand, Lemma 2.4 with p = πk(· | s) and the strong convexity of h imply that 
+
+⟨πk+1 (· | s) − πk(· | s), Q πk 
+
+> τ
+
+(s, ·)⟩ − τ (hπk+1 (s) − hπk (s)) + η
+
+2λ Qkτ − Qπk 
+
+> τ
+> 2
+> ∞
+
+≥ 0. (71) By restoring the state argument and leveraging the componentwise inequality dπk+1 
+
+> d∗
+> μ
+
+≥ (1 − γ)d∗
+
+> μ
+
+, combining the non-negativity in (71) with Lemma 2.2 for (πk+1 , π k) with initial distribution d∗ 
+
+> μ
+
+yields 
+
+Es∼d∗ 
+
+> μ
+
+[⟨πk+1 (· | s) − πk(· | s), Q πk 
+
+> τ
+
+(s, ·)⟩ − τ (hπk+1 (s) − hπk (s))] ≤ V πk+1  
+
+> τ
+
+(d∗
+
+> μ
+
+) − V πk 
+
+> τ
+
+(d∗
+
+> μ
+
+)+ γη 
+
+2λ(1 − γ) Qkτ − Qπk 
+
+> τ
+> 2
+> ∞
+
+. (72) Combining (67), (70), and (72), we obtain 
+
+V ∗ 
+
+> τ
+
+(μ) − V πk 
+
+> τ
+
+(μ) ≤ Dπ∗ 
+
+> τ
+> πk
+
+(d∗
+
+> μ
+
+) − ρ−1Dπ∗ 
+
+> τ
+> πk+1
+
+(d∗
+
+> μ
+
+)
+
+η(1 − γ) + V πk+1  
+
+> τ
+
+(d∗
+
+> μ
+
+) − V πk 
+
+> τ
+
+(d∗
+
+> μ
+
+)1 − γ
+
++ η
+
+2λ(1 − γ)2 Qkτ − Qπk 
+
+> τ
+> 2
+> ∞
+
++ Es∼d∗ 
+
+> μ
+
+[B(k) 
+
+> k
+
+(s)] 1 − γ . (73) Moreover, Lemmas 2.3 and 4.2 imply that 
+
+Qkτ − Qπk  
+
+> τ∞
+
+≤ 2(1 + τ γH h)1 − γ . (74) Multiply (73) by ρ−k, sum over k = 0 , . . . , K − 1, and take expectation. The Bregman terms telescope as 
+
+> K−1
+
+X
+
+> k=0
+
+ρ−k 
+
+Dπ∗ 
+
+> τ
+> πk
+
+(d∗
+
+> μ
+
+) − ρ−1Dπ∗ 
+
+> τ
+> πk+1
+
+(d∗
+
+> μ
+
+)
+
+
+
+≤ Dπ∗ 
+
+> τ
+> π0
+
+(d∗
+
+> μ
+
+).
+
+25 Since 0 ≤ V ∗ 
+
+> τ
+
+(d∗
+
+> μ
+
+) − V πk 
+
+> τ
+
+(d∗
+
+> μ
+
+) ≤ 2(1 + τ H h)/(1 − γ), summation by parts gives 
+
+> K−1
+
+X
+
+> k=0
+
+ρ−k  V πk+1  
+
+> τ
+
+(d∗
+
+> μ
+
+) − V πk 
+
+> τ
+
+(d∗
+
+> μ
+
+) ≤ V ∗ 
+
+> τ
+
+(d∗
+
+> μ
+
+) − V π0 
+
+> τ
+
+(d∗
+
+> μ
+
+) + 
+
+> K−1
+
+X
+
+> k=1
+
+(ρ−k − ρ−(k−1) )  V ∗ 
+
+> τ
+
+(d∗
+
+> μ
+
+) − V πk 
+
+> τ
+
+(d∗
+
+> μ
+
+)
+
+≤ 2(1 + τ H h)1 − γ
+
+"
+
+1 + 
+
+> K−1
+
+X
+
+> k=1
+
+(ρ−k − ρ−(k−1) )
+
+#
+
+= 2ρ−(K−1) (1 + τ H h)1 − γ . (75) Finally, multiplying the resulting inequality by (ρ−1 − 1) /(ρ−K − 1) , using ρ−1 − 1 = ητ , (74), and the definition of bK proves (66). We now decompose the last term in (66), following the notation of Li et al. [2025, Lemma 3.9]. Stack 
+
+{π(· | s)}s∈S into a vector π ∈ R|S||A| . For each s ∈ S , let Es ∈ R|A|×|S||A| select the coordinates associated with s, and set 
+
+EsQ = Q(s, ·), Esπ = π(· | s), Js := E⊤ 
+
+> s
+
+Es. (76) Suppose αk = α ∈ (0 , 1] for every k ≥ 0. For a constant critic stepsize α and a policy π, define 
+
+Aπ := I − αΣb
+
+ I − γP π
+
+> S×A
+
+ . (77) Since Qπj 
+
+> τ
+
+= Fπj 
+
+> τ
+
+Qπj 
+
+> τ
+
+and Fπj 
+
+> τ
+
+has a linear part γP πj
+
+> S×A
+
+, it follows from (31) that 
+
+Qπj 
+
+> τ
+
+− Qjτ = Aπj  Qπj 
+
+> τ
+
+− Qj−1
+
+> τ
+
+ − α¯ωj−1, j ≥ 1. (78) Fix k ≥ 0 and s ∈ S . For 0 ≤ j ≤ k, define 
+
+B(k) 
+
+> j
+
+(s) := 
+
+h
+
+(Aπj )k−j i⊤
+
+Js(π∗ 
+
+> τ
+
+− πj ), Q πj 
+
+> τ
+
+− Qjτ
+
+
+
+, (Aπj )0 := I. (79) For 1 ≤ j ≤ k, define 
+
+C(k) 
+
+> j
+
+(s) := 
+
+h
+
+(Aπj )k−j+1 i⊤
+
+Js(π∗ 
+
+> τ
+
+− πj ), Q πj 
+
+> τ
+
+− Qπj−1
+
+> τ
+
+
+
+, (80) 
+
+D(k) 
+
+> j
+
+(s) := 
+
+h
+
+(Aπj )k−j+1 i⊤
+
+Js(πj−1 − πj ), Q πj−1 
+
+> τ
+
+− Qj−1
+
+> τ
+
+
+
+, (81) 
+
+E(k) 
+
+> j
+
+(s) := 
+
+ h
+
+(Aπj )k−j+1 i⊤
+
+−
+
+h
+
+(Aπj−1 )k−j+1 i⊤
+
+Js(π∗ 
+
+> τ
+
+− πj−1), Q πj−1 
+
+> τ
+
+− Qj−1
+
+> τ
+
+
+
+, (82) 
+
+F (k) 
+
+> j
+
+(s) := −
+
+h
+
+(Aπj )k−j i⊤
+
+Js(π∗ 
+
+> τ
+
+− πj ), α ¯ωj−1
+
+
+
+. (83) Here B(k) 
+
+> j
+
+is the propagated signed critic error, with B(k)0 representing the initial remainder. The terms C(k) 
+
+> j
+
+,
+
+D(k) 
+
+> j
+
+, E(k) 
+
+> j
+
+, and F (k) 
+
+> j
+
+capture, respectively, the true-Q drift, policy drift, operator drift, and Markov-noise contribution. 
+
+Lemma B.2 (Five-term decomposition) . One has 
+
+π∗ 
+
+> τ
+
+(· | s) − πk(· | s), Q πk 
+
+> τ
+
+(s, ·) − Qkτ (s, ·) = B(k)0 (s) + 
+
+> k
+
+X
+
+> j=1
+
+
+
+C(k) 
+
+> j
+
+(s) + D(k) 
+
+> j
+
+(s) + E(k) 
+
+> j
+
+(s) + F (k) 
+
+> j
+
+(s)
+
+
+
+. (84) 
+
+Consequently, 
+
+E
+
+h
+
+B(k) 
+
+> k
+
+(s)
+
+i
+
+≤ E
+
+h
+
+B(k)0 (s)
+
+i
+
++
+
+> k
+
+X
+
+> j=1
+
+E
+
+h
+
+C(k) 
+
+> j
+
+(s) + D(k) 
+
+> j
+
+(s)
+
+i
+
++ E
+
+
+
+> k
+
+X
+
+> j=1
+
+E(k) 
+
+> j
+
+(s)
+
+ + E
+
+
+
+> k
+
+X
+
+> j=1
+
+F (k) 
+
+> j
+
+(s)
+
+ . (85) 26 Proof. By (76) and (Aπk )0 = I,
+
+π∗ 
+
+> τ
+
+(· | s) − πk(· | s), Q πk 
+
+> τ
+
+(s, ·) − Qkτ (s, ·) = B(k) 
+
+> k
+
+(s) = B(k)0 (s) + 
+
+> k
+
+X
+
+> j=1
+
+
+
+B(k) 
+
+> j
+
+(s) − B(k)
+
+> j−1
+
+(s)
+
+
+
+. (86) For 1 ≤ j ≤ k, using (78) we obtain 
+
+B(k) 
+
+> j
+
+(s) = 
+
+h
+
+(Aπj )k−j+1 i⊤
+
+Js(π∗ 
+
+> τ
+
+− πj ), Q πj 
+
+> τ
+
+− Qj−1
+
+> τ
+
+
+
+−
+
+h
+
+(Aπj )k−j i⊤
+
+Js(π∗ 
+
+> τ
+
+− πj ), α ¯ωj−1
+
+
+
+= B(k)
+
+> j−1
+
+(s) + C(k) 
+
+> j
+
+(s) + D(k) 
+
+> j
+
+(s) + E(k) 
+
+> j
+
+(s) + F (k) 
+
+> j
+
+(s). (87) Substituting (87) into (86) proves (84). Taking expectations and bounding the aggregate operator drift and Markov bias in absolute value proves (85). To proceed, let qb := 1 − α(1 − γ)eσb ∈ (0 , 1) . The definition of Aπj gives 
+
+∥ (Aπj )ℓ x∥∞ ≤ qℓb∥x∥∞,
+
+> ∞
+
+X
+
+> ℓ=1
+
+qℓb ≤ 1
+
+α(1 − γ)eσb
+
+.
+
+Lemma B.3 (Bound for the true-Q drift) . For every k ≥ 1 and s ∈ S ,
+
+> k
+
+X
+
+> j=1
+
+C(k) 
+
+> j
+
+(s) ≤ 2γη λα (1 − γ)2 eσb
+
+ 1 + τ γH h
+
+1 − γ + τ L h
+
+2
+
+. (88) 
+
+Proof. The ℓ1–ℓ∞ duality gives that 
+
+C(k) 
+
+> j
+
+(s) ≤ ∥ Js(π∗ 
+
+> τ
+
+− πj )∥1 (Aπj )k−j+1 (Qπj 
+
+> τ
+
+− Qπj−1 
+
+> τ
+
+) ∞
+
+≤ 2qk−j+1  
+
+> b
+
+∥Qπj 
+
+> τ
+
+− Qπj−1 
+
+> τ
+
+∥∞ . (89) Here ∥Js(π∗ 
+
+> τ
+
+− πj )∥1 ≤ 2, and the last inequality uses the contraction of Aπj . Lemma 4.3 then implies 
+
+C(k) 
+
+> j
+
+(s) ≤ 2γη λ(1 − γ) qk−j+1 
+
+> b
+
+ 1 + τ γH h
+
+1 − γ + τ L h
+
+2
+
+. (90) Summing over j and using Pkj=1 qk−j+1  
+
+> b
+
+≤ [α(1 − γ)eσb]−1 proves (88). 
+
+Lemma B.4 (Bound for the policy drift) . For every k ≥ 1 and s ∈ S ,
+
+> k
+
+X
+
+> j=1
+
+D(k) 
+
+> j
+
+(s) ≤ 2η(1 + τ γH h)
+
+λα (1 − γ)2 eσb
+
+ 1 + τ γH h
+
+1 − γ + τ L h
+
+
+
+. (91) 
+
+Proof. By the ℓ1–ℓ∞ duality and the contraction of Aπj ,
+
+D(k) 
+
+> j
+
+(s) ≤ ∥ Js(πj−1 − πj )∥1 (Aπj )k−j+1 (Qπj−1 
+
+> τ
+
+− Qj−1 
+
+> τ
+
+) ∞
+
+≤ qk−j+1  
+
+> b
+
+∥πj − πj−1∥1,∞ Qπj−1 
+
+> τ
+
+− Qj−1  
+
+> τ∞
+
+. (92) Applying (28) and (74) yields 
+
+D(k) 
+
+> j
+
+(s) ≤ 2η(1 + τ γH h)
+
+λ(1 − γ) qk−j+1 
+
+> b
+
+ 1 + τ γH h
+
+1 − γ + τ L h
+
+
+
+. (93) Summing this series as in the preceding proof gives (91). 27 Lemma B.5 (Exponentially weighted operator drift) . Suppose ρ−1qb < 1. Then, for every K ≥ 2 and s ∈ S ,
+
+E
+
+
+
+> bK
+
+X
+
+> j=1
+
+E( bK) 
+
+> j
+
+(s)
+
+ ≤ 4αγ eσbη(1 + τ γH h)
+
+λ(1 − γ)(1 − ρ−1qb)2
+
+ 1 + τ γH h
+
+1 − γ + τ L h
+
+
+
+. (94) 
+
+Proof. For N ≥ 1, let Sj,N := PNn=1 ρ−n(Aπj )n − (Aπj−1 )n. Recall the distribution of bK. Exchanging the finite k- and j-sums and setting n = k − j + 1 give 
+
+E
+
+
+
+> bK
+
+X
+
+> j=1
+
+E( bK) 
+
+> j
+
+(s)
+
+ = ρ−1 − 1
+
+ρ−K − 1
+
+> K−1
+
+X
+
+> j=1
+
+ρ−(j−1) E  S⊤ 
+
+> j,K −j
+
+Js(π∗ 
+
+> τ
+
+− πj−1), Q πj−1 
+
+> τ
+
+− Qj−1
+
+> τ
+
+ . (95) Thus it remains to bound ∥Sj,N ∥∞ uniformly in N . To this end, we first verify the following estimate whenever ρ−1qb < 1,  I − ρ−1Aπ −1 αΣb ∞
+
+≤ αeσb
+
+1 − ρ−1qb
+
+. (96) With c := αeσb/(1 − ρ−1qb), the identity Aπj 1 = 1 − α(1 − γ)Σ b1 implies (I − ρ−1Aπj )c1 ≥ αΣb1. Since Aπj
+
+is nonnegative and ρ−1qb < 1, comparison with its convergent Neumann series proves (96). It also implies, for every L ≥ 0, LX
+
+> ℓ=0
+
+ ρ−1Aπj ℓ αΣb
+
+> ∞
+
+≤ αeσb
+
+1 − ρ−1qb
+
+.
+
+Using Aπj − Aπj−1 = αγ Σb(P πj 
+
+> S×A
+
+− P πj−1 
+
+> S×A
+
+) and the power-difference identity, 
+
+Sj,N =
+
+> N
+
+X
+
+> n=1
+
+ρ−nn−1X
+
+> m=0
+
+(Aπj )n−1−m(Aπj − Aπj−1 )( Aπj−1 )m
+
+= ρ−1γ 
+
+> N−1
+
+X
+
+> m=0
+
+"N −1−mX
+
+> ℓ=0
+
+(ρ−1Aπj )ℓαΣb
+
+#  P πj 
+
+> S×A
+
+− P πj−1
+
+> S×A
+
+ (ρ−1Aπj−1 )m. (97) The second equality substitutes the expression for Aπj − Aπj−1 , sets ℓ = n − 1 − m, and exchanges the two finite sums. For every vector x,
+
+(P πj 
+
+> S×A
+
+− P πj−1 
+
+> S×A
+
+)x ∞ ≤ ∥ πj − πj−1∥1,∞∥x∥∞, ∥(ρ−1Aπj−1 )m∥∞ ≤ (ρ−1qb)m.
+
+Therefore, applying (96) to the first bracket in (97) and summing P
+
+> m≥0
+
+(ρ−1qb)m = (1 − ρ−1qb)−1 yield 
+
+∥Sj,N ∥∞ ≤ ρ−1αγ eσb
+
+(1 − ρ−1qb)2 ∥πj − πj−1∥1,∞. (98) Finally, as ∥Js(π∗ 
+
+> τ
+
+− πj−1)∥1 ≤ 2, (74) implies that 
+
+E
+
+
+
+> bK
+
+X
+
+> j=1
+
+E( bK) 
+
+> j
+
+(s)
+
+ ≤ 4( ρ−1 − 1)(1 + τ γH h)(1 − γ)( ρ−K − 1) 
+
+> K−1
+
+X
+
+> j=1
+
+ρ−(j−1) E [∥Sj,K −j ∥∞]
+
+≤ 4αγ eσbη(1 + τ γH h)
+
+λ(1 − γ)(1 − ρ−1qb)2
+
+ 1 + τ γH h
+
+1 − γ + τ L h
+
+
+
+,
+
+where we leverage (28), (98), and the fact that (ρ−1 −1) PK−1 
+
+> j=1
+
+ρ−(j−1) /(ρ−K −1) ≤ ρ in the last inequality. 28 For the weights in (34), the condition 0 ≤ ϑ < κ b and summation of the resulting powers give 
+
+> B−1
+
+X
+
+> t=0
+
+ckt κtb = κBb − ϑB
+
+(κb − ϑ) PB−1 
+
+> ℓ=0
+
+ϑℓ ≤ κBb
+
+κb − ϑ . (99) 
+
+Lemma B.6 (Bound for the Markov-noise term) . For every k ≥ 1 and s ∈ S ,
+
+E
+
+
+
+> k
+
+X
+
+> j=1
+
+F (k) 
+
+> j
+
+(s)
+
+ ≤ 4mb(1 + τ γH h)(1 − γ)2 eσb
+
+κBb
+
+κb − ϑ . (100) 
+
+Proof. Since Aπj , πj , and the initial state of batch j − 1 are Hj−1-measurable, conditioning the definition of 
+
+F (k) 
+
+> j
+
+(s) on Hj−1 yields 
+
+E
+
+h
+
+F (k) 
+
+> j
+
+(s)
+
+i
+
+= α E
+
+ h
+
+(Aπj )k−j i⊤
+
+Js(π∗ 
+
+> τ
+
+− πj ), E[¯ ωj−1 | H j−1]
+
+ 
+
+≤ 2αq k−jb E ∥E[¯ ωj−1 | H j−1]∥∞
+
+
+
+≤ 4αm b(1 + τ γH h)1 − γ qk−jb
+
+κBb
+
+κb − ϑ , (101) where we use ∥Js(π∗ 
+
+> τ
+
+− πj )∥1 ≤ 2 and the contraction of Aπj in the first inequality, and the second inequality is due to Lemma 4.4 together with (99). Finally, linearity of expectation and the triangle inequality give 
+
+E
+
+
+
+> k
+
+X
+
+> j=1
+
+F (k) 
+
+> j
+
+(s)
+
+ ≤
+
+> k
+
+X
+
+> j=1
+
+E[F (k) 
+
+> j
+
+(s)] ≤ 4mb(1 + τ γH h)1 − γκBb
+
+κb − ϑ α
+
+> k−1
+
+X
+
+> ℓ=0
+
+qℓb.
+
+Since α Pk−1 
+
+> ℓ=0
+
+qℓb ≤ [(1 − γ)eσb]−1, (100) is proved. We now substitute the preceding five bounds above into (66). First, the initial propagation term satisfies, uniformly in s ∈ S ,
+
+B(k)0 (s) ≤ 2qkb Qπ0 
+
+> τ
+
+− Q0  
+
+> τ∞
+
+. (102) Indeed, ∥Js(π∗ 
+
+> τ
+
+− π0)∥1 ≤ 2 and ∥ (Aπ0 )k x∥∞ ≤ qkb ∥x∥∞. Hence, whenever ρ−1qb < 1,
+
+E
+
+h
+
+B( bK)0 (s)
+
+i
+
+≤ 2( ρ−1 − 1) 1 − (ρ−1qb)K 
+
+(ρ−K − 1)(1 − ρ−1qb) Qπ0 
+
+> τ
+
+− Q0  
+
+> τ∞
+
+. (103) 
+
+Proof of Theorem 4.5. Since ρ = (1 + ητ )−1 ∈ (0 , 1) ,
+
+ρ−K ≥ 2 ⇐⇒ K ≥ log 2 log(1 /ρ ) .
+
+Thus, the stated integer lower bound on K ensures ρ−K ≥ 2. Writing a := α(1 − γ)eσb, the stepsize bound in the theorem gives 1 − ρ = ητ / (1 + ητ ) ≤ a/ 2 and hence the common stability margin 
+
+1 − ρ−1qb = ρ−1a − (1 − ρ) ≥ 12 ρ−1α(1 − γ)eσb > 0.
+
+Thus, Lemma B.5 applies. Moreover, Lemmas 2.3 and 4.2, together with Q0 
+
+> τ
+
+= 0 , give ∥Qπ0 
+
+> τ
+
+− Q0 
+
+> τ
+
+∥∞ ≤
+
+(1 + τ γH h)/(1 − γ). Consequently, (103) bounds the contribution of B0 by the second summand in C1. The condition ρ−K ≥ 2 also gives 
+
+2( ρ−1 − 1) ρ−(K−1) (1 + τ H h)(1 − γ)2(ρ−K − 1) ≤ 4ητ (1 + τ H h)(1 − γ)2 .
+
+29 Substituting Lemmas B.3, B.4, B.5, and B.6 into (85) and then into (66), the C- and E-terms combine as 
+
+2γη 1 + τ γH h + τ (1 − γ)Lh
+
+ 9(1 + τ γH h) + τ (1 − γ)Lh
+
+
+
+λα (1 − γ)5 eσb
+
+.
+
+Collecting the remaining terms proves (35). 
+
+## B.5 Proof of Corollary 4.6 
+
+Constant-stepsize bias. For this proof only, set A := 1+ τ γH h, R := τ (1 −γ)Lh, and G := ( A+R)(9 A+R).Since A ≥ 1 and R ≥ 0, we have G ≥ 9A2 ≥ 9. Additionally, the constant C2 is at most 
+
+41 + λτ (1 + τ H h)Gλα (1 − γ)5 eσb
+
+as α(1 − γ)eσb < 1 and γ ≤ 1. Indeed, after division by G/ [λα (1 − γ)5 eσb], the first three summands are bounded by 4λτ (1 + τ H h), 1, and 1, respectively, while the last is bounded by 2. Thus, (36) ensures that the second term in (35) does not exceed ϵ/ 3.
+
+Stability and optimization error. Writing a := α(1 − γ)eσb ∈ (0 , 1) within this proof, there holds 
+
+ηϵτ (2 − a)
+
+a ≤ 2λτ 
+
+12 1 + λτ (1 + τ H h)G < 1.
+
+Hence, the stepsize condition in Theorem 4.5 holds and 0 < η ϵτ < 1, which implies log(1 + ηϵτ ) ≥ ηϵτ / 2.Furthermore, 
+
+τ D π∗ 
+
+> τ
+> π0
+
+(d∗
+
+> μ
+
+)1 − γ + 4ηϵτ (1 + τ γH h)
+
+α(1 − γ)3 eσb
+
+≤ τ D π∗ 
+
+> τ
+> π0
+
+(d∗
+
+> μ
+
+)1 − γ + 4(1 + τ γH h)(1 − γ)2 .
+
+Consequently, (37) yields 
+
+(1 + ηϵτ )Kϵ − 1 ≥ max 
+
+(
+
+1, 3
+
+ϵ
+
+" τ D π∗ 
+
+> τ
+> π0
+
+(d∗
+
+> μ
+
+)1 − γ + 4(1 + τ γH h)(1 − γ)2
+
+#) 
+
+.
+
+In particular, (1 + ηϵτ )Kϵ ≥ 2, and the first term in (35) does not exceed ϵ/ 3.
+
+Mixing error and sample count. Finally, (38) gives 
+
+κBϵ
+
+> b
+
+κb − ϑ ≤ ϵ(1 − γ)3 eσb
+
+12 mb(1 + τ γH h) ,
+
+so the third term does not exceed ϵ/ 3. Summing the three bounds proves (39). Moreover, the definition of 
+
+Lh gives 
+
+R = τ (1 − γ)Hh + max 
+
+ τ (1 − γ)2 max  
+
+> s∈S , a ∈A
+
+Dh(ea ∥ π0(· | s)) , A + τ (1 − γ)Hh
+
+
+
+,
+
+so A, R, and G are bounded when τ, H h, and max s,a Dh(ea ∥ π0(· | s)) are fixed. Hence (36)–(38) give 
+
+Kϵ = eO [(1 − γ)5 eσbϵ]−1 and Bϵ = eO(1) under the stated convention, and then the claimed bound for 
+
+Nϵ = KϵBϵ follows. 30
