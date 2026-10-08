@@ -1,0 +1,509 @@
+Title: From Codebase to Culprit (C2C): Reducing the Search Space for Bugs with Semantic Retrieval and Hierarchical Reinforcement Learning
+
+URL Source: https://arxiv.org/pdf/2609.38402v1
+
+Published Time: Thu, 01 Oct 2026 00:14:28 GMT
+
+Number of Pages: 27
+
+Markdown Content:
+# From Codebase to Culprit (C2C): Reducing the Search Space for Bugs with Semantic Retrieval and Hierarchical Reinforcement Learning 
+
+## ANKUR GARG, University of Calgary, Canada 
+
+## COREY YANG-SMITH, University of Calgary, Canada 
+
+## RISHAV RISHAV, University of Calgary, Canada 
+
+## AHMAD ABDELLATIF, University of Calgary, Canada 
+
+## SAMIRA EBRAHIMI KAHOU, University of Calgary, Canada 
+
+We introduce C2C (From Codebase to Culprit), a framework for precise bug localization that progressively reduces the debugging search space across multiple levels of granularity: files, functions, and lines of code. To mirror developer’s natural top-down debugging workflows, C2C integrates semantic retrieval and Hierarchical Reinforcement Learning (HRL) in a two-stage process. First, it performs recall-oriented retrieval of buggy candidates via semantic vector similarity search using bug-report text, including available stack-trace information, against a database of embeddings, where the embeddings are fine-tuned via contrastive learning with CodeBERT. Building on this reduced search space, the HRL framework incrementally localizes bugs, reasoning from files to functions and ultimately to individual lines of code. Unlike prior approaches which operate at a single granularity, C2C enables multi-resolution localization while maintaining contextual consistency across decisions. Experiments on real-world Java and Python datasets demonstrate that C2C improves retrieval precision and localization accuracy. Ablation studies further highlight the contributions of hierarchical decomposition, structured learning signals, and reward shaping in advancing multi-level bug localization. Additional Key Words and Phrases: Bug localization, hierarchical reinforcement learning, software maintenance, code embeddings, vector similarity search 
+
+1 Introduction 
+
+Software defects remain among the most significant and costly liabilities in modern IT systems. The Consortium for Information & Software Quality (CISQ) estimates that legacy-system failures, production outages, security breaches, and accumulated technical debt cost U.S. organizations $2.41 trillion in 2022 alone [19]. Thus, accurately and efficiently localizing bugs is critical in reducing debugging effort, enhancing software reliability, and managing overall project costs. However, debugging remains challenging and resource intensive. Research on developer debugging behavior indicates that they frequently employ forward reasoning [3] and scientific debugging strategies [34], interleaving logical deduction with information gathering and dependency analysis [18]. Such approaches often require examining extensive code segments, making debugging tedious, error-prone, and costly. To address these challenges, various bug localization methods have been proposed, including Spectrum-Based Bug Localization (SBBL) [1, 15, 42], Information Retrieval (IR)-based ranking methods [36, 46], and learning-based approaches [8, 20, 21]. While some techniques can be adapted for different granularities (file, function, or line level) [31], few natively support localization at multiple granularities simultaneously [35, 47]. Addressing this gap is critical, as hierarchical localization augmented with rich context has the potential to outperform single-stage methods, especially when accurate identification at a single level alone proves inadequate. 
+
+> Authors’ Contact Information: Ankur Garg, University of Calgary, Canada, ankur.garg1@ucalgary.ca; Corey Yang-Smith, University of Calgary, Canada, corey.yangsmith@ucalgary.ca; Rishav Rishav, University of Calgary, Canada, rishav.rishav@ucalgary.ca; Ahmad Abdellatif, University of Calgary, Canada, ahmad.abdellatif@ucalgary.ca; Samira Ebrahimi Kahou, University of Calgary, Canada, samira.ebrahimikahou@ucalgary.ca.
+
+1arXiv:2609.38402v1 [cs.SE] 29 Sep 2026 2 Garg et al. Recent Reinforcement Learning (RL)-based methods, such as RLocator [4], have improved file-level predictions. However, these approaches typically flatten the localization task into single-stage decisions, limiting their capacity for iterative refinement. In practice, software debugging often follows a hierarchical, top-down workflow: developers start from a stack trace, shortlist suspicious files, narrow down to relevant functions, and ultimately identify the precise problematic lines. Inspired by this process, we introduce C2C , a novel Hierarchical Reinforcement Learning (HRL) framework designed to mirror and automate this sequential strategy. 
+
+C2C operates in two stages. It begins with CodeRetriever , a fine-tuned CodeBERT model [12] that maps bug-report text, including available stack-trace information, to top-K candidate buggy files using a precomputed vector database. From this candidate pool, the second stage, our HRL architecture, employs three specialized RL agents in sequence. Each of these modules is an RL agent in the standard sense: it observes a task-specific state, selects an action from its action space, and is trained with a reward signal to improve bug localization performance [16]. Together, these agents progressively refine localization at different levels of granularity, narrowing the search from file, to function, to line. Our three HRL agents are: (1) File-level agent: receives the retrieved candidate file set and selects the most likely buggy file. (2) Function-level agent: receives the selected file and chooses the most likely buggy function within it. (3) Line-level agent: receives the selected function and identifies the most likely buggy line. Overall, C2C takes as input a repository and bug-report text obtained from GitHub issues, including available stack-trace and error information. During both training and inference, stack traces are used to progressively narrow the search space from files to functions to lines. Figure 2 provides a high-level overview of our inference pipeline. Sections 5 and 6 then present the motivation and implementation details for CodeRetriever and the HRL architecture, respectively. We evaluate C2C on two complementary benchmarks: real-world Elasticsearch issues from the BEETLEBOX bench-mark [5] (Java), and 11 Python repositories from SWE-bench Verified [14]. Across both settings, iterative contrastive fine-tuning with hard negative mining improves retrieval quality over the baseline, achieving a Hit@10 of 57.8% on Elasticsearch and 69.7% on SWE-bench (Table 5). Notably, at broader retrieval depths, the model achieves a Hit@50 of 93.8% on SWE-bench and 72.9% on Elasticsearch, establishing a solid candidate pool for the downstream localization agents. Building on this retrieval stage, the three-level RL agents demonstrate effective fine-grained localization, achieving file/function/line Mean Reciprocal Rank (MRR) of 0.5005/0.5450/0.2932 on Elasticsearch and 0.4156/0.2815/0.1000 on SWE-bench. Ablation studies confirm that iterative contrastive training, hierarchical decomposition, and shaped intermediate rewards each contribute substantially to these results. We address the following research questions (RQs): (1) RQ1: How effectively does CodeRetriever align stack traces and buggy files in the embedding space? (2) RQ2: How does hierarchical decomposition improve localization compared to single-stage methods? (3) RQ3: How do different reward strategies affect learning in HRL? (4) RQ4: Does C2C generalize across programming languages and repositories? The primary contributions of this paper include: (1) Iterative contrastive fine-tuning of CodeBERT with hard-negative mining for effective bug retrieval. (2) The first open-source HRL framework to the best of our knowledge for multi-granular bug localization. (3) A shaped-reward strategy that stabilizes HRL training. (4) An open-source benchmark, dataset pipeline, and reference implementation to support reproducibility. 1
+
+> 1Code and steps to reproduce available at https://github.com/agarg-dev/ATLAS
+
+From Codebase to Culprit (C2C): Reducing the Search Space for Bugs with Semantic Retrieval and Hierarchical Reinforcement Learning 3The remainder of our paper is structured as follows: Section 2 discusses related work. In Section 3 we introduce our evaluation benchmarks and discuss how we preprocess the data for our method. We provide an overview of C2C in Section 4, with detailed explanations on the motivation and implementation of our two stages, CodeRetriever and our HRL Architecture, in Sections 5 and 6, respectively. We then present our experimental results and ablation studies in Section 7, discuss our findings in Section 8, outline threats to validity in Section 9, and conclude in Section 10. 
+
+2 Related Work 2.1 Spectrum and Mutation-Based Bug Localization 
+
+Automated bug localization techniques have evolved from traditional SBBL approaches to more advanced methods such as Mutation-Based Bug Localization (MBBL) and IR-based techniques. SBBL techniques have served as the foundation of bug localization research by mining contrasts between passing and failing test executions to compute suspiciousness scores and rank buggy code elements [10, 37]. Classical methods such as Tarantula [15], Ochiai [1], and DStar [42] effectively leverage test outcomes, but often struggle in large codebases or in the presence of incomplete coverage and multiple interacting bugs [43]. To address these limitations, MBBL extends SBBL with mutation analysis, where code elements are modified using mutation operators [32]. Metallaxis-FL [33] ranks statements higher if mutants are mostly killed by failing tests, while MUSE [28] generates multiple mutant versions of statements covered by failing tests to refine rankings. While MBBL reduces reliance on test suites, mutation-based approaches still face scalability challenges in large systems due to the computational cost of mutation analysis [17]. 
+
+2.2 Information Retrieval and Contrastive Learning-Based Bug Localization 
+
+As an alternative that reduces the dependency on test coverage, IR-based bug localization techniques leverage textual similarity between bug reports and source code elements. For instance, BugLocator [46] uses a revised Vector Space Model to rank candidate files by estimating their similarity to bug reports. BLUiR [36] enhances this by treating source code as a structured document, separating constructs like class and method names, and using IR models to match bug reports to relevant files more effectively. Despite these improvements, IR-based methods are typically coarse-grained and fail to provide developers with needed contextual information [40]. This limitation motivates the exploration of techniques capable of capturing richer contextual representations. Contrastive learning methodologies aim to enhance retrieval by improving buggy signal clarity and promoting better generalization across projects. Existing bug localization methods, such as SupConFL [8] and FALCON [20], utilize contrastive techniques to learn embeddings from buggy-fixed code pairs and log traces, respectively. Single-pass contrastive learning methods using triplet-based loss and hard-negative mining can effectively strengthen semantic representations by identifying challenging negative examples and adaptively refining embeddings. Although such methods have shown promising results in other domains, such as monolithic architecture decomposition [38] and enterprise search [27], their application to bug localization remains largely unexplored, representing a valuable direction for future research. 
+
+2.3 Learning and RL-Based Bug Localization 
+
+Recent research has increasingly leveraged deep learning techniques to improve bug localization by learning represen-tations from code and bug-related data. 4 Garg et al. One prominent direction focuses on integrating multiple bug localization metrics to construct rich feature sets for learning-to-rank models, such as in MULTRIC [44] and TraPT [22]. DeepFL [21] extends this idea the furthest by combining diverse bug localization techniques, complexity-based metrics, and textual similarity to create a com-prehensive feature set, significantly outperforming previous methods. Other approaches emphasize improving input representations, such as GRACE’s [24] use of Gated Graph Neural Networks to encode structural relationships in code. However, the supervised nature of many of these methods often limits cross-project generalization. Recent methods also leverage large pretrained transformers to learn rich code embeddings. FBL-BERT [9] analyzes commit histories and uses nearest-neighbor retrieval to identify bug-inducing hunks, while LLMAO [45] fine-tunes lightweight bidirectional adapters atop a frozen language model to localize buggy lines of code without relying on test cases. BugCerberus [6], the most closely aligned with our work, adopts a hierarchical framework with fine-tuned models at the file, function, and statement levels for precise localization, though its primary focus is automated issue fixing. While RL has been applied to a wide range of software engineering tasks, such as test prioritization [13], test generation [7, 11], and code generation [39], its application within bug localization remains limited. This is surprising given RL’s strength in learning effective search strategies under sparse supervision, especially in settings where explicit bug annotations are scarce or incomplete [23, 25]. One notable exception is RLocator, which applies an RL framework to localize bugs at the file level [4]. Another example, SBFL4RL [29], combines spectrum-based heuristics with RL agents; however, it is designed for policy learning environments and focuses on identifying bugs in state-space behaviors rather than in source code, limiting its generalizability to traditional bug localization tasks. 
+
+C2C addresses these limitations by formulating bug localization as an HRL problem [2], introducing a structured decision process with separate agents responsible for localization at the file, function, and line levels. Each policy acts on semantically rich states produced by CodeBERT embeddings that we fine-tune using an iterative, two-stage contrastive learning process . During testing, downstream agents condition their decisions on the actions chosen upstream, enabling the framework to encompass entire repositories to individual lines without blowing up computational cost. This hierarchical, context-aware design allows C2C to produce multi-granular predictions on large codebases, whereas prior systems such as RLocator and LLMAO are restricted to singly-granular outputs. By combining hierarchical policy learning with contrastively trained contextual code embeddings, C2C provides a unified framework for multi-granular bug localization. 
+
+3 Problem Formulation and Datasets 
+
+This section describes the benchmarks used in our study, formalizes the multi-granular bug localization task, and explains how we construct the offline artifacts required for retrieval and hierarchical localization. 
+
+3.1 Problem Formulation 
+
+Given a bug report, which may include stack-trace information, the goal of C2C is to localize the corresponding bug at three levels of granularity: the buggy file, the buggy function within that file, and the buggy line within that function. Rather than predicting over all lines in the repository, we formulate bug localization as a hierarchical sequential decision problem that progressively narrows the search space from files to functions and finally to lines. This process is carried out by multiple reinforcement learning agents, rather than by a single-pass prediction model. A complete prediction is therefore a file-function-line path associated with a bug report. In practice, bugs may span multiple lines, From Codebase to Culprit (C2C): Reducing the Search Space for Bugs with Semantic Retrieval and Hierarchical Reinforcement Learning 5functions, or files in a real software repository. While C2C is trained to identify a single correct target at each hierarchical level, the ranked lists produced by each agent provide natural coverage over multiple locations. 
+
+Input. The input to our framework is a bug report associated with a software repository, as well as the repository itself. We first embed each file (buggy and non-buggy) from the target repository into a vector database which we use downstream for buggy file retrieval. Utilizing the same embedding model, we also extract and embed the associated bug report, represented as a stack trace, into our vector database. The first stage of our framework, CodeRetriever, utilizes the stack trace embedding to retrieve a set of top-K candidate buggy files, which serves as input for the second stage of our approach, the HRL architecture of our framework. This two-stage inference process is illustrated in Figure 2. 
+
+Output. The output of C2C is a hierarchical localization prediction consisting of a file, a function within that file, and a line within that function. Together, these form a complete localization path identifying the predicted buggy code element. At inference time, the system produces a structured prediction of the form (file, function, line) , where the predicted line is the final fine-grained bug localization result for the input bug report. 
+
+Unit of Analysis. Each training and evaluation example is a labeled file-function-line instance associated with a bug report, which we extract directly from GitHub issues of the associated repository. Formally, each instance consists of five elements: an issue ID, its stack trace, a buggy file, a buggy function, and a buggy line. A single GitHub issue may therefore produce multiple instances when the corresponding fix affects multiple buggy locations. We further explain our data processing in Section 3.3. 
+
+3.2 Datasets 
+
+We conduct our study on two complementary benchmarks spanning Java and Python, summarized in Table 1. 
+
+BEETLEBOX Elasticsearch. We use the Elasticsearch repository from the BEETLEBOX benchmark [5] as our primary Java dataset. It contains authentic bug reports and code fixes derived from GitHub issues and is enriched with the detailed metadata, stack traces, and annotated buggy locations necessary to train and evaluate C2C . The dataset is comprised of 326 bug reports involving 691 buggy files and 5,326 non-buggy files (Table 1). From these 326 bug reports, our preprocessing pipeline (Section 3.3) extracts 5,342 file-function-line triplets which we use for training and evaluation. 
+
+SWE-bench Verified. To assess the generalizability of C2C across programming languages and repositories, we evaluate C2C on SWE-bench Verified [14], a curated subset of 500 high-quality software issues drawn from the larger SWE-bench benchmark and verified by humans. SWE-bench Verified spans 11 Python repositories : astropy, django, matplotlib, pylint, pytest, requests, scikit-learn, seaborn, sphinx, sympy, and xarray. From these 500 issues, our preprocessing pipeline (Section 3.3) extracts 1,972 file-function-line triplets across 393 unique issues (Table 1). This multi-repository Python setting complements the single-repository Java evaluation on Elasticsearch and directly addresses the question of whether C2C ’s approach generalizes beyond a single project and language. While these benchmarks provide raw issues, stack traces, and revision metadata, they do not directly provide the structured inputs required by C2C . We therefore apply a preprocessing pipeline to transform each issue into file-function-line instances and the offline artifacts needed for retrieval and hierarchical localization. We describe this pipeline next. 
+
+3.3 Instance Construction 
+
+Although BEETLEBOX and SWE-bench Verified provide the raw ingredients for bug localization, they must be further processed before they can be used to train and evaluate C2C . We therefore construct a preprocessing pipeline that 6 Garg et al. 
+
+Table 1. Summary statistics for the Elasticsearch and SWE-bench Verified datasets. 
+
+Characteristic Elasticsearch SWE-bench Verified Dataset scale 
+
+Repositories 1 11 Bug reports 326 393 Bug-location triplets 5,342 1,972 Unique buggy files 691 477 Unique non-buggy files 5,326 1,929 
+
+Bug scope and dispersion 
+
+Multi-file bug reports 167 51 Multi-function bug reports 168 86 Multi-line bug reports 247 242 Median buggy files per report 2 1Median buggy lines per report 5 2Mean triplets per report 16.39 5.02 
+
+Buggy-file complexity 
+
+Median lines per buggy file 327 670 Median functions per buggy file 13 38 Median LOC per function in buggy files 7 8Source 
+
+> Repository
+> Extract Bug Report
+> (Stack Trace, Ground
+> Truth Location, SHA of
+> Bug)
+> Repository Checkout
+> to bug SHA
+> Repository Checkout
+> to HEAD SHA
+> Source File Extraction
+> (Buggy File)
+> Source File Extraction
+> (Non-Buggy File)
+> Metadata & Code Extraction
+> Adding Fine-Tuned
+> CodeBERT
+> Embedder
+> Triplet Generation & Iterative Contrastive Learning
+> Vector Database
+> (FAISS)
+> Querying
+> Stack Trace
+> Embedding
+> HRL
+> Dataset
+> HRL Dataset Construction
+> Extracting
+
+Fig. 1. Data extraction and preprocessing pipeline for C2C . The system ingests bug reports and ground-truth data from a source repository, checks out buggy and HEAD SHAs, and extracts buggy files (from buggy SHA), all non-buggy files (from HEAD SHA), and metadata (e.g., issue ID). These form triplets for contrastive training of CodeBERT. Embeddings are stored in a FAISS vector index and refined iteratively via hard negative mining to produce a hierarchical dataset for top-𝐾 buggy file retrieval. 
+
+converts each issue into structured file-function-line instances and the auxiliary artifacts required by both CodeRetriever and the HRL framework. The pipeline has three stages: (1) metadata and code extraction, (2) triplet construction for retriever training, and (3) HRL dataset construction. The output of each stage feeds into the next, as illustrated in Figure 1. To support efficient nearest-neighbor search during retrieval, we additionally index embedded source files using Facebook AI Similarity Search (FAISS), a vector similarity search library used in our retrieval stage. 
+
+3.3.1 Metadata and Code Extraction. For each issue, we first recover the metadata needed to reconstruct the debugging context and the ground-truth buggy location. Specifically, we extract: 
+
+• Stack Trace Information: Obtained from the bug report text, including available stack-trace and error context. 
+
+• Commit Identifiers : Before-fix and latest (HEAD) commit SHAs to reconstruct repository states. 
+
+• Precise Bug Locations : Derived from commit diffs to isolate the affected file names, function names, and line numbers. From Codebase to Culprit (C2C): Reducing the Search Space for Bugs with Semantic Retrieval and Hierarchical Reinforcement Learning 7
+
+• Buggy Code Files : Retrieved from the pre-fix commit to capture genuine buggy code. 
+
+• Non-Buggy Files : Sampled from the repository at the HEAD SHA, excluding the original buggy file. We examine commit history to account for any file name changes over time. Each data point in the processed dataset corresponds to a unique file-function-line triplet, so multiple entries may share the same issue ID or stack trace. To prevent false negatives during contrastive training, pairs sharing the same issue ID or the same positive file path are masked from the in-batch loss denominator; see Section 5.1 for details. 
+
+3.3.2 Triplet Construction for Contrastive Retrieval Training. To train the retrieval component, we convert the extracted artifacts into contrastive triplets. Each triplet consists of a stack trace as the anchor, the corresponding buggy file as the positive example, and a non-buggy file as the negative example. The first round of contrastive learning uses randomly sampled negatives. After this initial training, we embed all files into a FAISS index and perform hard-negative mining to identify semantically similar non-buggy files. These refined triplets are then used in a second fine-tuning phase, yielding embeddings that support recall-oriented retrieval of buggy files. Further details on the contrastive learning process are provided in Section 5.1. 
+
+3.3.3 HRL Dataset Construction. Using the final retriever, we construct the dataset used for hierarchical localization. For each labeled instance, we encode the stack trace, retrieve a ranked set of top-𝐾 candidate files, and record the position of the ground-truth buggy file within that candidate list. If the ground-truth buggy file is not among the top-𝐾 candidates, it is inserted into the candidate set to ensure that the HRL agents always have access to the correct target during training and evaluation. We additionally record whether the ground-truth file was originally retrieved by CodeRetriever, whose retrieval performance is evaluated separately on the unmodified rankings. Each HRL instance contains the following fields: 
+
+• Issue ID : The bug report identifier. 
+
+• Stack Trace Embedding : Encoded using the fine-tuned CodeBERT model. 
+
+• Candidate Files List : A fixed-size set of 𝐾 candidate files, initialized from CodeRetriever’s retrieval results and augmented with the ground-truth file when it is not originally retrieved. 
+
+• Buggy File Index : The position of the buggy file in the candidate list. 
+
+• Buggy Function Name : The buggy method or function within the buggy file. 
+
+• Buggy Line Number : The specific line of code containing the bug. For issues with multiple buggy files, a separate HRL instance is constructed for each buggy file. At the file level, candidate positions associated with the same issue are treated as valid targets during training and evaluation. For Elasticsearch, a single FAISS index covers the full repository, while for SWE-bench, separate per-repository indices are built. Index construction details are given in Section 5. 
+
+3.4 Data Splits and Evaluation Protocol 
+
+Both stages of C2C —CodeRetriever and the HRL agents—share a single, coordinated split to prevent data leakage between training and evaluation. All splits are performed randomly at the issue level : issues (not individual triplets) are assigned to train, validation, or test partitions using an 80/10/10 ratio, stratified by repository to ensure each split contains a representative distribution of projects. This prevents data leakage through shared stack traces, since all triplets derived from the same issue are guaranteed to appear in the same partition. For HRL training and evaluation, the candidate sets are 8 Garg et al. Elasticsearch SWE-bench Verified  
+
+> Evaluation Datasets
+> Source Repository
+> Stage 1: CodeRetriever
+> Offline Data Preparation (Training Only)
+> Stack Trace
+> Bug Locations
+> Buggy Code Files
+> Non-Buggy Code Files
+> GitHub Issues Vector Database (FAISS)
+> Top-K Files
+> Selected Function
+> Stage 2: Hierarchical RL Agent Pipeline
+> Candidate Functions
+> Selected File
+> Candidate Buggy Lines
+> Buggy Line
+> CodeRetriever
+> Function-Level Agent
+> File-Level Agent
+> Line-Level Agent
+
+Fig. 2. C2C’s end-to-end inference pipeline from bug report to final buggy line prediction. 
+
+constructed as described in Section 3.3.3, ensuring that the ground-truth file is available to the downstream agents; CodeRetriever itself is evaluated separately using its original retrieval rankings. For the Elasticsearch dataset, 326 issues yield 5,342 triplets, split as: 260 train / 33 validation / 33 test issues (3,592 / 1,278 / 472 triplets respectively). For SWE-bench Verified, 393 issues yield 1,972 triplets, split as: 314 train / 39 validation / 40 test issues (1,641 / 186 / 145 triplets respectively). During contrastive training, test-split triplets are excluded entirely. 
+
+4 Overview of C2C 
+
+To address the hierarchical nature of bug localization, we decompose the bug localization task into two stages: (1) 
+
+candidate file retrieval , and (2) fine-grained localization across multiple levels of granularity . The first stage, 
+
+CodeRetriever , is a semantic retrieval module that fine-tunes CodeBERT using contrastive learning and leverages a FAISS-based vector database to retrieve a compact set of 𝐾 candidate files for a given bug report. The second stage, 
+
+C2C ’s HRL framework, receives these candidates and performs multi-granular localization at the file, function, and line levels. This design models bug localization as a sequence of interdependent decisions, where each level refines the search space and provides context for subsequent levels. From Codebase to Culprit (C2C): Reducing the Search Space for Bugs with Semantic Retrieval and Hierarchical Reinforcement Learning 9
+
+4.1 End-to-End Method Inference 
+
+At inference time, C2C performs bug localization in two stages. First, CodeRetriever maps the input bug report, represented primarily by its stack trace embedding, to a ranked set of candidate source files. Second, a hierarchy of three localization agents progressively narrows this candidate space by selecting the most likely buggy file, the most likely buggy function within that file, and finally the most likely buggy line within that function. This design separates recall-oriented retrieval from precision-oriented localization. The retrieval stage reduces the repository-level search space to a compact candidate set, while the hierarchical localization stage refines the prediction across increasingly fine levels of granularity. The resulting output predicts a file-function-line localization path associated with the input bug report. The retriever and the hierarchical agents serve complementary roles. CodeRetriever is optimized to retrieve relevant files, whereas the downstream HRL framework is optimized to rank the correct location as highly as possible within its candidate search space. A summary of our two-stage inference pipeline is available in Figure 2. 
+
+4.2 Training Overview 
+
+Training is split into two levels based on our two components. CodeRetriever is trained iteratively using contrastive triplets we construct. We utilize iterative negative mining for contrastive learning to improve the model’s ability to distinguish between semantically similar code files. Considering the input into the HRL pipeline is a set of candidate files, we utilize our then-trained CodeRetriever to retrieve buggy candidate files for a given bug report and repository. CodeRetriever produces a candidate file pool which we utilize downstream to train our HRL framework. If CodeRetriever fails to retrieve the correct buggy file for a given sample, we inject the ground-truth file into the fixed-size candidate set, ensuring that the HRL framework has a valid target to learn from. We further explain in detail the training setup and protocols for CodeRetriever and the HRL framework in Section 5 and Section 6, respectively. 
+
+5 CodeRetriever 
+
+This section describes CodeRetriever, the retrieval component that forms the first stage of C2C . Its goal is to reduce the repository-level search space by mapping a bug report to a ranked set of candidate files that are likely to contain the bug. We first describe the design and motivation of the retrieval module, then the iterative contrastive training procedure and the construction of the vector index. 
+
+5.1 Overview and Design Rationale 
+
+CodeRetriever is a semantic retrieval module based on a fine-tuned CodeBERT encoder and a FAISS vector database. During training, CodeBERT is fine-tuned via iterative contrastive learning with hard negative mining to align stack traces and code files in a shared embedding space. We selected CodeBERT as the backbone of CodeRetriever because our first-stage task is fundamentally a cross-modal retrieval problem: the model must map bug reports, represented primarily as stack traces, and source-code files into a shared embedding space for nearest-neighbor search. CodeBERT is a bidirectional encoder pretrained jointly on natural language and code, making it a strong fit for this setting. In contrast to decoder-only code models, which are primarily optimized for generation, our retrieval stage depends on fixed-dimensional embeddings that can be indexed efficiently in FAISS and compared at scale across entire repositories. We therefore chose CodeBERT not as a claim that it is the 10 Garg et al. universally best code model for bug localization, but because its encoder architecture, joint NL-code pretraining, and computational efficiency align with the requirements of dense semantic retrieval in C2C .
+
+5.2 Iterative Contrastive Fine-Tuning 
+
+During the training phase, we fine-tune CodeBERT to produce semantically meaningful embeddings for both stack traces and code files. This fine-tuning uses a hybrid loss function that combines (1) in-batch contrastive loss and (2) margin-based triplet loss, aligning stack trace embeddings with corresponding buggy file embeddings in a shared latent space. The process begins with the construction of initial triplets (𝑎, 𝑝, 𝑛 ), where 𝑎 (anchor) is the stack trace embedding, 𝑝 
+
+(positive) is the correct buggy file embedding, and 𝑛 (negative) is a randomly sampled non-buggy file from the repository at HEAD SHA. The in-batch loss encourages similarity between anchors and their corresponding positives while discouraging similarity to valid in-batch negatives, scaled by temperature 𝜏 . To prevent false negatives, we exclude from the denominator any pair (𝑖, 𝑗 ) where 𝑗 ≠ 𝑖 but triplet 𝑗 shares the same issue ID as 𝑖 , or whose positive file has the same path as 𝑝 𝑖 — since such pairs carry nearly identical embeddings despite being distinct training examples. Let 
+
+V ( 𝑖 ) denote the valid index set for anchor 𝑖 : all 𝑗 such that 𝑗 = 𝑖 , or both issue ( 𝑗 ) ≠ issue (𝑖 ) and path (𝑝 𝑗 ) ≠ path (𝑝 𝑖 ).The loss is: 
+
+Lin-batch = − 1
+
+𝐵 
+
+> 𝐵
+
+∑︁ 
+
+> 𝑖 =1
+
+log exp (sim (𝑎 𝑖 , 𝑝 𝑖 )/ 𝜏 )
+
+Í𝑗 ∈ V ( 𝑖 ) exp  sim (𝑎 𝑖 , 𝑝 𝑗 )/ 𝜏  ,
+
+where sim (· , ·) denotes dot-product similarity and 𝜏 = 0.1 is the temperature. We additionally compute Lin-batch in the symmetric direction (positive-to-anchor) and average both directions to improve embedding consistency. The margin-based loss explicitly pushes anchor-positive pairs closer while separating anchor-negative pairs by a margin 𝑚 :
+
+Lmargin = 1
+
+𝐵 
+
+> 𝐵
+
+∑︁ 
+
+> 𝑖 =1
+
+max (0, 𝑚 − sim (𝑎 𝑖 , 𝑝 𝑖 ) + sim (𝑎 𝑖 , 𝑛 𝑖 )) ,
+
+where 𝑚 = 0.2. These two losses are combined into a hybrid objective: 
+
+Lhybrid = Lin-batch + L margin .
+
+To enhance the embedding space, we adopt hard negative mining . After the initial fine-tuning, we embed the entire corpus and index it in FAISS. For each buggy file, we identify semantically similar non-buggy files from the FAISS index to serve as hard negatives. These hard negatives are then used in a second fine-tuning phase, allowing CodeBERT to more effectively distinguish subtle differences between buggy and non-buggy files. Figure 3 illustrates the iterative contrastive fine-tuning process for CodeBERT. At inference, CodeRetriever leverages the fine-tuned CodeBERT and FAISS index to encode the stack trace and retrieve the top-𝐾 most relevant candidate files, which are then passed to the HRL agents for multi-granular localization. 
+
+5.3 Vector Database Construction 
+
+To support scalable and efficient similarity search over large codebases, we build a FAISS-based vector database. Each source file is encoded into a 768-dimensional vector using CodeBERT, and indexed with cosine similarity for fast nearest-neighbor queries. From Codebase to Culprit (C2C): Reducing the Search Space for Bugs with Semantic Retrieval and Hierarchical Reinforcement Learning 11  
+
+> Fig. 3. Iterative CodeBERT fine-tuning pipeline in C2C . Raw bug reports and source code are distilled into triplets, then used to fine-tune CodeBERT. After each training pass, a FAISS index mines hard negatives that feed back into the next retraining cycle. The final FAISS index produces the hierarchical evaluation dataset.
+
+For both the Elasticsearch and SWE-bench datasets, we establish the base corpus by indexing all source files from the latest repository SHA. To accurately represent the bug context, we then inject the ground-truth buggy files extracted from their respective pre-fix SHAs. To prevent data duplication and ensure the retriever targets the correct historical state, we explicitly exclude the latest-SHA versions of those specific buggy files from the index. By indexing the full repositories in this manner, we preserve the extreme natural class imbalance found in real-world software development, providing a highly realistic retrieval challenge. We build one FAISS index per repository: a single index for Elasticsearch (one repository) and separate indices for SWE-bench (11 repositories), which avoids conflating embeddings across projects. Before embedding, source files are preprocessed for both datasets, details for which are mentioned in Section 5.4 During training, we first construct the vector database using embeddings from CodeBERT fine-tuned on randomly sampled triplets. We then perform hard negative mining by retrieving non-buggy files that are semantically similar to buggy ones, forming a more challenging triplet dataset for a second round of fine-tuning. The final FAISS index is built by re-encoding the original corpus using the updated CodeBERT model. At inference, CodeRetriever encodes the input stack trace and retrieves the top-𝐾 most relevant files using this final index. To minimize storage overhead, function and line-level embeddings are generated on demand during downstream localization. 
+
+5.4 Implementation Details 
+
+To address CodeBERT’s 512-token context limit, we apply a sliding window of 512 tokens (stride 510) to split large files into chunks, embedding up to 50 chunks per file with the final representation taken as the mean of chunk embeddings. Before embedding, source files are preprocessed to reduce noise. Python files have docstrings removed via AST analysis and comments stripped; Java files have block and line comments, import statements, package declarations, and blank lines removed. Preprocessing is applied to code files only; stack traces are embedded as-is. For file-level embeddings, we also include the repository-relative file path along with the source-code content. 12 Garg et al. Both fine-tuning rounds use the AdamW optimizer with an effective batch size of 64. In the first round (random negatives), the learning rate is 2 × 10 −5 with a linear warmup over 10% of training steps and early stopping with patience 3 over a maximum of 10 epochs. The second round (hard negatives) warm-starts from the first-round checkpoint with a reduced learning rate of 1 × 10 −5, no warmup, patience 5, and up to 15 epochs. The best checkpoint is selected by validation loss in both rounds. 
+
+6 HRL Localization 
+
+After CodeRetriever narrows the repository-level search space, C2C performs fine-grained localization through a hierarchy of reinforcement learning agents. This section describes how bug localization is formulated as a sequential decision process over files, functions, and lines, and explains the design of the hierarchical architecture, the reward mechanism and the training strategy. 
+
+6.1 HRL Formulation of the Task 
+
+We model the hierarchical bug localization task as an HRL problem, characterized by a sequence of inter-related RL agents making progressively finer-grained decisions to pinpoint the exact file, function, and line containing a bug. Each agent operates as an RL policy within a Markov Decision Process (MDP), wherein at each hierarchical level an agent observes a state 𝑠 , selects an action 𝑎 from a learned policy distribution 𝜋 (𝑎 |𝑠 ), and subsequently receives a scalar reward 𝑟 based on the accuracy of its prediction. Formally, an MDP is represented as a tuple (S , A, 𝑃, 𝑅, 𝛾 ), where S denotes the state space, A the action space, 𝑃 
+
+the transition dynamics, 𝑅 the reward function, and 𝛾 the discount factor. In our methodology, the state space at each level integrates a bug report embedding 𝑠 bug ∈ R768 generated via CodeBERT, alongside embeddings of candidate code entities (files, functions, or lines). The action space involves selecting one candidate from a discrete set at each level of granularity. Rewards are either intermediate (provided at each decision step) or sparse (given exclusively at the final prediction stage). Due to the hierarchical structure, each agent’s decision and subsequent state representation depend explicitly on the outcomes of higher-level agents. 
+
+6.2 HRL Architecture 
+
+Our bug localization framework is structured as a hierarchical reinforcement learning (HRL) architecture consisting of three specialized agents, each operating at a different level of granularity: file, function, and line. 
+
+File-Level Agent. The hierarchy begins with the file-level agent, which is responsible for identifying the most probable buggy file. This agent receives 𝑁 candidate files retrieved through semantic search based on the bug report. The agent’s policy, 𝜋 𝑓 (𝑎 𝑓 |𝑠 𝑓 ), processes each file by first creating a unified representation. This is achieved by concatenating the bug report’s embedding with the embedding of the candidate file. This combined representation is then fed into a feed-forward network to generate a relevance score for the file. These scores are subsequently normalized to create a probability distribution over the 𝑁 candidate files. The action, 𝑎 𝑓 , corresponds to selecting a file index based on this distribution. 
+
+Function-Level Agent. Once the file-level agent predicts a file, the function-level agent is activated to pinpoint the specific function containing the bug within that file. Its policy, 𝜋 func (𝑎 func |𝑠 func ), evaluates 𝑀 candidate functions that have been extracted from the selected file using static analysis (AST parsing for Python; regex-based brace matching for Java). Similar to the file-level agent, it computes a relevance score for each function by concatenating the bug report embedding with the candidate function’s CodeBERT embedding. These scores are then used to form a probability From Codebase to Culprit (C2C): Reducing the Search Space for Bugs with Semantic Retrieval and Hierarchical Reinforcement Learning 13 
+
+> Fig. 4. C2C hierarchical training pipeline. The diagram shows the sequential training strategy (TWF), where agents are trained using ground-truth oracle inputs to ensure stability.
+
+distribution over the function indices. To ensure the agent is trained effectively, it is only activated and supervised when the file predicted by the higher-level agent is correct. For bugs that are not confined to a specific function, a synthetic "global function" is created to represent the file’s global scope, ensuring all code is considered. 
+
+Line-Level Agent. At the lowest level of the hierarchy, the line-level agent performs fine-grained localization by identifying the exact buggy line within the function selected by the function-level agent. Given 𝑇 candidate lines from the predicted function, the agent’s policy, 𝜋 ℓ (𝑎 ℓ |𝑠 ℓ ), computes a probability distribution over the line indices. It follows the same scoring mechanism as the other agents, creating a combined representation from the line’s embedding and the bug report’s embedding. The activation of this agent is contingent upon the correct identification of both the file and the function, providing it with a highly relevant context for precise localization. Architecturally, the file-level and line-level agents each employ a Bidirectional LSTM (BiLSTM) encoder to capture sequential dependencies among candidate embeddings, while the function-level agent uses an MLP encoder. The line-level agent additionally incorporates sinusoidal positional encoding to preserve line-order information. All agents share the same downstream structure: a feature-fusion MLP that concatenates the bug report embedding with the encoded candidate representation, followed by separate ranking and confidence heads. The overall architecture is depicted in Figure 4. Training details are provided in Section 6.4. 
+
+6.3 Reward Design 
+
+To effectively train our hierarchical agents, we designed a reward system that provides immediate and informative feedback at each level of the decision-making process. The core of our approach is an intermediate reward mechanism that assigns credit based on the accuracy of each agent’s predictions, rather than waiting for the final outcome. 
+
+Position-Based Intermediate Rewards. The reward for each agent is determined by the rank of the ground-truth item within its predicted list. We define a reward vector 𝑊 = [𝑤 1, 𝑤 2, . . . , 𝑤 𝐾 ] where the weights are positive and monotonically decreasing ( 𝑤 1 > 𝑤 2 > · · · > 𝑤 𝐾 > 0). If an agent places the correct item at position 𝑝 in its top-K ranking, it receives a reward of 𝑟 = 𝑤 𝑝 . If the correct item is not within the top-K predictions, the reward is zero. This structure incentivizes the agents to rank the correct item as highly as possible. This position-based reward, 𝑟 , is applied conditionally at each level of the hierarchy: 
+
+• File-Level Reward ( 𝑟 file ): The file-level agent receives a reward, 𝑟 file , based on the rank of the ground-truth buggy file in its prediction list. 14 Garg et al. 
+
+• Function-Level Reward ( 𝑟 func ): The function-level agent is rewarded only if the file-level agent’s prediction was correct. If this condition is met, it receives a reward, 𝑟 func , based on the rank of the correct buggy function. 
+
+• Line-Level Reward ( 𝑟 line ): The line-level agent is rewarded only if both the file and function predictions were correct. If this condition is met, it receives a reward, 𝑟 line , based on the rank of the correct buggy line. The total reward, 𝑅 total , for a full localization sequence is a weighted sum of the rewards from each agent: 
+
+𝑅 total = 𝜆 file · 𝑟 file + 𝜆 func · 𝑟 func + 𝜆 line · 𝑟 line 
+
+Here, 𝜆 file , 𝜆 func , and 𝜆 line are hyperparameters used to balance the contribution of each agent to the overall learning signal. For joint strategies, including VT and the joint fine-tuning stage of PT, we optimize the hierarchy using the composite reward 𝑅 total , with a shared critic estimating state values for advantage computation across levels. In contrast, under the decoupled strategies (TWF and T1B1), each agent is optimized independently via per-position REINFORCE using a local reward at its own granularity; TWF uses oracle parent inputs, whereas T1B1 uses frozen upstream predictions. Each decoupled agent uses its own critic conditioned only on the bug report embedding as an unbiased baseline. 
+
+Baseline Sparse Reward Strategy. For comparison, we also evaluate a traditional sparse reward strategy. This approach provides a non-zero reward only if the entire prediction chain—file, function, and line—is correct. The reward function is defined as: 
+
+𝑅 sparse =
+
+
+
+1 if file, function, and line predictions are all correct 0 otherwise. While simple, this strategy suffers from an infrequent and less informative feedback signal, which can hinder learning efficiency. Its performance is analyzed in our ablation studies in Section 7.3.3. 
+
+6.4 Training Strategy 
+
+Training a hierarchy of agents is notoriously challenging due to the problem of compounding errors : incorrect predictions from higher-level agents propagate down the hierarchy, providing noisy and misleading input for subsequent agents. This inherent instability can severely hinder or even prevent effective learning. To overcome this, we experimented with multiple training protocols (as detailed in Section 7.3.4) and found that a purely Training with Teacher Forcing (TWF) strategy provided strong and consistent results. This approach decouples the agents during the training phase, ensuring that each one learns from a clean, stable, and accurate signal. It entirely avoids the issue of compounding errors by never training a downstream agent on the noisy predictions of an upstream agent. The training process is as follows: (1) File-Level Agent Training: First, the file-level agent is trained independently using the complete dataset of bug reports. Its sole objective is to learn a policy that maps a bug report to the correct source file. (2) Function-Level Agent Training: Next, the function-level agent is trained. Critically, during its training, it is 
+
+always provided with the ground-truth buggy file, regardless of what the file-level agent would have predicted. This form of teacher forcing ensures the function-level agent can focus exclusively on learning to identify the correct function within a perfect context. From Codebase to Culprit (C2C): Reducing the Search Space for Bugs with Semantic Retrieval and Hierarchical Reinforcement Learning 15 (3) Line-Level Agent Training: Finally, the line-level agent is trained. Similarly, it is always provided with both the ground-truth file and the ground-truth function. This allows it to learn the fine-grained task of line localization without being penalized by any potential upstream errors. By training each agent on a perfectly curated set of inputs, this sequential strategy ensures that every component of the hierarchy becomes a strong and specialized expert in its specific task. While the agents operate as a cascade during inference, this training method allows each agent to learn its task independently, contributing to the strong performance of our final model. Concretely, each agent is optimized via per-position REINFORCE with a per-agent critic baseline, using teacher-forced inputs to ensure each agent trains on clean, correct context. 
+
+6.5 Implementation Details 
+
+All agents are trained using Adam with a learning rate of 1 × 10 −4 and a batch size of 32, for up to 40 epochs per phase. During training, agents use epsilon-greedy exploration with 𝜀 annealed from 0.3 to 0.05 (decay factor 0.995 per step), reset at the start of each phase. The file-level agent ranks up to 𝑁 =5 candidates; function- and line-level agents rank up to 15 candidates each. For intermediate rewards, the first five position weights are [1.0, 0.8, 0.6, 0.4, 0.2], with rewards decreasing geometrically for lower-ranked positions. Incorrect candidates ranked above the correct target receive a small penalty of −0.1. 
+
+7 Experiments and Results 
+
+We evaluated C2C against a suite of metrics and two baselines: (1) RLocator and (2) LLMAO. In the following section, we detail our experimental setup, selected evaluation metrics, and show the results of each methodology at the file, function, and line levels, where applicable. We also performed ablation studies to better understand the importance of each component in our proposed framework. 
+
+7.1 Evaluation Setup 
+
+7.1.1 Baselines. We evaluated C2C against two baselines representing different localization granularities. 
+
+RLocator. First, we compare against RLocator [4], an RL method capable of bug localization at the file level, but which lacks finer-grained resolution. This baseline provides a strong benchmark for single-stage RL-based localization. RLocator formulates bug localization as an MDP and learns to rerank candidate files using CodeBERT representations and a CNN+LSTM ranking model trained with A2C, but its output remains a ranked list of files. 
+
+LLMAO. Second, we compare against LLMAO [45], a decoder-only language model-based approach designed explicitly for fine-grained, line-level bug localization. This comparison illustrates performance at the opposite end of the localization granularity spectrum. Given a buggy file, LLMAO predicts the buggy line over the entire file, skipping function level localization and performing strict line-level prediction. We therefore use LLMAO and determine its top buggy lines, aggregating across these predictions to derive function-level hit rates and MRR. LLMAO is built upon the 350M-parameter CodeGen model [30], making it a relevant point of comparison for our CodeBERT-based retrieval and HRL localization framework. Because CodeGen is limited to 2,048 input tokens, LLMAO uses a 128-line sliding window with a random offset during training to control context length and reduce positional bias. As a result, LLMAO operates over a substantially smaller effective search space, considering the median lines per buggy file for Elasticsearch and SWE-bench Verified are 327 and 670, respectively. 16 Garg et al. 
+
+7.1.2 Evaluation Strategies and Metrics. We assess our model’s performance using two distinct evaluation protocols, each designed to probe different aspects of our hierarchical framework. The final performance for each bug report, identified by a unique issue ID , is measured using a consistent set of ranking-based metrics. 
+
+Evaluation Protocols. 
+
+• End-to-End (E2E): This protocol measures the end-to-end performance of the C2C hierarchical localization framework, with the ground-truth file present in the candidate set. The agents operate sequentially: the file-agent produces a ranked list of files and selects its top-ranked file, the function-agent ranks functions within the selected file and selects its top-ranked function, and the line-agent ranks lines within the selected function. This sequential evaluation captures error propagation across the hierarchy, as downstream agents operate on the predictions made by upstream agents. Line-level metrics are computed when the selected function contains an annotated buggy line. CodeRetriever’s standalone retrieval performance is evaluated separately using its unmodified rankings. 
+
+• Oracle: In the ORACLE setting, downstream localization is evaluated under perfect upstream context. Concretely, the function-level agent is evaluated with the ground-truth buggy file, and the line-level agent is evaluated with the ground-truth buggy file and buggy functions, so errors from earlier stages do not propagate downward. This protocol isolates the ranking ability of each agent at its own granularity and measures performance assuming the higher-level decision was correct. Unlike the end-to-end protocol, ORACLE therefore reflects the upper bound of the hierarchical localizers under ideal parent selection. 
+
+• LLMAO: To facilitate a direct comparison to the LLMAO baseline, this protocol provides the ground-truth file directly to the function-level agent. For each issue ID, the evaluation then proceeds to rank the functions within that correct file, and subsequently the lines within those functions. The final rank is determined by the highest-ranking path (function and line) that matches the ground truth. This provides a focused assessment of the function and line-level agents’ performance, independent of any file-level prediction errors. 
+
+Metrics. The final rank generated by each protocol for an issue ID is used to compute the following standard performance metrics: 
+
+• Mean Reciprocal Rank (MRR): The average reciprocal rank of the first correct prediction across the evaluated instances. This metric rewards models that place the correct bug location higher in the final ranked list. 
+
+• Hits@K: The percentage of evaluated bug-location instances for which a correct bug location is identified within the top-𝐾 positions of the ranked list (for 𝐾 ∈ { 1, 5, 10 }). 
+
+• Recall@K: Used specifically for the file-retrieval stage, this measures the percentage of unique issues for which at least one ground-truth buggy file is retrieved within the top-𝐾 candidate files. 
+
+7.2 Results 
+
+Table 2 presents a comprehensive performance comparison of our C2C framework against the RLocator and LLMAO baselines on the Elasticsearch dataset. The results reported for C2C utilize our most effective sequential training strategy (TWF). All reported results are averaged across 3 random seeds . It is important to preface in comparing baseline results a significant methodological limitation of LLMAO across both Elasticsearch and SWE-bench Verified evaluations. LLMAO’s reliance on the CodeGen model family restricts its input context window to 2,048 tokens, effectively limiting From Codebase to Culprit (C2C): Reducing the Search Space for Bugs with Semantic Retrieval and Hierarchical Reinforcement Learning 17                                                                                               
+
+> Table 2. Comparison of C2C with baseline methods for localization accuracy (%) on the Elasticsearch dataset (single Java repository). LLMAO-style evaluation provides the ground-truth file to the agent. E2E results reflect sequential end-to-end performance across the hierarchical localization agents, with the ground-truth file present in the candidate set. Results are averaged across 3 random seeds.
+> Method File Hit@1 File Hit@5 File MRR Func Hit@1 Func MRR Line Hit@10 Line MRR
+> RLocator 36.62 ––––––LLMAO –––4.90 0.0617 41.76 0.2149
+> C2C (TWF, E2E) 36.62 80.28 0.5005 43.66 0.5450 54.55 0.2932
+> C2C (TWF, ORACLE) 36.62 80.28 0.5005 54.55 0.6298 73.06 0.3863
+> C2C (TWF, LLMAO Style) –––53.52 0.6574 58.33 0.2251
+> Table 3. Comparison of C2C with baseline methods for localization accuracy (%) on the SWE-bench Verified dataset (11 Python repositories). LLMAO-style evaluation provides the ground-truth file to the agent. E2E results reflect sequential end-to-end performance across the hierarchical localization agents, with the ground-truth file present in the candidate set. Results are averaged across 3 random seeds.
+> Method File Hit@1 File Hit@5 File MRR Func Hit@1 Func MRR Line Hit@10 Line MRR
+> RLocator 21.74 ––––––LLMAO –––4.39 0.0719 23.03 0.1149
+> C2C (TWF, E2E) 21.74 76.09 0.4156 19.57 0.2815 50.00 0.1000
+> C2C (TWF, ORACLE) 21.74 76.09 0.4156 32.14 0.4298 51.72 0.2846
+> C2C (TWF, LLMAO Style) –––23.91 0.3548 00
+
+its analysis to files no larger than 128 lines of code. Accordingly, incoming files provided to LLMAO have been truncated – therefore LLMAO’s reported performance may be inflated relative to C2C, which is evaluated on the complete file. 
+
+Elasticsearch Results. In the End-to-End (E2E) evaluation, our model demonstrates robust performance across the hierarchy. C2C , trained with TWF training strategy, achieves a file-level MRR of 0.5005 and correctly identifies the buggy file as its top prediction in 36.62% of cases (Hit@1). Following this, it achieves a function-level MRR of 0.5450 and a Hit@1 of 43.66%, and finally, a line-level MRR of 0.2932 with a Hit@1 of 6.5%. For a detailed breakdown including other metrics like Hits@5 and Hits@10, please refer to Table 2. To ensure a fair and direct comparison with the LLMAO baseline, we use the LLMAO evaluation, which isolates the performance of the downstream agents. Under these conditions, C2C (trained with TWF training) achieves a function-level MRR of 0.6574 (Hit@1 of 53.52%) and a line-level MRR of 0.2251 (Hit@1 of 6.2%). These results outperform the reported LLMAO baseline on function level metrics, scoring function-level Hit@1 of 4.90% while at the line level, LLMAO achieves an MRR of 0.2149 compared with C2C’s 0.2251. A full comparison can be found in Table 2. 
+
+SWE-bench Verified Results. Table 3 reports C2C ’s performance on the SWE-bench Verified dataset, which spans 11 Python repositories. In the E2E evaluation, the TWF strategy achieves a file-level Hit@1 of 21.74% and MRR of 0.4156, a function-level MRR of 0.2815, and a line-level MRR of 0.1000. The substantially lower file-level Hit@1 compared to Elasticsearch (36.62%) may reflect the differences between Python and Java-based bug localization. Prior work notes that the dynamic nature of Python may affect the effectiveness of classic bug localization techniques [35], especially stack trace-based methods, with Java stack traces often exposing rich identifiers such as package, class, and method names [26]. Nevertheless, the file-level Hit@5 of 76.09% shows that the file agent ranks the correct file within its top five candidates in most cases. Under the LLMAO-style evaluation (ground-truth file provided), function Hit@1 improves to 23.91% while line MRR drops to 0. Considering the median lines per buggy file for SWE-bench Verified is 670 (Table 1), 18 Garg et al.       
+
+> Table 4. Multi-location coverage of the TWF-trained C2C model. The Retrieval column reports the percentage of unique issues for which at least one ground-truth buggy file is retrieved within the top-10 by CodeRetriever. The File Agent column reports top-5 coverage under the HRL candidate-set evaluation. Multi-line recall measures the fraction of ground-truth buggy lines recovered by the full cascade (5 files ×15 functions ×15 lines).
+
+Multi-File Recall Multi-Line Recall Dataset Retrieval File Agent Full Cascade 
+
+Elasticsearch 36.36 54.29 17.58 SWE-bench 65.00 66.25 12.50 LLMAO operates over a reduced context, resulting in a smaller effective search space. LLMAO achieves a function Hit@1 of 4.39% and a line MRR of 0.1149. 
+
+Computational Cost Analysis. As C2C introduces a multi-stage retrieval and hierarchical localization pipeline, it is important to assess whether its added complexity imposes a practical latency burden. In bug localization, inference speed matters because the system is intended to support interactive developer workflows, where delays can reduce usability. Although our ablations (Section 7.3) show that the additional components of C2C provide measurable performance gains, these gains are only meaningful in practice if they do not come at prohibitive runtime cost. We therefore evaluate inference latency to determine whether C2C remains practical for real-world use. At inference time, the full C2C pipeline—file ranking, function extraction, and line ranking—processes a bug report in approximately 840ms on average (p50: 810 ms, p95: 1.6 s) on a single H100 GPU. The latency is dominated by CodeBERT embedding computation for candidate files and functions; the three-agent ranking cascade itself adds negligible overhead (<5 ms), as the ranking heads are lightweight MLPs. 
+
+Coverage of Multi-Location Bugs. Many real-world bugs span multiple files or lines. Although C2C is trained to identify a single correct target at each hierarchical level, the ranked lists produced by each agent provide natural coverage over multiple locations. We measure multi-file recall at two stages: the percentage of issues for which at least one ground-truth buggy file is retrieved within the top-10 by CodeRetriever (results in Table 5), and the fraction ranked within the top-5 by the file agent. We further measure multi-line recall as the fraction of all ground-truth buggy lines recovered by the full cascade (5 files × 15 functions × 15 lines per issue). Results are shown in Table 4. The file-agent evaluation yields a top-5 coverage of 54.29% on Elasticsearch and 66.25% on SWE-bench Verified, compared with CodeRetriever’s top-10 multi-file recall of 36.36% and 65.00%, respectively. Since these results are computed at different stages of the pipeline and under different candidate-set representations, they should not be interpreted as a direct stage-by-stage improvement in retrieval recall. Multi-line recall is 17.58% and 12.50%, respectively, reflecting the increasing selectivity of the three-stage pipeline where only lines within highly ranked functions of highly ranked files are considered. We emphasize that this multi-location coverage is emergent from the top-𝐾 ranking mechanism and is not an explicit training objective — each agent is optimized to rank a single correct target highly, and any additional ground-truth locations that receive high scores are a byproduct of the learned representations. Extending C2C to explicitly optimize for multi-target recall, for example through set-based reward functions or multi-label ranking losses, is a promising direction for future work. From Codebase to Culprit (C2C): Reducing the Search Space for Bugs with Semantic Retrieval and Hierarchical Reinforcement Learning 19 
+
+> Table 5. Impact of iterative contrastive fine-tuning on retrieval performance (test set). Hit@K: percentage of evaluated bug-location instances for which at least one ground-truth buggy file associated with the issue appears in the top-𝐾 . Recall@K: percentage of unique issues for which at least one ground-truth buggy file is retrieved within the top-𝐾 . Panel A shows the Elasticsearch (Java) dataset; Panel B shows SWE-bench Verified (Python, 11 repos).
+> Panel A: Elasticsearch
+
+Training configuration @3 @5 @10 @20 @50 Hit Recall Hit Recall Hit Recall Hit Recall Hit Recall 
+
+No contrastive loss 0.16 0.04 0.16 0.04 0.16 0.04 3.29 0.83 6.18 1.56 1st-iteration contrastive loss 23.94 15.15 41.95 21.21 55.93 33.33 56.57 36.36 75.21 57.58 
+
+2nd-iteration contrastive loss 29.66 15.15 41.53 21.21 57.84 36.36 61.23 39.39 72.88 51.52 
+
+> Panel B: SWE-bench Verified
+
+Training configuration @3 @5 @10 @20 @50 Hit Recall Hit Recall Hit Recall Hit Recall Hit Recall 
+
+No contrastive loss 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.69 2.50 1st-iteration contrastive loss 52.41 35.00 57.24 45.00 62.07 55.00 80.00 67.50 91.03 77.50 2nd-iteration contrastive loss 50.34 35.00 60.00 47.50 69.66 65.00 87.59 77.50 93.79 85.00 
+
+7.3 Ablation Studies 
+
+To better quantify the contributions of individual components within C2C , we conducted a series of ablation studies. These experiments systematically isolate key architectural and training elements to assess their effect on overall system performance. 
+
+7.3.1 Impact of Contrastive Fine-Tuning and Hard Negative Mining. We first evaluate the effect of iterative contrastive loss fine-tuning and hard negative mining on CodeRetriever’s performance. As shown in Table 5, without contrastive fine-tuning, both the hit rate and recall are negligible on both datasets. After the first training iteration with triplet loss, performance improves substantially. On the Elasticsearch dataset (Panel A), the second iteration, which incorporates hard negative mining using a FAISS index, further boosts retrieval quality over the initial model, improving Hit@10 from 55.93% to 57.84% and 
+
+Recall@10 from 33.33% to 36.36%, eventually reaching a Hit@50 of 72.88%. On the SWE-bench Verified dataset (Panel B), the iterative procedure yields substantial gains at the K values critical for downstream HRL: hard-negative mining improves Hit@5 from 57.24% to 60.00% and Hit@10 from 62.07% to 69.66%. Absolute retrieval performance is higher on SWE-bench Verified than on Elasticsearch at these depths (e.g., Hit@10 of 69.66% vs. 57.84%), despite the multi-repository setting. Overall, the progression from the base model to the hard-negative model is consistent across both datasets, confirming the value of iterative contrastive training. 
+
+7.3.2 Effect of Hierarchical Structure and Encoders on Localization Accuracy. We investigate the role of key architectural components in C2C ’s performance, as shown in Table 6. Removing the LSTM encoder, which models sequential dependencies among candidate embeddings, degrades function- and line-level localization across both datasets: on Elasticsearch, function-level MRR drops from 0.5450 to 0.4893, and on SWE-bench Verified the line-level MRR collapses from 0.1000 to 0.0000. The mixed effect at the file level (a slight gain on Elasticsearch, a drop on SWE-bench Verified) suggests that file-level ranking is less reliant on sequential context than finer-grained localization, where ordering among candidates carries a stronger inductive signal. 20 Garg et al.   
+
+> Table 6. Impact of Network Components on C2C Performance (MRR).
+
+Elasticsearch SWE-bench Verified Component Metric Base Ablated Change Base Ablated Change 
+
+LSTM Encoder File MRR 0.5225 0.5653 +0.0428 0.4112 0.3627 −0.0485 Func MRR 0.5450 0.4893 −0.0557 0.2259 0.2165 −0.0094 Line MRR 0.2932 0.2925 −0.0007 0.1000 0.0000 −0.1000 Hierarchy Line MRR 0.2932 0.0682 −0.2250 0.1000 0.0000 −0.1000   
+
+> Table 7. Effect of Reward Mechanism on C2C Performance (MRR).
+
+Elasticsearch SWE-bench Verified Metric Intermediate Sparse Intermediate Sparse 
+
+File MRR 0.5225 0.5005 0.4112 0.3413 Function MRR 0.5450 0.5223 0.2259 0.2122 Line MRR 0.2932 0.2377 0.1000 0.0000 We further examine the effect of the hierarchy itself by comparing C2C against a flat variant that predicts lines directly, bypassing the file-and-function decomposition. This ablation produces a dramatic drop in line-level MRR on both datasets—from 0.2932 to 0.0682 on Elasticsearch and from 0.1000 to 0.0000 on SWE-bench Verified—demonstrating the importance of the hierarchical structure for fine-grained localization. Together, these results establish that both the contextual LSTM encoding and the hierarchical decomposition are important components of C2C’s architecture. 
+
+7.3.3 Impact of Reward Shaping: Intermediate vs. Sparse Rewards. We assess the impact of level-specific feedback on hierarchical learning by comparing intermediate and sparse reward strategies across both datasets, as shown in Table 7. On Elasticsearch, intermediate rewards consistently outperform sparse rewards at every level of the hierarchy: file MRR improves from 0.5005 to 0.5225, function MRR from 0.5223 to 0.5450, and line MRR from 0.2377 to 0.2932. The pattern is even more pronounced on SWE-bench Verified: while intermediate rewards yield a line-level MRR of 0.1000, the sparse strategy fails entirely at the line level, achieving an MRR of 0.0000. This finding is consistent across both Java and Python settings and highlights a fundamental challenge of sparse reward RL in hierarchical localization: credit assignment across three sequential agents becomes particularly challenging when the reward signal is withheld until the full prediction chain is correct. Intermediate rewards resolve this by providing a stable, informative signal at each stage of the hierarchy, allowing agents to learn effective policies independently before the joint cascade is evaluated. 
+
+7.3.4 Comparison of Training Strategies for Hierarchical Agents. The strategy used to train a hierarchical model is critical, as the sequential dependency between agents can lead to compounding errors. A poorly trained upstream agent provides a noisy, non-stationary learning signal to downstream agents, which can severely destabilize and hinder the learning process. We systematically evaluated four distinct training strategies: 
+
+• Vanilla Training (VT): A naive end-to-end approach where all three agents are trained jointly from random initialization. The output of the file agent is passed directly to the function agent, and its output to the line agent, with gradients flowing back through the entire hierarchy. This strategy performs poorly because the From Codebase to Culprit (C2C): Reducing the Search Space for Bugs with Semantic Retrieval and Hierarchical Reinforcement Learning 21                                                                                                           
+
+> Table 8. Comparison of training strategies using oracle evaluation (ground-truth candidate always present). Elasticsearch results are from a single seed; SWE-bench results are averaged across 2 seeds. Best results per row and dataset are bolded.
+> Elasticsearch SWE-bench Verified Level Metric PT VT T1B1 TWF PT VT T1B1 TWF
+> File Hit@1 0.3662 0.3662 0.3662 0.3662 0.2174 0.2174 0.2174 0.2174 Hit@5 0.8028 0.8028 0.8028 0.8028 0.7391 0.7391 0.7391 0.7391 Hit@10 0.8028 0.8028 0.8028 0.8028 0.7391 0.7391 0.7391 0.7391 MRR 0.5225 0.5225 0.5225 0.5225 0.4112 0.4112 0.4103 0.4112 Function Hit@1 0.3727 0.4091 0.5500 0.5455 0.1339 0.1429 0.2500 0.3214
+> Hit@5 0.7182 0.7227 0.7500 0.7636 0.3750 0.3482 0.5536 0.5714
+> Hit@10 0.7909 0.7909 0.8136 0.8091 0.6250 0.5536 0.6875 0.7321
+> MRR 0.5247 0.5356 0.6376 0.6298 0.2611 0.2483 0.3817 0.4286
+> Line Hit@1 0.2256 0.2290 0.1987 0.2323 0.1207 0.1983 0.1810 0.1638 Hit@5 0.6263 0.5960 0.5522 0.5791 0.4311 0.3621 0.4138 0.3707 Hit@10 0.7508 0.7643 0.6869 0.7306 0.5862 0.5604 0.5690 0.6207
+> MRR 0.4004 0.4027 0.3530 0.3863 0.2675 0.2793 0.2897 0.2773
+
+function and line agents are initially fed incoherent, near-random inputs, preventing them from learning a meaningful policy. 
+
+• Pretraining Agents Sequentially (PT): This strategy mitigates the instability of VT by first pretraining each agent sequentially and then fine-tuning them jointly. While pretraining provides a better starting point, the joint fine-tuning phase re-introduces instability: gradients from the still-learning downstream agents can disrupt the already well-trained upstream agents, leading to suboptimal results. 
+
+• Training One-by-One (T1B1): The file-level agent is trained until convergence and its weights are then frozen. The predictions from this frozen agent serve as training data for the function-level agent, which is subsequently frozen, and so on, with each agent optimized via per-position REINFORCE. This ensures a stable learning signal for downstream agents, as the upstream policies do not change during their training. 
+
+• Training with Teacher Forcing (TWF): Each agent is trained independently using ground-truth oracle selections from the preceding levels, optimized via per-position REINFORCE. The function-level agent is always trained using the correct ground-truth file, and the line-level agent is always trained using the correct ground-truth file and function. This completely decouples the agents during training, guaranteeing that every agent learns from a perfect and stable signal. To isolate each agent’s ranking ability from upstream errors, we evaluate all strategies under an oracle protocol where the ground-truth candidate is always present in the candidate pool. This directly measures what each agent has learned assuming the upper-level agent made the correct decision. Since all strategies operate over the same candidate set at the file level, file-level metrics are identical across all strategies by construction, and the strategies only diverge meaningfully at the function and line levels. Table 8 presents the evaluation results using the four training strategies across both datasets. From the table, we observe that at the function level T1B1 achieves the strongest performance on Elasticsearch (Hit@1 0.5500, MRR 0.6376), while TWF dominates on SWE-bench Verified across all metrics (Hit@1 0.3214, MRR 0.4286), substantially ahead of T1B1 (MRR 0.3817). This suggests that while freezing upstream agents provides a stable 22 Garg et al.                           
+
+> Table 9. Paired statistical comparison between TWF and T1B1 using the Wilcoxon signed-rank test on per-instance reciprocal rank scores. Statistically significant results are shown in bold.
+> Dataset Level TWF T1B1 Cliff’s 𝛿 𝑝 -value
+> Elasticsearch Function 0.7047 0.7215 −0.009 0.507 Elasticsearch Line 0.6100 0.5432 0.141 0.002
+> SWE-bench Verified Function 0.4099 0.3903 0.058 0.173 SWE-bench Verified Line 0.2930 0.2771 0.109 0.361
+
+context on a single repository, training against perfect oracle inputs is more effective in the harder multi-repository setting where greater variability in code structure and bug patterns demands a cleaner learning signal. At the line level , no single strategy dominates across both datasets. On Elasticsearch , VT attains the highest MRR (0.4027) and Hit@10 (0.7643), while TWF achieves the best Hit@1 (0.2323). On SWE-bench Verified , T1B1 obtains the highest MRR (0.2897), while TWF achieves the best Hit@10 (0.6207). Despite these mixed line-level results, TWF and T1B1 remain the most competitive strategies overall, and they do so with a much cleaner and more stable training signal than VT or PT. Because TWF and T1B1 emerge as the two strongest decoupled strategies, we compare them directly using paired statistical significance testing. Specifically, we apply the two-sided Wilcoxon signed-rank test [41] with 𝛼 = 0.05 to reciprocal rank (RR) scores under the oracle evaluation protocol. Scores are pooled across three random seeds (0, 20, 42), yielding 𝑛 = 213 paired observations for Elasticsearch (71 instances × 3 seeds) and 𝑛 = 138 for SWE-bench Verified (46 instances × 3 seeds). File-level performance is not tested, since TWF and T1B1 train the file-level agent identically and therefore produce identical scores by construction. Table 9 shows that, on Elasticsearch at the function level , T1B1 attains a slightly higher mean RR than TWF (0.7215 vs. 0.7047), but the difference is not statistically significant ( 𝑝 = 0.507; 𝛿 = −0.009, negligible). At the line level , TWF significantly outperforms T1B1 (0.6100 vs. 0.5432; 𝑝 = 0.002), although the effect size remains negligible (𝛿 = 0.141). On SWE-bench Verified , TWF achieves higher mean RR than T1B1 at both the function level (0.4099 vs. 0.3903) and the line level (0.2930 vs. 0.2771), but neither difference is statistically significant ( 𝑝 = 0.173 and 𝑝 = 0.361, respectively). Overall, the effect sizes are negligible across all comparisons, indicating that the absolute performance gaps are small, but the direction of the differences generally favors TWF. 
+
+Note. The mean RR values reported in Table 9 may differ slightly from those in Table 8. The training-strategy table reports micro-averaged MRR over evaluations, whereas the statistical test uses instance-level RR scores pooled across the three random seeds, with each HRL instance contributing one paired observation per seed. When an instance contains multiple valid localization paths, we use the best RR across those paths. Taken together, these results support using TWF as the primary training strategy for C2C. Although the differences between TWF and T1B1 are usually small, TWF is more consistent across datasets, achieves the strongest function-level performance on SWE-bench Verified, and yields the clearest statistically significant gain at the Elasticsearch line level. 
+
+8 Discussion 
+
+Our research was guided by four key questions focused on evaluating the retrieval quality, hierarchical reasoning, and reward design of C2C . We address each question below, presenting our key findings and referencing the empirical evidence detailed in Section 7. From Codebase to Culprit (C2C): Reducing the Search Space for Bugs with Semantic Retrieval and Hierarchical Reinforcement Learning 23 
+
+8.1 RQ1: How effectively does CodeRetriever align stack traces and buggy files in the embedding space? 
+
+Key Findings: Task-specific fine-tuning is essential for aligning code and natural language representations for bug localization. Our ablation studies (Section 7.3) show that while a general-purpose pretrained model like CodeBERT is a good starting point, its initial alignment is weak. Iterative contrastive fine-tuning, enhanced with hard negative mining, proved critical to reshaping the embedding space. This process enables CodeRetriever to effectively distinguish between correct and incorrect code, thereby producing a compact, high-quality candidate set of files for the downstream localization agents. 
+
+8.2 RQ2: How does hierarchical decomposition improve localization over single-stage methods? 
+
+Key Findings: Hierarchical decomposition makes the complex problem of bug localization tractable. Our experiments demonstrate that hierarchical decomposition provides a substantial benefit for high-resolution localization. As shown in our ablation studies (Section 7.3), removing the hierarchy and attempting to predict lines directly from the bug report causes a large drop in performance. By progressively narrowing the search space from files to functions and finally to lines, C2C improves fine-grained localization compared with the evaluated flat variant, ultimately providing developers with a more actionable starting point for debugging. 
+
+8.3 RQ3: How do different reward strategies affect learning in hierarchical RL? 
+
+Key Findings: Decomposed, level-specific feedback is important for training the hierarchical agents effectively. Our experiments comparing reward strategies (Section 7.3.3) show that providing intermediate rewards at each stage of the hierarchy consistently and substantially outperforms a single sparse reward given only for a correct final prediction. The sparse reward signal creates a difficult credit assignment problem that hinders learning. In contrast, intermediate rewards provide a stable, informative signal that guides each agent effectively—and on SWE-bench prove essential for any line-level learning at all, where sparse reward yields an MRR of 0.0 while intermediate rewards enable non-zero localization. 
+
+8.4 RQ4: Does C2C generalize across programming languages and repositories? 
+
+Key Findings: C2C ’s architecture and training methodology generalize to a multi-repository Python setting, though ab-solute performance varies with task difficulty. Our evaluation on SWE-bench Verified—spanning 11 Python repositories— demonstrates that the key findings from the Elasticsearch (Java) evaluation hold: (1) iterative contrastive fine-tuning with hard negative mining consistently improves retrieval quality (Table 5, Panel B); (2) decoupled training strategies (TWF, T1B1) outperform joint strategies (VT, PT) across both datasets (Table 8); and (3) the hierarchical decomposition successfully localizes bugs at multiple granularity levels. The file-level Hit@1 drops from 36.62% (Elasticsearch) to 21.74% (SWE-bench), which we attribute to three factors: (a) the SWE-bench FAISS index covers all files in each repository (thousands of candidates per query), whereas the Elasticsearch index contains only 6,017 files total; (b) 11 diverse Python repositories present greater variability in code structure, naming conventions, and bug patterns than a single Java project; and (c) Python stack traces may carry less structural information (e.g., fewer package-qualified class names) than Java stack traces. Despite these challenges, the file-level Hit@5 of 76.09% indicates that the correct file is usually among the top candidates, and the downstream agents remain effective when the file-level retrieval succeeds (LLMAO-style function Hit@1 of 23.91%). 24 Garg et al. 
+
+9 Threats to Validity 9.1 Internal Validity 
+
+This relates to the strength of the causal relationship between our method and the observed results. While we build on the original CodeBERT model trained in early 2020, we cannot rule out the possibility that portions of the Elasticsearch or SWE-bench source code, specifically code segments preceding the fix commits, were included in its pretraining data. Although the BEETLEBOX dataset was constructed in 2024 with safeguards to minimize data leakage, and the model predates it, this potential overlap remains a threat. To mitigate this, we encourage future work to further investigate and control for such leakage. To prevent data leakage between training and evaluation, all dataset splits are performed at the issue level with stratification by repository, ensuring that all triplets derived from the same issue appear in the same partition and no stack trace information is shared across splits. 
+
+9.2 External Validity 
+
+This pertains to the generalizability of our findings. Our experiments span two complementary settings: a single large-scale Java project (Elasticsearch, 326 bug reports) and 11 Python repositories from SWE-bench Verified (393 issues). While this provides evidence of cross-language and cross-project generalizability, the evaluation remains limited to Java and Python. Although the training data includes multi-file, multi-function, and multi-line bugs, we assume during inference that each bug is localized to a single file, function, and line. This simplifying assumption may limit applicability in scenarios involving cross-file dependencies or distributed bugs. Future work should evaluate additional languages and bug types to further assess generalization. Finally, our evaluation uses CodeBERT as the retrieval encoder, and we do not assess alternative pretrained encoding models. As a result, it remains unclear whether our findings generalize to other backbone models, which may differ in their representation quality, cross-modal alignment ability, and retrieval effectiveness. Finally, we selected TWF as the primary training strategy based on the empirical results observed on Elasticsearch and SWE-bench Verified. Although TWF showed the strongest and most consistent overall performance in our study, this choice may not generalize to other datasets, repositories, programming languages, or model backbones, where alternative strategies such as T1B1 could be preferable. Therefore, our conclusions regarding the superiority of TWF should be interpreted within the scope of the evaluated settings. 
+
+9.3 Construct Validity 
+
+This threat concerns whether our experimental setup and metrics faithfully capture the bug localization ability we intend to measure. Although we evaluate using line-level accuracy and MRR, these metrics remain imperfect proxies for real developer utility, since they do not directly reflect debugging effort, interpretability, or how easily a ranked result can be acted upon in practice. In addition, our training objective uses position-based rewards over Top-𝐾 rankings at the file, function, and line levels. While this better aligns learning with ranking quality than a purely binary reward design, it still provides a simplified approximation of bug localization usefulness. In particular, the reward structure imposes discrete rank thresholds and assigns no credit to candidates outside the Top-𝐾 , which may underrepresent partially useful predictions that are semantically close to the ground truth. Future work could explore more fine-grained and context-sensitive reward signals, such as rewards informed by call graph distance, shared dependencies, control/data flow proximity, or execution path similarity. Such extensions may better reflect the practical value of localization From Codebase to Culprit (C2C): Reducing the Search Space for Bugs with Semantic Retrieval and Hierarchical Reinforcement Learning 25 results, but would require additional program analysis and execution modeling beyond the scope of this work. Our E2E evaluation guarantees that the ground-truth file is present in the HRL file candidate set. Consequently, these results evaluate error propagation through the hierarchical localization agents but do not include failures caused solely by CodeRetriever omitting the correct file. 
+
+10 Conclusion 
+
+This paper presents C2C , a novel hierarchical reinforcement learning (HRL) framework that localizes bugs at the file, function, and line-level. By combining a recall-focused retriever with a precision-focused hierarchical policy, C2C 
+
+outperforms the compared baselines at the file level while extending localization to the function and line, offering more fine-grained debugging guidance. Our ablation studies highlight the contribution of each component. The hierarchical structure improves line-level MRR by 4.3 × on Elasticsearch and enables non-zero line localization on SWE-bench where the evaluated flat variant achieves an MRR of 0. Likewise, contrastive learning substantially improves retrieval performance, while intermediate, level-specific rewards consistently outperform sparse rewards across the evaluated settings. While promising, C2C can be improved. Future work will focus on more granular reward mechanisms and more comprehensive code indexing strategies. C2C provides a step toward bridging semantic code understanding with strategic bug localization, and future work will extend these capabilities to cross-repository learning and integration with automated program repair. 
+
+Acknowledgments 
+
+We acknowledge the support and funding of CIFAR, the Natural Sciences and Engineering Research Council of Canada (NSERC), and the Digital Research Alliance of Canada. This research was enabled through computational resources provided by the Research Computing Services group at the University of Calgary. We also thank Bilal Ahmed and Ali Mohammadi Ruzbahani for their initial work on preparing the Elasticsearch data from BEETLEBOX, including repository-level data extraction, parsing, initial filtering of data points, and extraction of stack-trace information. 
+
+References                        
+
+> [1] Rui Abreu, Peter Zoeteweij, and Arjan JC Van Gemund. 2007. On the accuracy of spectrum-based fault localization. In Testing: Academic and industrial conference practice and research techniques-MUTATION (TAICPART-MUTATION 2007) . IEEE, 89–98. [2] Andrew Barto and Sridhar Mahadevan. 2019. Recent Advances in Hierarchical Reinforcement Learning. Foundations and Trends in Machine Learning
+> 14, 1-2 (2019), 1–295. doi:10.1561/2200000071 [3] Marcel Böhme, Ezekiel O Soremekun, Sudipta Chattopadhyay, Emamurho Ugherughe, and Andreas Zeller. 2017. Where is the bug and how is it fixed? an experiment with practitioners. In Proceedings of the 2017 11th joint meeting on foundations of software engineering . 117–128. [4] Partha Chakraborty, Mahmoud Alfadel, and Meiyappan Nagappan. 2024. RLocator: Reinforcement Learning for Bug Localization. IEEE Trans. Softw. Eng. 50, 10 (Oct. 2024), 2695–2708. doi:10.1109/TSE.2024.3452595 [5] Partha Chakraborty, Mahmoud Alfadel, and Meiyappan Nagappan. 2025. BLAZE: Cross-language and cross-project bug localization via dynamic chunking and hard example learning. IEEE Transactions on Software Engineering 51, 8 (2025), 2254–2267. [6] Jianming Chang, Xin Zhou, Lulu Wang, David Lo, and Bixin Li. 2025. Bridging Bug Localization and Issue Fixing: A Hierarchical Localization Framework Leveraging Large Language Models. arXiv:2502.15292 [cs.SE] https://arxiv.org/abs/2502.15292 [7] Jingyi Chen, Lei Yan, Shikai Wang, and Wenxuan Zheng. 2024. Deep Reinforcement Learning-Based Automatic Test Case Generation for Hardware Verification. Journal of Artificial Intelligence General science (JAIGS) ISSN: 3006-4023 6, 1 (2024), 409–429. [8] Wei Chen, Wu Chen, Jiamou Liu, Kaiqi Zhao, and Mingyue Zhang. 2023. SupConFL: Fault Localization with Supervised Contrastive Learning. In
+> Proceedings of the 14th Asia-Pacific Symposium on Internetware (Hangzhou, China) (Internetware ’23) . Association for Computing Machinery, New York, NY, USA, 44–54. doi:10.1145/3609437.3609441 [9] Agnieszka Ciborowska and Kostadin Damevski. 2022. Fast changeset-based bug localization with BERT. In Proceedings of the 44th International Conference on Software Engineering (Pittsburgh, Pennsylvania) (ICSE ’22) . Association for Computing Machinery, New York, NY, USA, 946–957.
+
+26 Garg et al. 
+
+doi:10.1145/3510003.3510042 [10] Higor A de Souza, Marcos L Chaim, and Fabio Kon. 2016. Spectrum-based software fault localization: A survey of techniques, advances, and challenges. arXiv preprint arXiv:1607.04347 (2016). [11] Mehdi Esnaashari and Amir Hossein Damia. 2021. Automation of software test data generation using genetic algorithm and reinforcement learning. 
+
+Expert Systems with Applications 183 (2021), 115446. [12] Zhangyin Feng, Daya Guo, Duyu Tang, Nan Duan, Xiaocheng Feng, Ming Gong, Linjun Shou, Bing Qin, Ting Liu, Daxin Jiang, and Ming Zhou. 2020. CodeBERT: A Pre-Trained Model for Programming and Natural Languages. In Findings of the Association for Computational Linguistics: EMNLP 2020 ,Trevor Cohn, Yulan He, and Yang Liu (Eds.). Association for Computational Linguistics, Online, 1536–1547. doi:10.18653/v1/2020.findings-emnlp.139 [13] Rahul Gupta, Aditya Kanade, and Shirish Shevade. 2019. Deep reinforcement learning for syntactic error repair in student programs. In Proceedings of the Thirty-Third AAAI Conference on Artificial Intelligence and Thirty-First Innovative Applications of Artificial Intelligence Conference and Ninth AAAI Symposium on Educational Advances in Artificial Intelligence (Honolulu, Hawaii, USA) (AAAI’19/IAAI’19/EAAI’19) . AAAI Press, Article 115, 8 pages. doi:10.1609/aaai.v33i01.3301930 [14] Carlos E Jimenez, John Yang, Alexander Wettig, Shunyu Yao, Kexin Pei, Ofir Press, and Karthik R Narasimhan. 2024. SWE-bench: Can Language Models Resolve Real-world Github Issues?. In The Twelfth International Conference on Learning Representations . https://openreview.net/forum?id= VTF8yNQM66 [15] James A Jones, Mary Jean Harrold, and John Stasko. 2002. Visualization of test information to assist fault localization. In Proceedings of the 24th international conference on Software engineering . 467–477. [16] Leslie Pack Kaelbling, Michael L Littman, and Andrew W Moore. 1996. Reinforcement learning: A survey. Journal of artificial intelligence research 4(1996), 237–285. [17] Jinhan Kim, Gabin An, Robert Feldt, and Shin Yoo. 2021. Ahead of Time Mutation Based Fault Localisation using Statistical Inference. In 2021 IEEE 32nd International Symposium on Software Reliability Engineering (ISSRE) . 253–263. doi:10.1109/ISSRE52982.2021.00036 [18] Amy J Ko, Brad A Myers, Michael J Coblenz, and Htet Htet Aung. 2006. An exploratory study of how developers seek, relate, and collect relevant information during software maintenance tasks. IEEE Transactions on software engineering 32, 12 (2006), 971–987. [19] Herb Krasner. 2022. The Cost of Poor Software Quality in the U.S.: A 2022 Report . Technical Report. Consortium for Information and Software Quality (CISQ). https://www.it-cisq.org/wp-content/uploads/sites/6/2022/11/CPSQ-Report-Nov-22-2.pdf Accessed: 2026-03-07. [20] Chun Li, Hui Li, Zhong Li, Minxue Pan, and Xuandong Li. 2025. Enhancing Fault Localization in Industrial Software Systems via Contrastive Learning . In 2025 IEEE/ACM 47th International Conference on Software Engineering (ICSE) . IEEE Computer Society, Los Alamitos, CA, USA, 691–703. doi:10.1109/ICSE55347.2025.00009 [21] Xia Li, Wei Li, Yuqun Zhang, and Lingming Zhang. 2019. DeepFL: integrating multiple fault diagnosis dimensions for deep fault localization (ISSTA 2019) . Association for Computing Machinery, New York, NY, USA, 169–180. doi:10.1145/3293882.3330574 [22] Xia Li and Lingming Zhang. 2017. Transforming programs and tests in tandem for fault localization. 1, OOPSLA, Article 92 (Oct. 2017), 30 pages. doi:10.1145/3133916 [23] Chao Liu, Xifeng Yan, Long Fei, Jiawei Han, and Samuel P Midkiff. 2005. SOBER: statistical model-based bug localization. ACM SIGSOFT Software Engineering Notes 30, 5 (2005), 286–295. [24] Yiling Lou, Qihao Zhu, Jinhao Dong, Xia Li, Zeyu Sun, Dan Hao, Lu Zhang, and Lingming Zhang. 2021. Boosting coverage-based fault localization via graph-based representation learning. In Proceedings of the 29th ACM Joint Meeting on European Software Engineering Conference and Symposium on the Foundations of Software Engineering (Athens, Greece) (ESEC/FSE 2021) . Association for Computing Machinery, New York, NY, USA, 664–676. doi:10.1145/3468264.3468580 [25] Naoya Maruyama and Satoshi Matsuoka. 2008. Model-based fault localization in large-scale computing systems. In 2008 IEEE International Symposium on Parallel and Distributed Processing . IEEE, 1–12. [26] Marcos Medeiros, Uira Kulesza, Roberta Coelho, Rodrigo Bonifacio, Christoph Treude, and Eiji Adachi Barbosa. 2024. The Impact Of Bug Localization Based on Crash Report Mining: A Developers’ Perspective. In Proceedings of the 46th International Conference on Software Engineering: Software Engineering in Practice (Lisbon, Portugal) (ICSE-SEIP ’24) . Association for Computing Machinery, New York, NY, USA, 13–24. doi:10.1145/3639477. 3639730 [27] Hansa Meghwani, Amit Agarwal, Priyaranjan Pattnayak, Hitesh Laxmichand Patel, and Srikant Panda. 2025. Hard Negative Mining for Domain-Specific Retrieval in Enterprise Systems. arXiv:2505.18366 [cs.IR] https://arxiv.org/abs/2505.18366 [28] Seokhyeon Moon, Yunho Kim, Moonzoo Kim, and Shin Yoo. 2014. Ask the mutants: Mutating faulty programs for fault localization. In 2014 IEEE Seventh International Conference on Software Testing, Verification and Validation . IEEE, 153–162. [29] Jesús Morán, Antonia Bertolino, Claudio De La Riva, and Javier Tuya. 2023. Fault Localization for Reinforcement Learning. In 2023 IEEE International Conference On Artificial Intelligence Testing (AITest) . 49–50. doi:10.1109/AITest58265.2023.00016 [30] Erik Nijkamp, Bo Pang, Hiroaki Hayashi, Lifu Tu, Huan Wang, Yingbo Zhou, Silvio Savarese, and Caiming Xiong. 2023. CodeGen: An Open Large Language Model for Code with Multi-Turn Program Synthesis. In The Eleventh International Conference on Learning Representations .https://openreview.net/forum?id=iaYcJKpY2B_ [31] Feifei Niu, Chuanyi Li, Kui Liu, Xin Xia, and David Lo. 2025. When Deep Learning Meets Information Retrieval-based Bug Localization: A Survey. 
+
+ACM Comput. Surv. (May 2025). doi:10.1145/3734217 From Codebase to Culprit (C2C): Reducing the Search Space for Bugs with Semantic Retrieval and Hierarchical Reinforcement Learning 27 
+
+[32] Mike Papadakis and Yves Le Traon. 2012. Using mutants to locate" unknown" faults. In 2012 IEEE Fifth International Conference on Software Testing, Verification and Validation . IEEE, 691–700. [33] Mike Papadakis and Yves Le Traon. 2015. Metallaxis-FL: mutation-based fault localization. 25, 5–7 (Aug. 2015), 605–628. doi:10.1002/stvr.1509 [34] Michael Perscheid, Benjamin Siegmund, Marcel Taeumel, and Robert Hirschfeld. 2017. Studying the advancement in debugging practice of professional software developers. Software Quality Journal 25, 1 (2017), 83–110. [35] Mohammad Rezaalipour and Carlo A Furia. 2024. An empirical study of fault localization in Python programs. Empirical Software Engineering 29, 4 (2024), 92. [36] Ripon K. Saha, Matthew Lease, Sarfraz Khurshid, and Dewayne E. Perry. 2013. Improving bug localization using structured information retrieval. In 
+
+2013 28th IEEE/ACM International Conference on Automated Software Engineering (ASE) . 345–355. doi:10.1109/ASE.2013.6693093 [37] Qusay Idrees Sarhan and Árpád Beszédes. 2022. A survey of challenges in spectrum-based software fault localization. ieee access 10 (2022), 10618–10639. [38] Khaled Sellami and Mohamed Aymen Saied. 2025. Contrastive Learning-Enhanced Large Language Models for Monolith-to-Microservice Decompo-sition. arXiv:2502.04604 [cs.SE] https://arxiv.org/abs/2502.04604 [39] Parshin Shojaee, Aneesh Jain, Sindhu Tipirneni, and Chandan K. Reddy. 2023. Execution-based Code Generation using Deep Reinforcement Learning. Transactions on Machine Learning Research (2023). https://openreview.net/forum?id=0XBuaxqEcG [40] Ming Wen, Rongxin Wu, and Shing-Chi Cheung. 2016. Locus: locating bugs from software changes. In Proceedings of the 31st IEEE/ACM International Conference on Automated Software Engineering (Singapore, Singapore) (ASE ’16) . Association for Computing Machinery, New York, NY, USA, 262–273. doi:10.1145/2970276.2970359 [41] Frank Wilcoxon. 1945. Individual comparisons by ranking methods. Biometrics bulletin 1, 6 (1945), 80–83. [42] W Eric Wong, Vidroha Debroy, Ruizhi Gao, and Yihao Li. 2013. The DStar method for effective software fault localization. IEEE Transactions on Reliability 63, 1 (2013), 290–308. [43] W Eric Wong, Ruizhi Gao, Yihao Li, Rui Abreu, and Franz Wotawa. 2016. A survey on software fault localization. IEEE Transactions on Software Engineering 42, 8 (2016), 707–740. [44] Jifeng Xuan and Martin Monperrus. 2014. Learning to Combine Multiple Ranking Metrics for Fault Localization. In 2014 IEEE International Conference on Software Maintenance and Evolution . 191–200. doi:10.1109/ICSME.2014.41 [45] Aidan Z. H. Yang, Claire Le Goues, Ruben Martins, and Vincent Hellendoorn. 2024. Large Language Models for Test-Free Fault Localization. In Proceedings of the IEEE/ACM 46th International Conference on Software Engineering (Lisbon, Portugal) (ICSE ’24) . Association for Computing Machinery, New York, NY, USA, Article 17, 12 pages. doi:10.1145/3597503.3623342 [46] Jian Zhou, Hongyu Zhang, and David Lo. 2012. Where should the bugs be fixed? - more accurate information retrieval-based bug localization based on bug reports (ICSE ’12) . IEEE Press, 14–24. [47] Daming Zou, Jingjing Liang, Yingfei Xiong, Michael D Ernst, and Lu Zhang. 2019. An empirical study of fault localization families and their combinations. IEEE Transactions on Software Engineering 47, 2 (2019), 332–347.

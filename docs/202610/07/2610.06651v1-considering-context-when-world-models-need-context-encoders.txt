@@ -1,0 +1,672 @@
+Title: Considering Context: When World Models Need Context Encoders
+
+URL Source: https://arxiv.org/pdf/2610.06651v1
+
+Published Time: Tue, 06 Oct 2026 03:22:44 GMT
+
+Number of Pages: 19
+
+Markdown Content:
+Preprint. Under review 
+
+# CONSIDERING CONTEXT : WHEN WORLD MODELS 
+
+# NEED CONTEXT ENCODERS 
+
+Oleg Smirnov 
+
+King AI Labs, Microsoft Gaming 
+
+oleg.smirnov@microsoft.com 
+
+Sofiane Ennadir 
+
+King AI Labs, Microsoft Gaming 
+
+sofiane.ennadir@king.com 
+
+John Pertoft 
+
+King AI Labs, Microsoft Gaming 
+
+john.pertoft@king.com 
+
+Bjartur Hjaltason 
+
+King AI Labs, Microsoft Gaming 
+
+bjartur.hjaltason@king.com 
+
+Sara Karimi 
+
+King AI Labs, Microsoft Gaming & KTH Royal Institute of Technology 
+
+sara.karimi@king.com 
+
+## ABSTRACT 
+
+Methods for generalization in model-based reinforcement learning typically as-sume that an agent cannot recover the latent context governing the environment dynamics from its own experience, and therefore supplies it externally. We for-malize and test this assumption with predictive sufficiency , which quantifies what access to the context adds to next-step prediction under the visitation distribution an agent induces, and separates that quantity into a history-recoverable part, a residual requiring the true context, and the deficit added by a finite model. We classify context-aware algorithms by the predictive risk their conditioning set can target and demonstrate across environments of increasing identification difficulty that the headroom does not follow the MDP class. The same task under differ-ent priors leaves predictive headroom in one setting and nothing distinguishable from zero in another, where the agent’s behavior implicitly identifies the context and any benefit of such a mechanism cannot be attributed to missing information. Where headroom persists, the learned state exposes it only partially, and adding the true context still lowers the risk. Our contribution is a practical criterion for matching contextual mechanisms to the information available to them, estimated from the ordinary trained agent without a reference policy. 
+
+## 1 INTRODUCTION 
+
+In model-based reinforcement learning (RL), even minor changes in environment dynamics, e.g., the mass of a body or the friction of a floor in robotics, can degrade next-state predictions and, through compounding rollout errors, the policies built upon them (Lee et al., 2020). Settings with such variations are often formalized as contextual MDPs (Hallak et al., 2015) or hidden param-eter MDPs (Doshi-Velez & Konidaris, 2016). The latent parameters may be drawn i.i.d. from a shared prior (Benjamins et al., 2023), evolve according to a background process, as in dynamic parameter MDPs (Xie et al., 2021), or vary without structure, folding the problem into a general partially observable MDP. They can also change between episodes, during an episode, or even at every timestep (Dulac-Arnold et al., 2021). In these settings, a predictor that only sees the current state and action has to average over the contexts that are still plausible at that point, resulting in a model mixture and reduced prediction accuracy. A common solution is to infer the missing information online and provide it to the agent, where existing approaches include supervised system identification, meta-learned adaptation, latent context encoders, or conditioning on ground-truth context (Duan et al., 2016; Nagabandi et al., 2019; Lee et al., 2020; Zintgraf et al., 2020; Evans et al., 2022; R¨ oder et al., 2025; Prasanna et al., 1arXiv:2610.06651v1 [cs.LG] 5 Oct 2026 Preprint. Under review (a) Marginal kernel averaging    
+
+> ====
+> t
+> Tprior (b) Implicit identification
+> t
+> t
+> =
+> =(c) Visitation-dependent sufficiency
+> =
+
+Figure 1: Contextual variation in MiniGrid, where a hidden wind variable probabilistically displaces the agent after each move, and walls block the displacement. (a) A model trained on pooled expe-riences with different winds learns the averaged kernel, which has no net displacement and inflated spread and governs no individual episode. (b) Under the same policy the trajectories separate mid-episode, so the state alone is consistent with only one wind and identifies it implicitly, rendering contextual mechanisms partially redundant. (c) Under one and the same context, the trajectory of an agent crossing the open grid (blue) bends downwind and betrays the context, while an agent moving along the downwind border (orange) shows no drift at all, since the obstacle blocks it. What remains for context mechanisms to gain depends on what the agent’s own trajectories already reveal, and on what they cover. 2024). Those methods aim for improving how a finite model uses experience without adding new ob-servations. However, the agent’s trajectories can contain sufficient evidence about the active context, and a model that uses history already has access to this information. What a contextual mechanism can still add is exactly the one-step advantage that observing the context grants a predictor under the data distribution the agent itself induces. Figure 1 illustrates these effects. Pooling distinct contexts yields an averaged kernel that governs no particular episode, while trajectories reveal or conceal the context depending on where they lead, identifying the dynamics before any dedicated mechanism infers them. We formalize this question through predictive sufficiency , quantifying the Bayes one-step advantage of context for memoryless and history-aware predictors. We distinguish prior-averaged structural variation from predictive headroom , the potential improvement in next-state prediction from ob-serving the true context under the agent’s observed trajectories. We split headroom into information recoverable from history and a residual requiring context, while separating the learned predictor’s finite-model deficit. Reading context-aware methods through the information they access turns the decomposition into class-level predictions: an encoder has no missing information to supply where visitation alone makes the context identifiable, short windows can recover headroom carried by re-cent evidence, and persistent representations can exploit information spanning episode boundaries. Our contribution is threefold: i) we analyze visitation-mediated implicit identification, where the agent’s behavior concentrates the posterior over the context until nothing is left for another mecha-nism to supply; ii) we formulate predictive sufficiency, which asks a representation to preserve the transition information the context carries rather than the context itself, and decompose the resulting gap exactly across the inputs a method conditions on; and iii) we propose a principled criterion, confirmed in experiments across MDP classes of increasing identification difficulty, that determines which conditioning sets have predictive information to add and whether linear decoding of a learned state recovers it. 
+
+## 2 RELATED WORK 
+
+MDPs with latent context variables. Contextual MDP formulation (Hallak et al., 2015) also ap-pears as hidden-parameter (Doshi-Velez & Konidaris, 2016), latent (Kwon et al., 2021), and is closely related to Bayes-adaptive (Duff, 2002) MDPs, which consider a belief over the unknown pa-rameters. Work in these settings has studied exploration (Henaff et al., 2023), adaptation, regret, and zero-shot generalization (Kirk et al., 2023). Common benchmarks in gaming settings (Chevalier-Boisvert et al., 2023; Cobbe et al., 2020; Hafner, 2022) typically vary per-episode initial state dis-tribution rather than dynamics, while meta-RL tasks (Rakelly et al., 2019) mix reward, goal, and 2Preprint. Under review dynamics variation. The Real-World Reinforcement Learning suite (Dulac-Arnold et al., 2021) in-cludes dynamics randomization, stochastic disturbances, and degradations in continuous control, varied between episodes. CARL (Benjamins et al., 2023) turns continuous environment parameters into explicit context variables and defines protocols on contextualized control tasks. LILAC (Xie et al., 2021) instead considers structured evolution of an episode-level latent across a sequence of tasks. We use these settings to study transition prediction and ask whether and how predictive dif-ferences carry to downstream control. 
+
+Context inference and conditioning. In meta-RL, PEARL (Rakelly et al., 2019) infers a latent task variable with a permutation-invariant encoder and VariBAD (Zintgraf et al., 2020) maintains a Bayes-adaptive belief over task parameters, separating information shared across tasks from infor-mation inferred within one, in the spirit of the empirical-Bayes recasting of meta-learning (Grant et al., 2018). For dynamics, UP-OSI (Yu et al., 2017) learns a supervised map from recent state– action histories to physical parameters that condition a universal policy, GrBAL and ReBAL (Naga-bandi et al., 2019) meta-train forward models that adapt from recent trajectory segments through gradient-based and recurrent updates respectively, and CaDM (Lee et al., 2020) and IIDA (Evans et al., 2022) infer a latent dynamics context from recent transitions without observing the true pa-rameters. Within Dreamer, cRSSM (Prasanna et al., 2024) conditions the world model and policy on observed context, while DALI (R¨ oder et al., 2025) infers it with a separate history encoder and forward-dynamics objective. While these methods offer inductive biases for inference from expe-rience, we ask a prior question, namely what information their inputs can supply under a given visitation, which our framework makes precise. 
+
+## 3 THEORETICAL FRAMEWORK 
+
+Preliminaries. We formalize the environment as a contextual MDP (S, A, T θ , R θ , γ ), where both the transition kernel Tθ and the reward function Rθ are parameterized by a latent context variable θ.We denote an episode trajectory by τ = ( s0, a 0, s 1, a 1, . . . , s T ) and its prefix up to time t by τ≤t.The context is drawn at the start of each episode, either independently from a prior p(θ | α) with shared hyperparameters α, or from an autonomous Markov chain p(θi+1 | θi) across episodes. We restrict attention to contexts fixed within an episode: time-varying context requires an augmented latent process and remains outside the present framework. Our analysis is concerned with the tran-sition kernel, and its predictive quantities require no reward labels. 
+
+Pooled and prior-averaged prediction. Let pπ (θ, s, a, s ′) denote the joint distribution induced by drawing θ ∼ p(θ | α), rolling out policy π under Tθ , and sampling a transition according to the evaluation weighting. In the realizable infinite-data limit, a memoryless world model trained by maximum likelihood on the pooled transitions converges to 
+
+¯Temp (s′ | s, a ) = pπ (s′ | s, a ) = Eθ∼pπ (θ|s,a )
+
+Tθ (s′ | s, a ). (1) By Bayes’ rule, pπ (θ | s, a ) ∝ p(θ | α)dπθ (s, a ), where dπθ is the corresponding state–action oc-cupancy induced by Tθ and π. Thus it need not equal p(θ | α), making ¯Temp an observational mixture and the Bayes-optimal log-loss predictor conditioned only on (s, a ). At a fixed query (s, a ),averaging the conditional kernels under the context prior gives 
+
+¯Tprior (s′ | s, a ) = Eθ∼p(θ|α)
+
+Tθ (s′ | s, a ), (2) the Bayesian model average (Hoeting et al., 1999). We refer to this mixture’s predictive loss relative to the context-conditional kernels as the marginal averaging problem . This standardized reference compares kernels at a shared (s, a ) before visitation reweights the context prior. If θ ⊥ (s, a ) under 
+
+pπ , it equals ¯Temp . For a θ-independent reference distribution μ(s, a ), define 
+
+Istruct = E(s,a )∼μ Eθ∼p(θ|α)
+
+DKL 
+
+ Tθ (· | s, a ) ¯Tprior (· | s, a ) . (3) 
+
+Istruct is conditional mutual information under the constructed joint μ(s, a )p(θ | α)Tθ (s′ | s, a ) and averages the corresponding Jensen gap across shared queries (Appendix A). This quantity measures kernel separation rather than the training loss of a pooled predictor. 
+
+Predictive headroom under visitation. Consider the memoryless predictor as per Equation 1 and an Oracle predictor that additionally observes the realized context, so that its target is Tθ . The difference between their minimum expected log losses is 
+
+Iemp = I(θ; st+1 | st, a t) = E(s,a )∼pπ Eθ∼pπ (θ|s,a )
+
+DKL 
+
+ Tθ (· | s, a ) ¯Temp (· | s, a ) . (4) 3Preprint. Under review We call Iemp the predictive headroom . It is the exact reduction in one-step log loss from revealing 
+
+θ to a predictor conditioned on (st, a t). A finite memoryless model can incur additional estimation, approximation, or optimization error. 
+
+Iemp uses the query distribution and context weights induced by data collection, whereas Istruct 
+
+averages over μ. The two quantities therefore coincide when μ(s, a ) = pπ (s, a ) and the indepen-dence condition above holds, but neither bounds the other in general. The difference Istruct − I emp 
+
+is, therefore, descriptive, and may be negative. If pπ (θ | s, a ) is concentrated, the current (s, a )
+
+already identifies much of the context, so large structural variation can coexist with little predictive headroom. We call this visitation-mediated implicit identification . However, context remains infor-mative for prediction when visitation overlaps across contexts and the posterior over θ stays diffuse. In practice, measuring how well θ can be decoded from the current (s, a ) reveals to what extent the state and action already identify the context. In discrete environments with repeated contexts, Iemp can be estimated from context-labelled tran-sition counts, whereas continuous settings require mutual information estimation. Small values leave little advantage even for a memoryless Oracle, while large values expose one-step errors that can compound in model rollouts. Proposition 2 in Appendix A makes this connection explicit: with bounded rewards, the value error under any stationary Markov policy is bounded by γR max /(1 −γ)2
+
+times the worst-case transition error (Kearns & Singh, 2002; Brafman & Tennenholtz, 2002), moti-vating separate evaluation of predictive headroom and return. 
+
+History, Oracle context, and finite models. Assume the transition process is Markov conditional on θ, so that st+1 ⊥ τ<t | (st, a t, θ ). The Bayes-optimal history-aware target is 
+
+¯Thist (s′ | τ≤t, a t) = Eθ∼pπ (θ|τ≤t,a t)
+
+Tθ (s′ | st, a t). (5) Let RM, RH, and RO denote the minimum expected one-step log loss when the predictor observes 
+
+(st, a t), (τ≤t, a t), and (st, a t, θ ), respectively. The residual Oracle headroom after observing history is 
+
+Ihist = I(θ; st+1 | τ≤t, a t) = RH − R O. (6) 
+
+Proposition 1 (Predictive headroom decomposition) . Under the conditional-Markov assumption and a common transition distribution, 
+
+Iemp = RM − R O = RM − R H
+
+| {z }
+
+> headroom closed by history
+
++ Ihist 
+
+|{z} 
+
+> residual Oracle headroom
+
+(7) 
+
+Consequently, 0 ≤ I hist ≤ I emp .
+
+The proof appears in Appendix A. The first term measures predictive information recovered from trajectory history beyond (st, a t). The second is the improvement still available from revealing θ
+
+to an ideal history-aware predictor. When Ihist = 0 , context provides no further advantage after history. For any finite recurrent model q, the remaining Oracle gap is 
+
+R(q) − R O = R(q) − R H
+
+ + Ihist , (8) where the bracketed term is estimation, approximation, or optimization error. Neither a context pathway computed from the same within-episode history nor a different recurrent core can improve on RH in principle, but either may help a finite model approach it. The proposition applies to a conditionally Markov state; in a partially observed process, the Oracle risk must also condition on history. 
+
+Contexts correlated across episodes. The decomposition above takes θ independent across episodes, so histories end at episode boundaries. When contexts instead evolve as a Markov chain, 
+
+θi+1 ∼ p(θi+1 | θi), completed episodes carry information about the current context (Choi et al., 2001; Xie et al., 2021). For an ergodic chain, the stationary distribution plays the role of the prior. Let τ + 
+
+> ≤t
+
+denote the cross-episode history concatenating completed episodes with the current prefix, and RH+ the corresponding minimum risk. Since τ≤t ⊆ τ +
+
+> ≤t
+
+,
+
+Iemp = RM − R H
+
+| {z }
+
+> within-episode
+
++ RH − R H+
+
+| {z }
+
+> cross-episode
+
++ I θ; st+1 | τ +
+
+> ≤t
+
+, a t
+
+| {z }
+
+> residual
+
+, (9) where the middle term vanishes under independent draws, which motivates episode-start evaluation before within-episode evidence accumulates. The in-principle bound of Equation 8 is relative to 4Preprint. Under review Table 1: Representative MiniGrid and Point-Mass-Attractor settings. The matched column sets 
+
+μ(s, a ) = pπ (s, a ) while retaining prior context weights. CIs are 95% episode-level bootstrap. All estimates are conservatively biased upward, so finite-sample error can inflate headroom.                          
+
+> State Setting Istruct Iπ
+> struct Iemp
+> Discrete Wind ( vmax = 1 )0.871 0.620 0.077 ±0.002
+> Discrete Resistance ( ϵmax = 0 .9)0.062 0.059 0.055 ±0.001
+> Continuous Attractor ( k= 0 .3)1.006 1.006 0.109 ±0.002
+
+the information interface: RH bounds any predictor computed from the current episode, while a recurrent state carried across resets or an explicit model of the context chain targets RH+ ≤ R H.
+
+Predictive sufficiency. Predictive sufficiency asks a context representation to preserve the transition information carried by θ without requiring recovery of θ itself. 
+
+Definition 1 (ε-predictive sufficiency) . For a data-collection policy π, let τ be generated under episode context θ ∼ p(θ | α). A representation ct computed from τ≤t induces the Bayes-optimal predictor 
+
+¯Tc(s′ | st, a t, c t) = Eθ′∼pπ (θ′|st,a t,c t)
+
+Tθ′ (s′ | st, a t). (10) 
+
+The representation is ε-predictively sufficient under π if 
+
+Eθ∼p(θ|α) Eτ ∼π,T θ
+
+"
+
+1
+
+T 
+
+> T−1
+
+X
+
+> t=0
+
+DKL 
+
+ Tθ (· | st, a t) ¯Tc(· | st, a t, c t)#
+
+≤ ε. (11) A constant ct induces ¯Temp and attains the sufficiency gap ε = Iemp . Preserving the full posterior-predictive information in τ≤t attains ε = Ihist , while ε = 0 requires identifying the realized tran-sition kernel only on the visited support. Contexts inducing the same kernel there are predictively equivalent and may share a representation. Predictive sufficiency retains trajectory information that affects transitions and may discard other context components. In the correlated-episode setting, ct
+
+may be computed from τ +
+
+> ≤t
+
+. The definition then applies with the expectation taken over the station-ary chain, and preserving the full cross-episode posterior attains the residual of Equation 9. The decomposition identifies the part of an Oracle gap accessible to architectural intervention. Its control effect remains an empirical question: return also depends on horizon and reward sensitivity, and the definition is relative to the state–action distribution induced by π, so policy improvement requires coverage of the new distribution or a fresh estimate of ε.
+
+## 4 CONTROLLED DIAGNOSTIC 
+
+The framework distinguishes variation in a transition family from predictive headroom under the distribution generated by an agent. We test this distinction in tractable i.i.d. settings where the context-conditional kernels are known. MiniGrid (Chevalier-Boisvert et al., 2023) provides a finite state space in which both Istruct and Iemp can be evaluated from the exact kernels at the logged continuous contexts. The Point-Mass-Attractor environment provides a continuous-state counterpart with known noisy one-step kernels. 
+
+Diagnostic design. We implement two MiniGrid transition variants: MiniGrid-Wind samples a drift that changes the realized displacement after each action, while MiniGrid-Resistance samples an action-failure probability. Point-Mass-Attractor (Figure 3, Appendix B) samples one of the attractor locations, causing trajectories to curve toward the selected center. In all cases, the diagnostic varies only an unobserved episode-level transition parameter. We collect trajectories under uniform random actions and record context for estimation while withholding it from the predictive information set. Both continuous and discrete settings exploit the known kernels rather than estimating next-state distributions from samples. Environment definitions and protocols appear in Appendix B. Alongside the fixed θ-independent reference, we evaluate Iπ 
+
+> struct
+
+by setting μ(s, a ) = pπ (s, a ) while retaining prior context weights. Comparing Iπ 
+
+> struct
+
+with Iemp holds the query distribution fixed and changes only the context weights. All information quantities use natural logarithms. 5Preprint. Under review δt              
+
+> θ=v
+> (a) Wind
+> ε
+> 1−εθ=ε
+> (b) Resistance
+> 0.0 0.5 1.0
+> wind vmax
+> 0.0 0.2 0.4 0.6 0.8
+> information
+> (c) Wind sweep
+> 0.0 0.5
+> resistance εmax
+> 0.00 0.02 0.04 0.06
+> (d) Resistance sweep
+> 0.2 0.4
+> attractor strength k
+> 0.0 0.5 1.0
+> (e) Attractor sweep
+> struct emp
+
+Figure 2: Controlled diagnostics. Wind applies a sampled drift after the native action (a), whereas Resistance either commits or voids the action (b). Across perturbations (c–e), Istruct separates from predictive headroom on Wind and Point-Mass-Attractor but remains close to it on Resistance. 
+
+Structural variation and predictive headroom. Panels c–e in Figure 2 depict two regimes. Wind develops substantial sensitivity while its estimated predictive headroom is 8.8% of Istruct . At 
+
+vmax = 1 , matching the query distribution reduces the reference by 29%, and the data-conditional context weights account for a further 88% reduction. Resistance changes little across the three columns of Table 1; its low headroom follows from modest kernel separation rather than state-mediated identification. Point-Mass-Attractor reproduces the Wind regime in continuous state, where its kernel separation is invariant to the query distribution on the interior support, but an esti-mated 11% remains under observed visitation. 
+
+Intervening on visitation. To demonstrate the dependency, we reset selected state components during collection without resampling the episode context. Resetting MiniGrid position and direction every ten steps raises Iemp by 430%, and resets every two steps raise it by 833%. In Point-Mass-Attractor, resetting position and velocity every ten steps raises the estimate by 324%; preserving velocity raises it by only 28%. Hence, the control identifies velocity as the principal carrier of context in the continuous system. Appendix B reports the full sweeps and complementary state-projection checks. Together, these diagnostics show why contextual variation alone does not warrant contextual mod-eling. Wind and Point-Mass-Attractor have strongly separated kernels, but their induced states leave little one-step headroom, whereas MiniGrid-Resistance reaches similar headroom because its ker-nels differ little. 
+
+## 5 EXPERIMENTAL VALIDATION 
+
+Prior work has proposed a range of mechanisms for latent context MDPs, each targeting a specific level in a hierarchy of settings and covering the levels below it. Based on the theoretical analysis, we predict that predictive sufficiency under a given visitation determines when a mechanism has additional information to exploit: headroom must remain, and conditioning on its inputs must lower the corresponding optimal risk. The resulting bounds separate the available information from how effectively the inductive bias uses it, which depends on the information structure rather than the class the mechanism was designed for. Based on those insights, we formulate four falsifiable predictions: • (P1) Implicit identification renders observed context redundant for one-step prediction irrespective of the MDP class. When visitation makes the context identifiable from the current state and action, the agent’s own behavior has already performed the identification that context mechanisms are built for, making the predictive headroom vanish. Benefits of the mechanism therefore cannot be attributed to missing predictive information. • (P2) Predictive sufficiency separates information failure from finite-model error. When head-room persists but the episode’s history reaches the observed-context risk, any remaining predictive deficit for a model with access to that history is due to estimation, approximation, or optimization. • (P3) The sufficiency optimum is relative to its conditioning set. For methods that do not observe context, only mechanisms that carry information across episode boundaries can improve on the 6Preprint. Under review Table 2: Method classes ordered by the predictive risk their conditioning set can target. Bold denotes the evaluated representatives. The memoryless class is instantiated by the measurement protocol itself.                            
+
+> Class Conditioning set (bound) Sufficient when Methods Memoryless (st, a t)(RM)θdecodable from (st, a t)Base probes
+> Transition window last Ktransitions ( ≥ R H)recent evidence DALI-S , CaDM, UP-OSI, GrBAL, PEARL, IIDA Recurrent within-episode summary ( ≥ R H)evidence within the episode DreamerV3 , ReBAL, VariBAD Cross-episode chain cross-episode summary ( ≥ R H+)episodes correlated Carried state ,LILAC , RL 2, L2RL Ground-truth context realized θ(RO)always cRSSM-D , cRSSM-C
+
+within-episode optimum when consecutive contexts are dependent. Their advantage should be largest at episode start and vanish under independent draws. • (P4) For a fixed visitation distribution, the reduction in expected log loss obtained by adding a context representation to the current state and action equals the difference between predictive headroom and that representation’s minimum sufficiency gap. Under implicit identification, both the reduction and the tolerance vanish. 
+
+Method classes. Table 2 groups representative methods by their conditioning information, ordered by the predictive risk each class can target. The window class adds a dedicated context encoder over the last K transitions, ordered or unordered. We take DALI-S (R¨ oder et al., 2025) as the ordered representative, since none of our settings makes transition order informative and the framework therefore cannot separate the variants. For the cross-episode class, we evaluate a Markov chain-latent agent similar to LILAC (Xie et al., 2021) and a carried-state variant that preserves recurrent state across resets, the mechanism of RL 2 (Duan et al., 2016) and L2RL (Wang et al., 2016), and the smallest member of this family, used as an ablation in the non-i.i.d. setting only. Finally, the observed-context class provides the privileged reference that separates recoverable headroom from task difficulty, represented by cRSSM-D (Prasanna et al., 2024). All evaluated methods share the same DreamerV3 backbone (Hafner et al., 2025). Implementation, training, and evaluation details are provided in Appendix C. 
+
+Environments. Common benchmarks often vary initial states rather than the latent dynamics, while meta-RL suites mix reward with dynamics variation, and perturbation studies confound predictive headroom with task difficulty. To address this, we build on CARL (Benjamins et al., 2023) and RWRL (Dulac-Arnold et al., 2021), which isolate dynamics variation. As with the methods, we select representative environments for the classes of contextual MDPs studied in prior work, ordered by the difficulty of identifying the context. The two i.i.d. settings are based on DMC Walker from the CARL suite, repeating the contrast of Section 4 at benchmark scale: (i) an identifiable setting, where a latent horizontal wind, sampled uniformly per episode, exerts force through nonzero fluid density, probe headroom collapses while decodability stays high, and return remains competitive (P1, P4), and (ii) a hard setting, where a latent actuator-strength scale is sampled uniformly under fixed gravity and headroom persists above the permutation null (P2). The settings separate collapsed and persistent headroom under baseline visitation. Each method is then profiled under its own. In the non-i.i.d. drift setting, a single Walker parameter follows an RWRL perturbation schedule, performing a random walk across episodes at three rates on identical frozen realizations (P3). Additionally, we include a simple linear-Gaussian point mass environment whose hidden context evolves across episodes as a Markov chain with high self-transition probability, so completed episodes carry predictive value about the current one. There, known transition kernels and dis-turbance filters provide analytical references for calibrating the Gaussian-score diagnostics (Ap-pendix D). A short-episode variant limits within-episode evidence, and an independent-draw variant controls for the information supplied by cross-episode disturbance history (P3). One difficulty class remains uncovered: to our knowledge, no standard benchmark makes the context identifiable only through deliberately informative actions, so every passive class is predicted equivalent there. Table 3 summarizes the settings with their context process and difficulty level. 
+
+Measurements. To estimate headroom, history recovery, and the sufficiency gap, we compare held-out next-state log losses from MLP and recurrent probes with Gaussian likelihood heads, fitted 7Preprint. Under review Table 3: Environment settings, ordered by the level at which the context becomes identifiable.                     
+
+> Setting Environment Context process Difficulty level Tests Calibration Point mass persistent two-state chain, i.i.d. and short-episode variants within/across episodes P3 (control) Identifiable CARL Walker i.i.d. per episode current state and action P1, P4 Hard CARL Walker i.i.d. per episode episode history P2, P4 Drift RWRL Walker non-i.i.d. Markov chain across episodes across episodes P3
+
+Table 4: Computed quantities over i.i.d. environments. Identifiable and Hard settings report return, probe headroom, and the residual context gain of the linear context readout. Entries are three-seed IQM with 95% bootstrap confidence intervals, method differences use paired seed resampling.                                                                          
+
+> Identifiable Hard Method Return  ↑
+> Headroom Resid. gain Return  ↑
+> Headroom Resid. gain DreamerV3 712 ±10 −0.00 ±0.12 −0.13 ±0.11 946 ±62.39 ±0.70 0.38 ±0.08
+> DALI-S 756 ±72 0.03 ±0.13 −0.15 ±0.13 941 ±14 2.10 ±1.76 0.44 ±0.19
+> LILAC-style 589 ±88 −0.09 ±0.08 0.00 ±0.09 953 ±43.49 ±0.68 0.73 ±0.29
+> cRSSM-D 862 ±17 −0.14 ±0.16 −0.06 ±0.09 948 ±63.64 ±1.71 −0.22 ±0.80
+
+independently of the agent on each method’s evaluation episodes. Their inputs are (i) current state and action, (ii) adding the true context, (iii) adding a linear readout ct trained to predict θ from the learned recurrent state, (iv) adding both, (v) adding a fixed-size history window, and (vi) adding both window and readout. A separate decodability probe predicts context from state and action; a permutation null shuffles contexts across episodes. Comparisons use fixed training budgets and separate episodes for fitting, validation, and scoring. Because the probes are computed under each method’s visitation, they are considered as within-method evidence, following the policy dependence of Definition 1. Cross-method comparisons rely on return over paired evaluation contexts and the class-level predictions. On the drift setting the primary metric is the start transient: early-window prior loss minus the cached-prefix reference loss. 
+
+Evaluation design. We use differences in held-out probe risks as empirical diagnostics of the pre-dictive quantities in Section 3. Let bRX denote the next-state log loss of a fitted probe with inputs 
+
+X. Probe headroom is defined as bGθ = bRM − bRO. Under the assumptions of Section 3, its pop-ulation counterpart satisfies Gθ = Iemp + eM − eO, where eX includes approximation and fitting error above the corresponding Bayes risk. The finite-family reference bRref is the minimum risk over the window, the learned-state readout, their combination, and a recurrent probe. For readout ct, we define b∆FM (c) = bRc − bRref on the same transitions. When probe headroom separates from the per-mutation null, we report normalized gain ( bRM − bRc)/ bGθ . Residual context gain is bRc − bRc,θ . For Bayes-optimal predictors, the corresponding risk difference under the averaging law of Definition 1 equals the smallest admissible ε. We also report differences over the first k=25 transitions of each episode. 
+
+## 6 RESULTS 
+
+Settings with i.i.d. contexts. Table 4 confirms the intended contrast across selected methods. In the hard setting, estimated headroom remains open and varies for every method, while returns stay within 2% of the baseline. There, successful control coexists with unresolved predictive con-text. Residual context gain remains positive for the inference-based methods and vanishes only for cRSSM-D, whose linear readout carries the ground-truth context (P4). In the identifiable setting, headroom collapses under each profiled visitation while the context stays decodable from the state with R2 ≥ 0.93 , consistent with P1. cRSSM-D still leads the returns there, despite negligible predictive headroom. 
+
+Settings with non-i.i.d. contexts. As reported in Table 5, the context-blind baseline achieves the lowest mean startup losses at the low drift rate. However, at the mid rate, the transition-window 8Preprint. Under review Table 5: Computed quantities over the non-i.i.d. environment: start transient and start prior loss at three drift rates. Entries are means ± sample stdev across seeds.                                                                                              
+
+> Start transient ↓Start prior loss ↓
+> Method Low Mid High Low Mid High DreamerV3 2.64 ±0.45 2.80 ±0.15 2.79 ±0.86 10 .15 ±0.82 10 .77 ±0.59 11 .24 ±0.83
+> Carried state 4.06 ±0.36 3.92 ±0.69 3.93 ±0.51 13 .30 ±0.56 12 .51 ±0.75 12 .75 ±0.77
+> DALI-S 3.12 ±0.19 2.52 ±0.13 3.05 ±0.89 10 .68 ±0.05 10 .45 ±1.23 11 .37 ±0.33
+> LILAC-style 2.94 ±0.92 3.19 ±0.86 2.46 ±0.61 11 .14 ±0.93 11 .54 ±0.90 10 .22 ±0.91
+> cRSSM-D 2.84 ±0.35 3.05 ±0.41 2.55 ±0.71 10 .48 ±0.31 10 .68 ±1.05 10 .38 ±0.33
+
+agent already reduces the start transient by approximately 10% and start prior loss by 3% relative to the baseline. At the high rate, the chain-latent agent’s advantage reaches approximately 12% 
+
+and 9% , respectively, with start prior loss also about 2% below the observed-context variant. The same methods lead in absolute start prior loss at their respective rates. Carried state has the largest transient across rates, separating episode-level latent prediction from simply continuing the previous episode’s state through the reset. Together, these profiles support regime-related benefits of the conditioning mechanisms under each method’s own visitation (P3). Figure 7 in Appendix E depicts the considered metrics across the methods and drift rates. 
+
+## 7 DISCUSSION 
+
+The results demonstrate that the value of context mechanisms is governed by the information struc-ture of the setting in addition to their design, consistent with the theoretical analysis. First, the probes tracked exact targets on the calibration setting, where history recovery reached 0.89 against the exact 
+
+0.99 (P2), providing a reference for interpreting their estimates. Next, in the identifiable i.i.d. set-ting, the headroom collapsed under every profiled visitation while the context stayed decodable, so return differences reflect optimization rather than information. In the hard setting, estimated head-room stayed open across the evaluated methods despite comparable returns, showing that successful control does not have to resolve predictive context. Finally, the non-i.i.d. results connect predictive benefits to both the drift regime and mechanism design. The contrast between chain-latent infer-ence and carried state demonstrates the distinction between predicting episode-level context and preserving recurrent state, consistent with Equation 9. Our findings carry two implications: i) when Bayes predictive headroom is zero, any predictive gain under the same visitation reflects a reduction in finite-model error, and ii) for benchmark construc-tion, the class of a setting alone does not determine its difficulty. The same task yielded headroom well above the null in one setting but not in another, which suggests reporting estimated headroom alongside an MDP’s class and its benchmark definition. 
+
+Limitations. In the present analysis all estimated quantities are properties of a closed loop: each method’s visitation shapes the information available to it, and that information shapes the method in turn. We deliberately do not compare under a shared reference policy, since no policy is neutral, random behavior collapses the visited region and competent behavior encodes the context it has al-ready identified, so any fixed choice would characterize that policy rather than the learning problem. The policy dependence is instead the mechanism under study: implicit identification is produced by the agent’s own behavior, and removing it would remove the phenomenon. It is also the condition-ing that matters in practice, since a deployed mechanism operates under the visitation its training produces, rather than under a standardized one. Extending comparison across visitations, through paired counterfactual resets where simulators per-mit them, and constructing settings whose context yields only to deliberately informative actions, are the future directions we consider most fruitful. 9Preprint. Under review 
+
+## 8 CONCLUSION 
+
+Motivated by real-world control, where the dynamics an agent faces vary and are rarely observed directly, a growing number of methods target MDPs with latent dynamics, but nothing tells a prac-titioner when any of them is needed: in practice the choice often follows the environment’s class and the method’s design intent. However, we show that both can be unreliable guides and propose a principled replacement. Our analysis establishes, and our experiments support, that the predictive opportunity available to a context mechanism is set by where the latent information resides under the trained agent’s visitation, yielding a criterion assessed from the ordinary agent alone. Behind it lies a simple observation: an agent that acts in a world also performs inference about it, and whatever its behavior identifies along the way is already available to the optimal predictor. What remains for such additions is confined to specific regimes that measurement can identify, allowing it to inform design. AI USE STATEMENT 
+
+Generative AI tools were used to assist with software implementation, including environmental benchmarks and analysis scripts, and to edit the manuscript for language, wording, and phrasing to improve readability. AI was also used to translate the proposition and its proof into a formal notation for verification by a theorem prover. The authors reviewed all code, analyses, and text and take full responsibility for the final content of this work. REPRODUCIBILITY STATEMENT 
+
+Appendix B details the MiniGrid and Point-Mass-Attractor diagnostics, Appendix C reports the benchmark definitions, evaluation distributions, implementations, and hyperparameters, while Ap-pendix D reports the calibration protocol. The reference codebase 1 includes all source code, along with configuration scripts and protocols. 
+
+## REFERENCES 
+
+Carolin Benjamins, Theresa Eimer, Frederik Schubert, Aditya Mohan, Sebastian D¨ ohler, Andr´ eBiedenkapp, Bodo Rosenhahn, Frank Hutter, and Marius Lindauer. Contextualize me—the case for context in reinforcement learning. Transactions on Machine Learning Research , 2023. ISSN 2835-8856. URL https://openreview.net/forum?id=y42xVBQusn .Ronen I. Brafman and Moshe Tennenholtz. R-MAX—a general polynomial time algorithm for near-optimal reinforcement learning. Journal of Machine Learning Research , 3:213–231, 2002. URL 
+
+https://www.jmlr.org/papers/v3/brafman02a.html .Maxime Chevalier-Boisvert, Bolun Dai, Mark Towers, Rodrigo Perez-Vicente, Lucas Willems, Salem Lahlou, Suman Pal, Pablo Samuel Castro, and J. Terry. MiniGrid & MiniWorld: Mod-ular & customizable reinforcement learning environments for goal-oriented tasks. In Ad-vances in Neural Information Processing Systems , volume 36, pp. 73383–73394, 2023. doi: 10.52202/075280-3209. Samuel PM Choi, Dit-Yan Yeung, and Nevin L Zhang. Hidden-mode Markov decision processes for nonstationary sequential decision making. In Sequence learning: paradigms, algorithms, and applications , pp. 264–287. Springer, 2001. Karl Cobbe, Chris Hesse, Jacob Hilton, and John Schulman. Leveraging procedural generation to benchmark reinforcement learning. In Proceedings of the 37th International Conference on Machine Learning , volume 119 of Proceedings of Machine Learning Research , pp. 2048–2056. PMLR, 2020. URL https://proceedings.mlr.press/v119/cobbe20a.html .Finale Doshi-Velez and George Konidaris. Hidden parameter Markov decision processes: A semi-parametric regression approach for discovering latent task parametrizations. In Proceedings of 
+
+> 1https://anonymous.4open.science/r/considering_context/
+
+10 Preprint. Under review 
+
+the Twenty-Fifth International Joint Conference on Artificial Intelligence , pp. 1432–1440. IJ-CAI/AAAI Press, 2016. URL https://www.ijcai.org/Proceedings/16/Papers/ 206.pdf .Yan Duan, John Schulman, Xi Chen, Peter L Bartlett, Ilya Sutskever, and Pieter Abbeel. RL 2: Fast reinforcement learning via slow reinforcement learning. arXiv preprint arXiv:1611.02779 , 2016. Michael O’Gordon Duff. Optimal Learning: Computational Procedures for Bayes-Adaptive Markov Decision Processes . PhD thesis, University of Massachusetts Amherst, Amherst, Massachusetts, 2002. Gabriel Dulac-Arnold, Nir Levine, Daniel J Mankowitz, Jerry Li, Cosmin Paduraru, Sven Gowal, and Todd Hester. Challenges of real-world reinforcement learning: definitions, benchmarks and analysis. Machine Learning , 110(9):2419–2468, 2021. Ben Evans, Abitha Thankaraj, and Lerrel Pinto. Context is everything: Implicit identification for dynamics adaptation. In 2022 International Conference on Robotics and Automation (ICRA) , pp. 2642–2648. IEEE, 2022. Erin Grant, Chelsea Finn, Sergey Levine, Trevor Darrell, and Thomas L. Griffiths. Recasting gradient-based meta-learning as hierarchical Bayes. In International Conference on Learning Representations , 2018. URL https://openreview.net/forum?id=BJ_UL-k0b .Danijar Hafner. Benchmarking the spectrum of agent capabilities. In International Confer-ence on Learning Representations , 2022. URL https://openreview.net/forum?id= 1W0z96MFEoH .Danijar Hafner, Jurgis Pasukonis, Jimmy Ba, and Timothy Lillicrap. Mastering diverse control tasks through world models. Nature , 640(8059):647–653, 2025. doi: 10.1038/s41586-025-08744-2. Assaf Hallak, Dotan Di Castro, and Shie Mannor. Contextual Markov decision processes, 2015. URL https://arxiv.org/abs/1502.02259 .Mikael Henaff, Minqi Jiang, and Roberta Raileanu. A study of global and episodic bonuses for exploration in contextual MDPs. In Proceedings of the 40th International Conference on Machine Learning , volume 202 of Proceedings of Machine Learning Research , pp. 12972–12999. PMLR, 2023. URL https://proceedings.mlr.press/v202/henaff23a.html .Jennifer A. Hoeting, David Madigan, Adrian E. Raftery, and Chris T. Volinsky. Bayesian model averaging: A tutorial. Statistical Science , 14(4):382–417, 1999. doi: 10.1214/ss/1009212519. Aapo Hyv¨ arinen, Hiroaki Sasaki, and Richard E. Turner. Nonlinear ICA using auxiliary vari-ables and generalized contrastive learning. In Proceedings of the 22nd International Confer-ence on Artificial Intelligence and Statistics , volume 89 of Proceedings of Machine Learning Research , pp. 859–868. PMLR, 2019. URL https://proceedings.mlr.press/v89/ hyvarinen19a.html .Michael Kearns and Satinder Singh. Near-optimal reinforcement learning in polynomial time. Ma-chine Learning , 49(2–3):209–232, 2002. doi: 10.1023/A:1017984413808. Ilyes Khemakhem, Diederik P. Kingma, Ricardo Pio Monti, and Aapo Hyv¨ arinen. Variational au-toencoders and nonlinear ICA: A unifying framework. In Proceedings of the 23rd International Conference on Artificial Intelligence and Statistics , volume 108 of Proceedings of Machine Learn-ing Research , pp. 2207–2217. PMLR, 2020. URL https://proceedings.mlr.press/ v108/khemakhem20a.html .Robert Kirk, Amy Zhang, Edward Grefenstette, and Tim Rockt¨ aschel. A survey of zero-shot gener-alisation in deep reinforcement learning. Journal of Artificial Intelligence Research , 76:201–264, 2023. Jeongyeol Kwon, Yonathan Efroni, Constantine Caramanis, and Shie Mannor. RL for latent MDPs: Regret guarantees and a lower bound. In Advances in Neural Information Processing Systems , vol-ume 34, pp. 24523–24534, 2021. URL https://proceedings.neurips.cc/paper/ 2021/hash/c9037f06ebb3d1135d7228e3e381aa48-Abstract.html .11 Preprint. Under review Kimin Lee, Younggyo Seo, Seunghyun Lee, Honglak Lee, and Jinwoo Shin. Context-aware dynam-ics model for generalization in model-based reinforcement learning. In International Conference on Machine Learning , pp. 5757–5766. PMLR, 2020. Anusha Nagabandi, Ignasi Clavera, Simin Liu, Ronald S Fearing, Pieter Abbeel, Sergey Levine, and Chelsea Finn. Learning to adapt in dynamic, real-world environments through meta-reinforcement learning. In International Conference on Learning Representations , 2019. URL 
+
+https://openreview.net/forum?id=HyztsoC5Y7 .Sai Prasanna, Karim Farid, Raghu Rajan, and Andr´ e Biedenkapp. Dreaming of many worlds: Learn-ing contextual world models aids zero-shot generalization. Reinforcement Learning Journal ,3:1317–1350, 2024. URL https://rlj.cs.umass.edu/2024/papers/Paper167. html .Kate Rakelly, Aurick Zhou, Chelsea Finn, Sergey Levine, and Deirdre Quillen. Efficient off-policy meta-reinforcement learning via probabilistic context variables. In Proceedings of the 36th Inter-national Conference on Machine Learning , volume 97 of Proceedings of Machine Learning Re-search , pp. 5331–5340. PMLR, 2019. URL https://proceedings.mlr.press/v97/ rakelly19a.html .Frank R¨ oder, Jan Benad, Manfred Eppe, and Pradeep Banerjee. Dynamics-aligned latent imagina-tion in contextual world models for zero-shot generalization. In Advances in Neural Information Processing Systems , volume 38, pp. 80885–80920, 2025. doi: 10.52202/085713-2438. Jane X Wang, Zeb Kurth-Nelson, Dhruva Tirumala, Hubert Soyer, Joel Z Leibo, Remi Munos, Charles Blundell, Dharshan Kumaran, and Matt Botvinick. Learning to reinforcement learn. 
+
+arXiv preprint arXiv:1611.05763 , 2016. Annie Xie, James Harrison, and Chelsea Finn. Deep reinforcement learning amidst continual struc-tured non-stationarity. In Marina Meila and Tong Zhang (eds.), Proceedings of the 38th Inter-national Conference on Machine Learning , volume 139 of Proceedings of Machine Learning Research , pp. 11393–11403. PMLR, 18–24 Jul 2021. URL https://proceedings.mlr. press/v139/xie21c.html .Wenhao Yu, Jie Tan, C. Karen Liu, and Greg Turk. Preparing for the unknown: Learning a universal policy with online system identification. In Nancy M. Amato, Siddhartha S. Srinivasa, Nora Aya-nian, and Scott Kuindersma (eds.), Robotics: Science and Systems XIII, Massachusetts Institute of Technology, Cambridge, Massachusetts, USA, July 12-16, 2017 , 2017. doi: 10.15607/RSS. 2017.XIII.048. URL http://www.roboticsproceedings.org/rss13/p48.html .Luisa M. Zintgraf, Kyriacos Shiarlis, Maximilian Igl, Sebastian Schulze, Yarin Gal, Katja Hofmann, and Shimon Whiteson. VariBAD: A very good method for Bayes-adaptive deep RL via meta-learning. In International Conference on Learning Representations , 2020. URL https:// openreview.net/forum?id=Hkl9JlBYvr .12 Preprint. Under review 
+
+## A PROOFS AND TECHNICAL REMARKS 
+
+Proposition (Predictive headroom decomposition) . Under the conditional-Markov assumption and a common transition distribution, 
+
+Iemp = RM − R O = RM − R H
+
+| {z }
+
+> headroom closed by history
+
++ Ihist 
+
+|{z} 
+
+> residual Oracle headroom
+
+.
+
+Consequently, 0 ≤ I hist ≤ I emp .Proof. RM = H(st+1 | st, a t), RH = H(st+1 | τ≤t, a t), and the conditional Markov property gives RO = H(st+1 | st, a t, θ ) = H(st+1 | τ≤t, a t, θ ). Subtracting these risks yields Equation 7. 
+
+Proposition 2 (Value sensitivity to transition error) . Let Tθ and bT be transition kernels over a shared state–action space, with common bounded reward r ∈ [0 , R max ] and discount γ ∈ [0 , 1) . For any stationary Markov policy π and any state s,
+
+V πTθ (s) − V π 
+
+> bT
+
+(s) ≤ γR max 
+
+(1 − γ)2 sup 
+
+> s,a
+
+q 12 DKL 
+
+ Tθ (· | s, a ) ∥ bT (· | s, a ).
+
+Proof. Write Vθ = V πTθ , bV = V π 
+
+> bT
+
+, and T π (· | s) = P 
+
+> a
+
+π(a | s) T (· | s, a ) for the policy-induced state kernel. Subtracting the two Bellman equations, whose shared reward cancels, and inserting 
+
+± γ T πθ bV :
+
+Vθ (s) − bV (s) = γ T πθ (· | s)Vθ − bV  + γ T πθ − bT π (· | s) bV . 
+
+We bound the two terms. The first is a sup-norm non-expansion: 
+
+T πθ (· | s)Vθ − bV  ≤ ∥ Vθ − bV ∥∞ (T πθ (· | s) is a probability measure). For the second, T πθ − bT π has zero total mass, so 
+
+[T πθ − bT π ] bV = [T πθ − bT π ] ( bV − c) (zero mass: subtract any constant c)
+
+≤ ∥ bV − c∥∞ T πθ − bT π 
+
+> 1
+
+(H¨ older’s ineq.) 
+
+≤ Rmax 
+
+2(1 − γ) · 2 DTV (T πθ , bT π ) (c the midrange of bV ∈ [0 , Rmax  
+
+> 1−γ
+
+])
+
+≤ Rmax 
+
+1 − γ sup 
+
+> s,a
+
+DTV (Tθ , bT ) (triangle ineq. for TV under the shared policy mixture). Taking absolute values in the identity, applying the triangle inequality with the two bounds, and taking a supremum over s:
+
+∥Vθ − bV ∥∞ ≤ γ ∥Vθ − bV ∥∞ + γR max 
+
+1 − γ sup 
+
+> s,a
+
+DTV (Tθ , bT )
+
+≤ γR max 
+
+(1 − γ)2 sup 
+
+> s,a
+
+DTV (Tθ , bT ) (rearrange; γ < 1, ∥Vθ − bV ∥∞ < ∞)
+
+≤ γR max 
+
+(1 − γ)2 sup 
+
+> s,a
+
+q 12 DKL 
+
+ Tθ ∥ bT  (Pinsker’s ineq.) Since |Vθ (s) − bV (s)| ≤ ∥ Vθ − bV ∥∞ for every s, the claim follows. 
+
+Jensen-gap identity. At each fixed (s, a ), the integrand of Equation 3 satisfies 
+
+Eθ DKL (Tθ ∥ ¯Tprior ) = H( ¯Tprior ) − Eθ H(Tθ ), (12) with the (s, a ) arguments suppressed for clarity. The entropy and expected-log-loss identities assume finite terms under a common dominating measure. 
+
+Remark on recovering the context. Tasks requiring θ itself need the stronger condition p(θ |
+
+τ≤t) = p(θ | ct) and trajectory-level information such as I(θ; τ ). Establishing this condition from observational trajectories requires assumptions beyond episode grouping (Hyv¨ arinen et al., 2019; Khemakhem et al., 2020). 13 Preprint. Under review 2 1 0 1 22                    
+
+> 1
+> 012
+> T1
+> 21012
+> T2
+> 21012
+> T3
+> 21012
+> T4
+> 21012
+> Tprior
+
+Figure 3: Point-Mass-Attractor transition fields. Each episode uses one hidden attractor θi, inducing a distinct field Tθi ; prior averaging produces a center-seeking field ¯Tprior that governs no episode. 2 1 0 1 22                     
+
+> 1
+> 012
+> 1= ( 1, 1)
+> 21012
+> 2= (1, 1)
+> 21012
+> 3= ( 1, 1)
+> 21012
+> 4= (1, 1)
+> Sample trajectories under uniform random policy (4 per )
+
+Figure 4: Point-Mass-Attractor trajectories under uniform random actions. The hidden attractor is fixed within an episode, causing visited states to become informative about context. 
+
+## B CONTROLLED DIAGNOSTIC DETAILS 
+
+The controlled diagnostic uses two state spaces to test the same distinction. MiniGrid makes every 
+
+(s, a ) pair enumerable, so Istruct can be evaluated directly and visitation can be manipulated by setting. Point-Mass-Attractor retains known one-step kernels in continuous state, where the empiri-cal quantity requires estimating only the occupancy-induced context posterior. MiniGrid-Resistance supplies a contrast with low Istruct within the discrete setting. 
+
+Shared evaluation protocol. Context is sampled once per episode and omitted from the predictive information set, but retained in the logged data used to estimate conditional information. Because every context-conditional kernel is known in closed form, no next-state distribution is estimated from samples: empirical values score each logged transition’s exact kernel against a cross-fitted reference mixture, so every transition contributes and no count-based filtering occurs. All pooled transitions receive equal weight, while confidence intervals resample episodes. The standardized 
+
+Istruct uses a fixed θ-independent query distribution. 
+
+Discrete state: MiniGrid. Both MiniGrid families use the fully observed Markov state (x, y, d ) on the Empty-8x8 layout and leave the goal and reward unchanged. In MiniGrid-Wind, the episode context is v = ( vx, v y ) with independent coordinates sampled from U[−vmax , v max ]. After the native action, each axis receives drift sign( vj ) with probability |vj | and zero drift otherwise. Invalid displacement into a wall is blocked. MiniGrid-Resistance samples ϵ ∼ U [0 , ϵ max ]; an action takes effect with probability 1 − ϵ and otherwise leaves the state unchanged. Zero perturbation recovers the base environment in both families. For the standardized reference, μ is uniform over interior position, direction, and the seven Mini-Grid actions. The matched-query reference instead weights those same local calculations by (s, a )
+
+frequencies in the collected trajectories. Figure 2 reports the full vmax and ϵmax sweeps. Each setting uses 5,000 uniform-random episodes of at most 256 steps. The Istruct calculation enu-merates ≈ 1,000 interior (s, a ) queries and integrates the continuous context prior by quadrature. The empirical estimator is a known-kernel occupancy plug-in: each logged transition contributes the exact Kullback–Leibler divergence between its context-conditional kernel and a kernel mix-ture over the transitions observed at the same (s, a ) cell. The reported value cross-fits the mixture leave-one-episode-out with one pseudo-count of uniform smoothing on the cell’s outcome support, which makes it a conservative upper estimate of the true headroom in expectation; the within-sample 14 Preprint. Under review mixture value is always within 2% of it. Percentile CIs come from 200 episode-level bootstrap re-samples with full re-estimation of all mixtures. The sweeps use vmax ∈ { 0, 0.1, 0.3, 0.5, 0.7, 1.0}
+
+and ϵmax ∈ { 0, 0.1, 0.3, 0.5, 0.7, 0.9}.
+
+Continuous state: Point-Mass-Attractor. Point-Mass-Attractor is a unit-mass two-dimensional system integrated at ∆t = 0 .05 . The hidden attractor is selected uniformly from the four corners 
+
+(±1.5, ±1.5) and held fixed for the episode. At each step, the agent applies at ∈ [−1, 1] 2 and the attractor contributes force −k(pt −θ). Independent Euler–Maruyama increments add variance σ2∆t
+
+to each velocity coordinate and σ2∆t3 to each position coordinate. We use k = 0 .3 and σ = 0 .1 for the representative setting. Episodes begin with p0 ∼ U [−0.5, 0.5] 2 and v0 = 0, and run for 50 steps (Figure 4). Positions are confined to [−2.5, 2.5] 2 by elastic reflection with velocity damping 0.5. Away from the boundary, the conditional kernel is diagonal Gaussian, with four means separated by a query-independent context displacement. Thus, the uniform and matched-query values of Istruct in the interior coincide exactly. Per coordinate, the context sign defines a binary-input Gaussian channel, so Istruct can be computed by one-dimensional Gauss–Hermite quadrature. A standard bound shows that boundary reflection has a negligible effect at the occupancies used here. Each k setting uses 5,000 episodes, with k ∈ { 0.05 , 0.1, 0.2, 0.3, 0.5}. The empirical estimate scores every logged transition’s exact context-conditional Gaussian kernel, including the exact single-reflection boundary densities, against the four-kernel mixture weighted by a cross-fitted k-NN context posterior (episode-level folds; the number of neighbors is selected by cross-validated log loss). For each candidate neighbor count the fitted mixture is a valid state-measurable predic-tor, so the estimate is biased upward in expectation up to a small model-selection effect. Percentile CIs come from 1,000 episode-level bootstrap resamples of per-episode contributions. As an inter-nal certificate, transitions immediately after a zero-velocity reset in the intervention datasets below have an exactly known uniform context posterior; the fitted estimator reproduces the exact stratum contribution within about 1.5% (for example, 0.4845 versus 0.4834 at reset interval two). 
+
+Locating the visitation effect. Two checks vary the information carried by the current state. First, state projection removes coordinates from the conditioning variable while retaining the full next state. MiniGrid uses (x, y, d ), direction alone, or no state; Point-Mass-Attractor uses (p, v), po-sition, a 5 × 5 position bin, or no state. Coarsening therefore changes the estimand. The Mini-Grid projections are evaluated at a declared discretization of ten bins per context coordinate, with both the projected conditional and marginal formed as occupancy-weighted exact-kernel mixtures, cross-fitted leave-one-episode-out. The Point-Mass-Attractor projections use a cross-fitted classifier contrast: with four known context values, the estimand equals the difference between the context entropy given the projected state and given the projected state, action, and next state, each estimated by a cross-fitted k-NN class posterior (for the no-state projection the first term is the exact design prior ln 4 , making the estimate conservative). Every projection continues to condition on action. Second, resets intervene on visitation while preserving the episode context. MiniGrid resets position and direction before the current state is recorded, at intervals of ten, five, or two steps. Point-Mass-Attractor resets position at intervals of 25, ten, five, or two steps. Its control either resets velocity to zero or preserves it across the position reset. All subsequent transitions are recorded from the post-reset state. The projection results, depicted in Figure 5, locate context information already present in the ob-served state. Removing position from MiniGrid raises estimated Iemp by about 2,300%. In Point-Mass-Attractor, progressively removing velocity and position raises it by about 980%. The resets partially restore headroom without imposing the standardized query distribution. Relative to base-line, estimated MiniGrid headroom increases by 430%, 658%, and 833% as the reset interval de-creases. In Point-Mass-Attractor, resetting both position and velocity raises headroom by as much as 698%, increasing monotonically as the reset interval shrinks, whereas preserving velocity keeps it within 35% of baseline. 
+
+## C EXPERIMENTAL DETAILS 
+
+Benchmark environments. The i.i.d. settings use CARL DMC Walker Walk (Benjamins et al., 2023). The identifiable setting samples a latent horizontal wind uniformly per episode, with nonzero 15 Preprint. Under review (x, y, d) d ∅              
+
+> 0.00 0.25 0.50 0.75 1.00
+> information
+> (a) MiniGrid: state projection
+> none 10 52
+> reset interval
+> 0.00 0.25 0.50 0.75 1.00 1.25
+> (b) MiniGrid: agent reset
+> (p,v)p5×5 ∅
+> 0.00 0.25 0.50 0.75 1.00 1.25
+> information
+> (c) Point mass: state projection
+> none 25 10 52
+> reset interval
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> (d) Point mass: position reset
+> reset v
+> preserve v
+> struct emp
+
+Figure 5: Parallel checks of state-mediated identification. State projection removes current-state information in MiniGrid (a) and Point-Mass-Attractor (c). State resets weaken context-dependent visitation in MiniGrid (b). In Point-Mass-Attractor (d), headroom rises when velocity is reset and remains near baseline when velocity is preserved. Error bars denote 95% bootstrap CIs. Where shown, blue lines are full-state structural references, not bounds after the information set or query distribution changes. fluid density so the wind exerts force on the body. The hard setting samples a latent actuator-strength scale uniformly around nominal, with gravity fixed at nominal. An 84 -context benchmark panel is held out for the final evaluation. The drift setting follows the registered RWRL protocol (Dulac-Arnold et al., 2021): one Walker parameter performs a random walk across episodes at three step sizes on frozen realizations shared by every method, with the step sizes chosen so that consecutive-episode autocorrelation stays above 0.5 at the highest rate. 
+
+Agents and conditioning interfaces. All agents use the common DreamerV3 hyperparame-ters (Hafner et al., 2025) in Table 6. Every method shares this backbone and differs only in its context configuration, which selects one information path while leaving the training stack unchanged: the context-blind baseline receives no context, DALI-S infers one from a recent window, cRSSM-D receives the true context through deep conditioning, the carried-state variant preserves the recurrent state across episode boundaries, and the chain-latent agent maintains a cross-episode latent inspired by LILAC (Xie et al., 2021). The true-context method receives the context as a separate normalized observation with explicit bounds, and the ordinary observation encoder always excludes it. Dream-erV3 already carries a recurrent within-episode state, so its comparison with DALI isolates the value of a dedicated recent-history pathway while holding that recurrent backbone fixed. DALI-S (R¨ oder et al., 2025) uses a causal 64 -step state–action encoder with one head and width 
+
+256 , an 8-dimensional context, and a two-layer width-128 forward model, with unit loss scale and context learning rate 10 −4. The inferred context is detached before it enters the world model, its heads, the actor, and the critic, and the cross-modal loss is omitted. cRSSM-D (Prasanna et al., 2024) receives true normalized context through the transition and prediction/control heads and adds no learned context encoder. The chain-latent baseline uses an 8-dimensional context, a two-layer width-128 episode encoder, and a width-64 GRU over the preceding 128 episode latents, trained at 
+
+10 −4 with chain and consistency loss scales 1 and 0.1. All comparators are implemented within the same DreamerV3 codebase using the conditioning interfaces described above. 
+
+Training and evaluation. Return entries are IQM over paired evaluation contexts after within-seed aggregation, with CARL return normalized by the maximum episodic return of 1000 . Confidence 16 Preprint. Under review Table 6: Agent and probe hyperparameters.                                                                         
+
+> Agent setting Value Backbone DreamerV3, block-GRU Parameters (Walker baseline) 9.7M ( 4.3M transition) Deterministic state 2048
+> Stochastic state 32 ×16 categorical RSSM hidden width 256
+> Encoder / decoder 3layers, width 256
+> Actor / critic 3layers, width 256
+> Activation / normalization SiLU / layer norm Batch / sequence 16 /64
+> Replay capacity / ratio 5×10 5/512
+> Optimizer / learning rate LaProp / 4×10 −5
+> Betas / warmup (0 .9,0.999) /1000
+> Weight decay none Gradient clipping adaptive, 0.3
+> KL free threshold 1.0
+> Imagination horizon 15
+> Discount / λ1−1/333 /0.95
+> Actor entropy scale 3×10 −4
+> Action repeat 1
+> Probe setting Value Feedforward architecture 2-layer MLP, width 256
+> Recurrent architecture 1-layer GRU, width 128
+> Activation SiLU (feedforward) Predictive output diagonal Gaussian Optimizer / learning rate AdamW / 10 −3
+> Training updates 4,000
+> Batch 1,024 transitions / 32 episodes Feedforward weight decay {10 −4,3×10 −2,1}
+> Recurrent weight decay {10 −4,3×10 −2}
+> Cross-fitting 5episode-level folds History span 16 steps / full episode Episode-start window first 25 steps Selection / calibration validation split
+
+intervals use 10 ,000 paired, seed-level bootstrap samples. Contexts are not treated as independent units. On the drift setting the primary endpoint is the start transient over the first 25 steps, computed post hoc from final checkpoints. Drift entries are means of seed means with seed ranges. Return and per-seed collapse counts are secondary. Runs use one 24 GB NVIDIA L4. A 10 6-step run takes about 9 hours, with 6–7 GB peak allocated memory. Checkpoint evaluation freezes the model and policy and performs no learning updates, while only explicitly carried recurrent state persists across episode resets. 
+
+Probe implementation. Probe architectures and training settings are reported beside the agent settings in Table 6. Scoring is cross-fitted at episode level, so every transition is scored by a probe that never trained on its episode. The permutation null re-pairs episodes with contexts drawn from other episodes, and the decodability readout uses the feedforward architecture with a squared-error objective to predict the context from the current state and action; its cross-fitted R2 is reported. Learned-state inputs are extracted before the target transition is observed. The shared Gaussian likelihood defines the predictive risk used in continuous benchmark settings. Episode-start estimates restrict every quantity to the beginning of each episode. During training, a frozen panel of open-loop trajectories, one per evaluation context with autocorrelated exploration actions of length 64 , tracks prior prediction loss at every evaluation point. 
+
+## D ANALYTICAL CALIBRATION DETAILS 
+
+The considered benchmark settings do not offer exact information targets, while the diagnostic envi-ronments have known kernels but no analytic probe targets, since the proposed probes have closed-form equivalents only under linear-Gaussian dynamics. To this end, we calibrate the measurements using the simplest such system. 
+
+Environment and analytical quantities. Figure 6 shows the calibration task: a two-dimensional stabilization point mass whose state (x, v, d ) is fully observed and whose hidden regime z ∈{− 1, +1 } follows a slow-switching Markov chain across episodes with stay probability 0.9. The disturbance follows dt+1 = ρR (zω )dt + σp1 − ρ2ϵt, with rotation R, ρ = 0 .9, ω = π/ 4, σ = 0 .3,and independent ϵt ∼ N (0 , I 2). Velocity and position update as vt+1 = 0 .9vt + 0 .5at + dt+1 and 
+
+xt+1 = xt + vt+1 ; the reward is −(∥x∥2 + 0 .01 ∥a∥2). At reset, x0 = v0 = 0 and d0 ∼ N (0 , σ 2I2)
+
+independently of the regime. The first regime is drawn uniformly and episodes last 200 steps. Con-ditional disturbance densities and disturbance-history posteriors are available analytically: their av-eraged scores are evaluated by numerical integration or sample averages. 
+
+Evaluation protocol. We evaluate DreamerV3, DALI-S, carried state, the LILAC-inspired chain-latent agent, and cRSSM-D using the common agent and probe settings in Table 6. Each method uses seeds 0–2, trains for 10 5 environment steps, and is evaluated on 10 episodes. The primary 17 Preprint. Under review 0.5 0.0 0.5                
+
+> dt, 1
+> 0.5
+> 0.0 0.5
+> dt, 2
+> z=1
+> (a) Clockwise
+> 0.5 0.0 0.5
+> dt, 1
+> 0.5
+> 0.0 0.5 z= +1
+> (b) Counter-clockwise
+> 0.5 0.0 0.5
+> dt, 1
+> 0.5
+> 0.0 0.5
+> (c) Prior mean
+> 13579
+> episode
+> z=1
+> z= +1
+> state resets
+> (d) Sticky context
+
+Figure 6: Analytical calibration environment. The hidden regime determines the rotation of the autoregressive disturbance. The physical state resets between episodes while the regime follows a Markov chain. The prior mixture averages the two conditional disturbance fields but is not a realized regime. setting uses the sticky context chain. An independent-draw control sets the stay probability to 0.5,and a short-episode variant truncates episodes at 12 steps to leave a nonzero residual. 
+
+Score-based targets and information ceilings. The probe targets are ideal diagonal-Gaussian score gaps , rather than mutual information. Given (St, A t), the six observed next-state coordinates share one two-dimensional innovation dt+1 across the position, velocity, and disturbance blocks, so the conditional covariance has rank two and no six-dimensional density exists; the coordinatewise diagonal-Gaussian score is the well-defined reference, and the three identical blocks contribute the factor of three in its gap. With uniform regime weights the population gap is 
+
+G0 = 32 E
+
+> 2
+
+X
+
+> j=1
+
+log 
+
+h
+
+1 + (μ+−μ−)2 
+
+> j
+> 4τ2
+
+i
+
+= 2 .518 (τ 2 = σ2(1 − ρ2)) ,
+
+evaluated by quadrature, whereas the sampled evaluation in Table 7 gives 2.51 ± 0.05 . Because 
+
+w(1 − w) ≤ 14 for any regime probability w, G0 upper-bounds the state-conditional score gap. The corresponding information quantities are much smaller: the binary regime carries at most 
+
+ln 2 ≈ 0.693 nats, and the stationary disturbance-mixture information is I(Z; Dt+1 | Dt) = 0 .507 ,which upper-bounds the memoryless context information I(Z; St+1 | St, A t) here because (St, A t)
+
+determines Dt and Dt+1 is independent of (St, A t) given (Z, D t).
+
+Calibration results. The estimated score gap in Table 7 tracks the exact target at a stable ratio in the primary and independent-draw settings, which characterizes its attenuation on the calibration envi-ronment. The unadjusted reference upper-bounds the population context gain for moment-matched diagonal-Gaussian predictors conditioned on state and action, by the argument above. The shuffled null stays near zero, while history recovery reaches 0.89 ± 0.03 of the 0.99 reference computed from the exact disturbance-history filter, giving a recovered fraction for the nested disturbance-only information sets rather than a certified bound on the full on-policy history optimum. The estimated sufficiency gap is near zero for the observed-context agent, concentrates at episode start for every in-ference method, and is largest for carried state, whose recurrent state continues the previous episode through the reset. The chain classes have no advantage at episode start, consistent with the small cross-episode increment in the closed form. The short-episode variant yields an exact per-transition residual of 0.24 ; since the scoring window covers all twelve steps of this variant, start-window and full-episode averages coincide there, and the probes reproduce the residual as a sufficiency gap that persists for the context-blind model and nearly vanishes for the observed-context one. Under the independent-draw control the exact cross-episode increment is zero and the chain classes remain indistinguishable from within-episode ones, consistent with P3. The characterized ratio reproduces at 0.51 ± 0.04 .These controls support using the probes as comparative diagnostics at the operating episode length; the attenuation ratio is characterized on this environment rather than assumed to transfer elsewhere. 
+
+## E ADDITIONAL RESULTS 
+
+18 Preprint. Under review Table 7: Probe calibration on the analytical point-mass environment. The context score gap is a diagonal-Gaussian log-score difference: the exact column is a sampled evaluation of the 2.518 -nat population gap, and the estimate column reports the estimate-to-target ratio. History recovery reports a recovered fraction and the shuffled null a probe-risk difference. Entries are IQM ± the larger 95% bootstrap CI half-width. 
+
+(a) Probe calibration 
+
+Quantity Exact Est. Context score gap 2.51 ± 0.05 0.48 ± 0.03 
+
+History recovery 0.99 0.89 ± 0.03 
+
+Shuffled null 0 −0.04 ± 0.02 Low 0.04 Mid 0.20 High 0.60 9.0 10.5 12.0 13.5     
+
+> prior state loss
+> (a) Start prior loss
+> Low 0.04 Mid 0.20 High 0.60 234
+> start  − reference loss  (b) Start transient
+> Low 0.04 Mid 0.20 High 0.60 78910
+> 64-row prior loss
+> (c) Reference loss
+> Low 0.04 Mid 0.20 High 0.60 750 900 1050
+> return
+> (d) Episode return
+> DreamerV3 Carried state DALI-S LILAC-style cRSSM-D
+
+Figure 7: Drift metrics at the three rates on frozen realizations shared across methods. Lower is better in (a)–(c), higher in (d); lines are seed means and bands show sample stdev. The lowest mean startup losses shift from the context-blind baseline to the transition-window and chain-latent agents as drift increases. 19

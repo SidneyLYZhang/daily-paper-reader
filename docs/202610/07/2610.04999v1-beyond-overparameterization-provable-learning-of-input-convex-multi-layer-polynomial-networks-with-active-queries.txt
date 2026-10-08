@@ -1,0 +1,6655 @@
+Title: Beyond Overparameterization: Provable Learning of Input-Convex Multi-Layer Polynomial Networks with Active Queries
+
+URL Source: https://arxiv.org/pdf/2610.04999v1
+
+Published Time: Tue, 06 Oct 2026 01:25:27 GMT
+
+Number of Pages: 76
+
+Markdown Content:
+# Beyond Overparameterization: Provable Learning of Input-Convex Multi-Layer Polynomial Networks with Active Queries 
+
+Jinqi Tang † Qian Chen † Shihong Ding † Cong Fang ††Peking University 
+
+Abstract 
+
+The theoretical understanding of multi-layer neural networks is largely confined to overpa-rameterized settings, which obscure parameter identifiability and incur high sample complexity. Neural tangent kernel (NTK) provides a general theory for wide networks, but does not offer efficient sample-complexity guarantees. Recent feature-learning results go beyond kernel methods for single-neuron, multi-index, and hierarchical targets. However, the analysis is often restricted to shallow or specific architectures and to the overparameterized regime. We break this paradigm to achieve parameter-level recovery of deep target networks, albeit by using active data queries. Specifically, we study L-layer polynomial networks with even degree-k monomial activations and nonnegative higher-layer weights. This structure makes the target network input-convex, while the optimization landscape remains highly nonconvex with respect to the parameters. Leveraging input convexity and active queries, we propose ASPIRE (Active Sam Pling for 
+
+Iterative Recovery via Eigendirections), a layerwise sampling-based diagonalization algorithm that recovers all network parameters to δ-accuracy with sample complexity eOk,L 
+
+
+
+dL2+O(L)δ−2e
+
+
+
+in polynomial time. To our knowledge, this is the first parameter-recovery guarantee for deep target networks whose exponent grows only polynomially with depth, as well as the first justifica-tion for the effectiveness of using high-quality data in neural network training, with a remarkably 
+
+exponential separation. 
+
+# 1 Introduction 
+
+Deep neural networks have achieved remarkable empirical success, yet their theoretical understanding remains incomplete, in part because training is highly nonconvex. A major line of theory studies the overparameterized regime, where this difficulty becomes more tractable. In particular, the neural tangent kernel (NTK) framework shows that sufficiently wide networks can be approximated by kernel methods, yielding analyzable training dynamics and provable guarantees [Jacot et al., 2018, Lee et al., 2019, Jiang et al., 2025, Guillen et al., 2026]. However, kernel approximations largely suppress feature learning and can therefore fail to exploit the hierarchical structure of deep networks [Yang and Hu, 2021]. Beyond the kernel regime, recent theory has established provable learning of low-dimensional and hierarchical features [Damian et al., 2022, Wang et al., 2024b, Fu et al., 2025, Ren et al., 2026a]. However, these analyses are often restricted to shallow or specific network architectures and to the overparameterized regime. Under overparameterization, the model may lose the exact structure of the target, often leading to high sample complexity by ignoring inherent structures, as well as a lack of robustness under diverse environments. This makes exact-parameterization learning particularly appealing. However, there 1arXiv:2610.04999v1 [cs.LG] 4 Oct 2026 are technical barriers. Existing works typically can only explore the low-dimensional structures in the first or second layer, whereas the structures in the remaining layers cannot be explored. This is because that the input distributions for the rest layers are often much more complex (see more discussion in Section 3.2) and the core technique, Stein’s Lemma [Stein, 1981, Yang et al., 2017] cannot be applyied. Thus, it remains widely open how to learn multi-layer networks under exact parameterization, even when the activation function is polynomial and the input data distribution is designed. In recent years, the dominant success of large language models has witnessed the effectiveness of using useful data for training, as data quality, selection, and organization can substantially affect model training and downstream performance [Gu et al., 2025, Peng et al., 2025, Sachdeva et al., 2026, Subramanyam et al., 2026], with data access itself treated as part of the learning algorithm. Theoretically, it would be of great interest to provide separation results demonstrating the efficiency of data for neural network training. We study a strong oracle model where the learner can query the target function at arbitrary inputs. We further consider the target drawn from a depth-L
+
+polynomial network with non-increasing widths, monomial activations, and nonnegative higher-layer weights. These assumptions endow the target network with a convex structure [Amos et al., 2017], allowing us to explore the strength of data. Input convex networks have been extensively used in scientific problems, where neural networks provide a flexible alternative to traditional methods for approximating operators. Input-convex neural networks offer a principled way to approximate convex functions, with wide-ranging applications spanning optimal transport [Makkuva et al., 2020], single-cell perturbation modeling [Bunne et al., 2023], model predictive control [Wang et al., 2024a], and power-system reliability [Christianson et al., 2025]. The input convexity does not make the training problem convex [Amos et al., 2017], it preserves the core optimization difficulty of deep learning. Instead, we propose a layerwise sampling-based diagonalization algorithm that succesfully recovers all parameters to δ-accuracy with sample complex-ity eOk,L 
+
+
+
+dL2+O(L)δ−2e
+
+
+
+in polynomial time. This substantially improves the dimension dependence over previous provable approaches for this multi-layer setting. Treating the network as an unstruc-tured degree-kL−1 polynomial leads to an O(dkL−1
+
+) sample complexity through direct polynomial interpolation. Similarly, using kernel methods requires dkL−1−o(1) samples in the non-degenerate case [Ghorbani et al., 2021]. Many existing feature-learning guarantees rely on a small intrinsic dimension 
+
+r ≪ d. When r ≍ d, however, dimension reduction alone does not remove the exponential-in-L
+
+growth of the exponent of d in the sample complexity. The main idea of our proposed algorithm is to construct two second-order moment matrices from active samples drawn uniformly from chosen convex sublevel sets. Under this sampling distribution, the even structure of the network induces coordinatewise sign symmetry, which diagonalizes the corresponding latent moments and allows the joint spectral structure of the two matrices to reveal the hidden directions. This enables layerwise recovery through spectral decomposition, with a two-Hessian variant for the final hidden layer and output weights. We further establish finite-sample error bounds and validate the theory numerically. As a result, our theory breaks the doubly exponential -in-depth sample-complexity barrier of the overparameterized paradigm, reducing the exponent from kL−1 to L2 + O(L). It also demonstrates that exact parameter recovery of certain deep networks is provably achievable under active quesries and provides the first justification for the effectiveness of using high-quality data in neural network training with an exponential separation. 22 Related Work 
+
+NTK and Feature Learning. Foundational work established the NTK and lazy-training perspec-tive for sufficiently wide neural networks [Jacot et al., 2018, Lee et al., 2019, Arora et al., 2019, Du et al., 2019, Allen-Zhu et al., 2019, Chizat et al., 2019]. Subsequent work has further developed this framework by studying initialization, kernel evolution, and finite-width corrections [Chen et al., 2024, Jiang et al., 2025, Guillen et al., 2026]. Beyond this regime, provable feature learning encompasses single-neuron and multi-index models [Yehudai and Shamir, 2020, Wu, 2022, Damian et al., 2022, Mousavi-Hosseini et al., 2023], as well as nonlinear and hierarchical features in deeper compositional models [Nichani et al., 2023, Wang et al., 2024b, Fu et al., 2025, Tabanelli et al., 2026, Ren et al., 2026a,b]. These results primarily concern prediction, representations, or hidden subspaces. We take the next step toward estimating the target network itself: our algorithm is able to recover all parameters to arbitrarily small error. 
+
+Parameter Recovery in Neural Networks. Prior work establishes parameter identifiability up to inherent symmetries for deep neural networks under suitable conditions [Fefferman, 1994, Bona-Pellissier et al., 2023]. Turning these structural guarantees into provably efficient reconstruction algorithms, however, is substantially more demanding. For ReLU networks, Rolnick and Körding [2020] exploit the geometry of activation boundaries to reconstruct architectures and parameters, although their analysis does not establish provably efficient end-to-end recovery. For polynomial networks, tensor-decomposition arguments establish generic finite identifiability of deep architectures under suitable conditions [Usevich et al., 2025]. Related work provides efficient black-box recon-struction of sums of powers of low-degree polynomials under suitable degree and non-degeneracy conditions [Garg et al., 2020]. For deep polynomial networks, existing results either establish identifiability without an efficient recovery procedure, or efficiently recover polynomial components without exploiting their shared hidden-layer structure. Our algorithm bridges both gaps by exploiting this shared structure iteratively: each recovered layer unlocks query access to the next, yielding end-to-end recovery of all network parameters with rigorous complexity guarantees. 
+
+Input-Convex Architectures and Sampling Methods. A standard way to guarantee input convexity is to impose architectural conditions such as convex nondecreasing activations and nonneg-ative higher-layer weights [Amos et al., 2017]. Such architectures have found applications in optimal transport, computational biology, chemical engineering, and energy systems [Makkuva et al., 2020, Bunne et al., 2023, Wang et al., 2024a, Christianson et al., 2025]. In our setting, convexity permits sampling from convex body using Hit-and-Run, whose polynomial-time mixing is classical [Lovász, 1999, Lovász and Vempala, 2006]. Recent analyses sharpen its guarantees through localization and Poincaré-based bounds [Chen and Eldan, 2026, Zhang, 2026, Kook and Vempala, 2026]. Our noisy Hit-and-Run analysis further makes this sampling step robust to the approximation errors introduced by prefix inversion, enabling its repeated use throughout parameter recovery. 
+
+# 3 Problem Setup and Preliminaries 
+
+Consider a depth-L fully connected multi-layer polynomial neural network with architecture 
+
+d = r0 ≥ r = r1 ≥ r2 ≥ · · · ≥ rL−1 > r L = 1 ,
+
+3no biases, and monomial activation σ(t) = tk. We focus on non-increasing-width networks with at least two neurons per hidden layer, as it’s a common structural condition for ensuring parameter identifiability [Phuong and Lampert, 2020, Usevich et al., 2025]. The bias-free formulation yields a homogeneous polynomial network, a simplified but canonical setting widely studied in the theory of polynomial neural networks [Kileel et al., 2019, Kubjas et al., 2024, Finkel et al., 2025, Usevich et al., 2025]. Let weight matrices Wℓ ∈ Rrℓ−1×rℓ , 1 ≤ ℓ ≤ L − 1, and WL := a ∈ RrL−1×1. Define 
+
+h1(x) = W⊤ 
+
+> 1
+
+x, hℓ(x) = W⊤ 
+
+> ℓ
+
+σ(hℓ−1(x)) , 2 ≤ ℓ ≤ L − 1,
+
+where the activation is applied coordinatewise. The target function is f ⋆(x) = a⊤σ(hL−1(x)) . We are given only real function-value access to f ⋆: for any x ∈ Rd, one query returns f ⋆(x). Our goal is to 
+
+recover W1, . . . , WL−1 and a from such queries, i.e., using a network with the identical architecture to learn every parameter of the target function. To describe multi-layer networks more conveniently, we introduce prefix and suffix networks as follows. 
+
+Definition 3.1 (Prefix and suffix networks) . For 1 ≤ ℓ ≤ L − 1, define the prefix representation 
+
+ϕℓ(x) := 
+
+(x, ℓ = 1 ,σ(hℓ−1(x)) , 2 ≤ ℓ ≤ L − 1.
+
+We further define the suffix polynomials recursively by h(L−1) (u) := a⊤u⊙k, and, for 1 ≤ ℓ ≤ L − 2,
+
+h(ℓ)(u) := h(ℓ+1)  W⊤
+
+> ℓ+1
+
+u⊙k . Finally, define Fℓ(y) := h(ℓ)(W⊤ 
+
+> ℓ
+
+y), y ∈ Rrℓ−1 . Then, for every 
+
+1 ≤ ℓ ≤ L − 1, f ⋆(x) = Fℓ(ϕℓ(x)) .
+
+3.1 Assumptions 
+
+In this section, we state the assumptions needed for our analysis. 
+
+Assumption 3.2 (Evenness and nonnegativity) . The activation degree k ≥ 4 is an even integer. Moreover, all higher-layer weight matrices are entrywise nonnegative: Wℓ ≥ 0, 2 ≤ ℓ ≤ L. 
+
+The even monomial activation together with nonnegative higher-layer weights ensures that the network is input-convex. Convex activation and nonnegativity is a standard mechanism for enforcing input convexity in neural networks [Amos et al., 2017, Makkuva et al., 2020, Bunne et al., 2023, Wang et al., 2024a, Christianson et al., 2025].We further exclude k = 2 , since the final suffix then reduces to a quadratic form whose decomposition into the final-hidden-layer directions and output weights is generally non-unique [Ottaviani and Turatti, 2025, Usevich et al., 2025]. 
+
+Assumption 3.3 (Normalization) . We normalize the first-layer columns by ∥w1,j ∥2 = 1 , 1 ≤ j ≤ r. 
+
+For every 2 ≤ ℓ ≤ L, we impose 1⊤ 
+
+> rℓ−1
+
+wℓ,j = 1 , 1 ≤ j ≤ rℓ.
+
+Assumption 3.3 serves two purposes. For the hidden layers, it selects a canonical representative from the layerwise rescaling equivalence class induced by homogeneity [Kileel et al., 2019, Usevich et al., 2025]. The normalization of the output weights additionally fixes the overall scale of the realized function, in line with standard scale-normalization conventions in neural-network theory [Bach, 2017, Yehudai and Shamir, 2020, Damian et al., 2022]. Together with Assumption 3.2, these normalizations keep the network at a dimension-independent scale under Gaussian inputs: 
+
+Ex∼N (0,Id)
+
+f ⋆(x)2 = Θ k,L (1) .
+
+4Assumption 3.4 (Parameter conditioning and relative row balance) . There exist constants κ0, μ > 0
+
+such that each Wℓ, 1 ≤ ℓ ≤ L, has full column rank, and 
+
+cond( Wℓ) ≤ κ0 for all 1 ≤ ℓ ≤ L − 1, min 
+
+> 1≤i≤rℓ−1
+
+ Wℓ1rℓ
+
+ 
+
+> i
+
+≥ μ rℓ
+
+rℓ−1
+
+for all 2 ≤ ℓ ≤ L. 
+
+Since column normalization fixes the average row sum at rℓ/r ℓ−1, the relative row-balance condition simply prevents any hidden neuron from having vanishingly small aggregate influence on the next layer. The condition-number bound further prevents hidden directions from becoming nearly linearly dependent. Comparable quantitative non-degeneracy assumptions are standard in provable feature-learning analyses [Damian et al., 2022, Mousavi-Hosseini et al., 2023, Nichani et al., 2023, Wang et al., 2024b, Fu et al., 2025]. 
+
+Assumption 3.5 (Uniform relative spectral gap) . For each 1 ≤ ℓ ≤ L − 2, define the latent sublevel set Hℓ := u ∈ Rrℓ : h(ℓ)(u) ≤ 1 , and let Uℓ ∼ Unif( Hℓ). For 1 ≤ i ≤ rℓ, define θℓ,i := 
+
+E[U 2
+
+> ℓ,i
+
+] E
+
+h ∂ih(ℓ)(Uℓ)2i
+
+. We assume that there exists γ ≥ 1 such that 
+
+min  
+
+> i̸=j
+
+|θℓ,i − θℓ,j |
+
+max  
+
+> i
+
+θℓ,i 
+
+≥ γ−1, 1 ≤ ℓ ≤ L − 2.
+
+Heuristically, it requires sufficiently strong mixing among the neurons in the network, thereby ruling out certain non-identifiable cases. If the normalized spectral signatures are in random position, their minimum spacing is typically of order r−2 
+
+> ℓ
+
+. This suggests that it is reasonable to assume that γ scales polynomially with r. Thus, in this sense, it does not affect the dominant term in the complexity bound of Theorem 5.1. In Appendix H, we will construct a concrete example that satisfies all of these assumptions, demonstrating that they are non-vacuous. 
+
+3.2 Challenges 
+
+Despite the structural assumptions above, two fundamental challenges remain: the optimization difficulties of direct gradient methods and the limitations of overparameterized approaches. 
+
+Difficulties of Direct Gradient Methods. Although the target network is convex in its input, direct fitting in parameter space remains highly nonconvex. We show that, under our assumptions, there still exist local minima and high-order saddle points in the learning objective, which implies that local search methods such as gradient descent are inefficient. 
+
+Proposition 3.6 (Local minima and fourth-order saddle barriers in direct gradient-based fitting) .
+
+Consider realizable matched two-layer teacher–student networks with quartic activation σ(t) = t4
+
+trained under empirical squared loss. There exist instances satisfying all applicable assumptions in Subsection 3.1 for which direct parameter fitting exhibits, respectively, a non-global local minimum and a non-optimal stationary point whose first descent appears only at fourth order. 
+
+For the quartic teacher f ⋆(x) = 12 (e⊤ 
+
+> 1
+
+x)4 + 12 (e⊤ 
+
+> 3
+
+x)4, we construct one instance with a strict non-global local minimum and another with a fourth-order saddle. Thus direct fitting can face both bad local minima and higher-order saddles; more generally, finding a fourth-order local minimum is NP-hard [Anandkumar and Ge, 2016]. See Appendix I.1 for details. 5Limitations of Overparameterization. Overparameterized methods are not naturally suited to exact parameter recovery: while they may achieve good prediction, the enlarged parameterization obscures the underlying target parameters. Moreover, fixed-kernel methods face a severe sample-complexity barrier. Building on the lower bound of Ghorbani et al. [2021, Theorem 3] for rotationally invariant kernels, we show that the infinite-width NTK of our setting requires dkL−1−o(1) samples. 
+
+Proposition 3.7 (Barrier for the NTK) . For every fixed η > 0, learning our target class with the infinite-width NTK to constant Gaussian population error requires Ωk,L,η (dkL−1−η) samples. 
+
+The proof, given in Appendix I.2, constructs an admissible target with a nonvanishing degree-kL−1
+
+spherical-harmonic component, applies the rotationally invariant kernel lower bound on the sphere, and transfers it to Gaussian inputs using homogeneity. Recent feature-learning methods improve this scaling by using low-dimensional or hierarchical structure [Damian et al., 2022, Wang et al., 2024b, Fu et al., 2025], but they do not remove the exponential dependence on depth in the exponent of d. In their analysis, by assuming a low-dimensional structure of the first layer, they extract the subspace of the first-layer weights, typically using Stein’s Lemma [Stein, 1981]. However, the lifted space loses information needed to identify the original hidden directions. As only the span of the weights can be discovered, one needs to overparameterize the weights in the first layer to guarantee approximation. This makes the input distributions for the subsequent layers complex, as the input often lies on a low-dimensional manifold where Stein’s Lemma can no longer be applied to further extract the span of the weights for the remaining dimensions. 
+
+# 4 Algorithm 
+
+In this section, we present our recovery algorithm and state our main results. The algorithm recovers each non-final hidden layer via column-space recovery followed by ASPIRE, and then recovers the final hidden layer and output weights via two-Hessian decomposition. We begin with some useful oracles derived from function-value queries, which serve as building blocks for both stages. 
+
+4.1 Derived Oracles from Function-Value Queries 
+
+Since f ⋆ is a homogeneous polynomial, function-value access yields several useful derived oracles. 
+
+Directional Derivatives. We first describe how to recover directional derivatives. For a degree-q
+
+polynomial p, fix a point x, a direction v, and an order 0 ≤ m ≤ q. The restriction ψ(t) := p(x + tv)
+
+is univariate of degree at most q, so its values at any q + 1 distinct nodes t0, . . . , t q determine 
+
+ψ exactly, and hence its m-th derivative ψ(m)(0) = Dm 
+
+> v
+
+p(x). Thus each directional derivative is recovered exactly using q + 1 function-value queries; in particular, gradients and Hessians follow from first- and second-order directional derivatives. 
+
+Complex Queries. Function-value access at real inputs can also be used to evaluate the complex-ification of a homogeneous polynomial. Let p be homogeneous of degree q, and consider a complex point z = u + iv. Choose an integer N > 2q and let θj = 2 πj/N , j = 0 , . . . , N − 1. The degree-q
+
+6Fourier coefficient of these evaluations then recovers the complex value exactly: 
+
+pC(z) = 2q
+
+N 
+
+> N−1
+
+X
+
+> j=0
+
+eiqθ j p(u cos θj + v sin θj ).
+
+Thus, a complex query to pC can be simulated using O(q) real function-value queries. 
+
+Suffix Oracles. Given the preceding layers, we can further simulate direct query access to the suffix polynomial Fℓ. Fix 2 ≤ ℓ ≤ L − 1, suppose that W1, . . . , Wℓ−1 are known, and consider a desired suffix query y ∈ Rrℓ−1 . Starting from zℓ−1 = y, we invert the prefix recursively from layer ℓ − 1
+
+down to layer 1. At layer j, choose coordinatewise principal k-th roots ξj ∈ Crj satisfying ξ⊙kj = zj ,and then set zj−1 = Wj (W⊤ 
+
+> j
+
+Wj )−1ξj . Because Wj has full column rank, this choice satisfies 
+
+W⊤ 
+
+> j
+
+zj−1 = ξj , and hence (W⊤ 
+
+> j
+
+zj−1)⊙k = zj . Repeating this recursion produces a complex input 
+
+z0 ∈ Cd whose forward propagation through the first ℓ − 1 layers reaches exactly y. Combining this prefix inversion with the preceding complex-evaluation procedure, we can evaluate f ⋆
+
+> C
+
+(z0) = Fℓ(y)
+
+using only real function-value queries to f ⋆.
+
+4.2 Layerwise Recovery 
+
+We now turn to the core layerwise recovery procedure. Assuming the preceding weights W1, . . . , Wℓ−1
+
+have been recovered sufficiently accurately, we recover Wℓ in two stages: first estimate its column space from gradient information, and then apply ASPIRE within the recovered subspace to identify the individual hidden directions. 
+
+Stage I: Column-Space Recovery. At suitable query points, the chain rule yields suffix gradients spanning col( Wℓ). We choose query points x1, . . . , xm such that the recovered prefix Jacobians 
+
+bJℓ,i := D bϕℓ(xi) have full row rank. For each query point xi, we estimate the suffix gradient without explicitly evaluating the full gradient ∇f ⋆(xi). For every j = 1 , . . . , r ℓ−1, set vi,j := bJ⊤
+
+> ℓ,i
+
+ej and recover the directional derivative bi,j := Dvi,j f ⋆(xi) from function-value queries using polynomial interpolation stated in Subsection 4.1. Collecting these derivatives into bi := ( bi, 1, . . . , b i,r ℓ−1 )⊤, we compute bgi := ( bJℓ,i bJ⊤
+
+> ℓ,i
+
+)−1bi, which approximates the corresponding suffix gradient gi. We then form the empirical second moment cMspan ,ℓ := 1
+
+> m
+
+Pmi=1 bgibg⊤ 
+
+> i
+
+. Because the true suffix gradients lie in col( Wℓ), and sufficiently diverse query points make these gradients span this subspace, the leading rℓ-dimensional eigenspace of cMspan ,ℓ estimates col( Wℓ). We therefore let bBℓ ∈ Rrℓ−1×rℓ
+
+contain the orthonormal eigenvectors corresponding to the rℓ largest eigenvalues of cMspan ,ℓ , yielding 
+
+col( bBℓ) ≈ col( Wℓ).
+
+Stage II: Individual-Direction Recovery. Recovering the column space does not identify the individual hidden directions within it. Writing Wℓ = BℓCℓ, ASPIRE (Algorithm 1) resolves this ambiguity by actively designing a sampling distribution that creates an identifiable spectral structure. We sample approximately uniformly from a convex sublevel set of the reduced suffix and form position and gradient second moments. After mapping the samples into the latent coordinates induced by Cℓ, the sublevel set becomes symmetric under independent sign flips of each coordinate. This symmetry cancels all cross-coordinate interactions in both moments, so they share a common 7Algorithm 1 A ctive Sam Pling for Iterative Recovery via Eigendirections ( ASPIRE )
+
+Input: Layer 1 ≤ ℓ ≤ L − 2, recovered subspace basis bBℓ, simulated suffix oracle bFℓ, number of samples m,and sampling accuracy parameters. Let Gℓ(z) := Fℓ( bBℓz) and K♯ℓ := {z : Gℓ(z) ≤ 1} denote the reduced suffix and target sampling body. Define the available reduced oracle eFℓ(z) := bFℓ( bBℓz).
+
+for i = 1 , . . . , m do 
+
+Independently run noisy Hit-and-Run from 0 using eFℓ, as in Lemma B.4, and obtain endpoint zi.Estimate ∇Gℓ(zi) by qi, using evaluations of eFℓ and the stable interpolation procedure of Lemma B.6. 
+
+end for 
+
+Form the empirical moments bΣx,ℓ := 1
+
+> m
+
+Pmi=1 ziz⊤ 
+
+> i
+
+and bΣg,ℓ := 1
+
+> m
+
+Pmi=1 qiq⊤ 
+
+> i
+
+.Compute normalized eigenvectors bvℓ, 1, . . . , bvℓ,r ℓ of bAℓ := bΣg,ℓ bΣx,ℓ .
+
+for j = 1 , . . . , r ℓ do 
+
+Set buℓ,j := bBℓ bvℓ,j .
+
+if ℓ = 1 then 
+
+Set bw1,j := bu1,j /∥bu1,j ∥2, with an arbitrary choice of sign. 
+
+else 
+
+Set bwℓ,j := |buℓ,j |/(1⊤|buℓ,j |), where the absolute value is coordinatewise. 
+
+end if end for return cWℓ := ( bwℓ, 1, . . . , bwℓ,r ℓ ).
+
+Output: An estimate of Wℓ, up to column permutation and, for ℓ = 1 , column signs. 
+
+diagonal structure in the latent basis. As a result, combining the two moments isolates the latent coordinate directions, which correspond exactly to the columns of Cℓ; Assumption 3.5 ensures that these directions are separated and hence identifiable. 
+
+4.3 Final Hidden Layer and Output Weights 
+
+The final suffix has coincident spectral signatures, so we use two Hessians. Take y(2) = 1rL−2 and 
+
+y(1) = 1rL−2 + τ u, where u ∼ Unif( SrL−2−1) and τ > 0 is sufficiently small and fixed. Construct symmetric estimates bHj ≈ ∇ 2FL−1(y(j)), j = 1 , 2, by fixed-node interpolation of approximate suffix queries (Subsection 4.1). Let bB ∈ RrL−2×rL−1 contain orthonormal eigenvectors for the rL−1 largest eigenvalues of bH2, and set cMj = bB⊤ bHj bB, j = 1 , 2. Under the prefix-accuracy condition of Appendix F, cM2 is invertible. The eigenvectors of cM1 cM−12 estimate the projected hidden directions. Mapping them through 
+
+bB, taking coordinatewise absolute values, and normalizing columns to unit ℓ1-norm yields cWL−1.Finally, set ba := 1
+
+k(k − 1) diag 
+
+ cW† 
+
+> L−1
+
+bH2 cW†⊤ 
+
+> L−1
+
+
+
+.
+
+# 5 Main Results 
+
+Combining the preceding steps, we are now ready to state our main parameter recovery theorem, together with two corollaries on generalization error. 
+
+Theorem 5.1 (Parameter recovery) . Let k ≥ 4 be even and L ≥ 3. Define the conditioning envelope 
+
+κ := max {2, κ 0, μ −1}. Suppose that Assumptions 3.2, 3.3, 3.4, and 3.5 hold. For every 0 < δ < 12 ,
+
+8our algorithm 1 makes at most eOk,L 
+
+
+
+dr + rL2+O(L)γO(L)κO(L2)δ−2e 
+
+
+
+real function-value queries to 
+
+f ⋆ and, with probability at least 0.99 , returns cW1, · · · , cWL−1, ba satisfying 
+
+max  
+
+> 1≤ℓ≤L−1
+
+∥ cWℓ − Wℓ∥2 ≤ δ, ∥ba − a∥1 ≤ δ, 
+
+after a consistent relabeling of the hidden neurons and a suitable choice of the first-layer column signs. For fixed k, L , the algorithm runs in polynomial time 2.
+
+Using r ≤ d and suppressing the dependence on γ and κ gives a simpler bound appearing in abstract and introduction. Gaussian stability then converts parameter accuracy into prediction accuracy, yielding the following corollary. 
+
+Corollary 5.2 (Gaussian generalization error) . Under the assumptions of Theorem 5.1, for every 
+
+0 < ε < 12 , our algorithm is able to make at most eOk,L 
+
+
+
+dr + rL2+O(L)γO(L)κO(L2)εe
+
+
+
+real function-value queries to f ⋆ and, with probability at least 0.99 , returns a polynomial network bf with the target architecture satisfying Ex∼N (0,Id)
+
+h  bf (x) − f ⋆(x)2i
+
+≤ ε. 
+
+The recovered polynomial network can also be converted into a ReLU network by replacing its monomial activations with piecewise-linear approximations. 
+
+Corollary 5.3 (ReLU network) . Under the assumptions of Theorem 5.1, for every 0 < ε < 12 ,our algorithm, with ReLU postprocessing, makes at most eOk,L 
+
+
+
+dr + rL2+O(L)γO(L)κO(L2)εe
+
+
+
+real function-value queries to f ⋆ and, with probability at least 0.99 , returns a ReLU network fReLU with biases satisfying Ex∼N (0,Id)
+
+h fReLU (x) − f ⋆(x)2i
+
+≤ ε. The network has L layers with hidden widths 
+
+rReLU  
+
+> ℓ
+
+= eOk,L 
+
+ rℓε−1/4.
+
+# 6 Proof Sketch 
+
+In this section, we provide a proof sketch of the main parameter recovery theorem. To establish the correctness of our algorithm, we first consider a simple setting that captures the essential idea, and then explain how the sample complexity of the algorithm is derived. 
+
+6.1 A Simple Setting 
+
+We consider the population-level first-layer recovery when d = r, ignoring column-space estimation, prefix inversion, and finite-sample errors, and directly analyze the correctness of ASPIRE. Let K1 := {x : f ⋆(x) ≤ 1} and draw X ∼ Unif( K1). Since f ⋆(x) = h(1) (W⊤ 
+
+> 1
+
+x), the change of variables U := W⊤ 
+
+> 1
+
+X gives U ∼ Unif( H1), where H1 := {u : h(1) (u) ≤ 1}. Because k is even, h(1) is invariant under coordinatewise sign flips. Hence the distribution of U has the same symmetry. Let 
+
+Λ1 := E[UU ⊤]. For i̸ = j, flipping only the i-th coordinate leaves the distribution unchanged but changes UiUj to −UiUj . Therefore E[UiUj ] = −E[UiUj ] = 0 , so Λ1 is diagonal, with diagonal entries 
+
+λ1,i := E[U 2 
+
+> i
+
+]. Similarly, let D1 := E[∇h(1) (U)∇h(1) (U)⊤]. From h(1) (Su ) = h(1) (u) for every   
+
+> 1The algorithm is given the target architecture and the parameters κ0, μ, γ from Subsection 3.1.
+> 2We work in the unit-cost exact real-arithmetic model.
+
+9diagonal sign matrix S, we have ∇h(1) (Su ) = S∇h(1) (u). Thus, for i̸ = j, flipping the i-th coordinate changes ∂ih(1) (U)∂j h(1) (U) to its negative while preserving its distribution. Hence (D1)ij = 0 , so 
+
+D1 is diagonal, with d1,i := E[( ∂ih(1) (U)) 2]. Since X = W−⊤  
+
+> 1
+
+U and ∇f ⋆(X) = W1∇h(1) (U), we obtain Σx, 1 = W−⊤  
+
+> 1
+
+Λ1W−11 and Σg, 1 = W1D1W⊤ 
+
+> 1
+
+. Therefore 
+
+Σg, 1Σx, 1 = W1 diag( θ1,1, . . . , θ 1,r )W−11 , θ1,i := λ1,i d1,i .
+
+By Assumption 3.5, the θ1,i ’s are distinct. Hence the eigendirections of Σg, 1Σx, 1 are exactly the columns of W1. After normalization, ASPIRE recovers W1 up to column permutation and sign. 
+
+6.2 Dimension and Accuracy Dependence 
+
+Throughout this subsection, we treat k and L as fixed constants and suppress dependence on κ, γ ,logarithmic factors, and failure probabilities, focusing on dimension and accuracy. The full proof is technically involved, so we present only the main ideas here and defer the details to the appendix. 
+
+Proposition 6.1 (Stable column-space recovery) . Fix 2 ≤ ℓ ≤ L − 2, and εB < 1/2. Suppose all preceding layers satisfy ∥ cWj − Wj ∥2 ≲ εB r−7/2. Then algorithm can recover an orthonormal basis 
+
+bBℓ such that, after orthogonal alignment, ∥ bBℓ − Bℓ∥2 ≤ εB using eO(r7ε−2 
+
+> B
+
+) queries. 
+
+We choose query points so that the estimated first-layer activations are uniform on [1 , 2] r, keeping coordinates comparable and the prefix Jacobian well-conditioned. See Proposition E.1. 
+
+Decomposing the Moment Errors. Suppress the layer index. Let bπ be the endpoint distribution of noisy Hit-and-Run. Write g = ∇G, let bg be its fixed-node interpolation estimate from an oracle with multiplicative error ξ, and let Pm denote empirical averaging over m independent samples from bπ, supported on K. The population moments are Σx = Eπ[zz ⊤] and Σg = Eπ[gg ⊤]. Their finite-sample errors decompose exactly as 
+
+bΣx − Σx = ( Pm − Ebπ)[ zz ⊤]
+
+| {z }
+
+> empirical error
+
++ ( Ebπ − Eπ)[ zz ⊤]
+
+| {z }
+
+> distribution error
+
+,
+
+bΣg − Σg = ( Pm − Ebπ)[ bgbg⊤]
+
+| {z }
+
+> empirical error
+
++ Ebπ[bgbg⊤ − gg ⊤]
+
+| {z }
+
+> gradient-estimation error
+
++ ( Ebπ − Eπ)[ gg ⊤]
+
+| {z }
+
+> distribution error
+
+.
+
+Proposition 6.2 (Accurate estimation of the two moments) . For η < 1/2, suppose dTV (bπ, π ) := ν ≲
+
+ηr −2 and the reduced suffix oracle has uniform multiplicative error ξ ≲ ηr −5/2. Then m = eO(r2η−2)
+
+independent samples as above give ∥ bΣa − Σa∥2 ≤ η∥Σa∥2 for both a = x, g .
+
+The distribution and interpolation errors are O(r2ν) and O(r5/2ξ), while matrix Bernstein controls the empirical error (Lemma B.7). This gives O(r3η) error per eigendirection (Lemmas B.5 and A.6). 
+
+Sampling to the Required Accuracy. Classical Hit-and-Run mixes in eO(r4) steps for bodies with radius ratio O(√r) [Lovász and Vempala, 2006]. For our inexact suffix oracle, we use the following noisy variant. 10 Proposition 6.3 (Noisy Hit-and-Run) . For ν < 1/2, suppose the reduced oracle has multiplicative error ξ ≲ ν1+1 /L r−O(1) . Starting from the origin, noisy Hit-and-Run produces an endpoint after 
+
+O(r4 log( r/ν )) steps whose distribution has total variation distance at most ν from Unif( K).
+
+The multivariate Markov inequality [Wilhelmsen, 1974] controls the polynomial Hessian; together with random-direction anti-concentration and chord comparisons, this yields negative-moment bounds on boundary depth along the exact chain. See Lemmas B.3 and B.4. 
+
+Proposition 6.4 (Stable recovery of the first layer) . For any ε < 1/2, the first hidden layer can be recovered with ∥cW1 − W1∥2 ≤ ε, up to inherent symmetries, using eO(dr + r13 ε−2) queries. 
+
+By Proposition C.1, r generic gradients recover the first-layer column space almost surely using 
+
+O(dr ) queries, after which the reduced oracle and gradients are exact. Converting columnwise direction error to operator norm costs √r, so take η ≍ εr −7/2 and ν ≍ ηr −2. Propositions 6.2 and 6.3 then give m = eO(r9ε−2) endpoints, each costing eO(r4) queries, proving the claim (Appendix C). Only this initial column-space recovery depends on d; deeper layers use the same sampling argument with approximate prefix inversion. 
+
+Proposition 6.5 (Stable recovery of one intermediate layer) . Fix 2 ≤ ℓ ≤ L − 2, ε < 1/2,and α := 1 + 1 /L . Suppose preceding layers are recovered with operator-norm error at most εW .If εW ≲ εαr−ℓ/ 2−O(1) , then column-space recovery followed by ASPIRE returns cWℓ satisfying 
+
+∥ cWℓ − Wℓ∥2 ≤ ε, up to column permutation, using eO(r14 ε−2) additional queries. 
+
+Choose εB ≍ ε/r and η ≍ εr −4. The prefix condition gives column-space error εB , while mapping back and normalizing the recovered directions yields O(r(εB + r3η)) ≤ ε (Proposition E.2). Approximate prefix inversion gives ξℓ ≲ rℓ/ 2εW (Lemma D.3). Taking ν ≍ ηr −2 ≍ εr −6 in Proposition 6.3 gives εW ≲ εαr−ℓ/ 2−O(1) , which also ensures gradient accuracy. Proposition 6.2 then needs m = eO(r10 ε−2) endpoints, for total cost eO(r14 ε−2). Thus α = 1 + 1 /L comes from the sampling guarantee, not gradient estimation. 
+
+Closing the Recovery and Accumulating Errors. By Proposition F.1, the final two-Hessian stage succeeds with O(r2) additional queries provided the preceding layers are accurate to εW ≲
+
+r−L/ 2−O(1) δ. Set τL−2 = c r −L/ 2−O(1) δ and propagate tolerances backwards via Proposition 6.5: 
+
+τℓ−1 ≍ τ αℓ r−ℓ/ 2−O(1) , where α = 1+1 /L . Unrolling gives p⋆ = αL−3 < e and τ −11 = eO
+
+
+
+rL2/2+ O(L)δ−p⋆
+
+
+
+.Since τ1 is smallest, it dominates the recovery costs, yielding Qtot ≤ eO dr + r14 τ −21
+
+ = eO
+
+
+
+dr + rL2+O(L)δ−2p⋆
+
+
+
+.Finally, p⋆ < e gives Theorem 5.1; full bookkeeping is deferred to Appendix G. 
+
+# 7 Conclusion 
+
+Our results establish efficient active-query learning for a class of convex functions with deep compositional structure beyond the NTK regime. More broadly, they suggest that active data access offers a fundamentally different route to provable deep learning, beyond the limitations of overparameterization paradigm. Numerical experiment details are provided in Appendix J. 11 AI Use Statement 
+
+Generative AI tools were used to assist with language polishing and the generation of L ATEX and Python code. All AI-assisted content was carefully checked and verified by the authors, who take full responsibility for the final content and the correctness of the work. 
+
+# References 
+
+Zeyuan Allen-Zhu, Yuanzhi Li, and Zhao Song. A convergence theory for deep learning via over-parameterization. In Proceedings of the 36th International Conference on Machine Learning ,volume 97 of Proceedings of Machine Learning Research , pages 242–252. PMLR, 2019. Brandon Amos, Lei Xu, and J. Zico Kolter. Input convex neural networks. In Proceedings of the 34th International Conference on Machine Learning , volume 70 of Proceedings of Machine Learning Research , pages 146–155. PMLR, 2017. Animashree Anandkumar and Rong Ge. Efficient approaches for escaping higher order saddle points in non-convex optimization. In Proceedings of the 29th Annual Conference on Learning Theory ,volume 49 of Proceedings of Machine Learning Research , pages 81–102. PMLR, 2016. Sanjeev Arora, Simon S. Du, Wei Hu, Zhiyuan Li, Ruslan Salakhutdinov, and Ruosong Wang. On exact computation with an infinitely wide neural net. In Advances in Neural Information Processing Systems , volume 32, 2019. Francis Bach. Breaking the curse of dimensionality with convex neural networks. Journal of Machine Learning Research , 18(19):1–53, 2017. Joachim Bona-Pellissier, François Bachoc, and François Malgouyres. Parameter identifiability of a deep feedforward ReLU neural network. Machine Learning , 112(11):4431–4493, 2023. doi: 10.1007/s10994-023-06355-4. Charlotte Bunne, Stefan G. Stark, Gabriele Gut, Jacobo Sarabia del Castillo, Mitch Levesque, Kjong-Van Lehmann, Lucas Pelkmans, Andreas Krause, and Gunnar Rätsch. Learning single-cell perturbation responses using neural optimal transport. Nature Methods , 20:1759–1768, 2023. doi: 10.1038/s41592-023-01969-x. Guhan Chen, Yicheng Li, and Qian Lin. On the impacts of the random initialization in the neural tangent kernel theory. In Advances in Neural Information Processing Systems , volume 37, pages 35909–35944, 2024. Yuansi Chen and Ronen Eldan. Hit-and-run mixing via localization schemes. Discrete & Computa-tional Geometry , 75:747–794, 2026. doi: 10.1007/s00454-025-00808-4. Lénaïc Chizat, Edouard Oyallon, and Francis Bach. On lazy training in differentiable programming. In Advances in Neural Information Processing Systems , volume 32, 2019. Nicolas Christianson, Wenqi Cui, Steven Low, Weiwei Yang, and Baosen Zhang. Fast and reliable 
+
+N − k contingency screening with input-convex neural networks. In Proceedings of the 7th Annual Learning for Dynamics & Control Conference , volume 283 of Proceedings of Machine Learning Research , pages 527–539. PMLR, 2025. 12 Alexandru Damian, Jason Lee, and Mahdi Soltanolkotabi. Neural networks can learn representations with gradient descent. In Proceedings of Thirty Fifth Conference on Learning Theory , volume 178 of Proceedings of Machine Learning Research , pages 5413–5452. PMLR, 2022. Simon S. Du, Jason D. Lee, Haochuan Li, Liwei Wang, and Xiyu Zhai. Gradient descent finds global minima of deep neural networks. In Proceedings of the 36th International Conference on Machine Learning , volume 97 of Proceedings of Machine Learning Research , pages 1675–1685. PMLR, 2019. Charles Fefferman. Reconstructing a neural net from its output. Revista Matemática Iberoamericana ,10(3):507–555, 1994. doi: 10.4171/RMI/160. Bella Finkel, Jose Israel Rodriguez, Chenxi Wu, and Thomas Yahl. Activation degree thresholds and expressiveness of polynomial neural networks. Algebraic Statistics , 16(2):113–130, 2025. doi: 10.2140/astat.2025.16.113. Hengyu Fu, Zihao Wang, Eshaan Nichani, and Jason D. Lee. Learning hierarchical polynomials of multiple nonlinear features. In International Conference on Learning Representations , 2025. Ankit Garg, Neeraj Kayal, and Chandan Saha. Learning sums of powers of low-degree polynomials in the non-degenerate case. In 2020 IEEE 61st Annual Symposium on Foundations of Computer Science (FOCS) , pages 889–899. IEEE, 2020. doi: 10.1109/FOCS46700.2020.00087. Behrooz Ghorbani, Song Mei, Theodor Misiakiewicz, and Andrea Montanari. Linearized two-layers neural networks in high dimension. The Annals of Statistics , 49(2):1029–1054, 2021. doi: 10.1214/20-AOS1990. Yuxian Gu, Li Dong, Hongning Wang, Yaru Hao, Qingxiu Dong, Furu Wei, and Minlie Huang. Data selection via optimal control for language models. In The Thirteenth International Conference on Learning Representations , 2025. Max Guillen, Philipp Misof, and Jan E. Gerken. Finite-width neural tangent kernels from feynman diagrams. In Proceedings of the International Conference on Machine Learning , 2026. Arthur Jacot, Franck Gabriel, and Clément Hongler. Neural tangent kernel: Convergence and gener-alization in neural networks. In Advances in Neural Information Processing Systems , volume 31, 2018. Kaiqi Jiang, Jeremy Cohen, and Yuanzhi Li. Understanding the evolution of the neural tangent kernel at the edge of stability. In Advances in Neural Information Processing Systems , volume 38, pages 36087–36127, 2025. Joe Kileel, Matthew Trager, and Joan Bruna. On the expressive power of deep polynomial neural networks. In Advances in Neural Information Processing Systems , volume 32, 2019. Yunbum Kook and Santosh S. Vempala. Spectral gaps of hit-and-run and coordinate hit-and-run, 2026. Kaie Kubjas, Jiayi Li, and Maximilian Wiesmann. Geometry of polynomial neural networks. Algebraic Statistics , 15(2):295–328, 2024. doi: 10.2140/astat.2024.15.295. 13 Jaehoon Lee, Lechao Xiao, Samuel S. Schoenholz, Yasaman Bahri, Roman Novak, Jascha Sohl-Dickstein, and Jeffrey Pennington. Wide neural networks of any depth evolve as linear models under gradient descent. In Advances in Neural Information Processing Systems , volume 32, 2019. László Lovász. Hit-and-run mixes fast. Mathematical Programming , 86(3):443–461, 1999. László Lovász and Santosh Vempala. Hit-and-run from a corner. SIAM Journal on Computing , 35 (4):985–1005, 2006. doi: 10.1137/S009753970544727X. Ashok Vardhan Makkuva, Amirhossein Taghvaei, Sewoong Oh, and Jason D. Lee. Optimal transport mapping via input convex neural networks. In Proceedings of the 37th International Conference on Machine Learning , volume 119 of Proceedings of Machine Learning Research , pages 6672–6681. PMLR, 2020. Alireza Mousavi-Hosseini, Sejun Park, Manuela Girotti, Ioannis Mitliagkas, and Murat A. Erdogdu. Neural networks efficiently learn low-dimensional representations with SGD. In International Conference on Learning Representations , 2023. Eshaan Nichani, Alex Damian, and Jason D. Lee. Provable guarantees for nonlinear feature learning in three-layer neural networks. In Advances in Neural Information Processing Systems , volume 36, 2023. Giorgio Ottaviani and Ettore Teixeira Turatti. Generalized identifiability of sums of squares. Journal of Algebra , 661:641–656, 2025. doi: 10.1016/j.jalgebra.2024.07.052. Ru Peng, Kexin Yang, Yawen Zeng, Junyang Lin, Dayiheng Liu, and Junbo Zhao. DataMan: Data manager for pre-training large language models. In The Thirteenth International Conference on Learning Representations , 2025. Mary Phuong and Christoph H. Lampert. Functional vs. parametric equivalence of ReLU networks. In International Conference on Learning Representations , 2020. Yunwei Ren, Yatin Dandi, Florent Krzakala, and Jason D. Lee. Provable learning of random hierarchy models and hierarchical shallow-to-deep chaining. In Proceedings of the 39th Conference on Learning Theory , volume 336 of Proceedings of Machine Learning Research , pages 5556–5597. PMLR, 2026a. Yunwei Ren, Zihao Wang, and Jason D. Lee. Algorithmic separation between constant-depth and logarithmic-depth neural networks, 2026b. David Rolnick and Konrad P. Körding. Reverse-engineering deep ReLU networks. In Proceedings of the 37th International Conference on Machine Learning , volume 119 of Proceedings of Machine Learning Research , pages 8178–8187. PMLR, 2020. Noveen Sachdeva, Benjamin Coleman, Wang-Cheng Kang, Jianmo Ni, Lichan Hong, Ed H. Chi, James Caverlee, Julian McAuley, and Derek Cheng. How to train data-efficient LLMs. In The Fourteenth International Conference on Learning Representations , 2026. Charles M. Stein. Estimation of the mean of a multivariate normal distribution. The Annals of Statistics , 9(6):1135–1151, 1981. doi: 10.1214/aos/1176345632. 14 Anirudh Subramanyam, Yuxin Chen, and Robert L. Grossman. Scaling laws revisited: Modeling the role of data quality in language model pretraining. In The Fourteenth International Conference on Learning Representations , 2026. Hugo Tabanelli, Yatin Dandi, Luca Pesce, and Florent Krzakala. Deep learning of compositional targets with hierarchical spectral methods. In Proceedings of the 43rd International Conference on Machine Learning , 2026. Konstantin Usevich, Ricardo Borsoi, Clara Dérand, and Marianne Clausel. Identifiability of deep polynomial neural networks. In Advances in Neural Information Processing Systems , volume 38, 2025. Wenlong Wang, Haohao Zhang, Yujia Wang, Yuhe Tian, and Zhe Wu. Fast explicit machine learning-based model predictive control of nonlinear processes using input convex neural networks. Industrial & Engineering Chemistry Research , 63(40):17279–17293, 2024a. doi: 10.1021/acs.iecr.4c02257. Zihao Wang, Eshaan Nichani, and Jason D. Lee. Learning hierarchical polynomials with three-layer neural networks. In International Conference on Learning Representations , 2024b. Don R. Wilhelmsen. A markov inequality in several dimensions. Journal of Approximation Theory ,11(3):216–220, 1974. doi: 10.1016/0021-9045(74)90012-4. Lei Wu. Learning a single neuron for non-monotonic activation functions. In Proceedings of the 25th International Conference on Artificial Intelligence and Statistics , volume 151 of Proceedings of Machine Learning Research , pages 4178–4197. PMLR, 2022. Greg Yang and Edward J. Hu. Tensor programs iv: Feature learning in infinite-width neural networks. In Proceedings of the 38th International Conference on Machine Learning , volume 139 of Proceedings of Machine Learning Research , pages 11727–11737, 2021. Zhuoran Yang, Krishnakumar Balasubramanian, Zhaoran Wang, and Han Liu. Estimating high-dimensional non-gaussian multiple index models via stein’s lemma. In Advances in Neural Information Processing Systems , volume 30, 2017. Gilad Yehudai and Ohad Shamir. Learning a single neuron with gradient methods. In Proceedings of Thirty Third Conference on Learning Theory , volume 125 of Proceedings of Machine Learning Research , pages 3756–3786. PMLR, 2020. Ruizhe Zhang. Hit-and-run mixes as fast as the ball walk, 2026. 15 Contents 
+
+1 Introduction 12 Related Work 33 Problem Setup and Preliminaries 3
+
+3.1 Assumptions . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 43.2 Challenges . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 5
+
+4 Algorithm 6
+
+4.1 Derived Oracles from Function-Value Queries . . . . . . . . . . . . . . . . . . . . . . 64.2 Layerwise Recovery . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 74.3 Final Hidden Layer and Output Weights . . . . . . . . . . . . . . . . . . . . . . . . . 8
+
+5 Main Results 86 Proof Sketch 9
+
+6.1 A Simple Setting . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 96.2 Dimension and Accuracy Dependence . . . . . . . . . . . . . . . . . . . . . . . . . . . 10 
+
+7 Conclusion 11 A Technical Tools for Stability Analysis 17 
+
+A.1 Consequences of Normalization and Conditioning . . . . . . . . . . . . . . . . . . . . 17 A.2 Basic Perturbation Tools . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 18 A.3 Perturbation of Two-Matrix Diagonalization . . . . . . . . . . . . . . . . . . . . . . . 20 
+
+B Convex-body Sampling and Moment Estimation 21 
+
+B.1 Geometry of the Reduced Sampling Body . . . . . . . . . . . . . . . . . . . . . . . . 22 B.2 Hit-and-Run with a Multiplicative Oracle . . . . . . . . . . . . . . . . . . . . . . . . 24 B.3 Population Moments and Spectral Conditioning . . . . . . . . . . . . . . . . . . . . . 30 B.4 Stable Gradient and Empirical Moment Estimation . . . . . . . . . . . . . . . . . . . 33 
+
+C Recovery of the First Hidden Layer 36 D Stability of the Simulated Suffix Oracle 39 E Recovery of Intermediate Hidden Layers 44 
+
+E.1 Stable Recovery of the Intermediate-Layer Column Space . . . . . . . . . . . . . . . 44 E.2 Stable Recovery Within the Recovered Subspace . . . . . . . . . . . . . . . . . . . . 51 
+
+F Recovery of the Final Hidden Layer and Output Weights 53 G Proof of the Main Theorem 57 
+
+16 H A Weight-Based Sufficient Condition for the Assumptions 63 
+
+H.1 Normalization and Nonnegativity . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 64 H.2 Conditioning and Relative Row Balance . . . . . . . . . . . . . . . . . . . . . . . . . 64 H.3 Uniform Relative Spectral Gap . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 64 H.4 An Explicit Nonempty Family . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 68 
+
+I Proof of Challenges 68 
+
+I.1 Local Minima and Fourth-Order Saddle Barriers . . . . . . . . . . . . . . . . . . . . 68 I.2 Sample-Complexity Barrier for the NTK . . . . . . . . . . . . . . . . . . . . . . . . . 70 
+
+J Experiment Details 74 Roadmap of the Appendix. The appendix is organized as follows. Appendix A collects several mostly standard perturbation bounds and numerical linear-algebra tools. Appendix B contains the main sampling machinery of the paper. In particular, we develop a quantitative analysis of Hit-and-Run when the defining homogeneous polynomial is accessed only through a multiplicatively noisy oracle, and use it to obtain the moment estimates required by the spectral recovery procedure. Appendix C applies these tools to the first hidden layer, where the relevant column space can be recovered exactly. Appendix D then studies the error introduced by approximately inverting the recovered prefix, which allows us to simulate access to the suffix networks at subsequent layers. Appendix E combines the subspace, sampling, and suffix-oracle analyses to establish stable recovery of the intermediate hidden layers. Appendix F treats the final hidden layer and the output weights separately using a two-Hessian spectral argument. Finally, Appendix G combines the layerwise guarantees to prove Theorem 5.1, Corollaries 5.2 and 5.3. Appendix H gives an explicit family satisfying our structural assumptions; Appendix I provides the proofs underlying the challenges discussed in Appendix 3.2; and Appendix J provides additional details of the numerical experiments. 
+
+# A Technical Tools for Stability Analysis 
+
+Throughout the section, we work under the assumptions stated in subsection 3.1. We first record several quantitative consequences that will be used in the perturbation analysis. 
+
+A.1 Consequences of Normalization and Conditioning 
+
+The following lemma translates the normalization and conditioning assumptions into explicit singular-value and right-inverse bounds for the hidden weight matrices. 
+
+Lemma A.1 (Singular-value bounds) . We have 1
+
+κ0
+
+≤ σmin (W1) ≤ 1 ≤ σmax (W1) ≤ κ0, and for every 2 ≤ ℓ ≤ L − 1, 1
+
+κ0
+
+r rℓ
+
+rℓ−1
+
+≤ σmin (Wℓ) ≤ σmax (Wℓ) ≤ κ0. Consequently, 
+
+Wℓ(W⊤ 
+
+> ℓ
+
+Wℓ)−1 
+
+> 2
+
+≤ κ0
+
+r rℓ−1
+
+rℓ
+
+, 2 ≤ ℓ ≤ L − 1.
+
+Proof. For W1, every column has been normalized, therefore ∥W1∥2 
+
+> F
+
+= Prj=1 ∥w1,j ∥22 = r. Since the squared Frobenius norm equals the sum of the squared singular values, ∥W1∥2 
+
+> F
+
+= Prj=1 σj (W1)2.17 Consequently, the average squared singular value is one, so σmin (W1) ≤ 1 ≤ σmax (W1). Since 
+
+cond( W1) = σmax (W1)
+
+σmin (W1) ≤ κ0, we obtain 
+
+1
+
+κ0
+
+≤ σmin (W1) ≤ 1 ≤ σmax (W1) ≤ κ0.
+
+Now fix 2 ≤ ℓ ≤ L − 1. Since Wℓ ≥ 0 and every column has unit ℓ1-norm, W⊤ 
+
+> ℓ
+
+1rℓ−1 = 1rℓ . Testing 
+
+W⊤ 
+
+> ℓ
+
+on the all-ones vector yields 
+
+σmax (Wℓ) ≥ ∥W⊤ 
+
+> ℓ
+
+1rℓ−1 ∥2
+
+∥1rℓ−1 ∥2
+
+=
+
+r rℓ
+
+rℓ−1
+
+.
+
+The condition-number bound therefore gives σmin (Wℓ) ≥ 1
+
+κ0
+
+r rℓ
+
+rℓ−1
+
+. For each column, ∥wℓ,j ∥2 ≤∥wℓ,j ∥1 = 1 , and hence ∥Wℓ∥2 
+
+> F
+
+≤ rℓ. At the same time, 
+
+∥Wℓ∥2 
+
+> F
+
+=
+
+> rℓ
+
+X
+
+> j=1
+
+σj (Wℓ)2 ≥ rℓσmin (Wℓ)2 ≥ rℓ
+
+κ20
+
+σmax (Wℓ)2.
+
+Combining the two displays gives σmax (Wℓ) ≤ κ0. The right-inverse bound follows from 
+
+Wℓ(W⊤ 
+
+> ℓ
+
+Wℓ)−1 
+
+> 2
+
+= σmin (Wℓ)−1.
+
+Thus the relative conditioning is dimension independent, while the absolute singular scale tracks the aspect ratio rℓ/r ℓ−1.The next lemma makes the scale of the output weights explicit from normalization and the relative row-balance condition. 
+
+Lemma A.2 (Explicit output-weight scale) . Under the unified normalization and relative row-balance condition, let 
+
+s := rL−1, amin := min  
+
+> 1≤i≤s
+
+ai, amax := max  
+
+> 1≤i≤s
+
+ai.
+
+Then μs ≤ amin ≤ 1
+
+s ≤ amax ≤ 1 − (s − 1) μs ≤ 1.
+
+Proof. For ℓ = L, Assumption 3.4 reads ai ≥ μ/s for every i, which gives the first inequality. The middle two inequalities follow from P 
+
+> i
+
+ai = 1 . Finally, after fixing an index attaining amax , the remaining s − 1 entries each contribute at least μ/s , and therefore amax ≤ 1 − (s − 1) μs ≤ 1.
+
+A.2 Basic Perturbation Tools 
+
+The following lemma controls how errors in a full-column-rank matrix propagate to its pseudoinverse. 
+
+Lemma A.3 (Perturbation of the pseudoinverse) . Let A, B be full column rank. If ∥A − B∥2 ≤
+
+12 σmin (A), then ∥A† − B†∥2 ≤ 6∥A − B∥2
+
+σmin (A)2 .
+
+18 Proof. By Weyl’s inequality, σmin (B) ≥ σmin (A)−∥ A−B∥2 ≥ 12 σmin (A), and hence ∥B†∥2 ≤ 2∥A†∥2.For full-column-rank matrices, 
+
+B† − A† = −B†(B − A)A† + B†B†⊤ (B − A)⊤(I − AA †).
+
+Since I − AA † is an orthogonal projector, 
+
+∥A† − B†∥2 ≤
+
+
+
+∥A†∥2∥B†∥2 + ∥B†∥22
+
+
+
+∥A − B∥2.
+
+Substituting the preceding bound on ∥B†∥2 and ∥A†∥2 = σmin (A)−1 proves the claim. The next lemma converts relative errors in a collection of spanning vectors into an error bound for the recovered orthonormal basis of their column space. 
+
+Lemma A.4 (Noisy recovery of an orthonormal basis) . Let g1, . . . , gm ∈ Rn satisfy 
+
+dim (span {g1, . . . , gm}) = p, 
+
+and define G = [ g1, . . . , gm] ∈ Rn×m. Let B ∈ Rn×p be an orthonormal basis of col( G), so that 
+
+B⊤B = Ip. Suppose that we observe bg1, . . . , bgm satisfying 
+
+∥bgi − gi∥2 ≤ η∥gi∥2, i = 1 , . . . , m. 
+
+Let cond( G) := σ1(G)
+
+σp(G) , ∆sub := η cond( G)√p. If ∆sub < 1, then one can recover an orthonormal matrix bB ∈ Rn×p, with bB⊤ bB = Ip, such that ∥ bB − B∥2 ≤√2 η cond( G)√p
+
+1 − η cond( G)√p . Here the basis is understood up to an orthogonal transformation within the recovered p-dimensional subspace. Proof. Define bG = [ bg1, . . . , bgm] = G + E, E = [ bg1 − g1, . . . , bgm − gm].
+
+By the assumed relative error bound, ∥E∥2 ≤ ∥ E∥F ≤ η∥G∥F . Since rank( G) = p, ∥G∥F ≤√p σ 1(G), and therefore 
+
+∥E∥2 ≤ η√p σ 1(G) = ∆ sub σp(G).
+
+Compute the top p left singular vectors of bG and collect them as 
+
+eB ∈ Rn×p, eB⊤ eB = Ip.
+
+Let bS = col( eB) and S = col( B). By the singular-subspace perturbation theorem, 
+
+∥P bS − PS ∥2 ≤ ∥E∥2
+
+σp(G) − ∥ E∥2
+
+≤ ∆sub 
+
+1 − ∆sub 
+
+.
+
+Finally, align the two orthonormal bases by an orthogonal Procrustes transformation. Namely, let 
+
+B⊤ eB = UΣV ⊤ be a singular value decomposition and set Q = VU ⊤, bB = eBQ . Then 
+
+∥ bB − B∥2 = 2 sin 
+
+ θmax 
+
+2
+
+
+
+≤ √2 sin θmax = √2∥P bS − PS ∥2,
+
+where θmax is the largest principal angle. Substitution of the projector bound proves the claim. 19 The following corollary records the simpler linear error bound used when the perturbation is sufficiently small. 
+
+Corollary A.5. Under the assumptions of Lemma A.4, if η cond( G)√p ≤ 12 , then thereexists an orthonormal basis bB of the recovered subspace such that 
+
+∥ bB − B∥2 ≤ 2√2 η cond( G)√p = O(η cond( G)√p) .
+
+A.3 Perturbation of Two-Matrix Diagonalization 
+
+The final lemma provides the spectral perturbation guarantee used to recover hidden directions from noisy pairs of moment matrices. 
+
+Lemma A.6 (Noisy two-matrix diagonalization) . Let n ≥ 2 be an integer and let 
+
+M1 = C−⊤ ΛC −1, M2 = CDC ⊤,
+
+where C ∈ GL n(R) and D, Λ are positive diagonal matrices. Write DΛ = diag( θ1, . . . , θ n), and suppose that γ ≥ 1 satisfies the inverse-gap condition 
+
+min i̸=j |θi − θj |
+
+max i |θi| ≥ γ−1.
+
+Let vi := ci
+
+∥ci∥2
+
+, V = [ v1, . . . , vn], and define ρ := ∥M1∥2∥M2∥2
+
+max i |θi| . Suppose that cM1, cM2 ∈ Rn×n
+
+satisfy ∥cMj −Mj ∥2 ≤ η∥Mj ∥2, j = 1 , 2. If η ≤ cγ cond( V)2ρ for a sufficiently small absolute constant 
+
+c > 0, then the eigenvectors of cM2 cM1 can be labeled so that, after choosing their signs, 
+
+max  
+
+> 1≤i≤n
+
+∥bvi − vi∥2 ≤ Cγ cond( V)2ρη, 
+
+where bvi denotes the normalized recovered eigenvector and C > 0 is an absolute constant. Proof. Set A = M2M1 = C(DΛ )C−1. Thus the column directions of C are precisely the eigendirec-tions of A. Write cMj = Mj + Ej , ∥Ej ∥2 ≤ η∥Mj ∥2. Then cM2 cM1 = A + ∆, where 
+
+∆ = M2E1 + E2M1 + E2E1.
+
+Since max i |θi| ≤ ∥ A∥2 ≤ ∥ M2∥2∥M1∥2, we have ρ ≥ 1. Together with γ ≥ 1 and cond( V) ≥ 1, the assumed upper bound on η therefore implies η ≤ 1 after taking c ≤ 1. Hence 
+
+∥∆∥2 ≤ 3η∥M1∥2∥M2∥2 = 3 ρη max  
+
+> i
+
+|θi|.
+
+The matrix A is diagonalizable with normalized eigenvector matrix V: A = VΘV −1, Θ =diag( θ1, . . . , θ n). Let g := min i̸=j |θi − θj |. The inverse-gap hypothesis gives g ≥ γ−1 max i |θi|. Set 
+
+E := V−1∆V . Then ∥E∥2 ≤ cond( V)∥∆∥2. By the assumed upper bound on η, after decreasing c if 20 necessary, ∥E∥2 ≤ g
+
+4 . Since A + ∆ = V(Θ + E)V−1, it suffices to study the eigenvectors of Θ + E.By the Bauer–Fike theorem, every eigenvalue of Θ + tE, 0 ≤ t ≤ 1, lies in 
+
+> n
+
+[
+
+> i=1
+
+{z ∈ C : |z − θi| ≤ ∥ E∥2}.
+
+Since ∥E∥2 ≤ g/ 4 and the centers are separated by at least g, these disks are pairwise disjoint. For every i, let Γi := {z ∈ C : |z − θi| = g/ 3}, oriented counterclockwise. The circle Γi remains disjoint from the spectrum of Θ + tE for every t ∈ [0 , 1] . Hence the Riesz projection 
+
+Πi(t) := 12πi 
+
+Z
+
+> Γi
+
+ zI − (Θ + tE)−1 dz 
+
+is well defined and continuous in t. Its rank equals its trace, which is continuous and integer valued, and therefore constant. At t = 0 it has rank one, so each disk contains exactly one eigenvalue bθi,counted with algebraic multiplicity, and |bθi − θi| ≤ ∥ E∥2. Because Θ + E is real, nonreal eigenvalues occur in conjugate pairs. Each disk contains exactly one eigenvalue and is centered on the real axis; hence every bθi is real and the associated eigenvector may be chosen real. Let yi ∈ Rn \ { 0} be an eigenvector associated with bθi, and let Qi := I − eie⊤ 
+
+> i
+
+. From the eigenvalue equation, 
+
+(θj − bθi)( yi)j = −(Ey i)j , j̸ = i, 
+
+min   
+
+> j̸=i
+
+|θj − bθi| ≥ g − ∥ E∥2 ≥ 3g
+
+4 .
+
+Consequently, summing the squared coordinate bounds gives 
+
+∥Qiyi∥2 ≤ 43g ∥QiEy i∥2 ≤ 2∥E∥2
+
+g ∥yi∥2. (1) The corresponding eigenvector of A + ∆ is proportional to Vy i. Since vi = Ve i is a unit vector, we have 
+
+sin ∠(bvi, vi) ≤ ∥VQ iyi∥2
+
+∥Vy i∥2
+
+≤ 2 cond( V)2∥∆∥2
+
+g ≤ Cγ cond( V)2ρη. 
+
+Finally, after choosing the sign of each normalized recovered eigenvector, 
+
+∥bvi − vi∥2 ≤ √2 sin ∠(bvi, vi),
+
+which proves the claim. 
+
+# B Convex-body Sampling and Moment Estimation 
+
+This section develops the convex-body sampling and moment-estimation mechanism underlying AS-PIRE, including a noisy Hit-and-Run algorithm that remains provably accurate under multiplicative errors in the membership oracle. 
+
+Notation. Throughout the remainder of the appendix, whenever an orthonormal matrix bBℓ ∈
+
+Rrℓ−1×rℓ is under consideration, define C♯ℓ := bB⊤ 
+
+> ℓ
+
+Wℓ, G ℓ(z) := Fℓ( bBℓz) = h(ℓ)
+
+
+
+(C♯ℓ)⊤z
+
+
+
+, and 
+
+K♯ℓ := {z ∈ Rrℓ : Gℓ(z) ≤ 1} . In the first-layer stage, where the column space is recovered exactly, we use the same notation with bB1 := B1.21 B.1 Geometry of the Reduced Sampling Body 
+
+We first control the conditioning and Euclidean geometry of the reduced coordinates in which ASPIRE performs convex-body sampling. The following lemma shows that an approximate column-space basis preserves the conditioning of the reduced weight matrix. 
+
+Lemma B.1 (Conditioning of the reduced weight matrix) . Let Bℓ and bBℓ have orthonormal columns, suppose col( Bℓ) = col( Wℓ), and assume, after orthogonal alignment, that ∥ bBℓ − Bℓ∥2 ≤ εB,ℓ < 1.
+
+For C♯ℓ := bB⊤ 
+
+> ℓ
+
+Wℓ, one has 
+
+(1 − εB,ℓ )σmin (Wℓ) ≤ σmin (C♯ℓ) ≤ σmax (C♯ℓ) ≤ (1 + εB,ℓ )σmax (Wℓ).
+
+Consequently, cond( C♯ℓ) ≤ 1 + εB,ℓ 
+
+1 − εB,ℓ 
+
+κ0. In particular, if εB,ℓ ≤ 1/2, then cond( C♯ℓ) ≤ 3κ0.Proof. Write Wℓ = BℓCℓ, Cℓ := B⊤ 
+
+> ℓ
+
+Wℓ. Because Bℓ has orthonormal columns, Cℓ has exactly the nonzero singular values of Wℓ. Define Qℓ := bB⊤ 
+
+> ℓ
+
+Bℓ. Then C♯ℓ = QℓCℓ. Moreover, 
+
+∥Qℓ − I∥2 = ∥ bB⊤ 
+
+> ℓ
+
+Bℓ − B⊤ 
+
+> ℓ
+
+Bℓ∥2 ≤ ∥ bBℓ − Bℓ∥2 ≤ εB,ℓ .
+
+Weyl’s inequality therefore gives 
+
+1 − εB,ℓ ≤ σmin (Qℓ) ≤ σmax (Qℓ) ≤ 1 + εB,ℓ .
+
+The singular-value product inequalities now imply 
+
+σmin (C♯ℓ) ≥ σmin (Qℓ)σmin (Cℓ) ≥ (1 − εB,ℓ )σmin (Wℓ),
+
+and 
+
+σmax (C♯ℓ) ≤ σmax (Qℓ)σmax (Cℓ) ≤ (1 + εB,ℓ )σmax (Wℓ).
+
+Taking the ratio gives 
+
+cond( C♯ℓ) ≤ 1 + εB,ℓ 
+
+1 − εB,ℓ 
+
+cond( Wℓ) ≤ 1 + εB,ℓ 
+
+1 − εB,ℓ 
+
+κ0.
+
+When εB,ℓ ≤ 1/2, the ratio in front of κ0 is at most three. The next lemma converts this conditioning control into explicit inner and outer Euclidean radii for the reduced sampling body. 
+
+Lemma B.2 (Euclidean radii of the sampling body) . Fix 1 ≤ ℓ ≤ L − 2, and let 
+
+qℓ := kL−ℓ, Sℓ := 
+
+> L−ℓ−1
+
+X
+
+> j=1
+
+kj = qℓ − kk − 1 .
+
+Let bBℓ satisfy the hypotheses of Lemma B.1 with εB,ℓ ≤ 1/2. Then 1(1 + εB,ℓ )σmax (Wℓ) Brℓ 
+
+> 2
+
+⊆ K♯ℓ
+
+and K♯ℓ ⊆ μ−(Sℓ+1) /q ℓ √rℓ
+
+(1 − εB,ℓ )σmin (Wℓ) Brℓ 
+
+> 2
+
+. Consequently, one may take radii satisfying 
+
+rin ,ℓ ≥ 1(1 + εB,ℓ )σmax (Wℓ) , R out ,ℓ ≤ μ−(Sℓ+1) /q ℓ √rℓ
+
+(1 − εB,ℓ )σmin (Wℓ) .
+
+22 In particular, 
+
+ωℓ := Rout ,ℓ 
+
+rin ,ℓ 
+
+≤ 3κ0μ−(Sℓ+1) /q ℓ √rℓ ≤ Ck,L κ4√rℓ ≤ Ck,L κ4√r. 
+
+Proof. For u ∈ Rrℓ , define the nonnegative forward quantities 
+
+sℓ := u⊙k, sj := 
+
+
+
+W⊤ 
+
+> j
+
+sj−1
+
+⊙k
+
+, ℓ + 1 ≤ j ≤ L − 1.
+
+Then h(ℓ)(u) = a⊤sL−1.We first derive an upper bound that uses only the column-stochastic normalization. If v ≥ 0, every coordinate of W⊤ 
+
+> j
+
+v is a convex combination of the coordinates of 
+
+v, and therefore ∥W⊤ 
+
+> j
+
+v∥∞ ≤ ∥ v∥∞. It follows inductively that ∥sL−1∥∞ ≤ ∥ u∥qℓ
+
+> ∞
+
+. Since a ≥ 0 and 
+
+1⊤a = 1 , h(ℓ)(u) = a⊤sL−1 ≤ ∥ sL−1∥∞ ≤ ∥ u∥qℓ 
+
+> ∞
+
+≤ ∥ u∥qℓ 
+
+> 2
+
+. For the reverse inequality, define the average mass at layer j by 
+
+sj := ∥sj ∥1
+
+rj
+
+, ℓ ≤ j ≤ L − 1.
+
+At the initial step, the comparison between ℓk- and ℓ2-norms gives sℓ = ∥u∥kk
+
+rℓ
+
+≥
+
+ ∥u∥2
+
+√rℓ
+
+k
+
+. For every j > ℓ , the relative row-balance condition and nonnegativity yield 
+
+1
+
+rj
+
+∥W⊤ 
+
+> j
+
+sj−1∥1 = 1
+
+rj
+
+(Wj 1rj )⊤sj−1 ≥ μrj−1
+
+∥sj−1∥1 = μs j−1.
+
+Jensen’s inequality then gives 
+
+sj = 1
+
+rj
+
+∥W⊤ 
+
+> j
+
+sj−1∥kk ≥
+
+ 1
+
+rj
+
+∥W⊤ 
+
+> j
+
+sj−1∥1
+
+k
+
+≥ μks kj−1.
+
+Iterating through the remaining hidden layers gives sL−1 ≥ μSℓ
+
+ ∥u∥2
+
+√rℓ
+
+qℓ
+
+. The row-balance condition for WL = a gives ai ≥ μ/r L−1, and hence 
+
+h(ℓ)(u) = a⊤sL−1 ≥ μrL−1
+
+∥sL−1∥1 = μs L−1 ≥ μSℓ+1 
+
+ ∥u∥2
+
+√rℓ
+
+qℓ
+
+.
+
+Let Hℓ := {u ∈ Rrℓ : h(ℓ)(u) ≤ 1}. The two polynomial bounds imply Brℓ 
+
+> 2
+
+⊆ Hℓ ⊆ μ−(Sℓ+1) /q ℓ √rℓ Brℓ 
+
+> 2
+
+.
+
+By definition, K♯ℓ = ( C♯ℓ)−⊤ Hℓ. For an invertible matrix C, the image (C−⊤ )( ρB 2) contains 
+
+(ρ/σ max (C)) B2, whereas the image of RB 2 is contained in (R/σ min (C)) B2. Applying Lemma B.1 gives the two radius bounds in the statement. Taking their ratio yields 
+
+ωℓ ≤ 1 + εB,ℓ 
+
+1 − εB,ℓ 
+
+cond( Wℓ)μ−(Sℓ+1) /q ℓ √rℓ.
+
+Since εB,ℓ ≤ 1/2, cond( Wℓ) ≤ κ0, and Sℓ + 1 
+
+qℓ
+
+= qℓ − 1(k − 1) qℓ
+
+< 1
+
+k − 1 , the dimension-free factor is at most Ck,L κ4. Finally, rℓ ≤ r, proving the stated simplification. 23 B.2 Hit-and-Run with a Multiplicative Oracle 
+
+We next develop the geometric and perturbative ingredients needed to sample from the true convex body when only a multiplicatively inaccurate oracle is available. The following Markov-type bound controls the curvature of a polynomial on a convex body from its sup norm and inradius. 
+
+Lemma B.3 (Markov bound for second derivatives) . Let K ⊂ Rn be a convex body satisfying 
+
+ρB n 
+
+> 2
+
+⊆ K
+
+for some ρ > 0, and let p : Rn → R be a polynomial of degree at most q ≥ 2. Then 
+
+sup 
+
+> x∈K
+
+∥∇ 2p(x)∥op ≤ 4q2(q − 1) 2
+
+ρ2 ∥p∥L∞(K) ≤ 4q4
+
+ρ2 ∥p∥L∞(K).
+
+Proof. Let w(K) denote the minimum width of K. Since ρB n 
+
+> 2
+
+⊆ K, we have w(K) ≥ 2ρ. By the multivariate Markov inequality of Wilhelmsen [1974], every polynomial g of degree at most m satisfies 
+
+∥∇ g∥L∞(K) ≤ 4m2
+
+w(K) ∥g∥L∞(K) ≤ 2m2
+
+ρ ∥g∥L∞(K).
+
+Applying this first to p gives 
+
+∥∇ p∥L∞(K) ≤ 2q2
+
+ρ ∥p∥L∞(K).
+
+Now fix u ∈ Sn−1. The directional derivative Dup := u⊤∇p has degree at most q − 1, and therefore another application of the same inequality yields 
+
+∥∇ (Dup)∥L∞(K) ≤ 2( q − 1) 2
+
+ρ ∥Dup∥L∞(K) ≤ 2( q − 1) 2
+
+ρ ∥∇ p∥L∞(K) ≤ 4q2(q − 1) 2
+
+ρ2 ∥p∥L∞(K).
+
+Since ∇(Dup)( x) = ∇2p(x)u, taking the supremum over u ∈ Sn−1 and x ∈ K proves the claim. Using this curvature control, the next lemma shows that noisy Hit-and-Run remains close to uniform sampling from the true body under sufficiently small multiplicative oracle error. 
+
+Lemma B.4 (Hit-and-Run with multiplicative oracle noise) . Let F : Rn → R≥0 be a positive definite convex homogeneous polynomial of degree q ≥ 2, and define K := {x ∈ Rn : F (x) ≤ 1}. Assume 
+
+rin Bn 
+
+> 2
+
+⊆ K ⊆ Rout Bn 
+
+> 2
+
+, ω := Rout 
+
+rin 
+
+,
+
+and suppose that the available oracle bF : Rn → R is Borel measurable and satisfies 
+
+(1 − ξ)F (x) ≤ bF (x) ≤ (1 + ξ)F (x), x ∈ Rn,
+
+for some 0 < ξ ≤ 1/2.Fix δ ∈ (0 , 1] . Then there exist an absolute constant C > 0 and a constant cδ > 0, depending only on δ, such that, for every ε ∈ (0 , 1/2) , if 
+
+ξ ≤ cδ ε1+ δ
+
+q2n4+3 δω4+2 δ
+
+
+
+log 2ωε
+
+1+ δ ,
+
+24 then the noisy Hit-and-Run chain constructed in the proof, initialized at bX0 = 0, satisfies 
+
+dTV 
+
+
+
+L( bXT ), Unif( K)
+
+
+
+≤ ε
+
+for T =
+
+
+
+Cn 3ω2 log 2ωε
+
+
+
+. With 
+
+τ := 1 −
+
+ 1 − ξ
+
+1 + ξ
+
+1/q 
+
+, η := ε
+
+4T ,
+
+the construction uses O
+
+
+
+T log ωητ 
+
+
+
+evaluations of bF .Proof. Set ρ := 
+
+ 1 − ξ
+
+1 + ξ
+
+1/q 
+
+, then τ = 1 − ρ. By homogeneity, ρK ⊆ { x : bF (x) ≤ 1 − ξ} ⊆ K. Indeed, if x ∈ ρK , then F (x) ≤ ρq = 1 − ξ
+
+1 + ξ , and hence bF (x) ≤ (1 + ξ)F (x) ≤ 1 − ξ. Conversely, 
+
+bF (x) ≤ 1 − ξ =⇒ (1 − ξ)F (x) ≤ 1 − ξ =⇒ F (x) ≤ 1.
+
+Moreover, 
+
+qτ ≤ log 1 + ξ
+
+1 − ξ ≤ 3ξ. (2) Let P denote the exact Hit-and-Run transition kernel on K, and let X0 = 0, Xt+1 ∼ P (Xt, ·).
+
+Define the boundary depth D(x) := 1 − F (x). Since ∂K has Lebesgue measure zero, D(Xt) > 0
+
+almost surely. We first establish a uniform negative-moment bound for D(Xt). Set α := 11 + δ , s := 1 − α = δ
+
+1 + δ , and define ϑδ := 
+
+ s
+
+2
+
+1/s 
+
+. Let C0 =
+
+r 2
+
+π . Then for every unit vector v ∈ Rn, every 
+
+a ∈ (0 , 1) , and θ ∼ Unif( Sn−1),
+
+P
+
+
+
+|⟨ v, θ⟩| ≤ a
+
+√n
+
+
+
+≤ C0a. (3) This is the standard spherical small-ball estimate. Set aδ := ϑδ
+
+2C0
+
+, ∆δ := a2
+
+> δ
+
+32 nω 2q2 , d 0 := ϑδ
+
+2 ∆δ. Thus 
+
+d0 = c0ϑ3
+
+> δ
+
+nω 2q2 , c0 := 1256 C20
+
+, (4) where c0 > 0 is an absolute constant. We claim that whenever x ∈ int( K) and D(x) ≤ d0,
+
+P (D(Xt+1 ) ≥ d0 | Xt = x) ≥ 1 − ϑδ. (5) Since d0 ≤ 1/2, F (x) ≥ 12 . Euler’s identity and ∥x∥2 ≤ Rout give 
+
+x⊤∇F (x) = qF (x), ∥∇ F (x)∥2 ≥ q
+
+2Rout 
+
+.
+
+25 Since F is positive definite and K = {z : F (z) ≤ 1}, we have ∥F ∥L∞(K) = 1 . Hence Lemma B.3 yields 
+
+H := sup 
+
+> z∈K
+
+∥∇ 2F (z)∥op ≤ 4q4
+
+r2in 
+
+.
+
+Let v = ∇F (x)
+
+∥∇ F (x)∥2
+
+. By (3), with probability at least 1 − ϑδ/2, |⟨ v, θ⟩| ≥ aδ
+
+√n . Choose the orientation of the sampled line for which A := −∇ F (x)⊤θ > 0. On the above event, A ≥ qa δ
+
+2Rout 
+
+√n . Set 
+
+f (t) := F (x + tθ), t ∗ := A
+
+H , and let b := sup {t ≥ 0 : x + sθ ∈ K for every s ∈ [0 , t ]} be the distance from x to the boundary of K along the chosen orientation of the line. Since K is compact and 
+
+x ∈ int( K), we have 
+
+0 < b < ∞, x + bθ ∈ ∂K, f (b) = 1 .
+
+For every 0 ≤ t ≤ min {b, t ∗}, the segment {x + sθ : 0 ≤ s ≤ t} is contained in K. Hence 
+
+f ′(t) = f ′(0) + 
+
+Z t
+
+> 0
+
+θ⊤∇2F (x + sθ)θ ds ≤ − A + Ht. 
+
+Suppose, for contradiction, that b < t ∗. Integrating the preceding inequality over [0 , b ] gives 
+
+f (b) ≤ f (0) − Ab + H
+
+2 b2 < f (0) ≤ 1,
+
+because b < A/ H. This contradicts f (b) = 1 . Therefore b ≥ t∗. In particular, x + t∗θ ∈ K, and another integration yields f (t∗) ≤ f (0) − At ∗ + H
+
+2 t2 
+
+> ∗
+
+= f (0) − A2
+
+2H . Consequently, A2
+
+2H ≥ a2
+
+> δ
+
+32 nω 2q2 =∆δ, so the chord contains a point z satisfying F (z) ≤ 1 − ∆δ. Let z− and z+ be the two endpoints of this chord. Since F (z−) = F (z+) = 1 , convexity implies, for either sign and t ∈ [0 , 1] ,
+
+F ((1 − t)z + tz±) ≤ (1 − t)F (z) + tF (z±) ≤ 1 − (1 − t)∆ δ.
+
+Hence F ((1 − t)z + tz±) ≤ 1 − d0 whenever t ≤ 1 − d0
+
+∆δ
+
+. Therefore the proportion of the entire chord on which D ≥ d0 is at least 1 − d0
+
+∆δ
+
+= 1 − ϑδ
+
+2 . Combining this with the directional event yields 
+
+P (D(Xt+1 ) ≥ d0 | Xt = x) ≥
+
+
+
+1 − ϑδ
+
+2
+
+2
+
+≥ 1 − ϑδ,
+
+proving (5). For the exact Hit-and-Run chain, we first record a deterministic homothetic chord comparison. Let 0 ≤ σ0 < λ ≤ 1, x ∈ σ0K, and let IK and IλK be the intersections of a fixed line through x with 
+
+K and λK , respectively. Then 
+
+|IλK ||IK | ≥ λ − σ0
+
+1 − σ0
+
+. (6) Indeed, write x = σ0y for some y ∈ K, and set β := λ − σ0
+
+1 − σ0
+
+. For every point z ∈ IK ,
+
+x + β(z − x) = (1 − β)σ0y + βz = λ
+
+ (1 − β)σ0
+
+λ y + βλ z
+
+
+
+.
+
+26 The two coefficients in parentheses are nonnegative and sum to one, so the point in parentheses belongs to K. Therefore x + β(IK − x) ⊆ IλK , which proves (6). Now fix x ∈ int( K) and write d := D(x) ∈ (0 , 1] . For 0 < u < d , set sd := (1 − d)1/q , λ u := (1 −u)1/q . Then x ∈ sdK and sd < λ u. Conditional on any sampled direction, the event D(Xt+1 ) ≤ u
+
+is contained, up to chord endpoints of one-dimensional measure zero, in the part of IK outside IλuK .Thus (6), followed by averaging over the direction, gives 
+
+P  x, {y ∈ K : D(y) ≤ u} ≤ 1 − λu
+
+1 − sd
+
+.
+
+Since v 7 → 1 − (1 − v)1/q is convex and vanishes at 0,
+
+P  x, {y ∈ K : D(y) ≤ u} ≤ ud , 0 < u < d. (7) Define the one-step negative moment at x by M(x) := R 
+
+> K
+
+D(y)−α P (x, d y). If d ≤ d0, then (5) and (7) imply 
+
+P  x, {y : D(y) ≤ u} ≤ min 
+
+n
+
+ϑδ, ud
+
+o
+
+, 0 < u ≤ d0.
+
+Here, when u ≥ d, the second bound follows from the trivial estimate P (x, ·) ≤ 1 ≤ u/d . For 
+
+0 < Y ≤ 1, E[Y −α] = 1 + α R 10 u−α−1P(Y ≤ u) du. Applying this identity to the one-step law P (x, ·),and splitting the integral at u = ϑδd and u = d0, gives 
+
+M(x) ≤ 1 + αd
+
+Z ϑδ d
+
+> 0
+
+u−α du + αϑ δ
+
+Z d0 
+
+> ϑδd
+
+u−α−1 du + α
+
+Z 1
+
+> d0
+
+u−α−1 du ≤ ϑ1−αδ
+
+1 − α d−α + d−α 
+
+> 0
+
+.
+
+Thus 
+
+M(x) ≤ βδd−α + d−α 
+
+> 0
+
+, (8) where βδ := ϑ1−αδ
+
+1 − α . By the definition of ϑδ, βδ = ϑsδ
+
+s = 12 . If d > d 0, then (7) gives, for u ≤ d0,
+
+P  x, {y : D(y) ≤ u} ≤ ud ≤ ud0
+
+.
+
+Therefore 
+
+M(x) ≤ 1 + αd0
+
+Z d0
+
+> 0
+
+u−α du + α
+
+Z 1
+
+> d0
+
+u−α−1 du = 11 − α d−α 
+
+> 0
+
+= 1
+
+s d−α 
+
+> 0
+
+.
+
+Hence 
+
+M(x) ≤ 1
+
+s d−α 
+
+> 0
+
+. (9) The two cases imply the pointwise bound M(x) ≤ 12 D(x)−α + 1
+
+s d−α 
+
+> 0
+
+. Writing Mt := E[D(Xt)−α],
+
+and using the Markov property, we obtain Mt+1 = E[M(Xt)] ≤ 12 Mt + 1
+
+s d−α 
+
+> 0
+
+. Since D(X0) = 1 ,
+
+sup 
+
+> t≥0
+
+E[D(Xt)−α] ≤ 2
+
+s d−α 
+
+> 0
+
+. (10) 27 Use the values of τ and η from the statement, and set δbis := ητ r in . At a current point x ∈ K,draw θ ∼ Unif( Sn−1). For each σ ∈ { +1 , −1}, initialize Lσ 
+
+> 0
+
+:= 0 , U σ 
+
+> 0
+
+:= 3 Rout . Given Lσj , U σj ,set mσj := Lσj + U σj
+
+2 and update 
+
+(Lσj+1 , U σj+1 ) = 
+
+((mσj , U σj ), bF (x + σm σj θ) ≤ 1 − ξ, 
+
+(Lσj , m σj ), bF (x + σm σj θ) > 1 − ξ. 
+
+The procedure stops once U σj − Lσj ≤ δbis , and returns bbσ := Lσj . The next state is sampled uniformly on the resulting approximate chord: 
+
+bt ∼ Unif([ −bb−, bb+]) , bXt+1 = x + btθ.
+
+Whenever a midpoint is accepted, it lies in K, since { bF ≤ 1 − ξ} ⊆ K. Moreover x ∈ K, so convexity of K implies that the entire approximate chord is contained in K.To compare the noisy and exact chords, fix x ∈ K and a direction θ. Let IK = [ −b−, b +] be the exact chord of K through x in direction θ. Whenever x ∈ ρK , let IρK = [ −bρ
+
+> −
+
+, b ρ
+
+> +
+
+] be the corresponding chord of ρK .We first record the following deterministic property of the above bisection procedure. For each 
+
+σ ∈ { +1 , −1}, if x ∈ ρK , then throughout the bisection, 
+
+Lσj ≤ bσ, U σj ≥ bρσ. (11) Indeed, the inequalities hold initially. Since K ⊆ Rout Bn 
+
+> 2
+
+and ∥x∥2 ≤ Rout , the point x + σ(3 Rout )θ
+
+lies outside K, so 
+
+3Rout ≥ bσ ≥ bρσ.
+
+Suppose (11) holds at step j. If mσj is accepted, then x + σm σj θ ∈ K, and therefore mσj ≤ bσ.
+
+Hence replacing Lσj by mσj preserves the first invariant. If mσj is rejected, then x + σm σj θ /∈ ρK, because every point of ρK is necessarily accepted by the sandwich ρK ⊆ { bF ≤ 1 − ξ}. Since x ∈ ρK and ρK is convex, the intersection of the ray 
+
+{x + σt θ : t ≥ 0} with ρK is exactly the interval [0 , b ρσ]. Thus rejection implies mσj ≥ bρσ, so replacing 
+
+U σj by mσj preserves the second invariant. This proves (11). Consequently, upon termination, 
+
+bρσ − δbis ≤ bbσ ≤ bσ, σ ∈ { +1 , −1}.
+
+In particular, if bI := [ −bb−, bb+], then 
+
+bI ⊆ IK , |bI| ≥ | IρK | − 2δbis . (12) Notice that this argument uses only ρK ⊆ { bF ≤ 1 − ξ} ⊆ K and the convexity of K and ρK ; no convexity or linewise monotonicity of the noisy sublevel set { bF ≤ 1 − ξ} is required. Let bP denote the noisy transition kernel and define 
+
+e(x) := dTV 
+
+ P (x, ·), bP (x, ·).
+
+For the one-step kernel bound, set d := D(x) = 1 − F (x). If d ≤ qτ, then trivially 
+
+e(x) ≤ 1 = min 
+
+n
+
+1, qτ d
+
+o
+
+≤ min 
+
+n
+
+1, qτ d
+
+o
+
++ η. 
+
+28 Suppose now that d > qτ. Since ρq = (1 − τ )q ≥ 1 − qτ, we have F (x) = 1 − d < 1 − qτ ≤ ρq,
+
+and hence x ∈ ρK. Thus the preceding bisection invariants apply. Write sd := (1 − d)1/q . The same homothetic chord comparison used above gives |IρK ||IK | ≥ ρ − sd
+
+1 − sd
+
+.
+
+Therefore 
+
+1 − |IρK ||IK | ≤ 1 − ρ
+
+1 − sd
+
+= τ
+
+1 − (1 − d)1/q .
+
+Since g(d) := 1 − (1 − d)1/q is convex, g(0) = 0 , and g′(0) = 1 /q , 1 − (1 − d)1/q ≥ dq . Hence 
+
+1 − |IρK ||IK | ≤ qτ d . (13) We also need a lower bound on the exact chord length. Since x ∈ ρK , write x = ρy for some y ∈
+
+K. For every z ∈ rin Bn 
+
+> 2
+
+⊆ K, convexity gives ρy + τ z ∈ K. Thus x + τ r in Bn 
+
+> 2
+
+⊆ K, and consequently, in every direction, |IK | ≥ 2τ r in . Using δbis = ητ r in ,
+
+2δbis 
+
+|IK | ≤ η. (14) Conditional on the sampled direction θ, the exact and noisy Hit-and-Run transitions are respectively uniform on IK and bI. Since bI ⊆ IK ,
+
+dTV 
+
+
+
+Unif( IK ), Unif( bI)
+
+
+
+= 1 − |bI||IK | .
+
+By (12), (13), and (14), 
+
+1 − |bI||IK | ≤ 1 − |IρK ||IK | + 2δbis 
+
+|IK | ≤ qτ d + η. 
+
+Averaging over θ therefore yields 
+
+e(x) ≤ min 
+
+
+
+1, qτ D(x)
+
+
+
++ η. (15) Since min {1, a } ≤ aα, a ≥ 0, (10) and (15) imply 
+
+sup 
+
+> t≥0
+
+EXt∼δ0P t [e(Xt)] ≤ 2
+
+s
+
+ qτ d0
+
+α
+
++ η. (16) Using the telescoping identity bP T − P T = PT −1 
+
+> j=0
+
+P j ( bP − P ) bP T −1−j and contraction of total variation under Markov kernels, (16) gives 
+
+dTV 
+
+
+
+δ0 bP T , δ 0P T 
+
+≤ 2Ts
+
+ qτ d0
+
+α
+
++ T η. (17) By Corollary 1.2 of Lovász and Vempala [2006], the exact Hit-and-Run chain on a convex body containing a Euclidean ball of radius rin and contained in a Euclidean ball of radius Rout , when initialized at a point x0 ∈ K, satisfies 
+
+dTV 
+
+ δx0 P T , Unif( K) ≤ ε
+
+2
+
+29 provided 
+
+T ≥ Cn 3 R2out 
+
+r2in 
+
+log 2Rout 
+
+ε dist( x0, ∂K ) ,
+
+for an absolute constant C > 0. In our setting x0 = 0, and rin Bn 
+
+> 2
+
+⊂ K implies dist( 0, ∂K ) ≥ rin .
+
+Therefore, with ω := Rout 
+
+rin 
+
+, it suffices to take T =
+
+
+
+Cn 3ω2 log 2ωε
+
+
+
+, for which 
+
+dTV 
+
+ δ0P T , Unif( K) ≤ ε
+
+2 .
+
+Since T η = ε
+
+4 , it remains to impose 2Ts
+
+ qτ d0
+
+α
+
+≤ ε
+
+4 . By (2), it is sufficient that ξ ≤ c d 0
+
+ sε T
+
+1/α 
+
+.
+
+Using 1
+
+α = 1 + δ, d 0 = c0ϑ3
+
+> δ
+
+nω 2q2 , and T = O
+
+
+
+n3ω2 log 2ωε
+
+
+
+, we obtain 
+
+ξ ≤ cδ ε1+ δ
+
+q2n4+3 δω4+2 δ
+
+
+
+log 2ωε
+
+1+ δ ,
+
+where 
+
+cδ = cs 1+ δϑ3 
+
+> δ
+
+= c
+
+ δ
+
+1 + δ
+
+1+ δ  δ
+
+2(1 + δ)
+
+3(1+ δ)/δ 
+
+.
+
+The triangle inequality together with (17) therefore gives dTV 
+
+
+
+L( bXT ), Unif( K)
+
+
+
+≤ ε. 
+
+Finally, each endpoint bisection requires at most 
+
+
+
+log 2
+
+3Rout 
+
+δbis 
+
+
+
+oracle evaluations. Hence the total number of oracle calls is O
+
+
+
+T log ωητ 
+
+
+
+.
+
+B.3 Population Moments and Spectral Conditioning 
+
+We now quantify the population position and gradient moments generated by uniform sampling and verify that the resulting spectral pencil is sufficiently well conditioned for diagonalization. The following lemma provides the moment scales, envelope bounds, and spectral conditioning parameters used in the perturbation analysis of ASPIRE. 
+
+Lemma B.5 (Population moment bounds and spectral conditioning) . Fix 1 ≤ ℓ ≤ L − 2, and write 
+
+n := rℓ, q := qℓ, G := Gℓ, K := K♯ℓ . Let ρB n 
+
+> 2
+
+⊆ K ⊆ RB n 
+
+> 2
+
+, ω := Rρ , and let Z ∼ Unif( K). Define 
+
+Σx := E[ZZ ⊤], Σg := E[∇G(Z)∇G(Z)⊤].
+
+Then ρ2
+
+n + 2 ≤ ∥ Σx∥2 ≤ R2, q2
+
+R2(n + 2 q − 2) ≤ ∥ Σg∥2 ≤ q2
+
+ρ2 .
+
+In particular, 
+
+sup z∈K ∥zz ⊤∥2
+
+∥Σx∥2
+
+≤ (n + 2) ω2, sup z∈K ∥∇ G(z)∇G(z)⊤∥2
+
+∥Σg∥2
+
+≤ (n + 2 q − 2) ω2. (18) 30 Let C := C♯ℓ, U := C⊤Z, and write Σx = C−⊤ ΛC −1, Σg = CDC ⊤, where 
+
+Λ = diag( λ1, . . . , λ n), D = diag( d1, . . . , d n)
+
+. If θi := λidi, vi := ci
+
+∥ci∥2
+
+, V := [ v1, . . . , vn], then 
+
+cond( V) ≤ cond( C)2 ≤ 9κ20, ρℓ := ∥Σx∥2∥Σg∥2
+
+max i θi
+
+≤ (n + q)2ω2. (19) 
+
+Under the standing assumptions, this simplifies to cond( V) ≤ 9κ2, ρ ℓ ≤ Ck,L κ8r3.
+
+Proof. Set p(z) := G(z)1/q . Because G is positive definite, convex, even, and q-homogeneous, p is a norm whose unit ball is K. Homogeneity of Lebesgue measure then gives P(p(Z) ≤ t) = tn, 0 ≤ t ≤ 1.
+
+Consequently, for every a > −n,
+
+E[p(Z)a] = 
+
+Z 10
+
+ta d(tn) = n
+
+Z 10
+
+tn+a−1 dt = nn + a .
+
+The inclusions ρB n 
+
+> 2
+
+⊆ K ⊆ RB n 
+
+> 2
+
+are equivalent to ρp (z) ≤ ∥ z∥2 ≤ Rp (z), z ∈ Rn. Therefore 
+
+tr( Σx) = E∥Z∥22 ≥ ρ2E[p(Z)2] = ρ2 nn + 2 .
+
+Since Σx ⪰ 0,
+
+∥Σx∥2 ≥ 1
+
+n tr( Σx) ≥ ρ2
+
+n + 2 .
+
+On the other hand, Z ∈ K ⊆ RB n 
+
+> 2
+
+almost surely, so 0 ⪯ ZZ ⊤ ⪯ R2I and hence ∥Σx∥2 ≤ R2. These estimates also give 
+
+sup z∈K ∥zz ⊤∥2
+
+∥Σx∥2
+
+≤ (n + 2) R2
+
+ρ2 = ( n + 2) ω2.
+
+For z̸ = 0, differentiation of G = pq gives ∇G(z) = qp (z)q−1∇p(z). Let p∗ denote the dual norm. At every differentiability point of the norm p, p∗(∇p(z)) = 1 . The inclusion ρB n 
+
+> 2
+
+⊆ K implies 
+
+p∗(v) = sup 
+
+> p(x)≤1
+
+v⊤x ≥ ρ∥v∥2.
+
+Thus ∥∇ p(z)∥2 ≤ 1
+
+ρ , and consequently ∥∇ G(z)∥2 ≤ qρ p(z)q−1 ≤ qρ , z ∈ K. This proves ∥Σg∥2 ≤ q2
+
+ρ2 .
+
+For the reverse estimate, Euler’s identity gives z⊤∇G(z) = qG (z) = qp (z)q. Since ∥z∥2 ≤ Rp (z),Cauchy–Schwarz yields ∥∇ G(z)∥2 ≥ qR p(z)q−1. Therefore 
+
+tr( Σg) = E∥∇ G(Z)∥22 ≥ q2
+
+R2 E[p(Z)2q−2] = q2
+
+R2
+
+nn + 2 q − 2 .
+
+Hence 
+
+∥Σg∥2 ≥ 1
+
+n tr( Σg) ≥ q2
+
+R2(n + 2 q − 2) .
+
+31 Combining the upper envelope ∥∇ G(z)∥22 ≤ q2/ρ 2 with this lower bound gives 
+
+sup z∈K ∥∇ G(z)∇G(z)⊤∥2
+
+∥Σg∥2
+
+≤ (n + 2 q − 2) ω2.
+
+This proves (18). We next control the spectral pencil. The random vector U = C⊤Z is uniform on Hℓ := {u ∈
+
+Rn : h(ℓ)(u) ≤ 1}. Coordinatewise sign symmetry implies that Λ = E[UU ⊤] and 
+
+D = E[∇h(ℓ)(U)∇h(ℓ)(U)⊤]
+
+are diagonal. Let h := h(ℓ). On ∂H ℓ, h(u) = 1 . Euler’s identity gives u⊤∇h(u) = q, u ∈ ∂H ℓ, so 
+
+∇h doesn’t vanish on the boundary. The divergence theorem is applicable. For every coordinate i,
+
+Z
+
+> Hℓ
+
+∂i(uih(u)) du =
+
+Z
+
+> ∂H ℓ
+
+uih(u)νi(u) dS (u) = 
+
+Z
+
+> ∂H ℓ
+
+uiνi(u) dS (u) = |Hℓ|.
+
+Expanding the derivative on the left gives 
+
+Z
+
+> Hℓ
+
+h(u) du +
+
+Z
+
+> Hℓ
+
+ui∂ih(u) du = |Hℓ|.
+
+The same radial integration used above gives 1
+
+|Hℓ|
+
+R 
+
+> Hℓ
+
+h(u) du = nn + q . It follows that E[Ui∂ih(U)] = 1 − nn + q = qn + q . By Cauchy–Schwarz, 
+
+θi = E[U 2 
+
+> i
+
+]E[( ∂ih(U)) 2] ≥  E[Ui∂ih(U)] 2 = q2
+
+(n + q)2 .
+
+Consequently, 
+
+ρℓ = ∥Σx∥2∥Σg∥2
+
+max i θi
+
+≤ R2(q2/ρ 2)
+
+q2/(n + q)2 = ( n + q)2ω2.
+
+Finally, define S := diag( ∥c1∥2, . . . , ∥cn∥2). Then V = CS −1. For every i, σmin (C) ≤ ∥ ci∥2 ≤
+
+σmax (C), so 
+
+∥S∥2 ≤ σmax (C), ∥S−1∥2 ≤ σmin (C)−1.
+
+Therefore 
+
+cond( V) ≤ cond( C) cond( S) ≤ cond( C)2.
+
+Lemma B.1 gives cond( C) ≤ 3κ0, and hence cond( V) ≤ 9κ20. Together with 
+
+ω ≤ Ck,L κ4√r, n ≤ r, q = Ok,L (1) ,
+
+the pencil bound becomes ρℓ ≤ Ck,L κ8r3. This proves (19) and its stated simplification. 32 B.4 Stable Gradient and Empirical Moment Estimation 
+
+We finally convert multiplicative suffix-oracle accuracy and approximate sampling into accurate empirical estimates of the two moment matrices used by ASPIRE. The next lemma shows that polynomial interpolation converts a multiplicative function-value error into a controlled additive error in the recovered gradient. 
+
+Lemma B.6 (Stable gradient recovery from a multiplicative oracle) . Suppose an available oracle satisfies 
+
+| bGℓ(z) − Gℓ(z)| ≤ ξℓGℓ(z), z ∈ Rrℓ .
+
+Then, for every z ∈ K♯ℓ , one can construct bgℓ(z) using O(qℓrℓ) evaluations of bGℓ such that 
+
+∥bgℓ(z) − ∇ Gℓ(z)∥2 ≤ Cqℓ
+
+√rℓ
+
+rin ,ℓ 
+
+ξℓ.
+
+Proof. Write n := rℓ, q := qℓ, ρ := rin ,ℓ . Fix distinct nodes t0, . . . , t q ∈ [−1, 1] , and let L0, . . . , L q
+
+be the associated Lagrange basis polynomials. Set βa := L′
+
+> a
+
+(0) . For 1 ≤ j ≤ n, define Pj (t) := 
+
+Gℓ
+
+
+
+z + ρ
+
+2 tej
+
+
+
+. Since Gℓ has degree q, P ′ 
+
+> j
+
+(0) = Pqa=0 βaPj (ta). Define 
+
+bgℓ,j (z) := 2
+
+ρ
+
+> q
+
+X
+
+> a=0
+
+βa bGℓ
+
+
+
+z + ρ
+
+2 taej
+
+
+
+, pℓ := G1/q ℓ
+
+Since pℓ(z) ≤ 1, p ℓ(ρej ) ≤ 1, we have pℓ
+
+
+
+z + ρ
+
+2 taej
+
+
+
+≤ 32 . Hence Gℓ
+
+
+
+z + ρ
+
+2 taej
+
+
+
+≤
+
+ 32
+
+q
+
+. Therefore 
+
+|bgℓ,j (z) − ∂j Gℓ(z)| ≤ Cq
+
+ξℓ
+
+ρ .
+
+Summing over the coordinates proves ∥bgℓ(z) − ∇ Gℓ(z)∥2 ≤ Cq
+
+√nρ ξℓ.
+
+Combining gradient stability, total-variation control of the sampling distribution, and matrix concentration, the final lemma gives simultaneous relative-error guarantees for the two empirical moments. 
+
+Lemma B.7 (Empirical recovery of the two moments) . Fix 1 ≤ ℓ ≤ L − 2, write n := rℓ, q := 
+
+qℓ, ω := ωℓ, and let πℓ := Unif( K♯ℓ ). Suppose the endpoint distribution bπℓ of each independent noisy Hit-and-Run chain satisfies 
+
+dTV (bπℓ, π ℓ) ≤ ν, 
+
+and suppose that 
+
+| bGℓ(z) − Gℓ(z)| ≤ ξℓGℓ(z), z ∈ Rn.
+
+Let η, ζ ∈ (0 , 1/2) . There are constants cq, C q > 0, depending only on q, such that if 
+
+ν ≤ cqη
+
+(n + 2 q)ω2 , ξℓ ≤ cqη
+
+√n (n + 2 q)ω2 , (20) 
+
+and 
+
+m ≥ Cq(n + 2 q)ω2η−2 log 2nζ , (21) 33 then m independent endpoints are sufficient to construct 
+
+bΣx,ℓ = 1
+
+m
+
+> m
+
+X
+
+> i=1
+
+ZiZ⊤ 
+
+> i
+
+, bΣg,ℓ = 1
+
+m
+
+> m
+
+X
+
+> i=1
+
+bgℓ(Zi)bgℓ(Zi)⊤
+
+such that, with probability at least 1 − ζ,
+
+∥ bΣx,ℓ − Σx,ℓ ∥2 ≤ η∥Σx,ℓ ∥2, ∥ bΣg,ℓ − Σg,ℓ ∥2 ≤ η∥Σg,ℓ ∥2.
+
+In particular, under the standing assumptions it is sufficient that 
+
+ν ≤ ck,L κ−8ηr −2, ξℓ ≤ ck,L κ−8ηr −5/2, m ≥ Ck,L κ8r2η−2 log 2rζ .
+
+Proof. Write ρ := rin ,ℓ , R := Rout ,ℓ , g(z) := ∇Gℓ(z), e(z) := bgℓ(z) − g(z). We first control the bias caused by approximate sampling and by the multiplicative suffix oracle. For the position moment, every point of K♯ℓ has norm at most R, so ∥ZZ ⊤∥2 ≤ R2. The total-variation bound therefore implies 
+
+Ebπℓ [ZZ ⊤] − Eπℓ [ZZ ⊤] 2 ≤ 2R2ν. Using ∥Σx,ℓ ∥2 ≥ ρ2
+
+n + 2 , we obtain 
+
+Ebπℓ [ZZ ⊤] − Σx,ℓ 2
+
+∥Σx,ℓ ∥2
+
+≤ 2( n + 2) ω2ν. 
+
+For the gradient moment, Lemmas B.5 and B.6 give, for every z ∈ K♯ℓ , ∥g(z)∥2 ≤ qρ and 
+
+∥e(z)∥2 ≤ Cq
+
+√nρ ξℓ. The second inequality in (20) implies, after decreasing cq, that ∥e(z)∥2 ≤ qρ .
+
+Consequently, 
+
+∥bgℓ(z)∥2 ≤ ∥ g(z)∥2 + ∥e(z)∥2 ≤ 2qρ .
+
+Moreover, 
+
+bgℓ(z)bgℓ(z)⊤ − g(z)g(z)⊤ 
+
+> 2
+
+≤ ∥ g(z)e(z)⊤∥2 + ∥e(z)g(z)⊤∥2 + ∥e(z)e(z)⊤∥2 ≤ Cq
+
+√nρ2 ξℓ.
+
+Define the population moment under the noisy endpoint distribution by Σg,ℓ := Ebπℓ
+
+bgℓ(Z)bgℓ(Z)⊤ .
+
+Insert and subtract Ebπℓ [g(Z)g(Z)⊤]. The gradient-oracle contribution is bounded by 
+
+Ebπℓ [bgℓbg⊤ 
+
+> ℓ
+
+− gg ⊤] 2 ≤ Cq
+
+√nρ2 ξℓ.
+
+The total-variation contribution is bounded by 
+
+Ebπℓ [gg ⊤] − Eπℓ [gg ⊤] 2 ≤ 2 q2
+
+ρ2 ν. 
+
+Since ∥Σg,ℓ ∥2 ≥ q2
+
+R2(n + 2 q − 2) , we conclude that 
+
+∥Σg,ℓ − Σg,ℓ ∥2
+
+∥Σg,ℓ ∥2
+
+≤ Cq(n + 2 q)ω2  ν + √n ξ ℓ
+
+ .
+
+34 Together with the position-moment bound, the two conditions in (20) imply 
+
+Ebπℓ [ZZ ⊤] − Σx,ℓ 2 ≤ η
+
+2 ∥Σx,ℓ ∥2, ∥Σg,ℓ − Σg,ℓ ∥2 ≤ η
+
+2 ∥Σg,ℓ ∥2.
+
+It remains to control finite-sample fluctuations. Set Σx,ℓ := Ebπℓ [ZZ ⊤]. The population-bias estimates imply 
+
+∥Σx,ℓ ∥2 ≤
+
+
+
+1 + η
+
+2
+
+
+
+∥Σx,ℓ ∥2 ≤ 32 ∥Σx,ℓ ∥2, ∥Σg,ℓ ∥2 ≤ 32 ∥Σg,ℓ ∥2.
+
+We first consider the position moment. Let Xi := ZiZ⊤ 
+
+> i
+
+, Si := Xi − Σx,ℓ . Because each noisy Hit-and-Run endpoint lies in K♯ℓ ⊆ RB n 
+
+> 2
+
+, 0 ⪯ Xi ⪯ R2I. Furthermore, X2 
+
+> i
+
+= ∥Zi∥22Xi ⪯ R2Xi. We have ESi = 0 and ∥Si∥2 ≤ R2. The matrix variance satisfies 
+
+E[S2 
+
+> i
+
+] = E[X2 
+
+> i
+
+] − Σ 2 
+
+> x,ℓ
+
+⪯ E[X2 
+
+> i
+
+] ⪯ R2Σx,ℓ .
+
+Hence mX
+
+> i=1
+
+E[S2 
+
+> i
+
+]
+
+> 2
+
+≤ mR 2∥Σx,ℓ ∥2.
+
+The self-adjoint matrix Bernstein inequality gives, for every t > 0,
+
+P 1
+
+m
+
+> m
+
+X
+
+> i=1
+
+Xi − Σx,ℓ 
+
+> 2
+
+≥ t
+
+!
+
+≤ 2n exp 
+
+− mt 2
+
+2R2∥Σx,ℓ ∥2 + 23 R2t
+
+ .
+
+Take t := η
+
+2 ∥Σx,ℓ ∥2. Using η < 1/2 and the bound on ∥Σx,ℓ ∥2, we obtain 
+
+P
+
+
+
+∥ bΣx,ℓ − Σx,ℓ ∥2 ≥ η
+
+2 ∥Σx,ℓ ∥2
+
+
+
+≤ 2n exp 
+
+
+
+−cmη 2 ∥Σx,ℓ ∥2
+
+R2
+
+
+
+,
+
+where c > 0 is an absolute constant. Since R2
+
+∥Σx,ℓ ∥2
+
+≤ (n + 2) ω2, it follows that m ≥ Cq(n +2q)ω2η−2 log 2nζ makes the position fluctuation at most η
+
+2 ∥Σx,ℓ ∥2 with failure probability at most 
+
+ζ/ 2, after changing Cq by an absolute factor. We next consider the gradient moment. Let Yi := bgℓ(Zi)bgℓ(Zi)⊤, Ti := Yi − Σg,ℓ . The uniform gradient bound gives 0 ⪯ Yi ⪯ 4q2
+
+ρ2 I and Y2 
+
+> i
+
+= ∥bgℓ(Zi)∥22Yi ⪯ 4q2
+
+ρ2 Yi. Thus ETi = 0, ∥Ti∥2 ≤ 4q2
+
+ρ2 ,
+
+and E[T2 
+
+> i
+
+] = E[Y2 
+
+> i
+
+] − Σ 2 
+
+> g,ℓ
+
+⪯ E[Y2 
+
+> i
+
+] ⪯ 4q2
+
+ρ2 Σg,ℓ . Consequently, 
+
+> m
+
+X
+
+> i=1
+
+E[T2 
+
+> i
+
+]
+
+> 2
+
+≤ 4q2mρ2 ∥Σg,ℓ ∥2.
+
+Matrix Bernstein now yields 
+
+P
+
+
+
+∥ bΣg,ℓ − Σg,ℓ ∥2 ≥ t
+
+
+
+≤ 2n exp 
+
+
+
+− mt 2
+
+Cqρ−2(∥Σg,ℓ ∥2 + t)
+
+
+
+.
+
+35 Taking t := η
+
+2 ∥Σg,ℓ ∥2 gives 
+
+P
+
+
+
+∥ bΣg,ℓ − Σg,ℓ ∥2 ≥ η
+
+2 ∥Σg,ℓ ∥2
+
+
+
+≤ 2n exp  −cqmη 2ρ2∥Σg,ℓ ∥2
+
+ .
+
+By Lemma B.5, ∥Σg,ℓ ∥2 ≥ q2
+
+R2(n + 2 q − 2) . Therefore 
+
+1
+
+ρ2∥Σg,ℓ ∥2
+
+≤ R2(n + 2 q − 2) 
+
+ρ2q2 ≤ Cq(n + 2 q)ω2.
+
+The same sample-size condition thus makes the gradient fluctuation at most η
+
+2 ∥Σg,ℓ ∥2 with failure probability at most ζ/ 2.Combining the two concentration events with the two population-bias bounds and applying a union bound gives, with probability at least 1 − ζ,
+
+∥ bΣx,ℓ − Σx,ℓ ∥2 ≤ η∥Σx,ℓ ∥2, ∥ bΣg,ℓ − Σg,ℓ ∥2 ≤ η∥Σg,ℓ ∥2.
+
+Finally, Lemma B.2 gives ω2 ≤ Ck,L κ8r. Since n ≤ r and q = Ok,L (1) , (n + 2 q)ω2 ≤ Ck,L κ8r2
+
+and √n (n + 2 q)ω2 ≤ Ck,L κ8r5/2. Substituting these two inequalities into (20) and (21) gives the three sufficient conditions stated at the end of the lemma. 
+
+# C Recovery of the First Hidden Layer 
+
+This section establishes recovery of the first hidden layer, from identifying its column space to recovering the individual weight directions. 
+
+Proposition C.1 (Exact recovery of the first-layer column space) . Suppose that W1 ∈ Rd×r has full column rank and 
+
+f ⋆(x) = h(1) (W⊤ 
+
+> 1
+
+x),
+
+where h(1) : Rr → R is a positive definite homogeneous polynomial. Assume exact function-value queries to f ⋆, so that ∇f ⋆(x) can be recovered exactly by polynomial interpolation. Let x1, . . . , xm, m ≥ r, be independently sampled from an absolutely continuous distribution whose support contains a nonempty open set. Define 
+
+gi := ∇f ⋆(xi), G1 := [ g1, . . . , gm].
+
+Then, with probability one, col( G1) = col( W1). Hence col( W1) is recovered exactly from the top r
+
+left singular vectors of G1.Proof. By the chain rule, gi = W1∇h(1) (W⊤ 
+
+> 1
+
+xi), and therefore col( G1) ⊆ col( W1). Since h(1) is positive definite and homogeneous, 
+
+span 
+
+n
+
+∇h(1) (u) : u ∈ Rro
+
+= Rr.
+
+Indeed, otherwise there would exist c̸ = 0 such that c⊤∇h(1) (u) ≡ 0. The function t 7 → h(1) (u + tc)
+
+would then have zero derivative for every u and t, and hence would be constant. Taking u = 0
+
+would give h(1) (tc) = h(1) (0) = 0 for every t, contradicting positive definiteness. 36 It follows that there exist u1, . . . , ur ∈ Rr for which 
+
+det 
+
+h
+
+∇h(1) (u1), . . . , ∇h(1) (ur)
+
+i̸
+
+= 0 .
+
+Define the polynomial on (Rd)r by 
+
+Ψ( x1, . . . , xr) := det 
+
+h
+
+∇h(1) (W⊤ 
+
+> 1
+
+x1), . . . , ∇h(1) (W⊤ 
+
+> 1
+
+xr)
+
+i
+
+.
+
+Because W⊤ 
+
+> 1
+
+is surjective, for each ui one can choose xi satisfying W⊤ 
+
+> 1
+
+xi = ui. Hence Ψ is not the zero polynomial. The zero set of a nonzero real polynomial has Lebesgue measure zero, while the joint law of (x1, . . . , xr) is absolutely continuous. Therefore P Ψ( x1, . . . , xr) = 0  = 0 . Thus the first r latent gradients are linearly independent almost surely. Since m ≥ r,
+
+rank 
+
+h
+
+∇h(1) (W⊤ 
+
+> 1
+
+x1), . . . , ∇h(1) (W⊤ 
+
+> 1
+
+xm)
+
+i
+
+= r
+
+almost surely, which yields col( G1) = col( W1).
+
+Thus, an orthonormal basis B1 of col( W1) can be recovered exactly. 
+
+Proposition C.2 (Stable recovery of the first hidden layer) . Let d ≥ 2 and ε, ζ ∈ (0 , 1/2) . Suppose that the standing assumptions hold. Then 
+
+eOk,L dr + γ2r13 κO(1) 
+
+ε2
+
+!
+
+(22) 
+
+real function-value queries suffice to recover cW1 such that, with probability at least 1 − ζ, after suitably relabeling the recovered columns and choosing their signs, ∥cW1 − W1∥2 ≤ ε. 
+
+Proof. By Proposition C.1, col( W1) is recovered exactly with probability one. Let B1 ∈ Rd×r be an orthonormal basis of this subspace and set 
+
+C1 := B⊤ 
+
+> 1
+
+W1, C♯ 
+
+> 1
+
+:= C1, G 1(z) := f ⋆(B1z), K ♯ 
+
+> 1
+
+:= K1 := {z : G1(z) ≤ 1}.
+
+Then 
+
+W1 = B1C1, cond( C1) = cond( W1) ≤ κ0 ≤ κ, ∥c1,i ∥2 = 1 .
+
+Moreover, Lemma B.2 gives 
+
+ω1 := Rout ,1
+
+rin ,1
+
+≤ Ck,L κ4√r. 
+
+Let Z ∼ Unif( K1) and define 
+
+Σx, 1 := E[ZZ ⊤], Σg, 1 := E[∇G1(Z)∇G1(Z)⊤].
+
+Lemma B.5 yields 
+
+Σx, 1 = C−⊤  
+
+> 1
+
+Λ1C−11 , Σg, 1 = C1D1C⊤ 
+
+> 1
+
+,
+
+where D1, Λ1 are positive diagonal matrices and D1Λ1 = diag( θ1,1, . . . , θ 1,r ). Furthermore, ρ1 := 
+
+∥Σx, 1∥2∥Σg, 1∥2
+
+max i |θ1,i | ≤ Ck,L κ8r3. Set η := ck,L 
+
+εγκ 12 r7/2 , ν := ck,L κ−8ηr −2. Since G1 is available exactly, it satisfies 
+
+(1 − ξ)G1(z) ≤ G1(z) ≤ (1 + ξ)G1(z)
+
+37 for every ξ ∈ (0 , 1/2] . Let q1 := kL−1, and apply Lemma B.4 with δHR = 1 and target total-variation error ν. Let THR := 
+
+
+
+CHR r3ω21 log 2ω1
+
+ν
+
+
+
+be the number of Hit-and-Run steps for each independent chain, where CHR > 0 is the absolute constant supplied by Lemma B.4, and set ηHR := ν
+
+4THR 
+
+. Define 
+
+ξaux := min 
+
+(
+
+14 , c1ν2
+
+2q21 r7ω61
+
+ log 2ω1
+
+> ν
+
+2
+
+)
+
+,
+
+where c1 > 0 is the constant supplied by Lemma B.4 for δHR = 1 . Then the multiplicative-oracle hypothesis of that lemma holds with ξ = ξaux . Moreover, if 
+
+τaux := 1 −
+
+ 1 − ξaux 
+
+1 + ξaux 
+
+1/q 1
+
+,
+
+then, since 0 < ξ aux ≤ 1/4, τaux ≥ cq1 ξaux for a constant cq1 > 0 depending only on q1. Thus 
+
+log ω1
+
+ηHR τaux 
+
+is logarithmic in r, κ, γ, ε −1, ζ −1. Using ω21 ≤ Ck,L κ8r, Lemma B.4 therefore generates each sample within total variation ν of Unif( K1) using eOk,L (κ8r4) function-value queries. Since the oracle is exact, the gradients ∇G1 are recovered exactly by polynomial interpolation. Applying Lemma B.7 with bG1 = G1 and ξ1 = 0 shows that 
+
+m = Ok,L 
+
+
+
+κ8r2η−2 log 2rζ
+
+
+
+= Ok,L 
+
+ γ2κ32 r9
+
+ε2 log 2rζ
+
+
+
+samples suffice to obtain relative η-accurate estimates of both population moment matrices, with probability at least 1 − ζ.The normalized eigenvector matrix in Lemma A.6 is precisely C1, because its columns have unit Euclidean norm, and hence its condition number is at most κ. Assumption 3.5 and the choice of η
+
+therefore imply that, after relabeling and choosing signs, 
+
+max  
+
+> i
+
+∥bc1,i − c1,i ∥2 ≤ Ck,L γκ 12 r3η ≤ ck,L 
+
+ε
+
+√r .
+
+Therefore 
+
+∥ bC1 − C1∥2 ≤ ∥ bC1 − C1∥F ≤ √r max  
+
+> i
+
+∥bc1,i − c1,i ∥2 ≤ ε. 
+
+Setting cW1 := B1 bC1 and using B⊤ 
+
+> 1
+
+B1 = Ir gives the claimed operator-norm error. Finally, exact recovery of the first-layer column space uses r gradients, each obtained with Ok,L (d)
+
+real function-value queries, for a total of Ok,L (dr ). The sampling stage uses 
+
+m eOk,L (κ8r4) = eOk,L 
+
+ γ2κ40 r13 
+
+ε2 log 1
+
+ζ
+
+
+
+queries. This proves the claim. 38 D Stability of the Simulated Suffix Oracle 
+
+This section quantifies how errors in the recovered prefix propagate through prefix inversion and the resulting simulated suffix oracle. 
+
+Lemma D.1 (Stability of approximate prefix inversion) . Fix 2 ≤ ℓ ≤ L − 1. Suppose that, for every 
+
+1 ≤ j ≤ ℓ − 1,
+
+∥ cWj − Wj ∥2 ≤ ε<ℓ .
+
+Define bRj := cWj ( cW⊤ 
+
+> j
+
+cWj )−1.
+
+For y ∈ Rrℓ−1 , set zℓ−1 = y, and for j = ℓ − 1, . . . , 1, choose coordinatewise principal k-th root 
+
+ξj ∈ Crj such that ξ⊙kj = zj , and set zj−1 = bRj ξj . Starting from ez0 = z0, define the true forward iterates 
+
+ezj = ( W⊤ 
+
+> j
+
+ezj−1)⊙k, 1 ≤ j ≤ ℓ − 1.
+
+Let 
+
+ϑk := k − 12k , Pj := 
+
+r rrjjY
+
+> t=1
+
+rϑk 
+
+> t
+
+, 1 ≤ j ≤ ℓ − 1.
+
+There are constants ck,L , C k,L > 0, independent of the conditioning parameters, such that if 
+
+κO(ℓ)Pℓ−1ε<ℓ ≤ ck,L ,
+
+then 
+
+∥ezℓ−1 − y∥2 ≤ Ck,L κO(ℓ)Pℓ−1ε<ℓ ∥y∥2.
+
+Since Pℓ−1 ≤ rℓ/ 2, it is sufficient that 
+
+κO(ℓ)rℓ/ 2ε<ℓ ≤ ck,L , (23) 
+
+in which case 
+
+∥ezℓ−1 − y∥2 ≤ Ck,L κO(ℓ)rℓ/ 2ε<ℓ ∥y∥2. (24) 
+
+Proof. If y = 0, choose every coordinatewise k-th root in the backward recursion to be zero. Then all backward and forward iterates are zero, and the conclusion is immediate. Hence assume y̸ = 0.Lemma A.1 gives 
+
+σmin (W1) ≥ κ−10 , σmin (Wj ) ≥ κ−10
+
+r rj
+
+rj−1
+
+, 2 ≤ j ≤ ℓ − 1,
+
+and ∥Wj ∥2 ≤ κ0. Since the widths are nonincreasing, 
+
+r rj−1
+
+rj
+
+≤
+
+r rrℓ−1
+
+≤ Pℓ−1.
+
+Thus the assumed smallness condition, after decreasing ck,L , makes ε<ℓ ≤ σmin (Wj )/2 for every 
+
+j < ℓ . Weyl’s inequality gives full column rank of each cWj , together with 
+
+∥ bR1∥2 ≤ 2κ0, ∥ bRj ∥2 ≤ 2κ0
+
+r rj−1
+
+rj
+
+, 2 ≤ j ≤ ℓ − 1.
+
+39 In particular, the nonzero terminal value implies that every backward iterate is nonzero. Set 
+
+ε := ε<ℓ , ej := ezj − zj , Ej := ∥ej ∥2
+
+∥zj ∥2
+
+.
+
+Then E0 = 0 . Define the layer factors 
+
+b1 := rϑk , bj := 
+
+r rj−1
+
+rj
+
+rϑk 
+
+> j
+
+, j ≥ 2.
+
+Their products telescope: jY
+
+> t=1
+
+bt =
+
+r rrjjY
+
+> t=1
+
+rϑk 
+
+> t
+
+= Pj .
+
+Because cW⊤ 
+
+> j
+
+zj−1 = ξj , we may write 
+
+W⊤ 
+
+> j
+
+ezj−1 = ξj + ∆j ,
+
+where 
+
+∆j := ( Wj − cWj )⊤zj−1 + W⊤ 
+
+> j
+
+ej−1.
+
+Consequently, 
+
+∥∆j ∥2 ≤ (ε + κE j−1)∥zj−1∥2.
+
+The right-inverse bounds and the comparison between ℓ2 and ℓ2k give 
+
+∥zj−1∥2 ≤ Cκb j ∥ξj ∥2k.
+
+Thus 
+
+∥∆j ∥2k ≤ Cκb j (ε + κE j−1)∥ξj ∥2k.
+
+For a, b ∈ C,
+
+|(a + b)k − ak| ≤ k|b|(|a| + |b|)k−1.
+
+Applying this coordinatewise and using Hölder’s inequality gives 
+
+(ξj + ∆j )⊙k − ξ⊙kj 2 ≤ k∥∆j ∥2k
+
+ ∥ξj ∥2k + ∥∆j ∥2k
+
+k−1 .
+
+Set 
+
+aj := Cκb j (ε + κE j−1).
+
+The preceding estimate gives 
+
+∥∆j ∥2k ≤ aj ∥ξj ∥2k.
+
+Whenever aj ≤ 1,
+
+∥ej ∥2 = (ξj + ∆j )⊙k − ξ⊙kj 2 ≤ ka j (1 + aj )k−1∥ξj ∥k 
+
+> 2k
+
+≤ Ckκb j (ε + κE j−1)∥ξj ∥k
+
+> 2k
+
+.
+
+Since ∥zj ∥2 = ∥ξj ∥k
+
+> 2k
+
+, we obtain 
+
+Ej ≤ Ckκb j (ε + κE j−1). (25) 40 We verify the temporary smallness condition and solve the recursion simultaneously. We claim that constants A0, . . . , A ℓ−1, depending only on k, L , can be chosen so that 
+
+Ej ≤ Aj κ3j Pj ε, 0 ≤ j ≤ ℓ − 1. (26) where P0 := 1 . The assertion is immediate for j = 0 . If it holds through j − 1, then bj Pj−1 = Pj ,
+
+Pj−1 ≥ 1, and 
+
+Cκb j (ε + κE j−1) ≤ Ck,L κ3j Pj ε. 
+
+The assumed smallness condition makes the last quantity at most one, validating (25). Applying that recursion once more yields the claimed bound at j.Taking j = ℓ − 1 proves the profile-dependent estimate. Finally, because rj ≤ r, rℓ−1 ≥ 1, and 
+
+ϑk = ( k − 1) /(2 k) < 1/2,
+
+Pℓ−1 =
+
+r rrℓ−1
+
+> ℓ−1
+
+Y
+
+> j=1
+
+rϑk 
+
+> j
+
+≤ r1/2+ ϑk (ℓ−1) ≤ rℓ/ 2.
+
+This proves the simplified statements. 
+
+Lemma D.2 (Relative perturbation of a homogeneous polynomial) . Let G : Rn → R be a positive-definite, even, homogeneous polynomial of degree q, and suppose that p(x) := G(x)1/q is a norm on 
+
+Rn. Let GC denote the complexification of G, and define 
+
+pC(u + iv) := p(u) + p(v), u, v ∈ Rn.
+
+Then there exists a constant Cq > 0, depending only on q, such that for every z ∈ Rn \ { 0} and every 
+
+∆ ∈ Cn satisfying pC(∆) ≤ p(z), one has 
+
+|GC(z + ∆) − G(z)|
+
+G(z) ≤ Cq
+
+pC(∆)
+
+p(z) .
+
+Proof. Let A : ( Rn)q → R be the symmetric q-linear form associated with G, so that G(x) = 
+
+A(x, . . . , x). For x1, . . . , xq ∈ Rn, the real polarization identity is 
+
+A(x1, . . . , xq) = 12qq!
+
+X
+
+> ε∈{− 1,1}q
+
+
+
+> q
+
+Y
+
+> j=1
+
+εj
+
+ G
+
+
+
+> q
+
+X
+
+> j=1
+
+εj xj
+
+ . (27) Suppose first that p(xj ) ≤ 1 for every j. The triangle inequality for p gives p
+
+Pqj=1 εj xj
+
+
+
+≤ q, 
+
+and hence G
+
+Pqj=1 εj xj
+
+
+
+≤ qq. Applying this bound to (27) yields |A(x1, . . . , xq)| ≤ qq
+
+q! . If some 
+
+xj = 0, the desired bound is immediate. Otherwise, apply the preceding estimate to xj /p (xj ) for each j and use multilinearity. Thus, for arbitrary x1, . . . , xq,
+
+|A(x1, . . . , xq)| ≤ C(0) 
+
+> qq
+
+Y
+
+> j=1
+
+p(xj ), C(0)  
+
+> q
+
+:= qq
+
+q! . (28) 41 Let AC be the complex multilinear extension of A. Write wj = uj + ivj , and set xj, 0 := 
+
+uj , xj, 1 := vj . Multilinearity and (28) give 
+
+|AC(w1, . . . , wq)| ≤ C(0) 
+
+> q
+
+X
+
+> α∈{ 0,1}q
+> q
+
+Y
+
+> j=1
+
+p(xj,α j ) = C(0) 
+
+> qq
+
+Y
+
+> j=1
+
+ p(uj ) + p(vj ) = C(0) 
+
+> qq
+
+Y
+
+> j=1
+
+pC(wj ).
+
+Therefore, 
+
+|GC(z + ∆) − G(z)| =
+
+> q
+
+X
+
+> j=1
+
+qj
+
+
+
+AC
+
+ z⊗(q−j), ∆⊗j  ≤ C(0) 
+
+> qq
+
+X
+
+> j=1
+
+qj
+
+
+
+p(z)q−j pC(∆)j .
+
+Set t := pC(∆)
+
+p(z) . Since t ≤ 1, (1 + t)q − 1 ≤ (2 q − 1) t. Hence 
+
+|GC(z + ∆) − G(z)| ≤ Cqp(z)q pC(∆)
+
+p(z) .
+
+Finally, p(z)q = G(z), which proves the claim. 
+
+Lemma D.3 (Multiplicative error of the simulated suffix oracle) . Fix 2 ≤ ℓ ≤ L − 2, and suppose 
+
+bBℓ satisfies the hypotheses of Lemma B.2. Let 
+
+ε<ℓ := max  
+
+> 1≤j≤ℓ−1
+
+∥ cWj − Wj ∥2.
+
+For z ∈ Rrℓ , set y = bBℓz, construct z0 ∈ Cd by approximate prefix inversion, and define 
+
+bGℓ(z) := Re f ⋆
+
+> C
+
+(z0).
+
+There are constants ck,L , C k,L > 0 such that if 
+
+κO(ℓ)rℓ/ 2ε<ℓ ≤ ck,L , (29) 
+
+then 
+
+| bGℓ(z) − Gℓ(z)| ≤ Ck,L κO(ℓ)rℓ/ 2ε<ℓ Gℓ(z), z ∈ Rrℓ . (30) 
+
+Proof. Let 
+
+ϑk := k − 12k , Pℓ−1 := 
+
+r rrℓ−1
+
+> ℓ−1
+
+Y
+
+> j=1
+
+rϑk 
+
+> j
+
+, eℓ−1 := ezℓ−1 − y.
+
+The profile-dependent form of Lemma D.1 gives 
+
+∥eℓ−1∥2 ≤ Ck,L κO(ℓ)Pℓ−1ε<ℓ ∥y∥2.
+
+Define the induced perturbation in reduced coordinates by 
+
+∆ℓ := ( C♯ℓ)−⊤ W⊤ 
+
+> ℓ
+
+eℓ−1.
+
+42 Then (C♯ℓ)⊤∆ℓ = W⊤ 
+
+> ℓ
+
+eℓ−1. Since y = bBℓz and C♯ℓ = bB⊤ 
+
+> ℓ
+
+Wℓ, (C♯ℓ)⊤z = W⊤ 
+
+> ℓ
+
+y. Consequently, 
+
+(C♯ℓ)⊤(z + ∆ℓ) = W⊤ 
+
+> ℓ
+
+(y + eℓ−1).
+
+The true forward pass from the approximately inverted input reaches y + eℓ−1 immediately before layer ℓ, and hence 
+
+f ⋆
+
+> C
+
+(z0) = Gℓ, C(z + ∆ℓ).
+
+To bound the reduced perturbation without introducing an artificial inverse aspect ratio, write 
+
+Wℓ = BℓCℓ, Qℓ := bB⊤ 
+
+> ℓ
+
+Bℓ.
+
+Then C♯ℓ = QℓCℓ, and the exact identity 
+
+(C♯ℓ)−⊤ W⊤ 
+
+> ℓ
+
+= Q−⊤  
+
+> ℓ
+
+B⊤
+
+> ℓ
+
+holds. Lemma B.1 gives σmin (Qℓ) ≥ 1 − εB,ℓ ≥ 1/2, so 
+
+∥∆ℓ∥2 ≤ 2∥eℓ−1∥2 ≤ Ck,L κO(ℓ)Pℓ−1ε<ℓ ∥z∥2.
+
+Here we used the orthonormality of bBℓ, which gives ∥y∥2 = ∥z∥2.If z = 0, choose the zero k-th root at every step of the approximate prefix inversion. Then both sides vanish exactly. Henceforth assume z̸ = 0. Because Gℓ is positive definite, convex, even, and 
+
+qℓ-homogeneous, 
+
+pℓ(z) := Gℓ(z)1/q ℓ
+
+is a norm with unit ball K♯ℓ . The radius inclusions imply 
+
+∥z∥2
+
+Rout ,ℓ 
+
+≤ pℓ(z) ≤ ∥z∥2
+
+rin ,ℓ 
+
+.
+
+For w = u + iv, define pℓ, C(w) := pℓ(u) + pℓ(v). Then pℓ, C(∆ℓ)
+
+pℓ(z) ≤ Ck,L ωℓκO(ℓ)Pℓ−1ε<ℓ . Lemma B.2 and the monotonicity rℓ ≤ rℓ−1 give 
+
+ωℓPℓ−1 ≤ Ck,L κ4√rℓ
+
+r rrℓ−1
+
+> ℓ−1
+
+Y
+
+> j=1
+
+rϑk 
+
+> j
+
+≤ Ck,L κ4√r
+
+> ℓ−1
+
+Y
+
+> j=1
+
+rϑk 
+
+> j
+
+≤ Ck,L κ4r1/2+ ϑk (ℓ−1) ≤ Ck,L κ4rℓ/ 2.
+
+Thus pℓ, C(∆ℓ)
+
+pℓ(z) ≤ Ck,L κO(ℓ)rℓ/ 2ε<ℓ .
+
+Condition (29) makes this quantity at most one. Lemma D.2 yields 
+
+|Gℓ, C(z + ∆ℓ) − Gℓ(z)|
+
+Gℓ(z) ≤ Ck,L κO(ℓ)rℓ/ 2ε<ℓ .
+
+Finally, bGℓ(z) = Re f ⋆
+
+> C
+
+(z0) and Gℓ(z) is real, so taking the real part cannot increase the absolute error. This proves (30). 43 E Recovery of Intermediate Hidden Layers 
+
+This section establishes the inductive recovery step for each intermediate hidden layer, combining column-space estimation with convex-body sampling and spectral diagonalization. 
+
+E.1 Stable Recovery of the Intermediate-Layer Column Space 
+
+We first show that suitably chosen query points and directional derivatives recover the column space of the next hidden weight matrix despite errors in the previously recovered prefix. 
+
+Proposition E.1 (Stable recovery of the intermediate-layer column space) . Fix 2 ≤ ℓ ≤ L − 2 and 
+
+d ≥ 2. Suppose that the standing assumptions hold and that, after the consistent relabeling inherited from the previous stages, 
+
+max  
+
+> 1≤j<ℓ
+
+∥ cWj − Wj ∥2 ≤ εW .
+
+For any εB , ζ ∈ (0 , 1/2) , it is sufficient that 
+
+εW ≤ ck,L εB
+
+κO(L)r7/2 (31) 
+
+and 
+
+m ≥ Ck,L κO(L) r6
+
+ε2
+
+> B
+
+log 2rζ . (32) 
+
+Under these conditions, one can construct an orthonormal matrix bBℓ such that, with probability at least 1 − ζ, after orthogonal alignment, 
+
+∥ bBℓ − Bℓ∥2 ≤ εB .
+
+The total number of additional real function-value queries is at most 
+
+eOk,L 
+
+
+
+r7κO(L)ε−2
+
+> B
+
+
+
+. (33) 
+
+Proof. Throughout this proof, CL and cL denote generic positive quantities that may change from line to line and satisfy 
+
+1 ≤ CL ≤ Ck,L κO(L), ck,L κ−O(L) ≤ cL ≤ 1.
+
+This convention records every use of κ0 and μ−1 without suppressing their polynomial dependence. If rℓ = rℓ−1, then Wℓ is square and invertible by Assumption 3.4, so col( Wℓ) = Rrℓ−1 . Hence no subspace estimation is needed: we may simply take bBℓ = Irℓ−1 , and the asserted basis error is zero after orthogonal alignment. Thus, in the remainder of the proof, we may assume rℓ < r ℓ−1.Condition on the previously recovered matrices cW1, . . . , cWℓ−1 satisfying the assumed error bound, with the first-layer signs chosen as in the statement. All probabilities below are with respect to the fresh samples used in this stage. Let 
+
+I = [1 , 2] , Z1, . . . , Zm i.i.d.
+
+∼ Unif( Ir),
+
+and write Ti := Z⊙1/k i . Define 
+
+bR1 := cW1( cW⊤ 
+
+> 1
+
+cW1)−1, xi := bR1Ti.
+
+44 By Lemma A.1 and Weyl’s inequality, cW1 has full column rank and ∥ bR1∥2 ≤ CL whenever εW is sufficiently small. Hence ∥xi∥2 ≤ CL
+
+√r. Moreover, 
+
+cW⊤ 
+
+> 1
+
+xi = Ti, σ( cW⊤ 
+
+> 1
+
+xi) = Zi.
+
+Thus the query points are obtained by inverting only the first layer. We first establish uniform regularity of the true prefix on these query points. Set A := W⊤ 
+
+> 1
+
+bR1.
+
+Since cW⊤ 
+
+> 1
+
+bR1 = Ir, we have 
+
+A − Ir = ( W1 − cW1)⊤ bR1,
+
+and therefore ∥A − Ir∥2 ≤ CLεW . For T ∈ [1 , 21/k ]r, ∥(A − Ir)T∥∞ ≤ CL
+
+√r ε W . Since the assumed upper bound on εW implies √r ε W ≤ cL, after decreasing cL if necessary, 12 ≤ (AT )s ≤ 3, 1 ≤ s ≤ r. 
+
+For T ∈ [1 , 21/k ]r, define the true forward maps 
+
+H1(T) := AT , Φ2(T) := H1(T)⊙k,
+
+and recursively, for 2 ≤ j ≤ ℓ − 1, Hj (T) := W⊤ 
+
+> j
+
+Φj (T), Φj+1 (T) := Hj (T)⊙k. Thus Φℓ(T) = 
+
+ϕℓ( bR1T). Since every Wj , j ≥ 2, is nonnegative and satisfies W⊤ 
+
+> j
+
+1 = 1, each coordinate of W⊤ 
+
+> j
+
+v
+
+is a convex combination of the coordinates of v. Therefore, by induction, there exist constants 
+
+0 < c L < C L < ∞ such that cL ≤ (Hj (T)) s ≤ CL for every 1 ≤ j ≤ ℓ − 1, every admissible coordinate s, and every T ∈ [1 , 21/k ]r. Consequently, if 
+
+Dj (T) := diag 
+
+
+
+Hj (T)⊙(k−1) 
+
+, 1 ≤ j ≤ ℓ − 1,
+
+then cLI ⪯ Dj (T) ⪯ CLI. Furthermore, 
+
+DΦℓ(T) = kℓ−1Dℓ−1(T)W⊤ 
+
+> ℓ−1
+
+· · · D2(T)W⊤ 
+
+> 2
+
+D1(T)A.
+
+By Lemma A.1, σmin (Wj ) ≥ 1
+
+κ0
+
+r rj
+
+rj−1
+
+, ∥Wj ∥2 ≤ κ0, 2 ≤ j ≤ ℓ − 1, and A has all its singular values in a fixed neighborhood of one. For compatible full-row-rank matrices P ∈ Rm×n and Q ∈ Rn×p,
+
+σm(PQ ) ≥ σm(P)σn(Q), since 
+
+PQQ ⊤P⊤ ⪰ σn(Q)2PP ⊤.
+
+Applying this inequality successively to the preceding product, and using the telescoping product of aspect ratios, gives 
+
+σrℓ−1 (DΦℓ(T)) ≥ cLℓ−1Y
+
+> j=2
+
+r rj
+
+rj−1
+
+= cL
+
+r rℓ−1
+
+r .
+
+Define Uℓ(T) := W⊤ 
+
+> ℓ
+
+Φℓ(T). Then DUℓ(T) = W⊤ 
+
+> ℓ
+
+DΦℓ(T), and another application of the same product inequality yields 
+
+σrℓ (DUℓ(T)) ≥ cL
+
+r rℓ
+
+rℓ−1
+
+r rℓ−1
+
+r = cL
+
+r rℓ
+
+r .
+
+We also need uniform positivity of the hidden states appearing in the suffix network. For 
+
+ℓ ≤ j ≤ L − 2, define recursively 
+
+Uj+1 (T) := W⊤
+
+> j+1
+
+Uj (T)⊙k.
+
+45 The bound on Φℓ(T), together with the fact that W⊤ 
+
+> ℓ
+
+1 = 1, first gives cL ≤ (Uℓ(T)) s ≤ CL.
+
+If the same bounds hold for Uj (T), then each coordinate of Uj+1 (T) is a convex combination of the coordinates of Uj (T)⊙k. Hence, after adjusting the constants depending only on k, L ,
+
+cL ≤ (Uj (T)) s ≤ CL, ℓ ≤ j ≤ L − 1, uniformly in T ∈ [1 , 21/k ]r.We require a uniform lower bound for the Hessian of the suffix network. Recall that Fℓ(y) = 
+
+h(ℓ)(W⊤ 
+
+> ℓ
+
+y). We claim that, for every ℓ ≤ j ≤ L − 1, ∇h(j)(Uj (T)) ≥ cL
+
+rj
+
+1 coordinatewise and 
+
+∇2h(j)(Uj (T)) ⪰ cL
+
+rj
+
+I uniformly in T. For j = L − 1, h(L−1) (u) = a⊤u⊙k, so ∇h(L−1) (u) = 
+
+k a ⊙ u⊙(k−1) , and ∇2h(L−1) (u) = k(k − 1) diag  a ⊙ u⊙(k−2)  . The coordinates of UL−1(T) are uniformly bounded below, and Assumption 3.4 at ℓ = L gives ai ≥ μ/r L−1, proving the claim at 
+
+j = L − 1.Suppose it holds at j + 1 . Write 
+
+u := Uj (T), v := Uj+1 (T) = W⊤
+
+> j+1
+
+u⊙k, Du := diag( u⊙(k−1) ).
+
+By the chain rule, 
+
+∇h(j)(u) = kDuWj+1 ∇h(j+1) (v).
+
+Since Wj+1 1rj+1 ≥ μ rj+1 
+
+rj
+
+1rj , the induction hypothesis gives Wj+1 ∇h(j+1) (v) ≥ cL
+
+rj
+
+1. Together with the uniform positive lower bound on u, this proves the gradient claim. A second differentiation gives 
+
+∇2h(j)(u) = k2DuWj+1 ∇2h(j+1) (v)W⊤
+
+> j+1
+
+Du + k(k − 1) diag 
+
+
+
+u⊙(k−2) ⊙ Wj+1 ∇h(j+1) (v)
+
+
+
+.
+
+The first term is positive semidefinite, while the second is bounded below by cLr−1 
+
+> j
+
+I, proving the claim. Define qℓ(T) := ∇h(ℓ)(Uℓ(T)) ∈ Rrℓ . By the chain rule, Dqℓ(T) = ∇2h(ℓ)(Uℓ(T)) DUℓ(T). The preceding Hessian and Jacobian lower bounds imply 
+
+σrℓ (Dqℓ(T)) ≥ cL
+
+rℓ
+
+r rℓ
+
+r = cL
+
+√rr ℓ
+
+,
+
+uniformly over T ∈ [1 , 21/k ]r. This pointwise differential lower bound yields a population second-moment lower bound. Let T = Z⊙1/k , where Z ∼ Unif([1 , 2] r). The coordinates of T are independent and have density ρ(t) = kt k−1, 1 ≤ t ≤ 21/k . In particular, ρ is bounded above and below by positive constants depending only on k. Let Dk,L be an upper bound, depending only on k, L , for the degree of each coordinate of qℓ(T) as a polynomial in T. For example, one may take Dk,L = kL−1. Set 
+
+Ik := [1 , 21/k ], h k := 2 1/k − 1, and define the explicit constant 
+
+Cinv (k, L ) := 2(k−1) /k Dk,L (Dk,L + 1) 2(Dk,L + 2) (2 1/k − 1) 2 .
+
+With the concrete choice Dk,L = kL−1, this becomes 
+
+Cinv (k, L ) = 2(k−1) /k kL−1(kL−1 + 1) 2(kL−1 + 2) (2 1/k − 1) 2 .
+
+46 We claim that every univariate polynomial p of degree at most Dk,L satisfies 
+
+Z
+
+> Ik
+
+|p′(t)|2ρ(t) dt ≤ Cinv (k, L )
+
+Z
+
+> Ik
+
+p(t) −
+
+Z
+
+> Ik
+
+p(s)ρ(s) ds 
+
+> 2
+
+ρ(t) dt. 
+
+To prove this, let 
+
+q(t) := p(t) −
+
+Z
+
+> Ik
+
+p(s)ρ(s) ds. 
+
+Then q′ = p′ and deg q ≤ Dk,L . Make the affine change of variables 
+
+t = 1 + hk
+
+2 (x + 1) , Q(x) := q(t), −1 ≤ x ≤ 1.
+
+Write D := Dk,L , let Pn denote the n-th Legendre polynomial, and set 
+
+φn(x) := 
+
+r 2n + 1 2 Pn(x), 0 ≤ n ≤ D. 
+
+Then {φ0, . . . , φ D} is an orthonormal basis for the polynomials of degree at most D in L2([ −1, 1]) .Write Q = PDn=0 anφn. The Legendre identity 
+
+P ′
+
+> n
+
+(x) − P ′
+
+> n−2
+
+(x) = (2 n − 1) Pn−1(x), n ≥ 2,
+
+together with P ′ 
+
+> 1
+
+= P0, gives by iteration 
+
+P ′ 
+
+> n
+
+= X 
+
+> 0≤j≤n−1
+> n−jodd
+
+(2 j + 1) Pj .
+
+Using the orthogonality relation R 1 
+
+> −1
+
+Pj (x)2 dx = 22j + 1 , we obtain 
+
+∥P ′
+
+> n
+
+∥2 
+
+> L2(−1,1)
+
+= n(n + 1) , ∥φ′
+
+> n
+
+∥2 
+
+> L2(−1,1)
+
+= (2 n + 1) n(n + 1) 2 .
+
+Hence, by the triangle inequality followed by Cauchy–Schwarz, 
+
+∥Q′∥2 
+
+> L2(−1,1)
+
+≤
+
+> D
+
+X
+
+> n=0
+
+|an|∥ φ′
+
+> n
+
+∥L2(−1,1) 
+
+!2
+
+≤
+
+> D
+
+X
+
+> n=0
+
+a2
+
+> n
+
+! DX
+
+> n=0
+
+∥φ′
+
+> n
+
+∥2
+
+> L2(−1,1)
+
+!
+
+= D(D + 1) 2(D + 2) 4 ∥Q∥2
+
+> L2(−1,1)
+
+.
+
+Rescaling from [−1, 1] back to Ik therefore gives 
+
+Z
+
+> Ik
+
+|q′(t)|2 dt ≤ D(D + 1) 2(D + 2) 
+
+h2
+
+> k
+
+Z
+
+> Ik
+
+|q(t)|2 dt. 
+
+47 Finally, on Ik, k ≤ ρ(t) = kt k−1 ≤ k 2(k−1) /k . Consequently, 
+
+Z
+
+> Ik
+
+|q′(t)|2ρ(t) dt ≤ k 2(k−1) /k 
+
+Z
+
+> Ik
+
+|q′(t)|2 dt 
+
+≤ Cinv (k, L )k
+
+Z
+
+> Ik
+
+|q(t)|2 dt 
+
+≤ Cinv (k, L )
+
+Z
+
+> Ik
+
+|q(t)|2ρ(t) dt, 
+
+which proves the claimed one-dimensional inverse inequality. Fix v ∈ Rrℓ with ∥v∥2 = 1 , and set pv(T) := v⊤qℓ(T). Then 
+
+∇pv(T) = Dqℓ(T)⊤v, ∥∇ pv(T)∥2 ≥ cL
+
+√rr ℓ
+
+.
+
+For each 1 ≤ s ≤ r, condition on all coordinates of T except Ts and apply the preceding one-dimensional inequality to the polynomial Ts 7 → pv(T). Since the conditional law of Ts is still 
+
+ρ(t) dt ,
+
+E[( ∂spv(T)) 2] ≤ Cinv (k, L ) Var( pv(T)) .
+
+Summing over s gives 
+
+E∥∇ pv(T)∥22 ≤ Cinv (k, L )r Var( pv(T)) .
+
+On the other hand, 
+
+E∥∇ pv(T)∥22 ≥ cL
+
+rr ℓ
+
+.
+
+Therefore, after absorbing the constant Cinv (k, L ) into cL, Var( pv(T)) ≥ cL
+
+r2rℓ
+
+. Since v was arbitrary, 
+
+Cov( qℓ(T)) ⪰ cL
+
+r2rℓ
+
+Irℓ . Consequently, E[qℓ(T)qℓ(T)⊤] ⪰ cL
+
+r2rℓ
+
+Irℓ . For 
+
+gℓ(T) := ∇Fℓ(Φℓ(T)) = Wℓqℓ(T),
+
+define the population moment Mℓ := E[gℓ(T)gℓ(T)⊤]. Then Mℓ = WℓE[qℓ(T)qℓ(T)⊤]W⊤ 
+
+> ℓ
+
+, and therefore col( Mℓ) = col( Wℓ), while Lemma A.1 gives 
+
+λrℓ (Mℓ) ≥ cL
+
+r2rℓ
+
+rℓ
+
+rℓ−1
+
+= cL
+
+r2rℓ−1
+
+, λrℓ+1 (Mℓ) = 0 .
+
+For the recovered-gradient error, fix a query point x = bR1T, let Jℓ(x) := Dϕℓ(x), and let bJℓ(x)
+
+denote the Jacobian obtained by replacing the prefix matrices by their recovered versions. We prove simultaneously by induction that 
+
+max  
+
+> 1≤j<ℓ
+
+∥bhj (x) − hj (x)∥2 ≤ CL
+
+√r ε W (34) and that every coordinate of each true and estimated hidden state up to layer ℓ − 1 lies in a fixed interval [−CL, C L]. At the first layer, bh1(x) = T, h1(x) = AT , so 
+
+∥bh1(x) − h1(x)∥2 ≤ εW ∥x∥2 ≤ CL
+
+√r ε W .
+
+48 Suppose the claims hold through layer j − 1. The map t 7 → tk is Lipschitz on the fixed interval containing the true and estimated coordinates, and ∥σ(bhj−1)∥2 ≤ CL
+
+√r. Using ∥Wj ∥2 ≤ κ0 gives 
+
+∥bhj (x) − hj (x)∥2 ≤ CL
+
+√r ε W .
+
+The prefix condition makes √r ε W sufficiently small, which also preserves the fixed coordinate interval and closes the induction. For 1 ≤ j < ℓ , write 
+
+Dj (x) := diag 
+
+
+
+hj (x)⊙(k−1) 
+
+, bDj (x) := diag 
+
+bhj (x)⊙(k−1) 
+
+.
+
+The true and recovered prefix Jacobians are 
+
+Jℓ(x) = kℓ−1Dℓ−1W⊤ 
+
+> ℓ−1
+
+· · · D1W⊤
+
+> 1
+
+and bJℓ(x) = kℓ−1 bDℓ−1 cW⊤ 
+
+> ℓ−1
+
+· · · bD1 cW⊤ 
+
+> 1
+
+.
+
+On the fixed coordinate interval established above, the derivative of t 7 → tk−1 is uniformly bounded. Hence 
+
+∥ bDj − Dj ∥2 ≤ CL∥bhj − hj ∥∞ ≤ CL
+
+√r ε W .
+
+For compatible matrix products, 
+
+Am · · · A1 − Bm · · · B1 =
+
+> m
+
+X
+
+> s=1
+
+Am · · · As+1 (As − Bs)Bs−1 · · · B1.
+
+All remaining factors in the two Jacobian products have operator norm at most CL. Applying the preceding identity gives 
+
+∥bJℓ(x) − Jℓ(x)∥2 ≤ CL
+
+√r ε W .
+
+Since Φℓ(T) = ϕℓ( bR1T), x = bR1T, the chain rule gives DΦℓ(T) = Jℓ(x) bR1. Using ∥ bR1∥2 ≤ CL
+
+and the lower bound already obtained for DΦℓ(T),
+
+σrℓ−1 (Jℓ(x)) ≥ σrℓ−1 (DΦℓ(T)) 
+
+∥ bR1∥2
+
+≥ cL
+
+r rℓ−1
+
+r .
+
+The prefix condition makes ∥bJℓ −Jℓ∥2 ≤ 12 σrℓ−1 (Jℓ). Weyl’s inequality therefore yields σrℓ−1 (bJℓ(x)) ≥
+
+cL
+
+r rℓ−1
+
+r , after adjusting the constants cL, C L. Recovering the full gradient ∇f ⋆(x) ∈ Rd is unnecessary. For 1 ≤ j ≤ rℓ−1, define vj (x) := bJℓ(x)⊤ej ∈ Rd. By Subsection 4.1, the directional derivative bj (x) := Dvj (x)f ⋆(x) can be recovered exactly using Ok,L (1) real function-value queries. Moreover, 
+
+bj (x) = e⊤ 
+
+> j
+
+bJℓ(x)∇f ⋆(x).
+
+Thus, with 
+
+b(x) := ( b1(x), . . . , b rℓ−1 (x)) ⊤,
+
+we recover exactly 
+
+b(x) = bJℓ(x)∇f ⋆(x)
+
+49 using Ok,L (rℓ−1) real function-value queries. Define 
+
+bgℓ(x) := ( bJℓbJ⊤ 
+
+> ℓ
+
+)−1b(x).
+
+Equivalently, 
+
+bgℓ(x) = ( bJℓbJ⊤ 
+
+> ℓ
+
+)−1bJℓ∇f ⋆(x).
+
+As in the original chain-rule calculation, 
+
+bgℓ − gℓ = ( bJ⊤ 
+
+> ℓ
+
+)†(Jℓ − bJℓ)⊤gℓ.
+
+Hence 
+
+∥bgℓ(x) − gℓ(x)∥2 ≤ CL
+
+r
+
+√rℓ−1
+
+εW ∥gℓ(x)∥2.
+
+It remains to bound the gradient envelope without an output-weight ratio. At the final suffix layer, the fixed coordinate bounds and ∥a∥1 = 1 give 
+
+∥∇ h(L−1) (UL−1)∥1 ≤ CL.
+
+For every nonnegative vector v, column normalization gives 
+
+∥Wj v∥1 = 1⊤Wj v = ( W⊤ 
+
+> j
+
+1)⊤v = ∥v∥1.
+
+The diagonal derivative factors are uniformly bounded, so backward induction yields 
+
+∥qℓ(T)∥2 ≤ ∥ qℓ(T)∥1 ≤ CL, ∥gℓ(T)∥2 ≤ CL.
+
+It follows that, uniformly in i,
+
+bgℓ(Ti)bgℓ(Ti)⊤ − gℓ(Ti)gℓ(Ti)⊤ 
+
+> 2
+
+≤ CL
+
+r
+
+√rℓ−1
+
+εW .
+
+Define Mℓ,m := 1
+
+m
+
+Pmi=1 gℓ(Ti)gℓ(Ti)⊤ and cMℓ,m := 1
+
+m
+
+Pmi=1 bgℓ(Ti)bgℓ(Ti)⊤. Then determinis-tically, 
+
+∥cMℓ,m − Mℓ,m ∥2 ≤ CL
+
+r
+
+√rℓ−1
+
+εW .
+
+Furthermore, 
+
+∥gℓ(Ti)gℓ(Ti)⊤∥2 ≤ CL.
+
+Matrix Bernstein’s inequality therefore implies that, with probability at least 1 − ζ,
+
+∥Mℓ,m − Mℓ∥2 ≤ CL
+
+r log( r/ζ )
+
+m + log( r/ζ )
+
+m
+
+!
+
+.
+
+The assumed sample size makes this at most cLεB
+
+r2rℓ−1
+
+. Similarly, because rℓ−1 ≤ r, the prefix condition gives CL
+
+r
+
+√rℓ−1
+
+εW ≤ cLεB
+
+r2rℓ−1
+
+. Consequently, ∥cMℓ,m − Mℓ∥2 ≤ cLεB
+
+r2rℓ−1
+
+. Since λrℓ (Mℓ) ≥
+
+cL
+
+r2rℓ−1
+
+, λ rℓ+1 (Mℓ) = 0 , Davis–Kahan’s theorem yields bBℓ bB⊤ 
+
+> ℓ
+
+− BℓB⊤  
+
+> ℓ2
+
+≤ CLεB , where bBℓ consists 50 of the eigenvectors corresponding to the rℓ largest eigenvalues of cMℓ,m . For two orthonormal bases of subspaces with projector distance at most η < 1, an orthogonal alignment R exists with 
+
+∥ bBℓR − Bℓ∥2 ≤ √2 ∥ bBℓ bB⊤ 
+
+> ℓ
+
+− BℓB⊤ 
+
+> ℓ
+
+∥2.
+
+After decreasing the constant in the assumptions and absorbing R into the choice of recovered basis, this gives ∥ bBℓ −Bℓ∥2 ≤ εB . Finally, for each sample xi, the vector bJℓ(xi)∇f ⋆(xi) ∈ Rrℓ−1 is recovered coordinatewise from directional derivatives. By Subsection 4.1, this uses Ok,L (rℓ−1) ≤ Ok,L (r) real function-value queries per sample. Together with (32), the total number of additional queries is therefore eOk,L 
+
+
+
+r7κO(L)ε−2
+
+> B
+
+
+
+.
+
+E.2 Stable Recovery Within the Recovered Subspace 
+
+Given an accurate basis for the intermediate-layer column space, we next use the simulated suffix oracle, convex-body sampling, and two-matrix diagonalization to recover the individual hidden directions and hence the full weight matrix. 
+
+Proposition E.2 (Stable recovery by convex-body sampling) . Fix 2 ≤ ℓ ≤ L − 2, d ≥ 2, and 
+
+ε, ζ ∈ (0 , 1/2) . Suppose that, after consistent relabeling, max 1≤j<ℓ ∥ cWj − Wj ∥2 ≤ εW , ∥ bBℓ − Bℓ∥2 ≤
+
+εB , where the second inequality is after orthogonal alignment. Set α := 1 + 1
+
+L , L(ε, γ, ζ ) := 1 + log e + γr 13 /2
+
+εζ 
+
+!
+
+. It is sufficient that 
+
+εB ≤ ck,L 
+
+εκ2r (35) 
+
+and 
+
+εW ≤ ck,L (ε/γ )α
+
+κO(L)r ℓ/ 2+12+10 /L L(ε, γ, ζ )α . (36) 
+
+Then 
+
+eOk,L 
+
+γ2r14 κO(L)
+
+ε2
+
+!
+
+(37) 
+
+additional real function-value queries suffice to recover cWℓ satisfying, with probability at least 1 − ζ,
+
+∥ cWℓ − Wℓ∥2 ≤ ε after a suitable relabeling of the recovered columns. Proof. By the preceding approximate-prefix and simulated-suffix lemmas, the available suffix oracle satisfies 
+
+| bGℓ(z) − Gℓ(z)| ≤ ξℓGℓ(z), ξℓ ≤ Ck,L κO(ℓ)rℓ/ 2εW .
+
+Fix an absolute integer A0 ≥ 20 , large enough to dominate the fixed conditioning exponents in Lemmas B.5 and A.6, and set η := ck,L 
+
+εγκ A0Lr4 , ν := ck,L 
+
+εγκ A0L+8 r6 . Combining the assumed bound on εW with the preceding bound on ξℓ gives 
+
+ξℓ ≤ ck,L ν1+1 /L 
+
+κO(L)r6+4 /L 
+
+
+
+log Ck,L 
+
+√rν
+
+1+1 /L .
+
+51 Since rℓ ≤ r, q ℓ = Ok,L (1) , ω ℓ ≤ Ck,L κ4√r, this is sufficient for Lemma B.4 with δ = 1 /L and target total-variation error ν. It also implies 
+
+ξℓ ≤ ck,L κ−8ηr −5/2.
+
+Thus Lemma B.7 yields, from 
+
+m = Ok,L 
+
+
+
+κ8r2η−2 log 2rζ
+
+
+
+= Ok,L 
+
+ γ2r10 κ2A0L+8 
+
+ε2 log 2rζ
+
+
+
+independent endpoints, moment matrices satisfying 
+
+∥ bΣx,ℓ − Σx,ℓ ∥2 ≤ η∥Σx,ℓ ∥2, ∥ bΣg,ℓ − Σg,ℓ ∥2 ≤ η∥Σg,ℓ ∥2
+
+with probability at least 1 − ζ. By Lemma B.5, cond( Vℓ) ≤ 9κ2, ρ ℓ ≤ Ck,L κ8r3. Assumption 3.5 supplies the inverse relative gap γ. Lemma A.6 therefore implies that the normalized eigenvectors of 
+
+bΣg,ℓ bΣx,ℓ can be labeled so that 
+
+min  
+
+> si∈{± 1}
+
+∥bvi − sivi∥2 ≤ Ck,L γκ 12 r3η ≤ ck,L 
+
+εκ4r .
+
+For each recovered direction define bui := bBℓ bvi, bwℓ,i := |bui|
+
+1⊤|bui| , where the absolute value is coordinatewise. Let wi := wℓ,i , u⋆i := wi
+
+∥wi∥2
+
+. Since Wℓ ≥ 0, the vector u⋆i is coordinatewise nonnegative. Write Pℓ and bPℓ for the projectors onto the true and recovered column spaces. Because 
+
+bBℓvi = bPℓwi
+
+∥ bPℓwi∥2
+
+, and ∥ bPℓ − Pℓ∥2 ≤ Cε B , normalization of the projected vector gives 
+
+min  
+
+> si∈{± 1}
+
+∥si bui − u⋆i ∥2 ≤ Ck,L εB + ck,L 
+
+εκ4r .
+
+The coordinatewise inequality |a| − b ≤ | a − b| for b ≥ 0 yields the same bound after taking absolute values. The normalization 1⊤wi = 1 gives 1⊤u⋆i = 1
+
+∥wi∥2
+
+≥ 1. Hence, for the constants in the hypotheses sufficiently small, 
+
+∥ bwℓ,i − wi∥2 ≤ Ck,L 
+
+√rℓ−1
+
+
+
+εB + εκ4r
+
+
+
+.
+
+Consequently, 
+
+∥ cWℓ − Wℓ∥2 ≤ ∥ cWℓ − Wℓ∥F ≤ Ck,L 
+
+√rℓrℓ−1
+
+
+
+εB + εκ4r
+
+
+
+≤ Ck,L r
+
+
+
+εB + εκ4r
+
+
+
+≤ ε, 
+
+after decreasing ck,L if necessary. For the query count, each independent endpoint requires, by Lemma B.4, eOk,L (κ8r4) evaluations of the simulated suffix oracle. The gradient estimator in Lemma B.6 requires only Ok,L (r) further evaluations per endpoint. Each simulated suffix evaluation is implemented using Ok,L (1) real evaluations of f ⋆. Multiplying by the above value of m gives 
+
+eOk,L 
+
+ γ2r14 κ2A0L+16 
+
+ε2 log 1
+
+ζ
+
+
+
+additional real function-value queries. 52 F Recovery of the Final Hidden Layer and Output Weights 
+
+This section analyzes the final recovery stage, where a two-Hessian decomposition identifies the last hidden layer and the output weights. 
+
+Proposition F.1 (Stable recovery of the final hidden layer and output weights) . Suppose that after the consistent relabeling inherited from the previous stages, 
+
+max  
+
+> 1≤j≤L−2
+
+∥ cWj − Wj ∥2 ≤ εW .
+
+There exists ck,L > 0, independent of the conditioning parameters, such that, for every ε, ζ ∈ (0 , 1/2) ,it is sufficient that 
+
+εW ≤ ck,L 
+
+ζε rL/ 2+6 κO(L) . (38) 
+
+Then, using Ok,L (r2) additional real function-value queries, one can construct cWL−1 and ba such that, with probability at least 1 − ζ, after a suitable relabeling, 
+
+∥ cWL−1 − WL−1∥2 ≤ ε, ∥ba − a∥1 ≤ ε. 
+
+Proof. Throughout this proof, CL and cL are generic quantities satisfying 
+
+1 ≤ CL ≤ Ck,L κO(L), ck,L κ−O(L) ≤ cL ≤ 1.
+
+Write 
+
+n := rL−2, s := rL−1, W = ( w1, . . . , ws),
+
+and consider the final suffix F (y) := FL−1(y) = Psi=1 ai(w⊤ 
+
+> i
+
+y)k, y ∈ Rn. Lemma A.2 gives 
+
+μs ≤ amin ≤ 1
+
+s ≤ amax ≤ 1.
+
+We first construct accurate Hessians of F at two points using the approximately recovered prefix. In the notation of Lemma D.1, let ϑk := k − 12k , P L−2 =
+
+r rn
+
+QL−2 
+
+> j=1
+
+rϑk 
+
+> j
+
+. For y in a fixed bounded positive box, the simulated suffix oracle has the form bF (y) = Re FC(y + e(y)) , where 
+
+∥e(y)∥2 ≤ CLPL−2εW ∥y∥2.
+
+On the box considered below, ∥y∥2 ≤ C√n, and therefore 
+
+PL−2∥y∥2 ≤ C√r
+
+> L−2
+
+Y
+
+> j=1
+
+rϑk 
+
+> j
+
+≤ Cr 1/2+ ϑk (L−2) ≤ Cr (L−1) /2.
+
+Thus 
+
+∥e(y)∥2 ≤ CLr(L−1) /2εW .
+
+Since W ≥ 0, each column has unit ℓ1-norm, and all points lie in a fixed positive box, every w⊤ 
+
+> i
+
+y
+
+remains in a fixed positive interval. The identity 
+
+(z + ∆) k − zk = ∆ 
+
+> k−1
+
+X
+
+> j=0
+
+(z + ∆) k−1−j zj
+
+53 and P 
+
+> i
+
+ai = 1 give | bF (y) − F (y)| ≤ CL∥e(y)∥2 ≤ CLr(L−1) /2εW . All complex evaluations involved in the simulated suffix oracle are implemented exactly by real function-value queries. Set y(2) := 1n. Let u ∼ Unif( Sn−1), choose a sufficiently small constant τ = τk,L > 0, and define 
+
+y(1) := 1n + τ u.
+
+Choose fixed interpolation nodes sufficiently close to zero so that all points used to evaluate directional second derivatives around y(1) and y(2) remain in the same positive box. For y ∈ { y(1) , y(2) } and 
+
+v ∈ Rn, the function t 7 → F (y + tv) has degree at most k, so its second derivative at zero is a fixed linear combination of k + 1 function values. Replacing these values by simulated suffix values gives an estimator of v⊤∇2F (y)v with error at most CLr(L−1) /2εW .Applying this to 
+
+v = ep, v = ep + eq, 1 ≤ p < q ≤ n, 
+
+and using polarization, we construct symmetric matrices bHj , Hj := ∇2F (y(j)), j = 1 , 2, satisfying 
+
+∥ bHj − Hj ∥2 ≤ δH , δH := CLr(L+1) /2εW .
+
+The construction uses Ok(n2) ≤ Ok(r2) simulated suffix evaluations, and hence Ok,L (r2) real function-value queries. At y(2) = 1n, column normalization gives w⊤ 
+
+> i
+
+y(2) = 1 , and therefore 
+
+H2 = k(k − 1) W diag( a)W⊤.
+
+If s = n, then W is square and invertible, so no subspace estimation is needed and we set bB := In.If s < n , Lemmas A.1 and A.2 give 
+
+λs(H2) ≥ k(k − 1) amin σmin (W)2 ≥ cL
+
+1
+
+ssn = cL
+
+n , λs+1 (H2) = 0 .
+
+Let bB ∈ Rn×s contain the eigenvectors corresponding to the s largest eigenvalues of bH2. Davis– Kahan’s theorem yields 
+
+∥P bB − PW∥2 ≤ CLnδ H ≤ CLrδ H .
+
+Thus the same projector bound holds in either case. Choose an orthonormal basis 
+
+B ∈ arg min   
+
+> eB⊤eB=Is
+> col( eB)=col( W)
+
+∥ bB − eB∥2.
+
+By the standard relation between principal angles and optimally chosen orthonormal bases, 
+
+∥ bB − B∥2 ≤ √2 ∥PbB − PW∥2 ≤ CLnδ H .
+
+In the square case s = n, this convention simply corresponds to taking B = bB = In. Set εB, fin := 
+
+∥ bB − B∥2. Since δH = CLr(L+1) /2εW , n ≤ r, we have εB, fin ≤ CLr(L+3) /2εW . Under (38), after decreasing ck,L , and enlarging if necessary the exponent hidden in κO(L), it follows that εB, fin ≤ 12 .
+
+Define C := bB⊤W ∈ Rs×s. Lemma B.1, applied to the above choice of B and bB, gives 
+
+σmin (C) ≥ (1 − εB, fin )σmin (W) ≥ 12κ0
+
+r sn ,
+
+54 and 
+
+σmax (C) ≤ (1 + εB, fin )σmax (W) ≤ 32 κ0.
+
+Moreover, 
+
+cond( C) ≤ 1 + εB, fin 
+
+1 − εB, fin 
+
+cond( W) ≤ 3κ0.
+
+Thus, in the generic cL, C L notation used in this proof, 
+
+cL
+
+r sn ≤ σmin (C) ≤ σmax (C) ≤ CL, cond( C) ≤ CL.
+
+Define Mj := bB⊤Hj bB, cMj := bB⊤ bHj bB. Then ∥cMj − Mj ∥2 ≤ δH , and 
+
+M2 = k(k − 1) C diag( a)C⊤,
+
+while 
+
+M1 = k(k − 1) C diag 
+
+
+
+ai(1 + τ w⊤ 
+
+> i
+
+u)k−2
+
+C⊤.
+
+Consequently, 
+
+A := M1M−12 = C diag( λ1, . . . , λ s)C−1,
+
+where λi := (1+ τ w⊤ 
+
+> i
+
+u)k−2. For the spectral separation, Lemma A.1 gives ∥wi −wj ∥2 ≥ cL
+
+r sn , i ̸ = j. 
+
+The spherical small-ball bound implies, for every i̸ = j,
+
+P
+
+
+
+|(wi − wj )⊤u| ≤ t ∥wi − wj ∥2
+
+√n
+
+
+
+≤ Ct. 
+
+Choosing t = cζ/s 2 and applying a union bound over all pairs gives, with probability at least 1 − ζ,
+
+min  
+
+> i̸=j
+
+|(wi − wj )⊤u| ≥ cL
+
+ζs3/2n ≥ cL
+
+ζr5/2 .
+
+By the choice of τ , 1/2 ≤ 1 + τ w⊤ 
+
+> i
+
+u ≤ 3/2. The mean-value theorem therefore gives, on the same event, 
+
+∆ := min  
+
+> i̸=j
+
+|λi − λj | ≥ cL
+
+ζr5/2 .
+
+Moreover, 
+
+λmin (M2) ≥ cL
+
+n , ∥A∥2 ≤ CL.
+
+The prefix condition makes δH ≤ cL/n , so cM2 is invertible and ∥cM−12 ∥2 ≤ CLn. Let Ej := cMj − Mj .Using AM 2 = M1, the perturbation admits the relative factorization 
+
+EA := cM1 cM−12 − M1M−12 = ( E1 − AE 2)cM−12 .
+
+Hence 
+
+∥EA∥2 ≤ CLnδ H ≤ CLrδ H .
+
+55 Let VC denote the matrix whose columns are the normalized columns of C. The conditioning bounds give cond( VC) ≤ CL. Applying the simple-spectrum eigenvector argument used in Lemma A.6 shows that the eigenvectors of cM1 cM−12 may be labeled so that, after choosing signs, 
+
+bvi − ci
+
+∥ci∥2 2
+
+≤ CL
+
+rδ H
+
+∆ ≤ CL
+
+rL/ 2+4 
+
+ζ εW .
+
+Set bui := bBbvi, u⋆i := wi
+
+∥wi∥2
+
+. Combining the eigenvector and subspace estimates yields 
+
+min  
+
+> ϵi∈{± 1}
+
+∥ϵi bui − u⋆i ∥2 ≤ CL
+
+rL/ 2+4 
+
+ζ εW .
+
+Since wi > 0, taking coordinatewise absolute values preserves this bound. Define bwi := |bui|
+
+1⊤|bui| .
+
+Because 1⊤u⋆i = 1 /∥wi∥2 ≥ 1, ∥ bwi − wi∥2 ≤ CL
+
+rL/ 2+9 /2
+
+ζ εW . Consequently, EW := ∥ cW − W∥2 ≤∥ cW − W∥F ≤ CL
+
+rL/ 2+5 
+
+ζ εW ≤ ck,L 
+
+εr ≤ ε. The stronger ε/r bound is used below. Enlarging the exponent hidden in κO(L), it also ensures EW ≤ 12 σmin (W), because σmin (W) ≥ κ−10
+
+ps/n ≥
+
+(κ0
+
+√r)−1. Hence cW has full column rank. To recover a, use 
+
+H2 = k(k − 1) W diag( a)W⊤.
+
+Define ba := 1
+
+k(k − 1) diag 
+
+ cW† bH2 cW†⊤ 
+
+
+
+. Let TW := cW†W. Since cW† cW = Is,
+
+TW − Is = − cW†( cW − W),
+
+and therefore 
+
+∥TW − Is∥2 ≤ CL
+
+r ns EW .
+
+Using amax ≤ 1,
+
+∥TW diag( a)T⊤ 
+
+> W
+
+− diag( a)∥2 ≤ CL
+
+r ns EW .
+
+The Hessian perturbation contributes 
+
+cW†( bH2 − H2) cW†⊤  
+
+> 2
+
+≤ CL
+
+ns δH .
+
+Taking the ℓ1-norm of the diagonal and using √ns ≤ r and n ≤ r, we obtain 
+
+∥ba − a∥1 ≤ CLr(EW + δH ) ≤ ε, 
+
+where the final inequality follows from the prefix condition and the bounds for EW and δH . This completes the proof. 56 G Proof of the Main Theorem 
+
+The preceding propositions isolate four sources of complexity. The input dimension d in the query complexity appears only in the initial recovery of the first-layer feature subspace, which costs 
+
+Ok,L (dr ) queries. Once this subspace has been identified, all subsequent gradient information is accessed through hidden-dimensional directional derivatives, and all sampling, moment estimation, and prefix-inversion costs are governed by the maximal hidden width r. The uniform inverse relative spectral gap contributes powers of γ, while composing O(L) conditioned stages produces the factor 
+
+κO(L2).
+
+Proof of Theorem 5.1. Set α := 1 + 1
+
+L , p ⋆ := αL−3. Since p⋆ = (1 + 1 /L )L−3 < (1 + 1 /L )L < e, it is enough to prove the sharper query bound with accuracy exponent 2p⋆. Let N := 2 L − 4, ζ 0 := 0.01 
+
+N .
+
+The number N upper-bounds the randomized recovery stages: there is one first-layer stage, two stages for every 2 ≤ ℓ ≤ L − 2, and one final stage. We will show 
+
+Qtot ≤ eOk,L 
+
+
+
+dr + rL2+O(L)γO(L)κO(L2)δ−2p⋆
+
+
+
+. (39) 
+
+Accuracy Schedule. For 2 ≤ ℓ ≤ L − 2, define βℓ := ℓ
+
+2 + 12 + 10 
+
+L . Choose an absolute constant 
+
+A ≥ 1 sufficiently large that κAL dominates every factor denoted by κO(L) in Propositions E.1, E.2, and F.1. Define the terminal intermediate-layer accuracy by 
+
+τL−2 := ck,L 
+
+ζ0δrL/ 2+6 κAL .
+
+For ℓ = L − 2, L − 3, . . . , 2, define recursively 
+
+τℓ−1 := ck,L τ αℓ
+
+γακAL rβℓ
+
+"
+
+1 + log e + γr 13 /2
+
+ζ0τℓ
+
+!# α . (40) After decreasing ck,L , if necessary, 0 < τ 1 ≤ τ2 ≤ · · · ≤ τL−2 < 12 . Indeed, τ αℓ ≤ τℓ, γ ≥ 1, βℓ > 9/2,and the logarithmic factor is at least one. The terminal value is also at most 1/2 after the same choice of constant. 
+
+First-Layer Recovery. Apply Proposition C.2 with target accuracy τ1 and failure probability ζ0.Its query count is 
+
+eOk,L 
+
+
+
+dr + γ2r13 κO(1) τ −21
+
+
+
+.
+
+With probability at least 1 − ζ0, the result satisfies, after a permutation of the columns and a choice of their inherent signs, ∥ cW1 − W1∥2 ≤ τ1.
+
+57 Intermediate-Layer Recovery. Fix 2 ≤ ℓ ≤ L−2 and suppose inductively that, after propagating the relabelings selected in the preceding stages, ∥ cWj − Wj ∥2 ≤ τj , 1 ≤ j < ℓ. Since the sequence 
+
+(τj ) is nondecreasing, 
+
+max  
+
+> 1≤j<ℓ
+
+∥ cWj − Wj ∥2 ≤ τℓ−1.
+
+Set εB,ℓ := ck,L 
+
+τℓ
+
+κ2r . The recurrence, together with τ αℓ ≤ τℓ and βℓ > 9/2, gives 
+
+τℓ−1 ≤ ck,L 
+
+τℓ
+
+κO(L)r9/2 = ck,L 
+
+εB,ℓ 
+
+κO(L)r7/2 .
+
+Thus Proposition E.1 applies with target basis accuracy εB,ℓ . With probability at least 1 − ζ0, it returns an orthonormal matrix bBℓ such that, after orthogonal alignment, ∥ bBℓ − Bℓ∥2 ≤ εB,ℓ . The corresponding query count is 
+
+eOk,L 
+
+
+
+r7κO(L)ε−2
+
+> B,ℓ
+
+
+
+= eOk,L 
+
+
+
+r9κO(L)τ −2
+
+> ℓ
+
+
+
+.
+
+The basis condition in Proposition E.2 is satisfied by construction. Moreover, recurrence (40) is exactly the prefix condition in that proposition with target accuracy τℓ, failure probability ζ0, and the uniform inverse-gap parameter γ. Hence the convex-body stage applies, with query count 
+
+eOk,L 
+
+
+
+γ2r14 κO(L)τ −2
+
+> ℓ
+
+
+
+.
+
+With probability at least 1 − ζ0, it returns, after a suitable column relabeling, ∥ cWℓ − Wℓ∥2 ≤ τℓ.
+
+This closes the induction for every 2 ≤ ℓ ≤ L − 2.
+
+Final Hidden Layer and Output Weights Recovery. After recovery through layer L − 2,
+
+max  
+
+> 1≤j≤L−2
+
+∥ cWj − Wj ∥2 ≤ τL−2 = ck,L 
+
+ζ0δrL/ 2+6 κAL .
+
+By the choice of A, this is the sufficient condition in Proposition F.1. That proposition uses Ok,L (r2)
+
+additional real function-value queries and returns, with probability at least 1 − ζ0,
+
+∥ cWL−1 − WL−1∥2 ≤ δ, ∥ba − a∥1 ≤ δ. 
+
+Because τℓ ≤ τL−2 ≤ δ for 1 ≤ ℓ ≤ L − 2, the intersection of the successful events satisfies all parameter-recovery guarantees in the theorem. The permutations selected at successive stages are propagated through adjacent weight matrices, producing one consistent hidden-unit relabeling. The first-layer column signs may be selected arbitrarily because k is even. 
+
+Solving the Accuracy Recurrence. Up to factors suppressed by eOk,L , write 
+
+τ −1 
+
+> ℓ
+
+≤ eOk,L 
+
+ rsℓ γgℓ κtℓ δ−pℓ  . (41) The terminal values are pL−2 = 1 , s L−2 = L
+
+2 + 6 , g L−2 = 0 , t L−2 = AL. The recurrence gives 
+
+pℓ−1 = αp ℓ, s ℓ−1 = αs ℓ + βℓ, g ℓ−1 = αg ℓ + α, t ℓ−1 = αt ℓ + AL. Therefore p1 = αL−3 = p⋆. Unrolling the width recurrence yields 
+
+s1 = p⋆
+
+ L
+
+2 + 6 
+
+
+
++
+
+> L−2
+
+X
+
+> ℓ=2
+
+αℓ−2βℓ. (42) 58 Set cL := 12 + 10 /L. Then βℓ = ℓ/ 2 + cL. The geometric identities PL−2 
+
+> ℓ=2
+
+αℓ−2 = L(p⋆ − 1) , and 
+
+PL−2 
+
+> ℓ=2
+
+ℓα ℓ−2 = L2 − L − 2Lp ⋆ give 
+
+s1 = p⋆
+
+ L
+
+2 + 6 
+
+
+
++ 12
+
+ L2 − L − 2Lp ⋆
+
+ + cLL(p⋆ − 1) = L2
+
+2 + O(L).
+
+Similarly, 
+
+g1 =
+
+> L−3
+
+X
+
+> j=1
+
+αj = ( L + 1)( p⋆ − 1) = O(L),
+
+and t1 = ALp ⋆ + AL 2(p⋆ − 1) = O(L2). The logarithmic factors generated by the recurrence are polynomial in log r, log γ, log(1 /δ ), and log κ. The first three are suppressed by eOk,L , while log κ is absorbed into the displayed factor κO(L2), since κ ≥ 2. Substituting these bounds into (41) gives 
+
+τ −11 ≤ eOk,L 
+
+
+
+rL2/2+ O(L)γg1 κO(L2)δ−p⋆
+
+
+
+, (43) and consequently 
+
+τ −21 ≤ eOk,L 
+
+
+
+rL2+O(L)γ2g1 κO(L2)δ−2p⋆
+
+
+
+.
+
+Total Complexity. For every 1 ≤ ℓ ≤ L − 2, τ1 ≤ τℓ. The preceding stage bounds are 
+
+eOk,L 
+
+
+
+dr + γ2r13 κO(1) τ −21
+
+
+
+for the first layer, 
+
+eOk,L 
+
+
+
+r9κO(L)τ −21 + γ2r14 κO(L)τ −21
+
+
+
+for each intermediate layer, and Ok,L (r2) for the final stage. Since r ≥ 1, γ ≥ 1, τ1 < 1, and there are only O(L) stages, all hidden-dimensional contributions are dominated, up to eOk,L -factors, by the convex-body term. Hence 
+
+Qtot ≤ eOk,L 
+
+
+
+dr + γ2r14 κO(L)τ −21
+
+
+
+.
+
+Using (43), absorbing the fixed width overhead into rO(L), and observing that 2g1 + 2 = O(L), we obtain 
+
+Qtot = eOk,L 
+
+
+
+dr + rL2+O(L)γO(L)κO(L2)δ−2p⋆
+
+
+
+.
+
+This is (39). Since 0 < δ < 1 and p⋆ < e, δ−2p⋆ ≤ δ−2e , proving the query bound in Theorem 5.1. 
+
+Success Probability. Each stage uses fresh randomness. Conditioning successively on all preceding successful stages, the relevant recovery proposition fails with probability at most ζ0. Hence the union bound gives 
+
+P(some recovery stage fails ) ≤ N ζ 0 = 0 .01 .
+
+Thus all parameter-recovery guarantees hold simultaneously with probability at least 0.99 .59 Lemma G.1 (Gaussian stability under parameter perturbations) . Let f ⋆ satisfy the normalization and positivity assumptions of Theorem 5.1, and let bf have the same architecture. Suppose that, after a consistent relabeling and a suitable choice of the first-layer column signs, 
+
+max  
+
+> 1≤ℓ≤L−1
+
+∥ cWℓ − Wℓ∥2 ≤ δ, ∥ba − a∥1 ≤ δ, 
+
+where 0 < δ < 1/2. Assume that the recovered hidden weights are normalized as in the recovery algorithm: the columns of cW1 have unit Euclidean norm, while, for 2 ≤ ℓ ≤ L − 1, the columns of 
+
+cWℓ are nonnegative and have unit ℓ1-norm. Then 
+
+EX∼N (0,Id)
+
+h  bf (X) − f ⋆(X)2i
+
+≤ Ck,L rδ 2.
+
+Proof. Write H1 = W⊤ 
+
+> 1
+
+X, bH1 = cW⊤ 
+
+> 1
+
+X, and, for 2 ≤ ℓ ≤ L − 1, Hℓ = W⊤ 
+
+> ℓ
+
+H⊙kℓ−1, bHℓ = cW⊤ 
+
+> ℓ
+
+bH⊙kℓ−1.
+
+We first record uniform moment bounds. For p ≥ 1, define 
+
+Mℓ,p := max  
+
+> j
+
+max 
+
+n
+
+∥(Hℓ)j ∥Lp , ∥( bHℓ)j ∥Lp
+
+o
+
+.
+
+Because every column of W1 and cW1 has unit Euclidean norm, (H1)j , ( bH1)j ∼ N (0 , 1) , and hence M1,p ≤ Cp. For ℓ ≥ 2, every column of both Wℓ and cWℓ is a probability vector. Therefore Minkowski’s inequality gives Mℓ,p ≤ M kℓ−1,kp . Since k and L are fixed, Mℓ,p ≤ Ck,L,p , 1 ≤ ℓ ≤ L − 1,
+
+for every fixed p < ∞.Next define Dℓ,p := max j ∥( bHℓ)j − (Hℓ)j ∥Lp . For the first layer, ( bH1 − H1)j = ( bw1,j − w1,j )⊤X.
+
+Hence 
+
+D1,p ≤ Cp max  
+
+> j
+
+∥ bw1,j − w1,j ∥2 ≤ Cpδ. 
+
+Fix 2 ≤ ℓ ≤ L − 1. For every j,
+
+( bHℓ − Hℓ)j = ( bwℓ,j − wℓ,j )⊤ bH⊙kℓ−1 + w⊤
+
+> ℓ,j
+
+ bH⊙kℓ−1 − H⊙kℓ−1
+
+
+
+.
+
+The first term satisfies 
+
+( bwℓ,j − wℓ,j )⊤ bH⊙kℓ−1 Lp
+
+≤ ∥ bwℓ,j − wℓ,j ∥2 ∥ bH⊙kℓ−1∥2 Lp
+
+≤ Ck,L,p 
+
+√r δ. 
+
+For the second term, using wℓ,j ≥ 0, 1⊤wℓ,j = 1 , we obtain 
+
+w⊤
+
+> ℓ,j
+
+ bH⊙kℓ−1 − H⊙kℓ−1
+
+
+
+> Lp
+
+≤ max  
+
+> i
+
+( bHℓ−1,i )k − (Hℓ−1,i )k
+
+> Lp
+
+.
+
+Using |uk − vk| ≤ k|u − v|  |u|k−1 + |v|k−1 and Hölder’s inequality, together with the preceding uniform moment bounds, gives 
+
+( bHℓ−1,i )k − (Hℓ−1,i )k
+
+> Lp
+
+≤ Ck,L,p Dℓ−1,2p.
+
+Consequently, Dℓ,p ≤ Ck,L,p (√r δ + Dℓ−1,2p) . Iterating this inequality through the finitely many layers yields 
+
+Dℓ,p ≤ Ck,L,p 
+
+√r δ, 1 ≤ ℓ ≤ L − 1.
+
+60 Finally, 
+
+f ⋆(X) = a⊤H⊙kL−1, bf (X) = ba⊤ bH⊙kL−1,
+
+and therefore bf (X) − f ⋆(X) = ( ba − a)⊤ bH⊙kL−1 + a⊤  bH⊙kL−1 − H⊙kL−1
+
+
+
+.
+
+The first term satisfies 
+
+(ba − a)⊤ bH⊙kL−1 L2
+
+≤ ∥ ba − a∥1 max  
+
+> i
+
+∥( bHL−1,i )k∥L2 ≤ Ck,L δ. 
+
+Since a ≥ 0 and 1⊤a = 1 ,
+
+a⊤  bH⊙kL−1 − H⊙kL−1
+
+
+
+> L2
+
+≤ max  
+
+> i
+
+( bHL−1,i )k − (HL−1,i )k
+
+> L2
+
+≤ Ck,L DL−1,4 ≤ Ck,L 
+
+√r δ. 
+
+Hence 
+
+∥ bf − f ⋆∥L2(N (0,Id)) ≤ Ck,L 
+
+√r δ, 
+
+which proves 
+
+EX∼N (0,Id)
+
+h  bf (X) − f ⋆(X)2i
+
+≤ Ck,L rδ 2.
+
+Proof of Corollary 5.2. Fix 0 < ε < 1/2, and choose 
+
+δ := ck,L 
+
+r εr ,
+
+where ck,L > 0 is sufficiently small that Ck,L rδ 2 ≤ ε. After decreasing the constant once more if necessary, 0 < δ < 1/2. Apply Theorem 5.1 with this value of δ. With probability at least 0.99 , the returned parameters satisfy the hypotheses of Lemma G.1, and therefore 
+
+EX∼N (0,Id)
+
+h
+
+( bf (X) − f ⋆(X)) 2i
+
+≤ Ck,L rδ 2 ≤ ε. 
+
+By Theorem 5.1, the number of real function-value queries is 
+
+eOk,L 
+
+
+
+dr + rL2+O(L)γO(L)κO(L2)δ−2e 
+
+= eOk,L 
+
+
+
+dr + rL2+O(L)+e γO(L)κO(L2)ε−e
+
+= eOk,L 
+
+
+
+dr + rL2+O(L)γO(L)κO(L2)ε−e
+
+,
+
+because the fixed factor re is absorbed into rO(L) for L ≥ 3. This proves the corollary. 
+
+Proof of Corollary 5.3. Fix 0 < ε < 12 and run our recovery algorithm with δ = ck,L 
+
+r εr , where 
+
+ck,L > 0 is sufficiently small. On the successful recovery event, which has probability at least 
+
+0.99 , Lemma G.1 gives E[( bf (X) − f ⋆(X)) 2] ≤ ε
+
+4 . Fix any returned parameters on this event. All expectations below are over an independent X ∼ N (0, Id). The recovered first-layer columns have unit Euclidean norm, and the higher hidden-layer columns are nonnegative and sum to one. Moreover, 
+
+∥ba∥1 ≤ ∥ a∥1 + δ ≤ 2; no positivity assumption on ba is needed. 61 A Bounded Piecewise-Linear Activation. Write q := kL−1, and let R ≥ 1 and an even integer M ≥ 2 be chosen below. Let PM be the linear interpolant of tk at the knots tj = −1 + 2jM ,
+
+0 ≤ j ≤ M , extended by the constant 1 outside [−1, 1] . Since k is even, this extension is continuous and 0 ≤ PM (t) ≤ 1 on R. The linear interpolation remainder, using sup |t|≤ 1 |(tk)′′ | ≤ k(k − 1) , gives 
+
+sup |t|≤ 1 |PM (t) − tk| ≤ CkM −2. If bj is the jump in the slope of PM at tj , then 
+
+PM (t) = 1 + 
+
+> M
+
+X
+
+> j=0
+
+bj ReLU( t − tj ). (44) Indeed, both sides equal 1 to the left of all knots and have the same slope on every interval. Define fReLU by replacing each power activation in bf
+
+ x
+
+R
+
+
+
+with PM and multiplying the output by Rq. Without these replacements, homogeneity would give Rq bf
+
+ x
+
+R
+
+
+
+= bf (x). All parameters of this construction are determined by the recovered network and the interpolation knots. 
+
+Approximation On Bounded Features. Set Zj := bw⊤ 
+
+> 1,j
+
+X and V := max 1≤j≤r |Zj |. On 
+
+{V ≤ R}, the first preactivations of the rescaled polynomial network lie in [−1, 1] . Every higher hidden linear map is a convex combination and is therefore nonexpansive in the maximum norm. Thus both the original and modified activation outputs remain in [0 , 1] at every layer on this event. Since t 7 → tk is k-Lipschitz on [−1, 1] , the maximum coordinatewise activation errors satisfy 
+
+e1 ≤ CkM −2 and eℓ ≤ CkM −2 + ke ℓ−1 for 2 ≤ ℓ ≤ L − 1. Iteration and ∥ba∥1 ≤ 2 yield 
+
+|fReLU (X) − bf (X)| ≤ Ck,L RqM −2 on {V ≤ R}. (45) 
+
+Gaussian Tails and the Error Budget. The same column normalization gives | bf (X)| ≤ 
+
+2V q everywhere, while the bounded range of PM gives |fReLU (X)| ≤ 2Rq. Hence the squared approximation error is at most 16 V 2q on {V > R }. Each Zj is standard Gaussian, although the coordinates need not be independent. For a standard Gaussian variable Z, integrating its density and using t2qe−t2/4 ≤ Cq gives E |Z|2q1{| Z|>R }
+
+ ≤ Cqe−R2/4 for R ≥ 1. Since V 2q1{V >R } ≤Prj=1 |Zj |2q1{| Zj |>R }, combining this tail estimate with (45) gives 
+
+E
+
+h fReLU (X) − bf (X)2i
+
+≤ Ck,L 
+
+ R2q
+
+M 4 + re −R2/4
+
+
+
+. (46) Choose R =
+
+s
+
+Ck,L log 
+
+ 2rε
+
+
+
+and M = 2 Ck,L Rq/ 2ε−1/4, with sufficiently large constants. The two contributions in (46) are then at most ε
+
+8 each. Consequently, 
+
+E
+
+h fReLU (X) − f ⋆(X)2i
+
+≤ 2E
+
+h fReLU (X) − bf (X)2i
+
++ 2 E
+
+h  bf (X) − f ⋆(X)2i
+
+≤ ε. 
+
+Depth, Width, and Complexity. By (44), each scalar replacement uses M + 1 parallel ReLU units followed by an affine readout. This readout is absorbed into the next layer’s affine map, or into the output layer at the final stage. The constant extensions are already included in the same representation, so no additional clipping layer is needed. The input and output rescalings are 62 absorbed into the first and final affine maps. Thus the resulting network has exactly L − 1 hidden ReLU layers and an affine output layer, with biases and widths bounded by 
+
+rReLU  
+
+> ℓ
+
+≤ (M + 1) rℓ = Ok,L rℓε−1/4
+
+
+
+log 
+
+ 2rε
+
+ q/ 4!
+
+= eOk,L 
+
+
+
+rℓε−1/4
+
+. (47) For fixed k, L , these parameters can be constructed in polynomial time. No additional target queries or randomness are used, so the success probability remains at least 0.99 . Finally, substituting 
+
+δ = ck,L 
+
+r εr into Theorem 5.1 gives 
+
+eOk,L 
+
+
+
+dr + rL2+O(L)γO(L)κO(L2)ε−e
+
+queries, with the additional factor re absorbed into rO(L). This proves the corollary. 
+
+# H A Weight-Based Sufficient Condition for the Assumptions 
+
+We construct a class of networks to demonstrate that the assumptions in Section 3 are not vacuous. Throughout this section, the hidden layers have a common width r, so that d = r0 ≥ r1 = · · · =
+
+rL−1 = r ≥ 3 and rL = 1 .
+
+Proposition H.1 (Ordered diagonal separation) . Fix an even integer k ≥ 4 and a depth L ≥ 3. There exist constants c0, c 1 ∈ (0 , 1] , depending only on k, L , with the following property. Let W1 ∈ Rd×r
+
+satisfy W⊤ 
+
+> 1
+
+W1 = Ir, and set WL = a = 1
+
+r 1r. For each 2 ≤ m ≤ L−1, choose the off-diagonal entries of Wm ∈ Rr×r to satisfy (Wm)ij = ( Wm)ji > 0 for i̸ = j, and set (Wm)ii = 1 − P 
+
+> j̸=i
+
+(Wm)ij .Suppose that, in these same coordinate labels at all hidden layers, there are ε, ∆ > 0 such that, for every 2 ≤ m ≤ L − 1,
+
+max 
+
+> 1≤i≤r
+
+ 1 − (Wm)ii 
+
+ ≤ ε, (Wm)ii − (Wm)i+1 ,i +1 ≥ ∆ (1 ≤ i < r ), (48) 
+
+and 
+
+r2ε2 ≤ c0∆. (49) 
+
+Then Assumptions 3.2, 3.3, 3.4 and 3.5 all hold, with the choices 
+
+κ0 = 2 , μ = 1 , γ = 1
+
+c1∆ . (50) 
+
+In particular, every hidden weight matrix has full column rank, and 
+
+min i̸=j |θℓ,i − θℓ,j |
+
+max i θℓ,i 
+
+≥ c1∆, 1 ≤ ℓ ≤ L − 2. (51) The next three subsections prove the proposition. All constants denoted by C below depend only on k, L , may increase from line to line, and are independent of d, r, ε, ∆, and the particular weights. The constant c0 is chosen sufficiently small at the end. 63 H.1 Normalization and Nonnegativity 
+
+The identity W⊤ 
+
+> 1
+
+W1 = Ir gives ∥w1,j ∥2 = 1 for every j. The definition of the higher-layer diagonal entries gives Wm1r = 1r. Their symmetry therefore also gives 1⊤ 
+
+> r
+
+Wm = 1⊤ 
+
+> r
+
+, so every column is normalized as required. To check positivity of the diagonal entries, telescope the ordered gaps in any one higher hidden layer. Since every off-diagonal entry is positive, 0 < 1 − (Wm)ii ≤ ε, and hence (r − 1)∆ ≤ ε.Together with (49), this implies 
+
+ε ≤ c0
+
+r2(r − 1) ≤ 118 < 14 . (52) Consequently (Wm)ii ≥ 1 − ε > 0, and all the higher hidden matrices are strictly positive and doubly stochastic. Finally, ai = 1
+
+r > 0 and 1⊤ 
+
+> r
+
+a = 1 , which verifies the output-layer requirements as well. Notice also that 0 < ∆ ≤ ε < 1; thus the value of γ in (50) is at least one. 
+
+H.2 Conditioning and Relative Row Balance 
+
+All singular values of W1 equal one. For 2 ≤ m ≤ L − 1, symmetry and the definition of the diagonal give ∥Wm − Ir∥1 = ∥Wm − Ir∥∞ ≤ 2ε, and therefore ∥Wm − Ir∥2 ≤ 2ε. Moreover, double stochasticity gives ∥Wm∥2 ≤ 1, while Wm1r = 1r gives the reverse inequality. It follows that 
+
+σmax (Wm) = 1 and σmin (Wm) ≥ 1 − 2ε > 0. Thus cond( Wm) ≤ 11 − 2ε ≤ 2. This proves full column rank and the conditioning bound with κ0 = 2 .For the row-balance condition, the higher hidden layers satisfy (Wm1r)i = 1 = rm
+
+rm−1
+
+for every i.At the output layer, (WL11)i = ai = 1
+
+r = rL
+
+rL−1
+
+. Hence the relative row-balance lower bound holds with equality at every relevant layer when μ = 1 .
+
+H.3 Uniform Relative Spectral Gap 
+
+Proof of the spectral-gap assertion. Fix 1 ≤ ℓ ≤ L − 2, and write q = kL−ℓ. For m = ℓ + 1 , . . . , L − 1,consider the interpolation Wm(t) = Ir + tε (Wm − Ir), 0 ≤ t ≤ 1. Every such matrix is nonnegative and doubly stochastic: its diagonal entries are at least 1 − t, and its off-diagonal entries are nonnegative. Let h(ℓ) 
+
+> t
+
+be the corresponding suffix, with the output weights kept equal to 1
+
+r 1r, and set 
+
+Gt = rh (ℓ) 
+
+> t
+
+. Then G0(u) = Q(u) := Prj=1 uqj , and Gε = rh (ℓ). Write θℓ,i (t) for the spectral signature defined from h(ℓ) 
+
+> t
+
+exactly as in Assumption 3.5. In particular, θℓ,i (ε) = θℓ,i . At t = 0 , permutation symmetry makes these signatures equal; denote their common positive value by θ(0)  
+
+> ℓ
+
+.
+
+Exponential-Integral Representation. A positive coordinate rescaling does not change a spectral signature. Indeed, replacing g(u) by g(s1u1, . . . , s rur), with all sj > 0, multiplies its i-th position moment by s−2 
+
+> i
+
+and its i-th gradient moment by s2 
+
+> i
+
+, by the corresponding change of variables in the uniform distribution. Multiplying a degree-q homogeneous polynomial by a positive scalar is a special case of this rescaling. Consequently, Gt and h(ℓ) 
+
+> t
+
+have the same signatures. 64 For a positive-definite homogeneous polynomial g of degree q and a homogeneous polynomial p,integration over the sublevel sets of g gives 
+
+Z
+
+> Rr
+
+p(u)e−g(u) du = Γ 
+
+
+
+1 + r + deg pq
+
+ Z 
+
+> {g≤1}
+
+p(u) du. (53) Indeed, write e−g(u) = R ∞ 
+
+> g(u)
+
+e−v dv and interchange the integrals. In the inner integral over {g ≤ v},rescale u = v
+
+1
+
+q w. The remaining scalar integral is the displayed gamma factor. Absolute integrability justifies the same argument when p is not nonnegative. Let Zt = R 
+
+> Rr
+
+e−Gt(u) du, and write Et and Cov t for expectation and covariance under the density Z−1 
+
+> t
+
+e−Gt . Define Ai(t) = Et[X2 
+
+> i
+
+] and Bi(t) = Et[∂ii Gt(X)] . Integration by parts gives 
+
+Et[( ∂iGt(X)) 2] = Bi(t). All these integrals are well defined for t near zero; a uniform coercive bound is established below. At t = 0 , the density is a product density, with one-dimensional moments 
+
+mq(v) := E0[|Xi|v] = Γ
+
+ v + 1 
+
+q
+
+
+
+Γ
+
+ 1
+
+q
+
+ for v ≥ 0. Thus Ai(0) = mq(2) and Bi(0) = q(q − 1) mq(q − 2) .Applying (53) to p = 1 , p = u2 
+
+> i
+
+, and p = ( ∂ig)2, the gamma factors cancel between t and zero, leaving 
+
+θℓ,i (t)
+
+θ(0) 
+
+> ℓ
+
+= Ai(t)Bi(t)
+
+mq(2) q(q − 1) mq(q − 2) . (54) 
+
+First-Order Response To the Weights. A dot denotes differentiation with respect to t.Differentiating the normalized exponential integrals at zero gives 
+
+A′
+
+> i
+
+(0) = − Cov 0(X2 
+
+> i
+
+, ˙G0(X)) ,B′
+
+> i
+
+(0) = E0[∂ii ˙G0(X)] − q(q − 1) Cov 0(Xq−2 
+
+> i
+
+, ˙G0(X)) . (55) By (54), the normalized derivative of the signature is A′
+
+> i
+
+(0) 
+
+mq(2) + B′
+
+> i
+
+(0) 
+
+q(q − 1) mq(q − 2) , which is linear in 
+
+˙G0. If a term in ˙G0 is usi uq−sj , with i̸ = j and even s, q − s ≥ 4, its contribution to this derivative is 
+
+χq(s) := mq(q − s)
+
+
+
+2mq(s) − mq(s + 2) 
+
+mq(2) − (s − 1)( q − s − 1) mq(s − 2) 
+
+q(q − 1) mq(q − 2) 
+
+
+
+. (56) Indeed, insert the monomial into (55), use independence, and simplify with mq(v + q) = v + 1 
+
+q mq(v).The contribution to coordinate j is χq(q − s), and the contributions to all other coordinates are zero. A pure-power term uqj contributes zero to every coordinate, since changing its coefficient in Q is a coordinate rescaling. We next check the sign in (56). The gamma function is log-convex, by Hölder’s inequality applied to its defining integral. Therefore x 7 → Γ( x + a)Γ( x) is nondecreasing for fixed a > 0. Using this fact 65 with a = 2
+
+q , together with the gamma recurrence, gives 
+
+mq(s + 2) 
+
+mq(2) mq(s) = 3( s + 1) 
+
+s + 3 Γ
+
+
+
+1 + s + 3 
+
+q
+
+
+
+Γ
+
+
+
+1 + 1
+
+q
+
+
+
+Γ
+
+
+
+1 + s + 1 
+
+q
+
+
+
+Γ
+
+
+
+1 + 3
+
+q
+
+ ≥ 3( s + 1) 
+
+s + 3 > 2 (s ≥ 4) . (57) The first two terms in the bracket in (56) therefore have negative sum, and its last term is also negative. Hence χq(s) < 0 whenever 4 ≤ s ≤ q − 4 and s is even. For ℓ + 1 ≤ m ≤ L − 1, write sm = km−ℓ. Differentiating the suffix recursion at the identity matrices yields 
+
+˙G0(u) = 1
+
+ε
+
+> L−1
+
+X
+
+> m=ℓ+1
+
+qsm
+
+X
+
+> i̸=j
+
+(Wm)ij usm 
+
+> i
+
+uq−sm 
+
+> j
+
+− X
+
+> i
+
+ 1 − (Wm)ii 
+
+uqi
+
+ . (58) For completeness, at the identity matrices the input to W⊤ 
+
+> m
+
+has coordinates usm 
+
+> i
+
+; the remaining network is the sum of the qsm
+
+-th powers of its coordinates. Differentiating one matrix entry gives precisely the corresponding term in (58). Symmetry makes both the off-diagonal row sum and the off-diagonal column sum at coordinate i
+
+equal to 1 − (Wm)ii . Thus the single-edge calculation gives 
+
+ddt θℓ,i (t)
+
+θ(0)  
+
+> ℓt=0
+
+= − 1
+
+ε
+
+> L−1
+
+X
+
+> m=ℓ+1
+
+bℓm 
+
+ 1 − (Wm)ii 
+
+, bℓm := − qsm
+
+ χq(sm) + χq(q − sm) > 0. (59) Here sm ≥ k ≥ 4 and q − sm ≥ 4, so the strict sign follows from (57). The finitely many coefficients 
+
+bℓm depend only on k, L, ℓ, m , not on the width or the weights. 
+
+A Uniform Second-Order Remainder. We prove that, for some δ > 0 depending only on k, L ,
+
+d2
+
+dt 2
+
+θℓ,i (t)
+
+θ(0) 
+
+> ℓ
+
+≤ Cr 2, 0 ≤ t ≤ δr . (60) This estimate does not use any spectral separation. We first bound the polynomial and its derivatives. Every nonnegative doubly stochastic matrix is a contraction in each ℓp norm, 1 ≤ p < ∞: Jensen’s inequality gives P 
+
+> j
+
+|(W⊤v)j |p ≤ P 
+
+> i,j
+
+Wij |vi|p =P 
+
+> i
+
+|vi|p. Applying this observation through the suffix, or inducting directly through its recursion, gives 0 ≤ Gτ (u) ≤ Q(u) for 0 ≤ τ ≤ 1. At the all-ones vector every hidden coordinate remains one, so Gτ (1r) = r and ∂iGτ (1r) = q.The degree of Gt as a polynomial in t is at most PL−1
+
+> m=ℓ+1
+
+qsm
+
+= q − kk − 1 , which depends only on 
+
+k, L . Fixed-node univariate interpolation on [0 , 1] therefore expresses each of ˙Gt and ¨Gt as a linear combination of finitely many polynomials Gτ , with the sum of the absolute coefficients at most C,uniformly for t ∈ [0 , 1] . Consequently, 
+
+| ˙Gt(u)| + | ¨Gt(u)| ≤ CQ (u), (1 − Ct )Q(u) ≤ Gt(u) ≤ Q(u). (61) 66 The lower bound follows by integrating the bound on ˙Gt from zero. We also need local derivative bounds without a factor of r. Each Gτ has nonnegative coefficients and is homogeneous of degree q. Its second derivative ∂ii Gτ thus has nonnegative coefficients whose sum is ∂ii Gτ (1r) ≤ (q − 1) ∂iGτ (1r) = q(q − 1) . Applying the same interpolation formula after differentiating in ui twice shows that, for j = 0 , 1, 2, the sum of the absolute coefficients of ∂ii ∂jt Gt
+
+is at most C. All these polynomials have degree q − 2.Choose δ small enough that Ct ≤ 12 when 0 ≤ t ≤ δr . By (61) and homogeneity, 1 ≤ Zt
+
+Z0
+
+≤
+
+(1 − Ct )− rq ≤ C. For a polynomial p of bounded degree whose sum of absolute coefficients is bounded independently of r, we then have 
+
+Et
+
+|p(X)|Q(X)j  ≤ Cr j , j = 0 , 1, 2. (62) Here the bound is uniform for the polynomials just considered. To verify it explicitly, take a monomial with multi-index α, write |u|α = Qri=1 |ui|αi , and use 
+
+1
+
+Z0
+
+Z
+
+> Rr
+
+|u|αQ(u)j e−aQ (u) du = a− r + |α|
+
+q −j Γ
+
+ r + |α|
+
+q + j
+
+
+
+Γ
+
+ r + |α|
+
+q
+
+
+
+> r
+
+Y
+
+> i=1
+
+mq(αi). (63) For j = 0 this is a product of one-dimensional integrals; differentiating in a gives the identities for 
+
+j = 1 , 2. With a = 1 − Ct , the power of a is uniformly bounded because rt ≤ δ, the gamma ratio is Ok,L (rj ), and the last product is bounded because |α| is bounded. Summing over monomials proves (62). To differentiate the moments, use the following identities, with all integrals taken over Rr:
+
+ddt 
+
+Z
+
+pte−Gt du =
+
+Z
+
+( ˙ pt − pt ˙Gt)e−Gt du,d2
+
+dt 2
+
+Z
+
+pte−Gt du =
+
+Z h
+
+¨pt − 2 ˙ pt ˙Gt + pt
+
+ ( ˙Gt)2 − ¨Gt
+
+i
+
+e−Gt du.
+
+(64) The coercive lower bound in (61) and the polynomial envelopes above justify differentiation under the integral sign, including the derivatives used earlier at zero. Apply (64) to pt = 1 , pt = u2 
+
+> i
+
+, and 
+
+pt = ∂ii Gt. For each of these unnormalized integrals, the absolute value of its j-th derivative, divided by Zt, is at most Cr j for j = 0 , 1, 2, by (62). The quotient rule, using |Z′
+
+> t
+
+|
+
+Zt
+
+≤ Cr and |Z′′  
+
+> t
+
+|
+
+Zt
+
+≤ Cr 2,therefore gives |A(j) 
+
+> i
+
+(t)| + |B(j) 
+
+> i
+
+(t)| ≤ Cr j for j = 0 , 1, 2. The denominator in (54) is a positive constant depending only on q. The product rule now proves (60). By (52), decreasing c0 ensures ε ≤ δr . Taylor’s theorem and (59) consequently yield the uniform expansion 
+
+θℓ,i 
+
+θ(0) 
+
+> ℓ
+
+= 1 −
+
+> L−1
+
+X
+
+> m=ℓ+1
+
+bℓm 
+
+ 1 − (Wm)ii 
+
+ + Ok,L (r2ε2). (65) 67 From Ordered Diagonals to A Relative Gap. Since there are only finitely many positive coefficients bℓm , there is a constant b > 0, depending only on k, L , such that PL−1 
+
+> m=ℓ+1
+
+bℓm ≥ b for every 1 ≤ ℓ ≤ L − 2. For i < j , the common ordering gives (Wm)ii − (Wm)jj ≥ (j − i)∆ ≥ ∆ in every higher layer. Subtracting the two instances of (65) therefore gives 
+
+θℓ,i − θℓ,j 
+
+θ(0) 
+
+> ℓ
+
+≥ b∆ − Cr 2ε2 ≥ (b − Cc 0)∆ ≥ b∆2 , (66) where the last inequality follows by choosing c0 sufficiently small. The sign of the first-order term in (65) also gives max i θℓ,i ≤ (1 + Cr 2ε2)θ(0)  
+
+> ℓ
+
+≤ 2θ(0)  
+
+> ℓ
+
+, after the same choice of c0. Dividing the last two bounds proves (51) with c1 = min {1, b
+
+4 }, uniformly over all 1 ≤ ℓ ≤ L − 2. This completes the proof of Proposition H.1. 
+
+H.4 An Explicit Nonempty Family 
+
+The conditions hold for every r ≥ 3, not just for a particular small width. Choose any W1 with orthonormal columns, set a = 1
+
+r 1r, and, for 2 ≤ m ≤ L − 1, take 
+
+(Wm)ij =
+
+
+
+t(i + j)
+
+r2 , i̸ = j, 
+
+1 − tr2
+
+
+
+(r − 2) i + r(r + 1) 2
+
+
+
+, i = j, 
+
+0 < t ≤ c0
+
+3r3 . (67) These matrices are symmetric, and the diagonal entries are precisely one minus the corresponding off-diagonal row sums. Their largest off-diagonal row sum is ε = 3( r − 1) t
+
+2r , and their consecutive diagonal gaps equal ∆ = (r − 2) tr2 . Moreover, 
+
+r2ε2
+
+∆ = 9tr 2(r − 1) 2
+
+4( r − 2) ≤ 3tr 3 ≤ c0, (68) where the first inequality uses 3( r − 1) 2 ≤ 4r(r − 2) for r ≥ 3. Thus Proposition H.1 applies. In particular, setting t = c0
+
+3r3 gives ∆ = c0(r − 2) 3r5 and γ = 3r5
+
+c0c1(r − 2) = Ok,L (r4), while κ0 = 2 and 
+
+μ = 1 .The first-layer orthonormality is used only for its normalization and conditioning, not for the spectral-gap argument. It can be replaced by unit-norm columns and any prescribed bound on 
+
+cond( W1); the conclusion then uses κ0 = max {2, cond( W1)}. The restriction to r ≥ 3 is natural for this construction: a symmetric doubly stochastic 2 × 2 matrix necessarily has equal diagonal entries. Finally, the condition is local: (52) requires coupling of order at most r−3 for fixed k, L . No spectral-gap claim is made here for symmetric matrices outside this weak-coupling regime. 
+
+# I Proof of Challenges 
+
+I.1 Local Minima and Fourth-Order Saddle Barriers 
+
+Proof of Proposition 3.6. We give two explicit realizable instances. In both cases, let f ⋆(x) =  
+
+> 12
+
+(e⊤ 
+
+> 1
+
+x)4 + 12 (e⊤ 
+
+> 3
+
+x)4. Thus the teacher has W⋆ 
+
+> 1
+
+= [ e1, e3] and a⋆ = (1 /2, 1/2) . Its first-layer 68 columns are orthonormal, and its output weights are positive, normalized, and row balanced, so all assumptions applicable to the two-layer case are satisfied. 
+
+A Non-Global Local Minimum. Consider the student point ¯w1 = e2, ¯w2 = e3, and ¯a =(1 /2, 1/2) . We work in the normalized parameterization and use the local coordinates ξ = ( p, q, s, t, u )
+
+defined by w1 = pe1 + p1 − p2 − q2e2 + qe3, w2 = se1 + te2 + √1 − s2 − t2e3, a1 = 1 /2 + u, and 
+
+a2 = 1 /2 − u. The point ¯θ corresponds to ξ = 0.Let c = 2 1/4 and introduce the four samples G = {e2, −e2, c e1 + e2, −ce1 + e2}. At ξ = 0, their residuals are respectively 1/2, 1/2, −1/2, −1/2. For a point x = ( x1, x 2, 0) ∈ G , the first variation of its residual is Dr x(0)[ ξ] = 2 x32x1p + x42u. Hence P 
+
+> x∈G
+
+rxDr x(0) = 0 , so these four samples contribute zero gradient at ¯θ.We next add exact-fit samples to make this stationary point locally stable. Let 
+
+A = {(1 , 1, 0) , (−1, 1, 0) , (1 , 1, 1) , (−1, 1, 1) , (1 , 1, 2) }
+
+. For every x ∈ A , one has (e⊤ 
+
+> 1
+
+x)4 = ( e⊤ 
+
+> 2
+
+x)4, and therefore the teacher and the student agree exactly at ¯θ. Writing an anchor point as (ε, 1, z ) with ε ∈ {± 1}, its residual Jacobian at ξ = 0 is 
+
+(2 ε, 2z, 2εz 3, 2z3, 1 − z4). For the five points above, the resulting Jacobian matrix is 
+
+J =
+
+
+
+2 0 0 0 1
+
+−2 0 0 0 12 2 2 2 0
+
+−2 2 −2 2 02 4 16 16 −15 
+
+ ,
+
+whose determinant is 384 . Thus J is invertible and J⊤J ≻ 0.Form an empirical data multiset by taking the four points in G once and each point in A exactly 
+
+M times. Let HG denote the Hessian contribution of the four points in G at ξ = 0. Since all anchor residuals vanish, their Hessian contribution is precisely J⊤J per copy, up to the common positive normalization of the empirical loss. Therefore the total Hessian is proportional to HG + M J⊤J.Choosing M > ∥HG ∥op /λ min (J⊤J) makes this matrix positive definite. Hence ¯θ is a strict local minimum in the normalized parameterization. It is not global: its four residuals on G are nonzero, so its empirical loss is strictly positive, whereas the teacher parameters achieve zero loss on every sample. This proves the existence of a non-global local minimum. 
+
+A Fourth-Order Saddle. For the second instance, use only the two samples x1 = e1 and x2 = e3
+
+and consider the student point ew1 = e1, ew2 = e2, and ea = (1 /2, 1/2) . The two residuals are 
+
+r1 = 0 and r2 = −1/2. Since both student preactivations vanish at x2, the quartic activation gives 
+
+Dr 2 = D2r2 = D3r2 = 0 at this point. For the empirical squared loss L = 14 (r21 + r22 ), it follows that 
+
+∇L (eθ) = 0 and ∇2L(eθ) = 12 ∇r1∇r⊤ 
+
+> 1
+
+⪰ 0.Moreover, if a direction lies in the nullspace of this Hessian, then the first-order variation of r1
+
+vanishes, so r21 changes only at fourth order, while r2 = −1/2 + O(∥δ∥4). Hence no descent term of order one, two, or three can occur along a Hessian-flat direction. Finally, perturb only the second hidden neuron along the feasible normalized path w2(t) = √1 − t2e2 + te3. The first sample remains fitted exactly, while on the second sample the student 69 output is 12 t4. Consequently, L(eθ(t)) = 14 (− 12 + 12 t4)2 = 116 − 18 t4 + 116 t8. Thus the loss decreases for all sufficiently small nonzero t, and its first descent term is quartic. Since the Hessian also has positive directions, this point is a genuine fourth-order saddle. 
+
+I.2 Sample-Complexity Barrier for the NTK 
+
+We prove Proposition 3.7 by applying the spherical kernel lower bound of Ghorbani et al. [2021, Theorem 3]. The Gaussian-to-sphere reduction and the verification of a nonvanishing highest-degree component for our admissible targets are supplied below. 
+
+The Spherical Result. Let νd = Unif( Sd−1(√d)) . Write P≤m for the orthogonal projection in 
+
+L2(νd) onto restrictions of polynomials of total degree at most m, and set P>m = I − P≤m. For a fixed rotationally invariant kernel 
+
+Kd(u, v) = ψd
+
+ ⟨u, v⟩
+
+d
+
+
+
+, u, v ∈ Sd−1(√d),
+
+and independent Ui ∼ νd, define 
+
+RK,d (f ; U1: n) := inf  
+
+> β∈Rn
+
+f −
+
+> n
+
+X
+
+> i=1
+
+βiKd(·, Ui)
+
+> 2
+> L2(νd)
+
+. (69) Theorem 3 of Ghorbani et al. [2021] states that, for a fixed integer m ≥ 0, if 
+
+n ≤ dm+1 −δd , δd > 0, δ2 
+
+> d
+
+log d −→ ∞ ,
+
+then the following holds for any deterministic target sequence fd ∈ L2(νd) and any fixed kernel sequence whose spherical sections are square integrable. For every fixed ϵ > 0, with probability tending to one, 
+
+RK,d (fd; U1: n) − RK,d (P≤mfd; U1: n) − ∥ P>m fd∥2
+
+> L2(νd)
+
+≤ ϵ∥fd∥L2(νd)∥P>m fd∥L2(νd).
+
+(70) The kernel and target are fixed before the sample is drawn. The risk in (69) minimizes over all coefficients, rather than over coefficients obtained by a particular training algorithm. No assumption that all low-degree kernel eigenvalues are positive is required for this lower bound. 
+
+Proof of Proposition 3.7. Throughout the proof, k, L , and hence q = kL−1, are fixed. We abbreviate 
+
+KNTK  
+
+> d
+
+by Kd.
+
+Step 1: NTK Symmetry, Homogeneity, and Integrability. For a finite-width bias-free network with the specified activation, let Fϑ denote its output as a function of all trainable parameters ϑ. Induction through its L − 1 activations gives 
+
+Fϑ(sx) = sqFϑ(x).
+
+Differentiating in the parameters shows that every tangent feature has the same degree of input homogeneity: 
+
+∇ϑFϑ(sx) = sq∇ϑFϑ(x).
+
+70 The finite-width tangent kernel, and therefore its deterministic infinite-width limit, consequently satisfy 
+
+Kd(sx, t z) = sqtqKd(x, z), s, t > 0. (71) An orthogonal change of input coordinates can be absorbed into an orthogonal change of the first-layer Gaussian weights. This preserves their initialization law and the Euclidean inner product of parameter gradients. The finite-width kernel is thus rotation invariant in distribution, and its deterministic limit satisfies 
+
+Kd(Ox , Oz ) = Kd(x, z), O ∈ O(d).
+
+This is also the multilayer NTK invariance described in Ghorbani et al. [2021, Section 3]. Its restriction to Sd−1(√d) therefore has the form used in (69). The diagonal values of this fixed-depth monomial NTK are finite, since its covariance and derivative-covariance recursions involve only finite Gaussian polynomial moments. Positive semidefiniteness and rotational invariance give 
+
+|Kd(u, v)|2 ≤ Kd(u, u)Kd(v, v) = ψd(1) 2 < ∞
+
+on the sphere. Thus the square-integrability hypothesis of (70) holds. 
+
+Step 2: An Exact Gaussian-to-Sphere Reduction. For the Gaussian training inputs, write 
+
+Ri := ∥Xi∥2
+
+√d , Ui := 
+
+√d Xi
+
+∥Xi∥2
+
+, Xi = RiUi.
+
+The vectors Ui are independent with law νd, and are independent of the radii Ri, which are strictly positive almost surely. By (71), 
+
+Kd(·, Xi) = Rqi Kd(·, Ui).
+
+Consequently, the Gaussian samples and their normalized directions generate exactly the same kernel span: 
+
+span {Kd(·, Xi) : 1 ≤ i ≤ n} = span {Kd(·, Ui) : 1 ≤ i ≤ n}. (72) Every function in this span is q-homogeneous. An independent test input has the decomposition 
+
+X = RU, with U ∼ νd independent of R. For each integer j ≥ 0, set 
+
+Ad,j := E[R2j ] = 2j Γ( d/ 2 + j)
+
+dj Γ( d/ 2) =
+
+> j−1
+
+Y
+
+> a=0
+
+
+
+1 + 2ad
+
+
+
+, (73) where the empty product is one. For any two q-homogeneous functions v, f whose restrictions to the sphere are square integrable, independence and homogeneity give the exact identity 
+
+EX∼N (0,Id)[( v(X) − f (X)) 2] = Ad,q ∥v − f ∥2
+
+> L2(νd)
+
+. (74) In particular, Ad,q ≥ 1 and Ad,q = 1 + Oq(d−1). Combining (72) and (74) yields, pathwise, 
+
+inf  
+
+> α∈Rn
+
+EX∼N (0,Id)
+
+ f ⋆d (X) −
+
+> n
+
+X
+
+> i=1
+
+αiKd(X, Xi)
+
+!2
+
+= Ad,q RK,d (f ⋆d ; U1: n).
+
+(75) Because the infimum permits every coefficient vector, this identity supplies a lower bound even when the learned coefficients use all sample radii, labels, and additional randomness. It does not assert equality of the Gaussian and spherical empirical ridge-regression objectives. 71 Step 3: An Admissible Constant-Width Target Family. Let c0, c 1 be the constants in Proposition H.1, and fix t = c0/162 , independently of d. For every d ≥ 3, choose 
+
+W1 = ( e1, e2, e3), a = 13 13, Wj = Mt (2 ≤ j ≤ L − 1) ,
+
+where 
+
+Mt =
+
+
+
+1 − 7t/ 9 t/ 3 4t/ 9
+
+t/ 3 1 − 8t/ 9 5t/ 94t/ 9 5t/ 9 1 − t
+
+ . (76) The maximum off-diagonal row sum is t, and the consecutive diagonal gaps equal t/ 9. Since 
+
+32t2 ≤ c0(t/ 9) ,
+
+Proposition H.1 applies and verifies all three assumptions in the statement, with 
+
+κ0 = 2 , μ = 1 , γ = 9
+
+c1t .
+
+These parameters depend only on k, L , not on d. The resulting target has the form 
+
+f ⋆d (x) = g(x1, x 2, x 3), (77) where g is a fixed homogeneous polynomial of degree q. In particular, g itself does not change with d.Write g(u) = P 
+
+> |β|=q
+
+bβuβ, and set b⋆ := b(q, 0,0) = g(1 , 0, 0) . Keeping only the path that uses the first neuron at every layer gives 
+
+b⋆ ≥ 13
+
+
+
+1 − 7t
+
+9
+
+sk,L 
+
+> 0, sk,L := 
+
+> L−2
+
+X
+
+> j=1
+
+kj . (78) Column normalization, positivity, and the even activation also give 
+
+0 ≤ g(u) ≤ max  
+
+> 1≤j≤3
+
+|uj |q.
+
+Hence, for independent standard Gaussian G1, G 2, G 3,
+
+E[g(G1, G 2, G 3)2] ≤ 3E[|G1|2q] = 3(2 q − 1)!! .
+
+Using (74) with v = 0 yields 
+
+sup 
+
+> d≥3
+
+∥f ⋆d ∥L2(νd) ≤ M, M := p3(2 q − 1)!! . (79) 
+
+Step 4: Nonvanishing Degree-q Spherical-Harmonic Energy. Let Pq = P≤q − P≤q−1. Its range is the space Vd,q of restrictions of homogeneous harmonic polynomials of degree q, with dimension 
+
+B(d, q ) = 
+
+d + q − 1
+
+q
+
+
+
+−
+
+d + q − 3
+
+q − 2
+
+
+
+.
+
+Use the Gegenbauer normalization of Ghorbani et al. [2021, Section 5.2], and define 
+
+Zq,d (u) := pB(d, q ) Q(d) 
+
+> q
+
+(√d u 1).
+
+72 Then Zq,d ∈ Vd,q and ∥Zq,d ∥L2(νd) = 1 , by Eq. (32) of that paper. Consequently, 
+
+∥Pqf ⋆d ∥2 
+
+> L2(νd)
+
+≥ |⟨ f ⋆d , Z q,d ⟩L2(νd)|2. (80) Eq. (43) of Ghorbani et al. [2021] gives, for fixed q, the following coefficientwise convergence of polynomials: pB(d, q )Q(d) 
+
+> q
+
+(√d s ) −→ He q(s)
+
+√q! . (81) Here He q is the probabilists’ Hermite polynomial, normalized by E[He q(G1)2] = q!.For completeness, convergence of all joint moments needed below follows from an exact radial identity. For β ∈ Z3
+
+> ≥0
+
+, writing j = |β|, the decomposition X = RU and (73) imply 
+
+Eνd
+
+h
+
+U 2β1 
+
+> 1
+
+U 2β2 
+
+> 2
+
+U 2β3
+
+> 3
+
+i
+
+=
+
+Q3
+
+> a=1
+
+(2 βa − 1)!! 
+
+Ad,j 
+
+−→ 
+
+> 3
+
+Y
+
+> a=1
+
+(2 βa − 1)!! . (82) We use (−1)!! = 1 ; moments with an odd exponent in any coordinate vanish by reflection symmetry. Since g and the polynomials in (81) have fixed degree, coefficientwise convergence and (82) yield 
+
+⟨f ⋆d , Z q,d ⟩L2(νd) −→ E[g(G1, G 2, G 3) He q(G1)] 
+
+√q! . (83) Hermite orthogonality gives 
+
+E[Gj 
+
+> 1
+
+He q(G1)] = 0 (0 ≤ j < q ), E[Gq 
+
+> 1
+
+He q(G1)] = q!.
+
+Every monomial of g has total degree q. Thus only b⋆uq 
+
+> 1
+
+contributes to the expectation in (83); independence of the Gaussian coordinates gives 
+
+E[g(G1, G 2, G 3) He q(G1)] = b⋆q!.
+
+Combining this with (80) proves 
+
+lim inf  
+
+> d→∞
+
+∥Pqf ⋆d ∥2 
+
+> L2(νd)
+
+≥ q!b2 
+
+> ⋆
+
+> 0. (84) In particular, with 
+
+E0 := q!b2
+
+> ⋆
+
+2 > 0,
+
+we have ∥Pqf ⋆d ∥2 
+
+> L2(νd)
+
+≥ E0 for all sufficiently large d.
+
+Step 5: Apply the Spherical Theorem and Conclude. Fix η ∈ (0 , q ), and suppose n ≤ dq−η.Apply (70) with 
+
+m = q − 1, δd = η. 
+
+The integer m is fixed, and δ2 
+
+> d
+
+log d = η2 log d → ∞ . Since f ⋆d has degree q, P>q −1f ⋆d = Pqf ⋆d . The nonnegativity of RK,d (P≤q−1f ⋆d ; U1: n) therefore gives, with probability tending to one, 
+
+RK,d (f ⋆d ; U1: n) ≥ Ed − ϵ∥f ⋆d ∥L2(νd)
+
+pEd, Ed := ∥Pqf ⋆d ∥2
+
+> L2(νd)
+
+.
+
+73 Choose the fixed theorem tolerance ϵ = √E0/(2 M ). Equations (79) and (84) imply 
+
+ϵ∥f ⋆d ∥L2(νd)
+
+pEd ≤√E0
+
+√Ed
+
+2 ≤ Ed
+
+2 .
+
+Consequently, 
+
+P
+
+
+
+RK,d (f ⋆d ; U1: n) ≥ E0
+
+2
+
+
+
+−→ 1. (85) The exact identity (75), together with Ad,q ≥ 1, transfers this bound to the best possible predictor in the Gaussian sample-centered kernel span. Set 
+
+ε⋆ := min 
+
+ 14 , E0
+
+4
+
+
+
+.
+
+Then every predictor stated above has Gaussian risk at least 2ε⋆ on the same event. The event depends only on the sample directions and holds for all coefficient vectors simultaneously, so additional algorithmic randomness does not affect the lower bound. In particular, the probability of achieving risk at most ε⋆ tends to zero whenever n ≤ dq−η.For a learner with success probability at least 0.99 for all sufficiently large d, even a subsequence satisfying this sample-size inequality is impossible. It follows that its worst-case sample complexity is Ωk,L,η (dq−η) for every fixed η ∈ (0 , q ). Equivalently, its necessary sample-size exponent satisfies 
+
+lim inf 
+
+> d→∞
+
+log n(d)log d ≥ q. 
+
+Scope of the Conclusion. The hard targets are chosen before the data are sampled and satisfy all of the manuscript’s assumptions; no additional highest-degree energy assumption is imposed on the entire target class. The lower bound concerns fixed, sample-centered infinite-width NTK regression, including zero-initialized kernel gradient descent. It does not rule out passive feature-learning algorithms, data-dependent kernels, or active queries. The use of Theorem 3 also requires k, L to remain fixed as d → ∞ ; the exponent statement alone is not a claim of an Ω( dq) lower bound with no exponent slack. 
+
+# J Experiment Details 
+
+We present a numerical illustration of parameter recovery on an 8 → 3 → 3 → 1 polynomial network with activation σ(t) = tk for k ∈ { 4, 6, 8}. All configurations use the same target weights and numerical settings, with only the activation degree changed. 74 Figure 1: Parameter recovery for the 8 → 3 → 3 → 1 network with fourth-power activation ( k = 4 ). The first hidden layer is recovered by column-space estimation followed by ASPIRE, using empirical position and gradient moments constructed from independent Hit-and-Run chains. The treatment of the second hidden layer and output layer differs slightly from the procedure analyzed in the main text: we use multiple Hessian evaluations for the second hidden layer and ordinary least squares for the output weights. Thus, the experiment is primarily intended to validate the core ASPIRE mechanism for recovering hidden directions. Before evaluation, we align hidden-unit permutations across adjacent layers and resolve first-layer column signs. Figure 1 visualizes the recovered parameters for k = 4 , while Figure 2 reports the recovery errors for all three activation degrees. The results show accurate recovery across all tested 75 Figure 2: Recovery errors comparison for three activation degrees. settings, providing a numerical validation of the core ASPIRE procedure. 76
