@@ -1,0 +1,1703 @@
+Title: Anchor Divergence for Semantic Geometry in Contrastive Learning
+
+URL Source: https://arxiv.org/pdf/2610.06919v1
+
+Published Time: Wed, 07 Oct 2026 00:05:44 GMT
+
+Number of Pages: 34
+
+Markdown Content:
+# Anchor Divergence for Semantic Geometry in Contrastive Learning 
+
+## Akash Kannan 1, Kiho Park 1, and Victor Veitch 11University of Chicago 
+
+Abstract 
+
+This paper concerns how semantic context determines geometry in learned vector representations. Similarity is typically measured using cosine similarity, which provides a single fixed geometry. Semantic similarity, however, is inherently context dependent: two images may be similar because they depict the same object, share a visual style, or are relevant to the same clinical finding. We show that contrastive representations naturally encompass a family of geometries that can be specialized to particular semantic structure. The key idea is to use an interplay between contrastive learning, exponential families, and information geometry to establish a correspondence between probability distributions over “anchors” and Bregman geometries on the representation space. We use this correspondence to define Anchor Divergences , a method for specifying context-specific semantic geometries on fixed representations. Under this correspondence, modeling the anchor distribution models the geometry itself. Experiments on retrieval show that anchor divergences provide an effective and efficient way to specify context-specific semantic similarity. Code is available at github.com /sky1712 /Anchor-Divergence. 
+
+# 1 Introduction 
+
+Modern AI systems encode semantic structure in dense vector representations. This pa-per asks how similarity between such representations should be measured. We focus on contrastive models such as CLIP and its successors [Rad +21 ], which are trained to score matched query–key pairs above mismatched ones using cosine-based softmax objectives. It is therefore natural to use cosine similarity as the geometry of the learned space. But this creates a basic mismatch: cosine provides a single fixed notion of similarity, while semantic similarity is inherently context dependent. For concreteness, we focus on image similarity in vision–language models, and study how semantic similarity should be defined between pairs of images. Figure 1 illustrates the fundamental limitation of cosine similarity in this setting. A query image may share different semantic attributes with different database images, while cosine implicitly fixes how these sources of variation contribute to similarity. The relevant notion, however, depends on context: we may care about the same dog breed, background, or outfit. Understanding how to specify such context-specific similarity is important both foundationally—the question of how dense representations encode semantics is the heart of (mechanistic) interpretability— and practically. For example, when retrieving chest X-rays similar to a query image, we may want similarity to reflect specific pathologies rather than unrelated patient characteristics or acquisition artifacts; see Figure 2. A fixed cosine geometry has no reason to privilege the semantic aspect relevant to the task. The main contribution of this paper is to show that the contrastive structure naturally defines a family of semantic geometries on the image representation space, each induced by a probability distribution over semantically relevant “anchors.” This correspondence leads 1arXiv:2610.06919v1 [cs.AI] 2 Oct 2026 Figure 1: Anchor divergences induce context-specific neighborhoods for the same query. Cosine similarity gives a single fixed ranking. In contrast, changing the semantic anchors changes which aspect of the query defines its neighborhood. For example, breed anchors retrieve other Huskies while allowing background and clothing to vary; background and clothing anchors behave analogously. The underlying image representations remain fixed throughout. 
+
+to anchor divergences , a method for specifying context-specific semantic geometries on fixed representations; see Figure 1. Informally, the starting idea is to specify the semantics of interest using a set of text anchors. For example, in the chest X-ray setting, the anchors might consist of clinical descriptions of pathologies—the variation in the text includes only the aspects we care about. Relative to any such anchor set, the contrastive model uses the same softmax structure that appears during training to map each image to a distribution over the anchors, based on their image– text similarities. We can then compare two images through the distributions they induce over the anchors. In this way, the chosen anchors determine which semantic differences are emphasized by the comparison. In principle, we could define context-specific similarity directly using a finite anchor set. However, this ties the geometry to a particular collection of anchors: it may reflect idiosyn-crasies of that finite set, and the cost of representing the geometry grows with the number of anchors. The main technical insight is to move from identifying the geometry with a finite set of text anchors to identifying it with a probability distribution from which the anchors are drawn i.i.d. Using ideas from information geometry, we show that each such distribution corresponds to a Bregman divergence defined on the original image embeddings. This shifts the object specifying semantic geometry from a finite anchor set to an underlying semantic distribution, which can in turn be modeled efficiently. The development of the paper is: 1. First, we show that the KL divergence between softmax distributions over a finite set of semantic anchors has a natural limit as a Bregman divergence on image represen-tations. This reveals a direct role of information geometry in organizing semantic similarity in contrastive representations, and leads to anchor divergences —a principled method for specifying context-specific semantic geometries. 2. A key consequence of the Anchor Divergence construction is that the anchor distribu-tion determines the induced Bregman geometry. Drawing on classical connections between exponential families and Bregman geometry [Efr78; Ama82; WJ08; AC10 ],we use the observed anchors to fit a parametric model of the underlying population anchor distribution, whose fitted distribution induces an explicit Bregman divergence. This has two practical benefits: once the model is fit, the cost of representing and 2evaluating the geometry need not scale with the number of observed anchors, and the parametric structure can provide useful approximations when only a limited number of anchors are available. 3. As a further consequence of modeling the anchor distribution, we show how broad semantic structure can be adapted to a specific target using an empirical-Bayes-type construction. The idea is to first learn a broad anchor distribution—and hence a broad semantic geometry—from a large collection of anchors that are loosely related to the target, e.g., all text about diseases, and then refine it using a small set of targeted anchors. Empirically, we find that this can reduce task-specific anchor requirements by a full order of magnitude. 4. Finally, experiments test the consequences of the framework. We show that the anchor distribution controls which semantic factors govern similarity; parametric models are useful when anchors are limited, while the non-parametric softmax improves as anchor coverage grows; and broad semantic structure can be adapted using few target anchors. Across these settings, the resulting geometries improve over task-agnostic cosine similarity and task-specific heuristic approaches. 
+
+# 2 Anchor Divergence 
+
+We begin with a finite set of text anchors Γ = {γ1, . . . , γN } chosen to describe the semantics of interest. For example, in a pathology-specific geometry, the anchors may be clinical descriptions of different findings. Given an image embedding λ, the contrastive softmax induces a distribution over these anchors, PΓ (γk | λ) ∝ exp (λ⊤γk/τ ), where τ > 0 is the temperature. A natural way to compare two image embeddings is then by the KL divergence between the distributions they induce: 
+
+dSM, Γ (λ1∥λ2) := KL (PΓ (· | λ1) ∥ PΓ (· | λ2)) .We will refer to this as the softmax anchor divergence .Specifying a divergence via a finite set of anchors is appealingly simple. However, we may worry that the procedure may be overly sensitive to the specific choice of anchors. For example, if swapping out a single clinical note substantively altered the geometry of the pathology-specific anchor divergence, it would suggest that we have not captured a meaningful notion of pathology-specific geometry. This motivates viewing the observed anchors as samples from an underlying distribution over semantically relevant anchors. In this view, the distribution, rather than any particular finite realization, specifies the semantic context. We now see that such a distribution induces a well-defined population geometry on the image embedding space. To state the result, we recall two standard definitions. 
+
+Definition 1. For differentiable, strictly convex f , the Bregman divergence is 
+
+Bf (η1∥η2) := f (η1) − f (η2) − ∇ f (η2)⊤(η1 − η2).
+
+Definition 2. For a distribution q on Rd , its cumulant generating function (CGF) is 
+
+κq(η) := log 
+
+Z
+
+exp (η⊤γ) q(dγ).The next result identifies the corresponding population geometry. 3Theorem 3 (Softmax anchor divergence converges to a population Bregman divergence) .
+
+Let ΓN = {γ1, . . . , γN } be sampled i.i.d. from an anchor distribution q on Sd−1. Then, as N → ∞ ,
+
+sup   
+
+> λ1,λ2∈Sd−1
+
+dSM, ΓN (λ1∥λ2) − Bκq
+
+ λ2
+
+τ
+
+λ1
+
+τ
+
+ a.s. 
+
+−→ 0. (2.1) The proof is deferred to Appendix A. The key observation is that the contrastive softmax is an exponential tilt of the empirical measure over anchors. The resulting natural exponential family links KL divergence to the Bregman geometry generated by κq.Thus, the simple idea of comparing images through their distributions over semantic anchors yields a population Bregman geometry determined by the anchor distribution. This motivates our central definition. 
+
+Definition 4. For a distribution q on Rd , the anchor divergence is 
+
+dq(λ1∥λ2) := Bκq
+
+ λ2
+
+τ
+
+λ1
+
+τ
+
+
+
+. (2.2) Under this definition, the anchor distribution q specifies the semantic context and thereby determines the geometry on the image embedding space. The softmax anchor divergence is the special case induced by the empirical distribution. This distributional view will allow us to model and adapt the semantic geometry in the following sections. 
+
+# 3 Modeling Structured Semantic Geometries 
+
+We have arrived at anchor divergences as Bregman divergences induced by an anchor 
+
+distribution q that represents the semantics of interest. In practice, however, we observe only a finite set of anchors. We therefore turn to modeling the underlying distribution from these observations, and hence the induced semantic geometry. The simplest approach is to use the empirical measure on the anchor set. It is straightforward to verify that the anchor divergence associated with this empirical distribution is exactly the softmax anchor divergence defined earlier. As established by Theorem 3 this will converge to the target population geometry as we get more and more anchors. With limited anchors, however, the finite anchor set may poorly represent the underlying semantics. Since q determines the induced geometry, we can impose structure on the geometry by modeling q. The idea is to specify a parametric model qθ for the anchor distribution. For example, we may take qθ to be a multivariate Gaussian distribution with θ its mean and covariance. We then fit ˆθ to the specified anchors, say by maximum likelihood. The fitted distribution q ˆθ then induces the corresponding anchor divergence through Definition 4. Thus, different anchor-distribution assumptions induce different structured geometries in image embedding space. This reflects the usual tradeoff of parametric modeling. Simpler models impose stronger assumptions, which can help when anchors only partially specify the target semantics, but may miss the target geometry if those assumptions are too restrictive, even with many anchors. Moreover, once fit, the divergence is evaluated through the fitted distribution rather than all N observed anchors, so its evaluation cost need not scale with the anchor-set size; we examine this empirically in Appendix F.4. Table 1 illustrates this perspective for three anchor models. The empirical distribution recov-ers softmax anchor divergence. The Gaussian model is the simplest parametric alternative: fitting its mean and covariance yields a quadratic CGF, and hence an elliptical geometry. 4Table 1: Modeling the anchor distribution induces different semantic geometries. Each column specifies an anchor-distribution model and its CGF. The empirical model places uniform mass on the observed anchors; for the Gaussian model, ˆ μ and ˆ Σ are the sample mean and covariance; for the Gaussian mixture, {( ˆπm, ˆ μm, ˆ Σm)}Mm=1 are fit by expectation–maximization. 
+
+Anchor model Empirical Gaussian Gaussian Mixture CGF κ(η) log 1
+
+|Γ |
+
+X
+
+> γ∈Γ
+
+exp (η⊤γ) ˆμ⊤η + 12 η⊤ ˆΣη log 
+
+> M
+
+X
+
+> m=1
+
+ˆπm exp 
+
+
+
+ˆμ⊤
+
+> m
+
+η + 12 η⊤ ˆΣmη
+
+ 
+
+> Figure 2: Anchor divergences can emphasize relevant semantics over nuisance variation. The query X-ray shows the target pathology, pleural effusion, as well as a support device. Cosine similarity retrieves an image sharing device-related structure but not the target pathology, whereas both softmax and (Gaussian model) parametric anchor divergences retrieve images with pleural effusion.
+
+The resulting geometry emphasizes directions along which the modeled anchor distribution varies. A Gaussian mixture allows richer structure: its CGF is a log-sum-exp of quadratic potentials, allowing the induced geometry to reflect multiple semantic modes rather than a single global covariance structure. 
+
+Bregman divergence in a projected anchor space. We also consider mildly generalizing from Bregman divergences on the contrastive embedding space to Bregman divergences on a subspace of the embedding space. This is motivated by evidence that semantic structure is often encoded in low-dimensional subspaces [Old +23; Bha +24; Eng +25; Par +25 ]. We learn a projection, optionally followed by normalization, onto a semantically relevant subspace from the anchor set and define the Anchor Divergence on the projected space. In Appendix B, we show that this corresponds to a latent-variable model of the anchor distribution and yields a procedure for estimating the projector. We refer to the resulting divergences as 
+
+latent Gaussian and latent spherical anchor divergences. Operationally, both project onto the top-k eigenvectors of the empirical anchor covariance; the latent Gaussian divergence then uses Euclidean distance, while the latent spherical divergence uses cosine distance. 
+
+> 1
+
+The empirical and parametric constructions provide different ways of representing the anchor distribution, and hence different approximations to the same target semantic geometry. Figure 2 provides a qualitative illustration of the usefulness of the anchor divergence framework and its parametric approximations: both emphasize the pathology of interest over nuisance device-related structure. 
+
+# 4 Adapting Semantic Geometries from Broad Anchors 
+
+Obtaining many target-specific anchors can be cumbersome, while broader related anchors may be easier to obtain. The distributional view enables an empirical-Bayes approach: broad anchors provide prior information about the parameters of the anchor distribution,  
+
+> 1We note the latent spherical case yields the same projected cosine structure proposed in [HW26 ]
+
+5which is then updated using scarce target anchors. For example, in pathology-specific retrieval, we may have abundant general clinical text but only a few precise descriptions of the target pathology. The goal is to specialize broad semantic structure using a small number of pathology-specific anchors. Let Γbroad and Γtarget denote the broad and target anchor sets, respectively. Let {qθ : θ ∈ Θ}
+
+be a parametric anchor model with prior p(θ | Ω). We adapt the anchor distribution in three steps: 1. fit qθ to Γbroad and use the fit to set the prior hyperparameters Ω;2. update this prior using Γtarget via a model-specific posterior or posterior-like update; 3. summarize the update by ˆθ , such as a posterior mean or MAP estimate. The adapted distribution q ˆθ induces the corresponding semantic geometry through its anchor divergence, giving the following definition. 
+
+Definition 5. Given Γbroad and Γtarget , let q ˆθ denote the adapted anchor distribution obtained by using Γbroad to define prior information and updating it with Γtarget . The posterior anchor divergence is the anchor divergence induced by q ˆθ .All methods target the same object: a Bregman geometry induced by an anchor distribution. They differ only in how that distribution is estimated. Softmax anchor divergence uses the empirical distribution over target anchors; parametric anchor divergence fits a structured model to those anchors; posterior anchor divergence further regularizes this structured estimate using broad, related anchors as prior information. When |Γtarget | is small, broad anchors stabilize the geometry; as |Γtarget | grows, target anchors increasingly determine it. Model-specific updates are in Appendix D. 
+
+# 5 Experiments 
+
+Our experiments are designed to test the geometric and statistical predictions of the frame-work. We organize the experiments around the following questions: 1. Can Anchor Divergences effectively specialize geometry to different semantic factors? 2. With limited anchors, can parametric models usefully approximate the target geome-try? 3. Does posterior anchor modeling enable semantic adaptation using few target anchors? 
+
+## 5.1 Implementation details 
+
+All natural-image experiments [Rus +15; Hen +21; San +16; Wah +11 ] use MetaCLIP-2 
+
+[Chu +25 ]. Class-name anchors use the prompt template “a photo of a {class }”, and style anchors use “a {style } rendition of an object”. For the clinical experiments, we use CheXpert 
+
+[Irv +19 ] with CheXzero [Tiu +22 ]. Image and text embeddings are normalized to unit ℓ2
+
+norm, and we fix the inverse temperature 1 /τ at the model-provided logit scale. For asymmetric divergences, we rank keys using the symmetrized score 
+
+dsym (λq, λk) = 12
+
+d(λq∥λk) + d(λk∥λq) .We report Area Under the Precision–Recall Curve (AUPRC), which is suitable when relevant keys are sparse and prevalence varies across semantic targets. Relevance is defined by the semantic labels of each experiment. 6Table 2: Pathology-specific anchors specialize clinical retrieval. Condition-wise AUPRC differences between softmax anchor divergence and each reference geometry; positive values favor anchor diver-gence. Results are averaged over 10 independently generated anchor sets and 10 CheXzero checkpoints, with 95% intervals accounting for bootstrap and anchor-generation variability. Values > 0.005 are bold, values in [−0.005, 0.005 ] are gray, and values < −0.005 are bold red. 
+
+Pathology Softmax − Cosine Softmax − ITI 
+
+Enlarged Cardiomediastinum −0.0002 ± 0.0003 −0.0045 ± 0.0010 Cardiomegaly 0.0279 ± 0.0034 0.0069 ± 0.0091 
+
+Lung Opacity 0.0090 ± 0.0032 0.0137 ± 0.0035 
+
+Lung Lesion 0.0001 ± 0.0005 0.0051 ± 0.0010 
+
+Edema 0.0316 ± 0.0044 0.0286 ± 0.0072 
+
+Consolidation 0.0062 ± 0.0014 0.0073 ± 0.0023 
+
+Pneumonia 0.0081 ± 0.0013 0.0117 ± 0.0018 
+
+Atelectasis 0.0095 ± 0.0027 0.0113 ± 0.0036 
+
+Pneumothorax 0.0080 ± 0.0013 0.0128 ± 0.0026 
+
+Pleural Effusion 0.0465 ± 0.0060 0.0327 ± 0.0098 
+
+Pleural Other −0.0009 ± 0.0003 0.0025 ± 0.0005 Fracture 0.0003 ± 0.0002 0.0030 ± 0.0005 Support Devices 0.0208 ± 0.0056 0.0366 ± 0.0105 Average 0.0128 ± 0.0011 0.0129 ± 0.0014 
+
+We compare against two reference geometries. Cosine similarity provides the standard task-agnostic geometry. Image-text inversion (ITI) provides a task-specific heuristic baseline using a predict-then-retrieve procedure: it first matches the query image to the closest anchor and then ranks keys by cosine similarity to this anchor. This follows the spirit of image inversion methods in Baldrati et al. [Bal +23 ] and Mistretta et al. [Mis +25 ]. See Appendix E for full implementation details. 
+
+## 5.2 Anchor distributions select the semantic coordinate 
+
+We first isolate the effect of the anchor distribution with the embeddings fixed. Figure 1 gives a qualitative illustration. We test this systematically: if the anchor distribution determines the semantic geometry, then changing it should change which semantic coordinate is preserved by retrieval. 
+
+Clinical coordinate control. For each CheXpert finding, we independently generate 10 sets of report-style clinical text anchors from a fixed LLM prompt; see Appendix E.6. We evaluate retrieval using the corresponding pathology label and average over anchor generations and the 10 released CheXzero checkpoints. Table 2 reports AUPRC differences relative to cosine similarity and ITI, with 95% intervals accounting for anchor-generation and bootstrapping. Anchor divergence improves over the reference geometries for most findings. The largest gains occur for pleural effusion, cardiomegaly, edema, and support devices. These results indicate that pathology-specific anchors can shift retrieval toward the intended clinical coordinate beyond generic image-space similarity. 
+
+Object–style control. We next test whether varying the anchor distribution can interpolate between two semantic coordinates. ImageNet-R contains ImageNet object classes rendered in diverse styles, allowing retrieval to be evaluated by either object identity or style. Let 
+
+qobj and qstyle denote the corresponding empirical anchor distributions, and mix them as 
+
+qp = pq obj + ( 1 − p)qstyle , with p ∈ [0, 1 ]. We evaluate retrieval as p varies, averaging over 10 random realizations of the anchor set. Figure 3 shows that increasing object-anchor mass increases object retrieval while decreasing style retrieval. 7Figure 3: Anchor distributions select the semantic coordinate. Left: Mixing object and style anchor distributions on ImageNet-R shifts retrieval from preserving style to preserving object identity as p  
+
+> increases. Right: For a video-game-style space shuttle query, retrieved neighbors similarly shift from style-matched to object-matched images.
+
+Together, these experiments show that the same fixed image embeddings support different semantic geometries solely through changes to the anchor distribution. 
+
+## 5.3 Parametric modeling is useful with limited anchors 
+
+We next test whether parametric models of the anchor distribution provide useful approx-imations to the target geometry when only limited anchors are available. Softmax uses the empirical anchor distribution directly, whereas parametric models impose additional structure. We therefore expect parametric models to be most useful when anchors are limited, while the empirical construction should improve as anchor coverage grows. We first vary the number of ImageNet class anchors and evaluate retrieval on ImageNet. Figure 4 left shows the intuitive sample-efficiency pattern: structured geometries recover useful semantic neighborhoods at moderate anchor budgets, while softmax improves with anchor coverage and eventually becomes strongest. Similar trends hold across the other datasets; see Appendix F. We then consider the high-coverage regime using full dataset-matched anchor sets on ImageNet-R, CUB-200, and Sketchy. Figure 4 right shows that softmax anchor divergence is strongest in this setting, while parametric anchor divergences retain much of its gain over cosine similarity. Together with the ImageNet results, this illustrates the modeling tradeoff from Section 3: parametric structure can be useful with limited anchors, while the empirical anchor distribution becomes increasingly effective as anchor coverage grows. 
+
+## 5.4 Posterior modeling adapts broad geometry with few target an-chors 
+
+Finally, we test whether broad semantic structure can be adapted toward a target geometry using only a few task-specific anchors. This setting exposes a limitation of softmax anchor divergence: as a nonparametric estimator, it places mass only on observed target anchors, so with few anchors it can yield a poor approximation of the target geometry. Posterior anchor models instead use broad, semantically related anchors as prior information and specialize this structure using target anchors. We evaluate this on ImageNet, using WordNet anchors as broad semantic structure and ImageNet class names as target-specific anchors. We vary the number of target anchors 8Figure 4: Parametric modeling is useful with limited anchors. Left: On ImageNet, parametric anchor divergences are strongest in the red-shaded limited-anchor regime, while softmax improves with coverage and becomes strongest in the blue high-coverage regime. Right: With full dataset-matched anchor sets on ImageNet-R, CUB-200, and Sketchy, softmax gives the strongest retrieval performance, while parametric anchor divergences retain much of its gain over cosine similarity. 
+
+and compare target-only softmax, latent spherical, and GMM anchor divergences with posterior latent spherical and posterior GMM models adapted from WordNet, alongside cosine similarity. Results are averaged over five random seeds; model-specific adaptation details are given in Appendix D. Figure 5 shows that posterior anchor models are most useful when target anchors are scarce. Broad anchors provide prior semantic structure, while target anchors specialize the geometry toward the ImageNet class coordinate. As target-anchor coverage grows, the gap to target-only models narrows as the target anchors increasingly determine the geometry. 
+
+Summary. The experiments support the main consequences of the framework. Changing the anchor distribution changes which semantic factors govern similarity; parametric models provide useful approximations when anchors are limited, while the empirical softmax geometry improves with anchor coverage; and posterior anchor models adapt broad semantic structure using few task-specific anchors. Together, these results support anchor divergences as a flexible framework for specifying, modeling, and adapting context-dependent semantic geometry in contrastive representation spaces. 
+
+# 6 Discussion and Related Work 
+
+Semantic geometry in contrastive representations. Prior work has shown that learned representations often encode semantic structure geometrically, from word-embedding analo-gies and latent-variable accounts of embeddings to linear structure in neural representations 
+
+[Mik +13; Aro +16; SMG19; PCV24; Par +25 ]. In vision–language models, related work has studied how CLIP-like representations organize concepts through directions, parts, subspaces, and interpretable coordinates [Rad +21; Chu +25; Old +23; Bha +24; GES24; Mer +23 ]. Our question is complementary: given that a representation may encode many semantic factors simultaneously, which of them should determine similarity in a particular context? Anchor divergences answer this by representing the semantic context through an anchor distribution, which induces a corresponding Bregman geometry on the fixed representation space. 
+
+Image–image comparison in CLIP-like models. CLIP-style image embeddings are com-monly compared using cosine similarity across applications [Abb +25; Zhe +25; Den +25; Tiu +22 ]. Several works have proposed alternatives to raw image–image cosine comparison, 9Figure 5: Posterior anchor modeling adapts broad geometries using few target anchors. Dotted curves use only target-specific ImageNet anchors, while solid curves use posterior anchor models adapted from WordNet with the same target anchors. Posterior models are strongest at small and moderate target-anchor budgets, with the advantage narrowing as coverage grows. 
+
+including cache-based adaptation, cross-modal aggregation, text-based inversion, and meth-ods addressing image–text or intra-modal mismatch [Zha +22; UGA23; Yi +24; Mis +25; Bal +23; HW26 ]. These works motivate alternatives to the fixed cosine geometry, but do not generally ask how semantic context itself should determine the geometry on a fixed representation space. 
+
+Relation to TIP-X. TIP-X uses text as a bridge for image–image comparison: each image is mapped to a softmax affinity profile over downstream class-text prompts, and images are compared by the KL divergence between these profiles [UGA23 ]. This is the same finite-anchor construction as our softmax anchor divergence when the anchors are the downstream class-text prompts. Our contribution begins from this finite construction and studies the geometry determined by an underlying distribution over anchors. We show that an anchor distribution induces a population Bregman geometry and use this perspective to model and adapt semantic geometry. 
+
+Information geometry and metric learning. Our construction builds on classical connec-tions between exponential families, KL divergence, and Bregman geometry [Efr78; Ama82; Ban +05; WJ08; AC10 ]. It is also related to metric learning, which learns task-specific distances from supervised constraints on the representation space [Xin +02; WS09; SKP15; MA +17; MBL20; Rot +20 ]. Anchor divergences instead specify the semantic context through a distribution over semantic text anchors, without requiring labeled image pairs or repre-sentation fine-tuning. Because this anchor distribution determines the induced geometry, parametric modeling imposes corresponding geometric structure, while Bayesian updating provides a mechanism for semantic adaptation. 
+
+Future directions. Although our experiments focus on image–image retrieval in vision– language models, the construction is not intrinsically tied to images. The key ingredient is that a representation in one space defines a softmax distribution over anchors in another space through query–key scores. The theoretical structure developed here follows from this softmax, or equivalently exponential-family, form rather than from any image-specific property. In this view, a distribution over keys induces a geometry on the query space. This suggests that anchor divergences extend naturally to other contrastive and multimodal settings with the same structure. More broadly, this points to the importance of under-standing the geometry of softmax-based models as a general problem in AI: recent work 10 argues that representations defining softmax distributions are naturally studied through information geometry, with implications for probing and steering [Par +26 ]. Progress on anchor divergences may therefore be of independent interest beyond retrieval, contributing to a broader theory of semantic geometry in softmax models. 
+
+Acknowledgments 
+
+This work is supported by ONR grant N00014-23-1-2591. 
+
+# References 
+
+[Abb +25 ] R. Abbasi, A. Nazari, A. Sefid, M. Banayeeanzade, M. H. Rohban, and M. S. Baghshah. “Clip under the microscope: a fine-grained analysis of multi-object representation”. In: 2025 IEEE /CVF Conference on Computer Vision and Pattern Recognition (CVPR) . IEEE. 2025 (cit. on p. 9). 
+
+[Ama82 ] S.-I. Amari. “Differential geometry of curved exponential families-curvatures and information loss”. The Annals of Statistics (1982) (cit. on pp. 2, 10). 
+
+[AC10 ] S.-i. Amari and A. Cichocki. “Information geometry of divergence functions”. 
+
+Bulletin of the polish academy of sciences. Technical sciences 1 (2010) (cit. on pp. 2, 10). 
+
+[Aro +16 ] S. Arora, Y. Li, Y. Liang, T. Ma, and A. Risteski. “A latent variable model approach to pmi-based word embeddings”. Transactions of the Association for Computational Linguistics (2016) (cit. on p. 9). 
+
+[Bal +23 ] A. Baldrati, L. Agnolucci, M. Bertini, and A. Del Bimbo. “Zero-shot composed image retrieval with textual inversion”. In: 2023 IEEE /CVF International Con-ference on Computer Vision (ICCV) . IEEE. 2023 (cit. on pp. 7, 10). 
+
+[Ban +05 ] A. Banerjee, S. Merugu, I. S. Dhillon, and J. Ghosh. “Clustering with bregman divergences”. Journal of machine learning research Oct (2005) (cit. on p. 10). 
+
+[Bha +24 ] U. Bhalla, A. Oesterling, S. Srinivas, F. P . Calmon, and H. Lakkaraju. “Interpret-ing clip with sparse linear concept embeddings (splice)”. Advances in Neural Information Processing Systems (2024) (cit. on pp. 5, 9). 
+
+[Chu +25 ] Y.-S. Chuang, Y. Li, D. Wang, C.-F. Yeh, K. Lyu, R. Raghavendra, J. R. Glass, L. HUANG, J. E. Weston, L. Zettlemoyer, X. Chen, Z. Liu, S. Xie, W. tau Yih, S.-W. Li, and H. Xu. “Meta CLIP 2: a worldwide scaling recipe”. In: The Thirty-ninth Annual Conference on Neural Information Processing Systems . 2025 (cit. on pp. 6, 9). 
+
+[Den +25 ] S. Denner, D. Zimmerer, D. Bounias, M. Bujotzek, S. Xiao, R. Stock, L. Kausch, P. Schader, T. Penzkofer, P . F. Jäger, et al. “Leveraging foundation models for content-based image retrieval in radiology”. Computers in Biology and Medicine 
+
+(2025) (cit. on p. 9). 
+
+[Efr78 ] B. Efron. “The geometry of exponential families”. The Annals of Statistics (1978) (cit. on pp. 2, 10). 
+
+[Eng +25 ] J. Engels, E. Michaud, I. Liao, W. Gurnee, and M. Tegmark. “Not all language model features are one-dimensionally linear”. In: International Conference on Learning Representations . 2025 (cit. on p. 5). 
+
+[GES24 ] Y. Gandelsman, A. Efros, and J. Steinhardt. “Interpreting clip’s image represen-tation via text-based decomposition”. In: International conference on learning representations . 2024 (cit. on p. 9). 
+
+[Hen +21 ] D. Hendrycks, S. Basart, N. Mu, S. Kadavath, F. Wang, E. Dorundo, R. Desai, T. Zhu, S. Parajuli, M. Guo, et al. “The many faces of robustness: a critical analysis of out-of-distribution generalization”. In: 2021 IEEE /CVF International Conference on Computer Vision (ICCV) . IEEE. 2021 (cit. on p. 6). 
+
+[HW26 ] J. Herzog and Y. Wang. “Reevaluating the intra-modal misalignment hypothesis in clip”. arXiv preprint arXiv:2603.16100 (2026) (cit. on pp. 5, 10). 11 [Irv +19 ] J. Irvin, P . Rajpurkar, M. Ko, Y. Yu, S. Ciurea-Ilcus, C. Chute, H. Marklund, B. Haghgoo, R. Ball, K. Shpanskaya, et al. “Chexpert: a large chest radiograph dataset with uncertainty labels and expert comparison”. In: Proceedings of the AAAI conference on artificial intelligence . 2019 (cit. on p. 6). 
+
+[Mer +23 ] J. Merullo, L. Castricato, C. Eickhoff, and E. Pavlick. “Linearly mapping from image to text space”. In: The Eleventh International Conference on Learning Representations . 2023 (cit. on p. 9). 
+
+[Mik +13 ] T. Mikolov, K. Chen, G. Corrado, and J. Dean. “Efficient estimation of word representations in vector space”. In: 1st International Conference on Learning Representations, ICLR 2013, Scottsdale, Arizona, USA, May 2–4, 2013, Workshop Track Proceedings . 2013 (cit. on p. 9). 
+
+[Mis +25 ] M. Mistretta, A. Baldrati, L. Agnolucci, M. Bertini, and A. Bagdanov. “Cross the gap: exposing the intra-modal misalignment in clip via modality inversion”. In: 
+
+International Conference on Learning Representations . 2025 (cit. on pp. 7, 10). 
+
+[MA +17 ] Y. Movshovitz-Attias, A. Toshev, T. K. Leung, S. Ioffe, and S. Singh. “No fuss distance metric learning using proxies”. In: 2017 IEEE International Conference on Computer Vision (ICCV) . IEEE. 2017 (cit. on p. 10). 
+
+[MBL20 ] K. Musgrave, S. Belongie, and S.-N. Lim. “A metric learning reality check”. In: 
+
+European Conference on Computer Vision . Springer. 2020 (cit. on p. 10). 
+
+[Old +23 ] J. Oldfield, C. Tzelepis, Y. Panagakis, M. Nicolaou, and I. Patras. “Parts of speech–grounded subspaces in vision-language models”. Advances in Neural Information Processing Systems (2023) (cit. on pp. 5, 9). 
+
+[Par +25 ] K. Park, Y. J. Choe, Y. Jiang, and V . Veitch. “The geometry of categorical and hierarchical concepts in large language models”. In: International Conference on Learning Representations . 2025 (cit. on pp. 5, 9). 
+
+[PCV24 ] K. Park, Y. J. Choe, and V . Veitch. “The linear representation hypothesis and the geometry of large language models”. In: Proceedings of the 41st International Conference on Machine Learning . 2024 (cit. on p. 9). 
+
+[Par +26 ] K. Park, T. Nief, Y. J. Choe, and V . Veitch. “The information geometry of softmax: probing and steering”. In: Proceedings of the 43rd International Conference on Machine Learning . 2026 (cit. on p. 11). 
+
+[Rad +21 ] A. Radford, J. W. Kim, C. Hallacy, A. Ramesh, G. Goh, S. Agarwal, G. Sastry, A. Askell, P . Mishkin, J. Clark, et al. “Learning transferable visual models from natural language supervision”. In: International conference on machine learning .PmLR. 2021 (cit. on pp. 1, 9). 
+
+[Rot +20 ] K. Roth, T. Milbich, S. Sinha, P . Gupta, B. Ommer, and J. P . Cohen. “Revisiting training strategies and generalization performance in deep metric learning”. In: International conference on machine learning . PMLR. 2020 (cit. on p. 10). 
+
+[Rus +15 ] O. Russakovsky, J. Deng, H. Su, J. Krause, S. Satheesh, S. Ma, Z. Huang, A. Karpathy, A. Khosla, M. Bernstein, et al. “Imagenet large scale visual recognition challenge”. International journal of computer vision 3 (2015) (cit. on p. 6). 
+
+[San +16 ] P. Sangkloy, N. Burnell, C. Ham, and J. Hays. “The sketchy database: learning to retrieve badly drawn bunnies”. Acm Transactions on Graphics (TOG) 4 (2016) (cit. on p. 6). 
+
+[SMG19 ] A. M. Saxe, J. L. McClelland, and S. Ganguli. “A mathematical theory of semantic development in deep neural networks”. Proceedings of the National Academy of Sciences 23 (2019) (cit. on p. 9). 
+
+[SKP15 ] F. Schroff, D. Kalenichenko, and J. Philbin. “Facenet: a unified embedding for face recognition and clustering”. In: Proceedings of the IEEE conference on computer vision and pattern recognition . 2015 (cit. on p. 10). 
+
+[Tiu +22 ] E. Tiu, E. Talius, P . Patel, C. P . Langlotz, A. Y. Ng, and P . Rajpurkar. “Expert-level detection of pathologies from unannotated chest x-ray images via self-supervised learning”. Nature biomedical engineering 12 (2022) (cit. on pp. 6, 9). 12 [UGA23 ] V. Udandarao, A. Gupta, and S. Albanie. “Sus-x: training-free name-only transfer of vision-language models”. In: 2023 IEEE /CVF International Conference on Computer Vision (ICCV) . IEEE. 2023 (cit. on p. 10). 
+
+[Wah +11 ] C. Wah, S. Branson, P . Welinder, P . Perona, and S. Belongie. “The caltech-ucsd birds-200-2011 dataset” (2011) (cit. on p. 6). 
+
+[WJ08 ] M. J. Wainwright and M. I. Jordan. “Graphical models, exponential families, and variational inference”. Foundations and Trends® in Machine Learning 1-2 (2008) (cit. on pp. 2, 10). 
+
+[WS09 ] K. Q. Weinberger and L. K. Saul. “Distance metric learning for large margin nearest neighbor classification.” Journal of machine learning research 2 (2009) (cit. on p. 10). 
+
+[Xin +02 ] E. Xing, M. Jordan, S. J. Russell, and A. Ng. “Distance metric learning with appli-cation to clustering with side-information”. In: Advances in Neural Information Processing Systems . 2002 (cit. on p. 10). 
+
+[Yel +18 ] S. K. Yelamarthi, S. K. Reddy, A. Mishra, and A. Mittal. “A zero-shot framework for sketch based image retrieval”. In: European conference on computer vision .Springer. 2018 (cit. on p. 28). 
+
+[Yi +24 ] C. Yi, L. Ren, D.-C. Zhan, and H.-J. Ye. “Leveraging cross-modal neighbor representation for improved clip classification”. In: 2024 IEEE /CVF Conference on Computer Vision and Pattern Recognition (CVPR) . IEEE. 2024 (cit. on p. 10). 
+
+[Zha +22 ] R. Zhang, W. Zhang, R. Fang, P . Gao, K. Li, J. Dai, Y. Qiao, and H. Li. “Tip-adapter: training-free adaption of clip for few-shot classification”. In: European conference on computer vision . Springer. 2022 (cit. on p. 10). 
+
+[Zhe +25 ] S. Zheng, X. Cui, Y. Sun, J. Li, H. Li, Y. Zhang, P . Chen, X. Jing, Z. Ye, and L. Yang. “Benchmarking pathclip for pathology image analysis”. Journal of Imaging Informatics in Medicine 1 (2025) (cit. on p. 9). 
+
+# A Proof of Theorem 3 
+
+Theorem 3 (Softmax anchor divergence converges to a population Bregman divergence) .
+
+Let ΓN = {γ1, . . . , γN } be sampled i.i.d. from an anchor distribution q on Sd−1. Then, as N → ∞ ,
+
+sup   
+
+> λ1,λ2∈Sd−1
+
+dSM, ΓN (λ1∥λ2) − Bκq
+
+ λ2
+
+τ
+
+λ1
+
+τ
+
+ a.s. 
+
+−→ 0. (2.1) 
+
+Proof. We begin by introducing some notation and definitions. We define 
+
+η = λτ , E :=
+
+§ λτ : λ ∈ S d−1
+
+ª
+
+⊂ Rd .Since S d−1 is compact, E is compact as well. We rewrite the population cumulant generating function as 
+
+κ(η) = log 
+
+Z
+
+eη⊤ γ q(dγ) = log Eq
+
+
+
+eη⊤ γ
+
+.For an anchor set ΓN = {γ1, . . . , γN }, the cumulant generating function of the empirical measure is 
+
+bκN (η) := log 
+
+
+
+1
+
+N
+
+> N
+
+X
+
+> i=1
+
+eη⊤ γi
+
+
+
+.13 The factor 1 /N does not affect the induced softmax probabilities, but it is convenient for the law of large numbers. We also define 
+
+ZN (η) := 1
+
+N
+
+> N
+
+X
+
+> i=1
+
+eη⊤ γi , Z(η) := Eq[eη⊤ γ],and 
+
+MN (η) := 1
+
+N
+
+> N
+
+X
+
+> i=1
+
+γi eη⊤ γi , M (η) := Eq[γeη⊤ γ].Throughout this proof, the anchors are sampled i.i.d. from q.Now we are ready to prove the theorem. The first step is to rewrite the discrete softmax family as an empirical exponential family. Given ΓN = {γ1, . . . , γN } and η ∈ Rd ,
+
+pN (i | η) = eη⊤ γi
+
+PNj=1 eη⊤ γj
+
+= 
+
+> 1
+> N
+
+eη⊤ γi
+
+> 1
+> N
+
+PNj=1 eη⊤ γj
+
+= exp  η⊤γi − bκN (η) · 1
+
+N .Thus, the discrete softmax is exactly the exponential tilt of the empirical anchor measure. Let ηa = λa/τ for a = 1, 2. Then 
+
+dSM (λ1∥λ2 | ΓN ) = 
+
+> N
+
+X
+
+> i=1
+
+pN (i | η1) log pN (i | η1)
+
+pN (i | η2)=
+
+> N
+
+X
+
+> i=1
+
+pN (i | η1)
+
+
+
+(η1 − η2)⊤γi − bκN (η1) + bκN (η2)
+
+
+
+.Since P 
+
+> i
+
+pN (i | η1) = 1, this becomes 
+
+dSM (λ1∥λ2 | ΓN ) = ( η1 − η2)⊤
+
+> N
+
+X
+
+> i=1
+
+pN (i | η1)γi − bκN (η1) + bκN (η2). (A.1) But 
+
+∇bκN (η) = 
+
+PNi=1 γi eη⊤ γi
+
+PNj=1 eη⊤ γj
+
+=
+
+> N
+
+X
+
+> i=1
+
+pN (i | η)γi ,so (A.1) can be written as 
+
+dSM (λ1∥λ2 | ΓN ) = bκN (η2) − bκN (η1) + ( η1 − η2)⊤∇bκN (η1). (A.2) Equivalently, 
+
+dSM (λ1∥λ2 | ΓN ) = BbκN (η2∥η1), (A.3) where Bf ( y∥x) := f ( y) − f (x) − ∇ f (x)⊤( y − x).We now show uniform convergence of ZN to Z on E . Since ∥η∥ = 1/τ for η ∈ E and 
+
+∥γ∥ = 1, we have 0 < eη⊤ γ ≤ e1/τ for all η ∈ E , γ ∈ S d−1.14 Moreover, for any η, η′ ∈ E and γ ∈ S d−1,
+
+eη⊤ γ − e(η′ )⊤ γ ≤ e1/τ |(η − η′)⊤γ| ≤ e1/τ ∥η − η′∥.Therefore, both ZN and Z are Lipschitz on E with deterministic Lipschitz constant at most 
+
+e1/τ :
+
+|ZN (η) − ZN (η′)| ≤ e1/τ ∥η − η′∥, |Z(η) − Z(η′)| ≤ e1/τ ∥η − η′∥.Fix ϵ > 0, and let Tϵ ⊂ E be a finite ϵ-net of the compact set E . For each fixed η ∈ Tϵ , the strong law of large numbers gives 
+
+ZN (η) a.s. 
+
+−→ Z(η).Since Tϵ is finite, it follows that max 
+
+> η∈Tϵ
+
+|ZN (η) − Z(η)| a.s. 
+
+−→ 0. Now let η ∈ E , and choose ηϵ ∈ Tϵ with ∥η − ηϵ ∥ ≤ ϵ. Then 
+
+|ZN (η) − Z(η)| ≤ | ZN (η) − ZN (ηϵ )| + |ZN (ηϵ ) − Z(ηϵ )| + |Z(ηϵ ) − Z(η)|≤ 2e1/τ ϵ + max  
+
+> η′∈Tϵ
+
+|ZN (η′) − Z(η′)|.Taking the supremum over η ∈ E yields sup 
+
+> η∈E
+
+|ZN (η) − Z(η)| ≤ 2e1/τ ϵ + max  
+
+> η′∈Tϵ
+
+|ZN (η′) − Z(η′)|.Hence, almost surely, lim sup  
+
+> N→∞
+
+sup 
+
+> η∈E
+
+|ZN (η) − Z(η)| ≤ 2e1/τ ϵ.Since ϵ > 0 is arbitrary, we conclude sup 
+
+> η∈E
+
+|ZN (η) − Z(η)| a.s. 
+
+−→ 0. (A.4) Using the same Lipschitz argument, for any η, η′ ∈ E and γ ∈ S d−1,
+
+∥γeη⊤ γ − γe(η′ )⊤ γ∥ ≤ e1/τ ∥η − η′∥.Therefore, both MN and M are Lipschitz on E with deterministic Lipschitz constant at most 
+
+e1/τ :
+
+∥MN (η) − MN (η′)∥ ≤ e1/τ ∥η − η′∥, ∥M (η) − M (η′)∥ ≤ e1/τ ∥η − η′∥.Applying the same finite-net argument componentwise gives sup 
+
+> η∈E
+
+∥MN (η) − M (η)∥ a.s. 
+
+−→ 0. (A.5) Since 
+
+∥γeη⊤ γ∥ ≤ e1/τ for all η ∈ E , γ ∈ S d−1,15 dominated convergence justifies differentiation under the expectation, so 
+
+∇Z(η) = Eq[γeη⊤ γ] = M (η).Hence, 
+
+∇κ(η) = ∇Z(η)
+
+Z(η) = M (η)
+
+Z(η) , ∇bκN (η) = MN (η)
+
+ZN (η) .By (A.4), ZN → Z uniformly almost surely on E . Also, Z(η) > 0 for every η, and Z is continuous on compact E , so 
+
+m := inf  
+
+> η∈E
+
+Z(η) > 0. Therefore, almost surely for all sufficiently large N ,inf  
+
+> η∈E
+
+ZN (η) ≥ m
+
+2 > 0. Because log is Lipschitz on [m/2, ∞), (A.4) implies sup 
+
+> η∈E
+
+|bκN (η) − κ(η)| a.s. 
+
+−→ 0. (A.6) Using (A.4) and (A.5), together with the lower bound on the denominators, we obtain sup 
+
+> η∈E
+
+∥∇ bκN (η) − ∇ κ(η)∥ a.s. 
+
+−→ 0. (A.7) Recall that 
+
+Bκ(η2∥η1) = κ(η2) − κ(η1) − ∇ κ(η1)⊤(η2 − η1) = κ(η2) − κ(η1) + ( η1 − η2)⊤∇κ(η1).Hence, sup   
+
+> η1,η2∈E
+
+|dSM (τη 1∥τη 2 | ΓN ) − Bκ(η2∥η1)|≤ 2 sup 
+
+> η∈E
+
+|bκN (η) − κ(η)| + sup   
+
+> η1,η2∈E
+
+(η1 − η2)⊤ ∇bκN (η1) − ∇ κ(η1) .Since E = τ−1S d−1,sup   
+
+> η1,η2∈E
+
+∥η1 − η2∥ ≤ 2
+
+τ .Therefore, sup   
+
+> η1,η2∈E
+
+|dSM (τη 1∥τη 2 | ΓN ) − Bκ(η2∥η1)|≤ 2 sup 
+
+> η∈E
+
+|bκN (η) − κ(η)| + 2
+
+τ sup 
+
+> η∈E
+
+∥∇ bκN (η) − ∇ κ(η)∥.By (A.6) and (A.7), the right-hand side converges almost surely to zero. Replacing ηa = λa/τ 
+
+gives sup    
+
+> λ1,λ2∈S d−1
+
+dSM (λ1∥λ2 | ΓN ) − Bκ
+
+ λ2
+
+τ
+
+λ1
+
+τ
+
+ a.s. 
+
+−−−→   
+
+> N→∞
+
+0. This proves the claim. 16 B Structured approximations to the population anchor ge-ometry 
+
+The population anchor divergence is determined by the anchor distribution through its cumulant generating function. To obtain tractable estimators of this geometry, we consider structured parametric approximations to the anchor distribution. These models should be understood as pragmatic structured surrogates for the population anchor geometry, not as literal distributional models of normalized contrastive embeddings. The Gaussian and Gaussian-mixture models place mass off the unit sphere, while the latent low-rank models additionally idealize the semantically relevant variation as concentrated in a lower-dimensional subspace. We use these models because they yield tractable geometries with useful statistical tradeoffs in fidelity, robustness, and sample efficiency. 
+
+## B.1 General framework 
+
+We begin with a latent semantic variable z ∈ Z ⊆ Rk, representing text-side semantic information, and a corresponding latent natural parameter η ∈ H ⊆ Rk, representing the image-side semantic parameter. Given a base measure qZ on Z , we let η parameterize z
+
+through the exponential family 
+
+p(dz | η) = exp  η⊤z − κZ (η) qZ (dz ), (B.1) whose cumulant generating function is 
+
+κZ (η) := log 
+
+Z
+
+exp (η⊤z) qZ (dz ). (B.2) The associated latent semantic geometry is the Bregman divergence 
+
+dZ (η1∥η2) := BκZ (η2∥η1). (B.3) To relate this latent construction to the anchor divergence used in the main text, let 
+
+γ = T (z), (B.4) where T maps latent text-side semantics into ambient text embeddings. λ is then defined as the reparameterization of η so that λ/τ is the natural parameter for the exponential family with sufficient statistic γ, aligning with the CLIP scoring rule. We consider two cases: 
+
+Identity case. When T = Id, we have z = γ, so 
+
+p(dγ | η) = exp  η⊤γ − κZ (η) qZ (dγ), (B.5) and hence λτ = η. In this case, (B.2) reduces to the cumulant generating function of the anchor distribution, and (B.3) recovers the population anchor divergence from the main text. 
+
+Low-rank affine case. For the latent low-rank models, we take 
+
+T (z) = μ + Uz , (B.6) where U ∈ Rd×k has orthonormal columns. Thus, latent semantics are realized in the affine subspace μ + Im (U) ⊂ Rd . Since T is injective onto this subspace, the latent exponential family induces a pushed-forward family on ambient anchors. Writing q = T#qZ for the pushforward base measure, we obtain 
+
+p(dγ | η) = exp  η⊤ U⊤(γ − μ) − κZ (η) q(dγ). (B.7) 17 To align this family with the CLIP score, we parameterize the image side by 
+
+λτ = Uη. (B.8) So the pushed-forward family can be written in the score-aligned form 
+
+p(dγ | λ) = exp 
+
+ 1
+
+τ λ⊤γ −
+
+
+
+κZ
+
+ 1
+
+τ U⊤λ
+
+
+
++ 1
+
+τ λ⊤μ
+
+
+
+q(dγ). (B.9) The relation λ/τ = Uη defines an exact inverse only on the semantic subspace Im (U).Because the low-rank models are idealized approximations, general ambient image embed-dings need not lie exactly in this subspace, so we use a model-specific extended inverse or projection map η(λ). The induced image–image semantic divergence is then defined by pulling back the latent geometry: 
+
+d(λ1∥λ2) := dZ
+
+ η(λ1)∥η(λ2) = BκZ
+
+ η(λ2)∥η(λ1). (B.10) Thus the semantic geometry is computed in latent space, while ambient text and image embeddings provide its realization and parameterization. 
+
+## B.2 Gaussian anchor model 
+
+We first recover the ambient-space Gaussian model as the identity case of the general framework. Take 
+
+z ∈ Rd , qZ = N (μ, Σ), T = Id, (B.11) so that z = γ. By the identity-case discussion in Appendix B.1, the image-side natural parameter is 
+
+η = λτ . (B.12) Thus the Gaussian anchor model is simply the case in which the latent semantic space coincides with the ambient anchor space. 
+
+Proposition 6 (Gaussian anchor model) . For the Gaussian anchor model, dG(λ1∥λ2) = 12τ2 (λ1 − λ2)⊤Σ(λ1 − λ2). (B.13) 
+
+Proof. For qZ = N (μ, Σ), the cumulant generating function is 
+
+κZ (η) = log 
+
+Z
+
+exp (η⊤z) N (dz ; μ, Σ) (B.14) 
+
+= μ⊤η + 12 η⊤Ση. (B.15) Hence 
+
+∇κZ (η) = μ + Ση. (B.16) Substituting into (B.3) gives 
+
+dZ (η1∥η2) = BκZ (η2∥η1) (B.17) 
+
+= 12 (η2 − η1)⊤Σ(η2 − η1). (B.18) 18 Using η(λ) = λ/τ in (B.10), 
+
+dG(λ1∥λ2) = dZ
+
+ λ1
+
+τ
+
+λ2
+
+τ
+
+
+
+(B.19) 
+
+= 12τ2 (λ1 − λ2)⊤Σ(λ1 − λ2), (B.20) which proves (B.13). 
+
+## B.3 Latent Gaussian model 
+
+We now impose Gaussian structure only on a lower-dimensional latent semantic variable. Take 
+
+z ∈ Rk, qZ = N (0, Ik), T (z) = μ + Uz , (B.21) where U ∈ Rd×k has orthonormal columns. By the low-rank affine construction in Ap-pendix B.1, the image-side parameter satisfies 
+
+λτ = Uη, (B.22) and for a general ambient image embedding we use the canonical projection 
+
+η(λ) = 1
+
+τ U⊤λ. (B.23) Thus the image–image divergence is obtained by pulling back the latent Gaussian geometry to the semantic subspace. 
+
+Proposition 7 (Latent Gaussian model) . For the latent Gaussian model with semantic subspace U, dLG (λ1∥λ2) = 12τ2 (λ1 − λ2)⊤ U U ⊤(λ1 − λ2). (B.24) 
+
+Proof. For the standard Gaussian base measure on Rk,
+
+κZ (η) = log 
+
+Z
+
+exp (η⊤z) N (dz ; 0, Ik) (B.25) 
+
+= 12 η⊤η. (B.26) Hence 
+
+∇κZ (η) = η, (B.27) and therefore 
+
+dZ (η1∥η2) = BκZ (η2∥η1) = 12 ∥η2 − η1∥22. (B.28) Using (B.10) together with (B.23), 
+
+dLG (λ1∥λ2) = 12
+
+1
+
+τ U⊤λ2 − 1
+
+τ U⊤λ1
+
+> 22
+
+(B.29) 
+
+= 12τ2 ∥U⊤(λ2 − λ1)∥22 (B.30) 
+
+= 12τ2 (λ1 − λ2)⊤ U U ⊤(λ1 − λ2), (B.31) which proves (B.24). 19 B.4 Latent spherical model 
+
+The latent spherical model keeps only directional semantic variation within the same low-dimensional semantic subspace. We take 
+
+z ∈ Sk−1, η ∈ 1
+
+τ Sk−1, qZ = Unif (Sk−1), T (z) = μ + Uz , (B.32) where U ∈ Rd×k has orthonormal columns. On the semantic subspace, the low-rank affine construction in Appendix B.1 gives 
+
+λτ = Uη. (B.33) For a general ambient image embedding, we extend this parameterization by retaining the direction of its projection while fixing the latent radius to 1 /τ :
+
+η(λ) := 1
+
+τ
+
+U⊤λ
+
+∥U⊤λ∥2
+
+, whenever U⊤λ̸ = 0. (B.34) Thus the image–image divergence is obtained by pulling back the latent directional geometry to the semantic subspace. 
+
+Proposition 8 (Latent spherical model) . For the latent spherical model with semantic subspace U, and assuming U ⊤λ1̸ = 0 and U ⊤λ2̸ = 0,dLS (λ1∥λ2) = 1
+
+τ Ak
+
+ 1
+
+τ
+
+  
+
+1 − (U⊤λ1)⊤(U⊤λ2)
+
+∥U⊤λ1∥2 ∥U⊤λ2∥2
+
+
+
+, (B.35) 
+
+where Ak(r) = Ik/2(r)
+
+Ik/2−1(r) ,
+
+and I ν denotes the modified Bessel function of the first kind. Proof. For the uniform base measure on Sk−1, the cumulant generating function depends only on the norm: 
+
+κZ (η) = ψk(∥η∥2), (B.36) where ψk is the usual von Mises–Fisher log-normalizer. Its gradient is radial: 
+
+∇κZ (η) = Ak(∥η∥2) η
+
+∥η∥2
+
+. (B.37) Now let η1, η2 ∈ 1 
+
+> τ
+
+Sk−1 and write r = 1/τ . Since ∥η1∥2 = ∥η2∥2 = r,
+
+κZ (η1) = κZ (η2) = ψk(r), ∇κZ (η1) = Ak(r) η1
+
+r . (B.38) Therefore, 
+
+dZ (η1∥η2) = BκZ (η2∥η1) (B.39) 
+
+= κZ (η2) − κZ (η1) − ∇ κZ (η1)⊤(η2 − η1) (B.40) 
+
+= − Ak(r)
+
+r η⊤ 
+
+> 1
+
+(η2 − η1) (B.41) 
+
+= rA k(r)
+
+
+
+1 − η⊤ 
+
+> 1
+
+η2
+
+r2
+
+
+
+. (B.42) 20 Using (B.10) together with (B.34), 
+
+dLS (λ1∥λ2) = 1
+
+τ Ak
+
+ 1
+
+τ
+
+  1 − τ2η(λ1)⊤η(λ2) (B.43) 
+
+= 1
+
+τ Ak
+
+ 1
+
+τ
+
+  
+
+1 − (U⊤λ1)⊤(U⊤λ2)
+
+∥U⊤λ1∥2 ∥U⊤λ2∥2
+
+
+
+, (B.44) which proves (B.35). 
+
+## B.5 Gaussian mixture model 
+
+Finally, we obtain a more expressive ambient-space approximation by modeling the anchor distribution as a Gaussian mixture. Take 
+
+z ∈ Rd , qZ =
+
+> M
+
+X
+
+> m=1
+
+πm N (μm, Σm), T = Id, (B.45) where πm > 0, PMm=1 πm = 1, and Σm ≻ 0. Thus, z = γ. By the identity-case construction in Appendix B.1, the image-side natural parameter is 
+
+η = λτ . (B.46) This yields a multimodal ambient approximation to the population anchor geometry. 
+
+Proposition 9 (Gaussian mixture anchor model) . For the Gaussian mixture anchor model, dGMM (λ1∥λ2) = BκGMM 
+
+ λ2
+
+τ
+
+λ1
+
+τ
+
+
+
+, (B.47) 
+
+where 
+
+κGMM (η) = log 
+
+> M
+
+X
+
+> m=1
+
+πm exp 
+
+
+
+μ⊤
+
+> m
+
+η + 12 η⊤Σmη
+
+
+
+. (B.48) 
+
+Proof. Starting from (B.45), 
+
+κZ (η) = log 
+
+Z
+
+exp (η⊤z) qZ (dz ) (B.49) 
+
+= log 
+
+> M
+
+X
+
+> m=1
+
+πm
+
+Z
+
+exp (η⊤z) N (dz ; μm, Σm). (B.50) Each inner integral is the Gaussian MGF, so 
+
+κZ (η) = log 
+
+> M
+
+X
+
+> m=1
+
+πm exp 
+
+
+
+μ⊤
+
+> m
+
+η + 12 η⊤Σmη
+
+
+
+, (B.51) which is exactly (B.48). Hence, 
+
+dZ (η1∥η2) = BκGMM (η2∥η1). (B.52) Using η(λ) = λ/τ in (B.10), 
+
+dGMM (λ1∥λ2) = dZ
+
+ λ1
+
+τ
+
+λ2
+
+τ
+
+
+
+(B.53) 
+
+= BκGMM 
+
+ λ2
+
+τ
+
+λ1
+
+τ
+
+
+
+, (B.54) which proves (B.47). 21 C Parameter estimation for structured anchor models 
+
+Given anchor embeddings {γi }ni=1 ⊂ Rd , we estimate the parameters of each structured anchor model directly from the anchor set. 
+
+Gaussian anchor model. For the Gaussian model, we fit the mean and covariance by maximum likelihood: ˆμ = 1
+
+n
+
+> n
+
+X
+
+> i=1
+
+γi , (C.1) ˆΣ = 1
+
+n
+
+> n
+
+X
+
+> i=1
+
+(γi − ˆμ)( γi − ˆμ)⊤. (C.2) The fitted semantic divergence is obtained by substituting ˆ Σ into (B.13). 
+
+Low-rank models. For the latent Gaussian and latent spherical models, we estimate the se-mantic subspace U ∈ Rd×k by the top-k eigenvectors of the anchor covariance matrix ˆΣ = 1
+
+n
+
+> n
+
+X
+
+> i=1
+
+(γi − ¯γ)( γi − ¯γ)⊤, ¯γ = 1
+
+n
+
+> n
+
+X
+
+> i=1
+
+γi . (C.3) We choose k to explain 95% of the anchor covariance. The fitted divergences are then obtained by substituting ˆ U into (B.24) and (B.35), respectively. 
+
+Gaussian mixture model. For the Gaussian mixture model, we fit the mixture weights, means, and covariances, 
+
+{(πm, μm, Σm)}Mm=1,by expectation–maximization (EM) on the anchor embeddings. The fitted parameters are then substituted into (B.48) and (B.47). 
+
+# D Model-specific posterior and posterior-like updates for posterior anchor modeling 
+
+This appendix gives model-specific posterior and posterior-like updates for the posterior anchor modeling framework introduced in Section 4. Broad anchors provide prior semantic structure for a parametric anchor model, precise task-aligned anchors refine that structure, and the resulting model summary induces an adapted geometry through Bκ ˆθ .
+
+## D.1 General adaptation framework 
+
+Suppose we are given a broad anchor set 
+
+Γbroad = {γbroad 1 , . . . , γbroad  
+
+> m
+
+}
+
+and a smaller set of precise task-aligned anchors 
+
+Γtarget = {γtarget 1 , . . . , γtarget  
+
+> n
+
+}.Let {qθ : θ ∈ Θ} be a parametric family of anchor distributions together with model-specific prior structure on Θ. A generic adaptation procedure is: 1. fit the parametric family on Γbroad to obtain a broad-anchor estimate θbroad ;22 2. choose hyperparameters or regularization structure Ω = Ω(θbroad ) so that the update is centered around the broad semantic structure encoded by θbroad ;3. combine this prior structure with the precise anchors to obtain a model-specific posterior or posterior-like update over θ ;4. use a model-specific summary ˆθ to define the adapted anchor model q ˆθ ;5. induce the adapted geometry through 
+
+κ ˆθ (ξ) = log 
+
+Z
+
+exp (ξ⊤γ) q ˆθ (dγ), d ˆθ (λ1∥λ2) = Bκ ˆθ
+
+ λ2
+
+τ
+
+λ1
+
+τ
+
+
+
+.We now specialize this framework to the model families used in the paper. 
+
+## D.2 Gaussian anchor model with Normal–Inverse-Wishart update 
+
+For the Gaussian anchor model, 
+
+qθ (γ) = N (γ; μ, Σ), θ = ( μ, Σ), Σ ≻ 0. As shown in Appendix B.2, the induced geometry is 
+
+dG(λ1∥λ2) = 12τ2 (λ1 − λ2)⊤Σ(λ1 − λ2),so adaptation corresponds to updating the covariance structure of the anchor distribu-tion. We place a Normal–Inverse-Wishart prior on (μ, Σ):
+
+Σ ∼ I W (Ψ0, ν0),
+
+μ | Σ ∼ N 
+
+
+
+μ0, 1
+
+κ0
+
+Σ
+
+
+
+.The adaptation steps are: 1. Fit the broad Gaussian. Fit a Gaussian model to the broad anchors: ¯γbroad = 1
+
+m
+
+> m
+
+X
+
+> i=1
+
+γbroad  
+
+> i
+
+,
+
+Sbroad =
+
+> m
+
+X
+
+> i=1
+
+(γbroad  
+
+> i
+
+− ¯γbroad )( γbroad  
+
+> i
+
+− ¯γbroad )⊤.This gives the broad-anchor estimate (μbroad , Σbroad ).2. Initialize the prior. Use the broad-anchor estimate in an empirical-Bayes step: 
+
+μ0 = ¯γbroad ,
+
+Ψ0 = ( ν0 − d − 1)Σbroad ,where κ0 and ν0 control prior strength. 3. Update with precise anchors. Given precise anchors Γtarget , compute ¯γtarget = 1
+
+n
+
+> n
+
+X
+
+> i=1
+
+γtarget  
+
+> i
+
+,
+
+Starget =
+
+> n
+
+X
+
+> i=1
+
+(γtarget  
+
+> i
+
+− ¯γtarget )( γtarget  
+
+> i
+
+− ¯γtarget )⊤.23 The posterior is again NIW with parameters 
+
+κn = κ0 + n,
+
+νn = ν0 + n,
+
+μn = κ0μ0 + n¯γtarget 
+
+κ0 + n ,
+
+Ψn = Ψ0 + Starget + κ0 n
+
+κ0 + n (¯γtarget − μ0)( ¯γtarget − μ0)⊤.4. Form the adapted model. Use a posterior summary ( ˆμ, ˆ Σ), such as the posterior mean or MAP estimate, to define the adapted Gaussian anchor model 
+
+q ˆθ (γ) = N (γ; ˆ μ, ˆ Σ).5. Induce the adapted geometry. The adapted geometry is 
+
+dadapt G (λ1∥λ2) = 12τ2 (λ1 − λ2)⊤ ˆΣ(λ1 − λ2).
+
+## D.3 Latent Gaussian model with matrix Bingham update 
+
+For the latent Gaussian model, the anchor distribution is determined by a low-dimensional semantic subspace. Concretely, we use the ambient surrogate 
+
+qθ (γ) = N (γ; μ, U U ⊤ + ϵI), θ = ( μ, U),where U ∈ Rd×k has orthonormal columns, μ ∈ Rd , and ϵ > 0 is a small isotropic regular-ization used in implementation. As shown in Appendix B.3: 
+
+dLG (λ1∥λ2) = 12τ2 (λ1 − λ2)⊤ U U ⊤(λ1 − λ2).Thus, adaptation amounts to updating the subspace U.We place a matrix Bingham prior on U over the Stiefel manifold St (d, k) = {U ∈ Rd×k : U⊤ U = Ik},with density 
+
+p(U | A) ∝ exp  tr (U⊤AU ).Under the Gaussian covariance model above, this prior is conjugate for the subspace parameter U.The adaptation steps are: 1. Fit the broad semantic subspace. Compute the empirical covariance of the broad anchors and let Ubroad be its top-k eigenvectors: 
+
+dCov (Γbroad ) = 1
+
+m
+
+> m
+
+X
+
+> i=1
+
+(γbroad  
+
+> i
+
+− ¯γbroad )( γbroad  
+
+> i
+
+− ¯γbroad )⊤.2. Initialize the Bingham prior. Use the broad subspace to define 
+
+A = α Ubroad U⊤
+
+> broad
+
+,where α > 0 controls prior strength. 24 3. Update with precise anchors. Let 
+
+dCov (Γtarget ) = 1
+
+n
+
+> n
+
+X
+
+> i=1
+
+(γtarget  
+
+> i
+
+− ¯γtarget )( γtarget  
+
+> i
+
+− ¯γtarget )⊤.Under the Gaussian covariance model, the posterior over U remains in matrix-Bingham form, with updated parameter matrix 
+
+Apost = A + β dCov (Γtarget ),where 
+
+β = n
+
+2
+
+ 1
+
+ϵ − 11 + ϵ
+
+
+
+.4. Form the adapted model via MAP . We use the MAP estimator under the Bingham posterior: 
+
+Upost = arg max 
+
+> U∈St (d,k)
+
+tr (U⊤Apost U),which is given by the top-k eigenvectors of Apost .5. Induce the adapted geometry. The adapted geometry is 
+
+dadapt LG (λ1∥λ2) = 12τ2 (λ1 − λ2)⊤ Upost U⊤
+
+> post
+
+(λ1 − λ2).
+
+## D.4 Latent spherical model with posterior-like Bingham update 
+
+For the latent spherical model, adaptation again reduces to updating the semantic subspace 
+
+U. We use the same matrix-Bingham form as a tractable posterior-like update, driven by the broad-anchor subspace and the precise-anchor covariance. As in the latent Gaussian case, we initialize 
+
+A = α Ubroad U⊤
+
+> broad
+
+from the broad-anchor subspace Ubroad , then combine this with the precise-anchor covariance to form 
+
+Apost = A + β dCov (Γtarget ),where β > 0 controls the influence of the precise anchors. The adapted subspace is the MAP estimate 
+
+Upost = arg max 
+
+> U∈St (d,k)
+
+tr (U⊤Apost U),given by the top-k eigenvectors of Apost . The adapted geometry is obtained by substituting 
+
+Upost into the latent spherical divergence. 
+
+## D.5 Gaussian mixture model with Dirichlet–NIW update 
+
+For the Gaussian mixture model, we parameterize the anchor distribution as 
+
+qθ (dγ) = 
+
+> M
+
+X
+
+> m=1
+
+πm N (dγ; μm, Σm), θ = {(πm, μm, Σm)}Mm=1,25 where πm > 0, PMm=1 πm = 1, and Σm ≻ 0. The induced geometry is the Bregman divergence generated by 
+
+κGMM (ξ) = log 
+
+> M
+
+X
+
+> m=1
+
+πm exp 
+
+
+
+μ⊤
+
+> m
+
+ξ + 12 ξ⊤Σmξ
+
+
+
+.Unlike the single-Gaussian case, this geometry is generally nonquadratic and can represent multiple semantic modes. We place a symmetric Dirichlet prior on the mixture weights and independent Normal– Inverse-Wishart priors on the component parameters: 
+
+(π1, . . . , πM ) ∼ Dir (α, . . . , α),
+
+Σm ∼ I W (Ψ0, m, ν0, m),
+
+μm | Σm ∼ N 
+
+
+
+μ0, m, 1
+
+κ0, m
+
+Σm
+
+
+
+, m = 1, . . . , M .The adaptation steps are: 1. Fit the broad mixture. Fit an M -component GMM to the broad anchors, producing 
+
+πbroad  
+
+> m
+
+, μbroad  
+
+> m
+
+, Σbroad  
+
+> m
+> Mm=1
+
+.2. Initialize the prior. Use the broad-anchor fit to set the component-specific hyperpa-rameters 
+
+μ0, m = μbroad  
+
+> m
+
+,
+
+Ψ0, m = ( ν0, m − d − 1)Σbroad  
+
+> m
+
+,while resetting the mixture weights to a symmetric prior 
+
+(π1, . . . , πM ) ∼ Dir (α, . . . , α).Thus, the broad anchors determine the semantic modes and local covariance scales, but not their prior prevalence. 3. Update with precise anchors using soft assignments. Given precise anchors Γtarget ,compute responsibilities 
+
+rim = p(m | γtarget  
+
+> i
+
+)
+
+under the current mixture model. Soft assignments allow precise anchors to refine multiple broad semantic modes simultaneously. Define weighted sufficient statistics 
+
+Nm =
+
+> n
+
+X
+
+> i=1
+
+rim ,¯γm = 1
+
+NmnX
+
+> i=1
+
+rim γtarget  
+
+> i
+
+,
+
+Sm =
+
+> n
+
+X
+
+> i=1
+
+rim (γtarget  
+
+> i
+
+− ¯γm)( γtarget  
+
+> i
+
+− ¯γm)⊤.26 The updated hyperparameters are 
+
+α′ 
+
+> m
+
+= α + Nm,
+
+κ′ 
+
+> m
+
+= κ0, m + Nm,
+
+ν′ 
+
+> m
+
+= ν0, m + Nm,
+
+μ′ 
+
+> m
+
+= κ0, mμ0, m + Nm ¯γm
+
+κ0, m + Nm
+
+,
+
+Ψ′ 
+
+> m
+
+= Ψ0, m + Sm + κ0, m Nm
+
+κ0, m + Nm
+
+(¯γm − μ0, m)( ¯γm − μ0, m)⊤.4. Form the adapted model. Use posterior means to define the adapted mixture parameters ˆπm = α′
+
+> m
+
+PM 
+
+> ℓ=1
+
+α′
+
+> ℓ
+
+,ˆμm = μ′
+
+> m
+
+,ˆΣm = Ψ′
+
+> m
+
+ν′ 
+
+> m
+
+− d − 1 ,provided ν′ 
+
+> m
+
+> d + 1. This gives the adapted anchor model 
+
+q ˆθ (dγ) = 
+
+> M
+
+X
+
+> m=1
+
+ˆπm N (dγ; ˆ μm, ˆ Σm).5. Induce the adapted geometry. The adapted geometry is 
+
+dadapt GMM (λ1∥λ2) = Bκ ˆθ
+
+ λ2
+
+τ
+
+λ1
+
+τ
+
+
+
+,where 
+
+κ ˆθ (ξ) = log 
+
+> M
+
+X
+
+> m=1
+
+ˆπm exp 
+
+
+
+ˆμ⊤
+
+> m
+
+ξ + 12 ξ⊤ ˆΣmξ
+
+
+
+.
+
+## D.6 Discussion 
+
+These model-specific updates instantiate the same principle: posterior anchor modeling updates a parametric anchor model using broad anchors as prior semantic structure and precise anchors as task-specific evidence, which in turn updates the induced Bregman geometry in image space. The models differ in the semantic structure they can transfer: a single global covariance in the Gaussian case, a shared low-dimensional semantic subspace in the low-rank case, and multiple reweighted semantic modes in the mixture case. This is precisely why richer models such as the GMM can support forms of semantic transfer that would not arise from simple projection heuristics. 
+
+# E Implementation details 
+
+## E.1 Datasets 
+
+We evaluate on ImageNet, ImageNet-R, CUB-200, Sketchy, and CheXpert. 27 ImageNet. We use the standard training split as the retrieval gallery /keys and the valida-tion split as queries. Relevance is defined by class agreement. ImageNet class-name anchors are formed from the class labels using the template “a photo of a {x}”. 
+
+ImageNet-R. Queries and keys are both drawn from ImageNet-R, with each query removed from its own key set. Object relevance is defined by ImageNet class agreement, while style labels for the style-control experiments are parsed from the ImageNet-R filenames. Object-name anchors use the template “a photo of a {x}”, and style anchors use “a {s} rendition of an object”. For style retrieval we discard images that have “misc” style labels, since these are not well-defined styles and do not have corresponding anchors. 
+
+CUB-200. We use the standard train /test split, with training images as the keys and test images as queries. Relevance is defined by bird-class agreement. CUB anchors are formed from the class names using the same class-name template. 
+
+Sketchy. We use the Sketchy Extended Split 2 protocol for zero-shot sketch-based image retrieval, following Yelamarthi et al. [Yel +18 ]. The test set consists of 21 classes chosen to be absent from ImageNet-1K. We use sketches from these unseen classes as queries and photos from the same classes as the retrieval gallery; no training-class images are used. Relevance is defined by class agreement, and anchors are formed from the class names using the template “a photo of a {x}”. 
+
+CheXpert. We evaluate multi-label retrieval on CheXpert using pathology labels as rele-vance targets. The official training split is used as keys and the validation split as queries. We discard the training images with uncertain labels. For each target pathology, we con-struct report-style text anchors describing that pathology. The exact LLM prompt is given in Appendix E.6. 
+
+Synthetic collection for Figure 1. Figure 1 uses a synthetic image collection in which dog breed, background, and clothing are systematically varied. Images were generated using OpenAI’s gpt-image-2 model. The displayed neighbors are obtained directly by retrieval under cosine similarity and the corresponding anchor divergences. 
+
+## E.2 Models 
+
+All natural-image experiments use MetaCLIP-2. All image and text embeddings are normal-ized to unit ℓ2 norm, and we use the model-provided logit scale, exp (clip_model.logit_scale ),as the inverse temperature. For CheXpert, we use CheXzero and report results averaged over the 10 released model weights. 
+
+## E.3 Image-text inversion baseline 
+
+As a retrieval baseline, we use image-text inversion (ITI), which converts a query image into a text-side proxy by selecting the anchor with highest image–text compatibility. Given an anchor set Γ = {γ1, . . . , γN } and a query image embedding λq, we first choose 
+
+i⋆(λq) = arg max  
+
+> 1≤i≤N
+
+λ⊤ 
+
+> q
+
+γi . (E.1) We then take the corresponding anchor ˜γ(λq) = γi⋆ (λq ) (E.2) 28 as the inverted text representation of the query. Each gallery image embedding λk is then scored by cosine similarity to this inferred text embedding: 
+
+sITI (λq, λk) = ˜γ(λq)⊤λk. (E.3) Keys are ranked in decreasing order of sITI (λq, λk).Thus, ITI uses the anchor set only to select a single best-matching text proxy for the query, after which retrieval is performed by standard image-text cosine similarity. 
+
+## E.4 Evaluation metric 
+
+We evaluate retrieval performance with the area under the precision–recall curve (AUPRC). For a given query, let 
+
+G = {x1, . . . , xN }
+
+denote the key set, let si be the retrieval score assigned to key item xi , and let 
+
+yi ∈ { 0, 1 }
+
+indicate whether xi is semantically relevant to the query. Sorting the keys by score induces a ranked list, and for any threshold t on the score we define Precision (t) = 
+
+PNi=1 1{si ≥ t} yi
+
+PNi=1 1{si ≥ t} , (E.4) Recall (t) = 
+
+PNi=1 1{si ≥ t} yi
+
+PNi=1 yi
+
+. (E.5) The precision–recall curve is the set of points 
+
+ Recall (t), Precision (t)
+
+obtained as the threshold varies over the ranked list, and AUPRC is the area under this curve: AUPRC =
+
+Z 10
+
+Precision (r) d r , (E.6) with the discrete implementation given by the corresponding finite-sum approximation over ranked thresholds. 
+
+## E.5 Parametric models and adaptation 
+
+Gaussian model. We fit the Gaussian anchor model by maximum likelihood on the anchor embeddings. 
+
+Low-rank models. For the latent Gaussian and latent spherical models, we estimate the semantic subspace U by the top-k eigenvectors of the centered anchor covariance matrix. Unless otherwise specified, we choose k to explain 95% of the anchor covariance. In the semantic adaptation experiments, where a fixed latent dimension is required, we use 
+
+k = 128. For the ambient surrogate used in latent Gaussian adaptation, we set the isotropic regularization to ϵ = 10 −8.29 Gaussian mixture model. We fit the Gaussian mixture model by expectation–maximization, with the number of mixture components specified in the corresponding plots. EM is initial-ized with k-means, each covariance matrix is regularized by adding 10 −5 I, and optimization is terminated when the improvement in log-likelihood falls below 10 −3 or when 200 itera-tions are reached. 
+
+Adaptation. Gaussian adaptation uses the Normal–Inverse-Wishart update in Appendix D.2. Latent Gaussian adaptation uses the matrix-Bingham update in Appendix D.3. Latent spher-ical adaptation uses the posterior-like Bingham update in Appendix D.4. Gaussian mixture adaptation uses the Dirichlet–NIW update in Appendix D.5. 
+
+Adaptation hyperparameters. For Gaussian adaptation, we use κ0 = 5 and ν0 = d + 20. The low-rank Bingham updates have prior strength α = 50 and ϵ = 10 −8. For GMM adaptation, we use Dirichlet concentration α = 1, κ0, m = 5, and ν0, m = d + 20, shared across mixture components unless otherwise specified. 
+
+## E.6 CheXpert anchor generation 
+
+For CheXpert, we generate pathology-specific report-style anchors with ChatGPT 5.4 Think-ing. The prompt asks for a Python dictionary whose keys are the CheXpert conditions and whose values are lists of possible doctor report notes for the corresponding condition. Each list contains both positive and negative entries and is sized to contain roughly 50 strings. The resulting pathology-specific anchor lists are then embedded with CheXzero and used as the anchor sets defining the corresponding retrieval geometries. 
+
+Prompt. 
+
+For the conditions in LABELS = [ “Enlarged Cardiomediastinum”, “Cardiomegaly”, “Lung Opacity”, “Lung Lesion”, “Edema”, “Consolidation”, “Pneumonia”, “Atelec-tasis”, “Pneumothorax”, “Pleural Effusion”, “Pleural Other”, “Fracture”, “Support Devices” ] Give a python dictionary where the keys are the different conditions and the values are a list of strings of different possible doctor report notes for that condition. Have positive and negative entries. Have each list be of size around 50 
+
+Usage in retrieval. For each target pathology, we extract the corresponding list from the generated dictionary, embed those report-style strings with CheXzero, and use the resulting text embeddings as the pathology-specific anchor set for retrieval. 
+
+# F Additional Experiments 
+
+## F.1 Parametric anchor models on CheXpert 
+
+The main text reports CheXpert results for the pathology-specialized softmax anchor diver-gence. Here we include the corresponding parametric anchor models on the same retrieval task. Table 3 shows that Gaussian anchor divergence performs comparably to softmax on average, while the latent models also improve over cosine, indicating that parametric anchor geometries can preserve clinically relevant coordinates beyond the natural-image setting. 30 Table 3: Parametric CheXpert anchor divergences. Entries are pathology-wise mean AUPRC differ-ences relative to cosine similarity, with 95% confidence interval. Results average over independently generated anchor sets and CheXzero checkpoints, with intervals accounting for bootstrap and anchor-generation variability. Softmax and Gaussian anchor divergences give the largest average gains, while latent models also improve over cosine on average.                                                                                                                                                                                                                                  
+
+> Pathology ITI −Cosine Softmax −Cosine Gaussian −Cosine Latent G. −Cosine Latent S. −Cosine
+> Enlarged Cardiomediastinum 0.0042 ±0.0009 −0.0002 ±0.0003 −0.0002 ±0.0003 0.0000 ±0.0002 −0.0004 ±0.0003 Cardiomegaly 0.0211 ±0.0083 0.0279 ±0.0034 0.0327 ±0.0030 0.0152 ±0.0015 0.0194 ±0.0020
+> Lung Opacity −0.0047 ±0.0050 0.0090 ±0.0032 0.0092 ±0.0031 0.0037 ±0.0016 0.0083 ±0.0019
+> Lung Lesion −0.0050 ±0.0011 0.0001 ±0.0005 −0.0000 ±0.0004 0.0003 ±0.0003 0.0013 ±0.0004 Edema 0.0030 ±0.0064 0.0316 ±0.0044 0.0309 ±0.0045 0.0127 ±0.0024 0.0194 ±0.0027
+> Consolidation −0.0011 ±0.0020 0.0062 ±0.0014 0.0056 ±0.0012 0.0026 ±0.0006 0.0020 ±0.0007 Pneumonia −0.0037 ±0.0017 0.0081 ±0.0013 0.0072 ±0.0010 0.0038 ±0.0005 0.0035 ±0.0007 Atelectasis −0.0018 ±0.0030 0.0095 ±0.0027 0.0101 ±0.0025 0.0029 ±0.0012 0.0058 ±0.0017
+> Pneumothorax −0.0048 ±0.0020 0.0080 ±0.0013 0.0090 ±0.0013 0.0018 ±0.0005 0.0005 ±0.0005 Pleural Effusion 0.0137 ±0.0083 0.0465 ±0.0060 0.0441 ±0.0055 0.0194 ±0.0030 0.0228 ±0.0030
+> Pleural Other −0.0034 ±0.0006 −0.0009 ±0.0003 −0.0009 ±0.0003 −0.0004 ±0.0002 0.0006 ±0.0003 Fracture −0.0027 ±0.0005 0.0003 ±0.0002 0.0003 ±0.0002 0.0003 ±0.0001 0.0016 ±0.0003 Support Devices −0.0158 ±0.0079 0.0208 ±0.0056 0.0277 ±0.0050 0.0126 ±0.0026 0.0183 ±0.0030 Average −0.0001 ±0.0012 0.0128 ±0.0011 0.0135 ±0.0008 0.0058 ±0.0005 0.0079 ±0.0006
+
+Figure 6: Parametric structure is useful when anchor coverage is limited. AUPRC as the number of class-name anchors varies on ImageNet-R (left) and CUB-200 (right). Parametric anchor divergences are strongest across much of the limited- and moderate-anchor regime, while softmax improves with anchor coverage and is strongest when the full class-anchor set is available. 
+
+## F.2 Parametric models across anchor budgets on additional datasets 
+
+The main text studies how empirical and parametric anchor models behave as the number of available anchors varies on ImageNet. We observe the same qualitative tradeoff on ImageNet-R and CUB-200. As shown in Figure 6, parametric anchor divergences are strongest over much of the limited- and moderate-anchor regime, while softmax improves steadily with anchor coverage and becomes strongest when the full class-anchor set is available. Thus, the anchor-coverage tradeoff observed on ImageNet is not specific to that dataset. 
+
+## F.3 Exploratory model-complexity diagnostic 
+
+We include an exploratory diagnostic on how mixture complexity interacts with anchor-distribution structure. In the anchor-distribution view, parametric models are structured approximations to q: increasing flexibility can reduce approximation bias when the anchor distribution is heterogeneous, but can also introduce unnecessary complexity or estimation noise when simpler structure is sufficient. We compare ImageNet and CUB-200 as illustrative regimes. ImageNet class-name anchors span many coarse semantic groups, while CUB-200 anchors are narrower and concentrated around fine-grained bird categories. Figure 7 shows different trends across these datasets: 31 Figure 7: Mixture complexity behaves differently across anchor sets. On ImageNet, increasing the number of GMM components generally improves retrieval, consistent with a heterogeneous class-name anchor distribution. On CUB-200, gains are smaller and less consistent, suggesting that simpler structured geometries may already capture much of the relevant anchor variation. 
+
+increasing the number of mixture components tends to help on ImageNet, while gains are smaller and less consistent on CUB-200. This diagnostic is not intended as a complete model-selection study, but illustrates that parametric anchor models introduce structure whose usefulness depends on the structure of the anchor set. 
+
+## F.4 Computational scaling with anchor-set size 
+
+Parametric anchor models also provide a computational advantage when the number of observed anchors is large. Let Q denote the number of queries, G the number of gallery items, N the number of anchors, and d the embedding dimension. A direct implementation of softmax anchor divergence constructs an N -dimensional distribution for each image, giving computational cost O(QGN + ( Q + G)N d ).For the symmetrized divergence used in our experiments, the subsequent query–gallery comparison can be computed exactly from cached d-dimensional statistics. Writing η = λ/τ 
+
+and μ(λ) = ∇κˆqΓ (η), we have 
+
+dsym (λq, λg ) = 12 (ηq − ηg )⊤ μ(λq) − μ(λg ). (F.1) Thus, after caching μ(λ), softmax anchor divergence has total cost 
+
+O(( Q + G)N d + QGd ),so dependence on N remains in the gallery and query dependent preprocessing step. In contrast, a fitted parametric anchor model summarizes the observed anchors by a fixed set of parameters. Once this fitting step is complete, query and gallery preprocessing and pairwise evaluation need not depend on the original anchor-set size. We examine this empirically by varying the number of anchors and timing retrieval for 10,000 queries against 50,000 gallery image embeddings on a single NVIDIA H100 NVL GPU. Runtimes include model fitting, and retrieval, and are averaged over 10 runs fol-lowing 3 warm-up runs. For softmax anchor divergence, anchors are streamed in chunks when computing the cached statistics, so additional peak GPU memory does not grow substantially with N . Table 4 shows that softmax runtime increases with anchor-set size as anchor-dependent preprocessing becomes appreciable, whereas Gaussian anchor divergence remains nearly constant after the anchor distribution has been fit. 32 Table 4: Runtime scaling with anchor-set size. Wall-clock retrieval time (in seconds) on a single NVIDIA H100 NVL GPU for 10,000 queries and 50,000 gallery images. Runtimes include fitting, preprocessing, and retrieval and are averaged over 10 runs following 3 warm-up runs. 
+
+Method 210 212 214 216 217 
+
+Cosine 0.152 0.152 0.152 0.151 0.152 Softmax 0.216 0.281 0.538 1.622 3.066 Gaussian 0.364 0.363 0.367 0.370 0.375 
+
+## F.5 Qualitative object–style retrieval examples 
+
+Figure 8 shows additional object- and style-anchor retrieval examples. Object anchors retrieve images with the same object across styles, while style anchors retrieve images with the same style across object categories. This pattern appears for both empirical softmax and parametric anchor divergences, suggesting that parametric models preserve the semantic coordinate selected by the anchors. 33 Figure 8: Qualitative examples of anchor-controlled retrieval. Blue boxes show object-anchor retrieval, which prioritizes object identity across styles; red boxes show style-anchor retrieval, which prioritizes style across object categories. Rows compare some of the different anchor divergences. 
+
+34

@@ -1,0 +1,1698 @@
+Title: Spectral Geometry of Attention: From Information Routing to Uncertainty
+
+URL Source: https://arxiv.org/pdf/2610.06012v1
+
+Published Time: Tue, 06 Oct 2026 02:37:27 GMT
+
+Number of Pages: 23
+
+Markdown Content:
+# Spectral Geometry of Attention: From Information Routing to Uncertainty 
+
+Giulio Viganò ∗
+
+University of Milano-Bicocca Milan, Italy 
+
+g.vigan36@campus.unimib.it 
+
+Simone Melzi 
+
+University of Milano-Bicocca Milan, Italy 
+
+Maks Ovsjanikov 
+
+LIX, Ecole Polytechnique IP Paris 
+
+Abstract 
+
+In this work, we study transformer attention through the lens of spectral geometry and operator theory. We view each attention head as a functional map between Hilbert spaces of functions on the token sequence and derive a Token Difference Operator , whose spectral structure controls how token-space information is routed to the output. We show that standard Euclidean spectra are structurally biased by sinks, conflating mass concentration with genuine routing capacity. By recasting token space in the intrinsic probability geometry induced by attention, the token difference spectrum disentangles sink effects from routing capacity and provides a spectral description of the dimensionality of the head output. This yields a unified framework for analyzing attention maps, explaining sinks, routing collapse, and output dimensionality within a single operator-theoretic framework. In practice, by grounding attention heuristics in spectral geometry, we develop a novel attention-based uncertainty estimator that complements probability-based scores, with the largest gains on long-context inputs. 
+
+1 Introduction 
+
+Attention maps are increasingly viewed as windows into the internal computation of transformer architectures [37]. Prior works have shown that attention carries useful signals about how trans-formers process information, studying it as probability distributions [37], graph operators [27, 7], transition matrices [14], or through row-wise statistics [38, 43]. While these perspectives have revealed important insights, they primarily focus on pairwise token interactions, or leveraging models that do not describe the single pass effect of the attention, leaving comparatively unexplored the global structural properties of attention operators as a whole, especially in relation to the hidden representation dimensionality and the final output of the transformer. In this work, we approach attention from this global operator perspective, framing each attention map A as a linear functional operator that transfers signals between geometric domains defined for the token sequence, and investigating its spectral properties. Inspired by functional maps [28] and shape difference operators [33, 20], we derive a functional operator that characterizes the single-step action V 7 → AV induced by an attention head. Its spectrum reveals the multi-scale, global behavior of attention and is, as we demonstrate, strongly correlated with a range of phenomena from attention sinks to model uncertainty. We introduce the Token Difference Operator (TDO), a framework that departs from standard Euclidean analysis by assigning distinct geometric structures to the input and output domains of the attention map A. We demonstrate that the conventional practice of adopting a uniform Euclidean metric is structurally flawed; specifically, it is biased by the inherent row-stochasticity of attention and the 
+
+> ∗Work performed while at Ecole Polytechnique Preprint. arXiv:2610.06012v1 [cs.LG] 5 Oct 2026
+
+Figure 1: Teaser: (Left block) Our work studies transformers’ attention as a functional map between Hilbert spaces equipped with an inner product. The properties of the operator change with the standard Euclidean measure (Blue) and with an intrinsic probability geometry measure (Red). (Center Block) Parametrizing row stochastic causal map interpolating ( α) between a copy map and a sink map, we show that the Euclidean spectrum of the matrix is biased towards the sink, while reweighting the input measure relaxes this bias. (Right Block) We leverage our insights to design an uncertainty quantifier, identifying uncertainty as a routing capability collapse in certain selected heads (red box in the uncertain model). presence of attention sinks. In these biased settings, the mass assigned to initial tokens can saturate the operator spectrum, making it appear that there is significant information flow when no actual token-dependent routing is occurring. To rectify this, we induce an intrinsic probability geometry on the input domain, directly derived from the attention mechanism. With this intrinsic metric, the trivial constant mode corresponds to a transported mean, while the remaining centered modes describe the token-dependent component of the head output. This yields a mean–routing decomposition of AV 
+
+that cleanly separates phenomena often conflated in the literature, including attention sinks [18, 4, 32], dimensional collapse [11, 35]. Importantly, these structural quantities are not purely conceptual constructions: the TDO can be computed from attention maps, and its spectrum provides a strong signal in a range of probing tasks. We show that intrinsic spectral diagnostics are less dominated by sink score than raw attention or Euclidean spectral analysis, while aligning more closely with the dimensionality of the head output. Building on this, we introduce Spectral Attention Uncertainty Quantification (SAUQ), an unsupervised single-pass uncertainty estimator. Unlike probability-based estimators [44, 22, 13], which can fail when task-relevant distinctions are compressed before reaching the logits [3, 29, 39], SAUQ looks upstream at routing capacity and improves over closely related attention-based methods, especially on long-form summarization tasks. We formalize these insights through the following theoretical and practical contributions, also summarized in Figure 1: • A global operator-theoretic view of attention. We model attention maps as linear functional operators on token-space signals, shifting focus from token-level summaries to the spectral structure of the TDO. • A theoretical separation between sinks and dimensional collapse. We prove that Euclidean spectra can be biased by sink tokens, and derive an intrinsic probability geometry in which the information dynamic is decomposed into a mean mode and a token-dependent routing subspace, proving that the nontrivial spectrum controls the dimensionality of the head output. • A link to uncertainty : We empirically show that the spectral signal of high routing heads can be leveraged to predict uncertainty of LLMs. 22 Related Work 
+
+Attention Interpretability. A broad line of work studies attention as a mechanism for information processing and propagation in transformers. The classical view interprets attention weights as soft similarity scores between queries and keys [37]. More recent approaches model attention as a discrete-time Markov chain [14], as a graph signal operator with an associated Laplacian [27, 7, 36], or through spectral properties such as QK eigenspectrum concentration and localization [2]. These methods reveal important structure, but they typically analyze attention as a probability matrix, graph, or repeated operator. Our work instead focuses on the single-step routing map V 7 → AV and studies its spectrum with respect to an intrinsic geometry induced by attention itself. This contribution is more relevant in the presence of attention sinks and representation collapse. Attention sinks have been studied through embedding spectra [8], information propagation [4], and geometric analyses [32], and related phenomena have also been observed in vision transformers [10]. In parallel, hidden-state collapse and compression effects have been linked to oversquashing and attention sinks [3, 11], as well as to spiking behavior in feed-forward layers [35, 12]. We build on this line of work by showing that standard Euclidean spectral diagnostics can confuse sink concentration with routing capacity, and by introducing an intrinsic spectrum that separates these effects. 
+
+Uncertainty quantification in LLMs. Uncertainty estimation and hallucination detection for LLMs are often based on output probabilities, using quantities such as entropy, perplexity, likelihood, or sampling-based semantic consistency [44, 22, 13], and also spectral signals computed on the output logits [25, 40]. However, probability-based signals can be unreliable when task-relevant distinctions are compressed before reaching the logits [3, 29, 39]. This motivates uncertainty signals derived from internal model dynamics. For this reason, recent methods leverage hidden representations of LLMs to quantify uncertainty [23, 9]. In particular, some works focus on attention heads, looking at attention values [34], previous-token relations [38], Laplacian eigenvalues of attention graphs [7], and topological divergence measures on attention graphs [5]. While closely related to these attention-based methods, our approach replaces scalar or graph-based summaries with the intrinsic spectrum of the TDO. Our solution grounds uncertainty estimation in the same geometry that controls routing capacity, yielding a single-pass estimator that captures spectral collapse in token-level information flow. 
+
+3 Theoretical Framework 
+
+We consider a decoder-only transformer with L layers and H attention heads per layer. The attention head h at layer l is computed as 
+
+Al,h = softmax 
+
+
+
+Ql,h K⊤
+
+> l,h
+
+/√d + C
+
+
+
+, (1) and acts on the value matrix as Al,h Vl,h , where C is the causal mask, Ql,h , K l,h , V l,h ∈ Rn,d . For each layer l, the full multi-head attention output is obtained by concatenating the heads and projecting the output MHA l( ˆXl−1) = concat h(Al,h Vl,h ) W Ol . The complete transformer block notation is provided in the Supplementary material. Our study focuses on the matrix Al,h acting on the token space as a token-routing operator. We analyze one head at a time and omit the layer and head indices when no confusion arises. For a fixed input, each attention map A ∈ Rn×n, as an operator acting on 
+
+V , is row-stochastic, causal, and linear in the columns of its input V . These properties correspond to: 
+
+Aij ≥ 0 ∀i, j ;
+
+> n
+
+X
+
+> j=1
+
+Aij = 1 ∀i; Aij = 0 ∀j > i. (2) 
+
+3.1 Attention as a functional mapping and Token Difference Operator 
+
+Let T = {1, . . . , n } denote the space of tokens described by their position. We define the weighted Hilbert space L2(μ) = L2(T , μ ), as the space T equipped with the inner product: 
+
+⟨f, g ⟩μ =
+
+> n
+
+X
+
+> j=1
+
+μj fj gj = f ⊤Ωμg, f, g ∈ L2(T ) = Rn, (3) 3where μ is a positive measure on T , which can be encoded as a vector of length n and Ωμ = diag( μ).Given another positive measure π on T , we can interpret the attention matrix A as a linear map 
+
+A : L2(μ) −→ L2(π), A(f ) = Af. (4) Assuming μj > 0 for all j, the operator A admits an adjoint A∗ : L2(π) → L2(μ) defined by 
+
+⟨A f, g ⟩π = ⟨f, A∗g⟩μ, which can be computed with the following formula: 
+
+A∗ = Ω −1 
+
+> μ
+
+A⊤Ωπ . (5) Having established these two operators and inspired by spectral geometry [20], we define the Token Difference Operator (TDO) as 
+
+Dμ,π : L2(μ) → L2(μ) Dμ,π := A∗A = Ω −1 
+
+> μ
+
+A⊤Ωπ A, (6) This operator is self-adjoint and positive semidefinite in L2(μ), and is strictly related to the Rayleigh quotient Rμ,π (f ) = ∥A f ∥2 
+
+> π
+
+/∥f ∥2
+
+> μ
+
+, which measures how much the attention operator A stretches an input signal f by acting on it and transferring it between the two geometries. The properties of the TDO strongly depend on the measures μ, π , which we refer to as the geometry, and we will discuss this relation in the next sections. We note that all spaces considered here are finite-dimensional: L2(μ) is Rn equipped with a weighted inner product, and every result below can be written in matrix form. We adopt the operator language because it makes the construction discretization-agnostic, as for functional maps [28] and shape difference operators [33]; concurrent work [41] similarly treats attention as a map between function spaces. 
+
+3.1.1 Euclidean scenario: structural sink bias 
+
+Taking both μ and π as counting measures (i.e. μj = πj = 1 ∀j) gives Dμ,π = A⊤A, the standard Euclidean Gram matrix from which the standard singular values {σi(A)}ni=1 are computed. In this geometry, row-stochastic attention is generally not a contraction. 
+
+Proposition 1 (Euclidean Non-contractivity) . For A row-stochastic, σ1(A) ≥ 1, with equality if and only if A is doubly stochastic. The constraint A1 = 1 fixes the constant function as a unit-gain direction for A, but in counting geometry the TDO acts on this mode as A⊤A1 = A⊤1 = c, c j = P 
+
+> i
+
+Aij . Thus, the Euclidean Gram operator converts the constant mode into the column-sum profile. Under causal masking A11 = 1 ,hence c1 ≥ 1 and P 
+
+> j
+
+cj = n; early keys are also visible to more query positions than late keys. The leading Euclidean spectrum is therefore sensitive to accumulated sink mass. In the extreme causal sink A = 1e⊤ 
+
+> 1
+
+, this becomes A⊤A = ne 1e⊤ 
+
+> 1
+
+, so σ1(A)2 = n and all spectral energy lies in the sink coordinate. The bias is not only a rank error, but a quadratic amplification of column-mass concentration. The proof of Proposition 1 and a Frobenius budget refining this picture appear in Supplementary materials A.3. 
+
+3.1.2 Probability geometry scenario: intrinsic non-expansion 
+
+The non-contractivity above reflects a mismatch between row-stochasticity and an unweighted geometry: the counting measure ignores the nonuniform column mass induced by causal attention. We resolve this by taking the output measure to be probabilistic and pulling it back to obtain the input measure: 
+
+π = 1
+
+n 1, μ = A⊤π = 1
+
+n
+
+> n
+
+X
+
+> i=1
+
+(Ai:)⊤. (7) Both are probability measures; μ is the average attention row over keys. This choice also restores the correct stationary geometry of the TDO. Since μ = A⊤π, we have Dμ,π 1 = 1, μ ⊤Dμ,π = μ⊤.
+
+Thus, the pulled-back column-mass profile is not amplified as an unweighted Euclidean direction; it becomes the invariant measure with respect to which constants and centered fluctuations are defined. 
+
+Proposition 2 (Intrinsic non-expansion) . With the measures (7), A : L2(μ) → L2(π) satisfies 
+
+∥A f ∥π ≤ ∥ f ∥μ for all f ∈ L2(μ), with operator norm 1 and λ1(Dμ,π ) = 1 attained by constant 1.4Sketch of proof. The bound follows from Jensen’s inequality (Af )2 
+
+> i
+
+≤ P 
+
+> j
+
+Aij f 2 
+
+> j
+
+averaged with uniform π; equality on 1 is trivial. Full proof in Supplementary materials A.4. 
+
+Corollary 0.1 (Centered contraction) . Let 1⊥μ = {f ∈ L2(μ) : μ⊤f = 0 } and order 1 = λ1 ≥
+
+λ2 ≥ · · · . Then 
+
+sup   
+
+> f∈1⊥μ\{ 0}
+
+∥A f ∥π
+
+∥f ∥μ
+
+=
+
+q
+
+λ2(Dμ,π ) ≤ 1. (8) The trivial unit-gain mode is the constant function. All non-trivial routing happens on its μ-orthogonal complement, where the contraction factor is governed by λ2(Dμ,π ). We report the complete proof in the Supplementary materials A.5. The unit singular mode is still present, but it now has a fixed interpretation: it is a constant function. This mode carries no token-dependent information, since it assigns the same value to every position and is preserved by any row-stochastic attention map. Therefore, the relevant question is not whether 
+
+A preserves constants, but how much variation around the attention-weighted mean can survive one attention step. 
+
+3.2 From functions to representations 
+
+The preceding analysis concerns scalar functions f ∈ L2(T , μ ). The value matrix V ∈ Rn×d can be viewed columnwise as d such functions, hence, the intrinsic contraction result directly describes how an attention head routes hidden representations across token positions. We decompose V into its 
+
+μ-mean and its centered component: 
+
+m := μ⊤V ∈ Rd, Vc := V − 1m, μ⊤Vc = 0 . (9) Here, m is the attention-weighted mean value vector, while Vc contains the token-dependent deviations around this mean. 
+
+Proposition 3 (Mean–routing decomposition) . Under the intrinsic measures (7), the head output decomposes as 
+
+AV = 1m + AV c, (10) with ⟨1m, AV c⟩π,F = 0 and the routed component bounded by 
+
+∥AV c∥π,F ≤
+
+q
+
+λ2(Dμ,π ) ∥Vc∥μ,F . (11) where we define ∥U ∥2 
+
+> μ,F
+
+= tr( U ⊤ΩμU ) as the weighted Frobenius norm. 
+
+Sketch of proof. V = 1m + Vc and A1 = 1 gives the split; orthogonality is trivial, and the norm bound applies Corollary 0.1 columnwise. Full proof in Supplementary materials A.6. The choice of intrinsic measures aligns the barycenters of the input and output representations. Since 
+
+π⊤A = μ⊤, we have 
+
+π⊤AV = μ⊤V = m. (12) Thus, attention maps the μ-weighted input mean to the π-weighted output mean. Thus, 1m captures the position-independent transported mean, while AV c captures token-dependent routing. The factor pλ2(Dμ,π ) controls how much centered variation survives one attention step, and therefore governs the routed dimensionality, as shown in the following Corollary. 
+
+Corollary 0.2 (Spectral entropy bound) . Let Z = Ω1/2 
+
+> π
+
+AV , Zc = Ω1/2 
+
+> π
+
+AV c, and α =
+
+∥Zc∥2 
+
+> F
+
+/(∥m∥22 + ∥Zc∥2 
+
+> F
+
+). Define the spectral entropy H(Y ) = − P 
+
+> k
+
+pk log pk with pk =
+
+σk(Y )2/∥Y ∥2 
+
+> F
+
+. Then, with h2 the binary entropy, 
+
+αH (Zc) ≤ H(Z) ≤ h2(α) + αH (Zc), ∥Zc∥F ≤
+
+q
+
+λ2(Dμ,π )∥Vc∥μ,F . (13) The spectrum of Dμ,π thus controls the dimensionality of the routed component in two complementary senses: as a norm constraint and as the spectral entropy of Zc entering the mixture bound on H(Z).Proof in Supplementary materials A.7. 50 10 20 30 010 20 30                     
+
+> Copying: L31 H14
+> 010 20 30 010 20 30
+> Sinking: L02 H23
+> 010 20 30 010 20 30
+> Sink Biased: L31 H05
+> 010 20 30 010 20 30
+> Shifting: L00 H02
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> 0.02 1.00 0.03 0.02 0.00 0.01 0.99 1.00 0.98 0.11
+> 0.0 0.2 0.4 0.6 0.8 1.0 0.98 0.02 0.02 1.00 0.08 0.01 0.02 0.02 0.10 0.03
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> 0.77 0.07 0.16 0.82 0.00 0.03 0.02 0.62 0.76 1.00
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> 0.05 0.94 0.22 0.86 0.05 0.63 0.62 0.69 0.68 1.00
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> Attention weight
+> Sink Score Column Sum Entropy Attention Entropy Log-Det LapEigvalRank Prev. Token PR( AA)Ours Ours (Centered) Normalized Output Entropy
+> Representative attention heads in LLaMA-3.1-8B
+
+Figure 2: Representative attention heads and how different metrics classify their routing behavior. The intrinsic TDO score separates sink collapse from sink-biased routing, assigning high routing scores to copying, shifting, and sink-biased heads while distinguishing them from pure sink heads. 
+
+3.3 Spectral metrics 
+
+The TDO spectrum describes how centered token-dependent information survives an attention step. We summarize it using the normalized participation ratio 
+
+PR( Dμ,π ) := 1
+
+n
+
+ P 
+
+k λk
+
+2
+
+P
+
+k λ2
+
+k
+
+= 1
+
+n
+
+tr( Dμ,π )2
+
+tr( D2
+
+μ,π ) . (14) It ranges from 1/n for a single active mode to rank( Dμ,π )/n , for a uniform nonzero spectrum, and is invariant to global rescaling. In practice, we compute it from the symmetric matrix. Sμ,π =Ω−1/2
+
+μ A⊤Ωπ AΩ−1/2
+
+μ , which is symmetric and similar to Dμ,π . Large PR( Dμ,π ) indicates that cen-tered variation is routed through several active directions; small values indicate compression of Vc be-fore the residual stream (Corollary 0.2). This statistic is used in the uncertainty estimator of Section 5. We also consider the centered normalized participation ratio PR cent (Dμ,π ) = 1
+
+n−1
+
+(Pnk=2 λk )2
+
+Pnk=2 λ2
+
+> k
+
+.
+
+4 Sinks, Routing, and Output Dimensionality 
+
+We test two predictions of the theory: that the intrinsic TDO reduces sink bias, and that its centered spectrum tracks output dimensionality. We compare intrinsic spectral diagnostics ( PR( Dμ,π ) and its centered restriction) against (i) raw attention statistics , sink score, previous-token score [38], attention entropy [43]; and (ii) counting-geometry spectral diagnostics ,log-determinant score [34], Laplacian diagonal entropy [7], and PR( A⊤A). All metrics are evaluated against both sink score and the output spectral entropy H(AV ) [3] across the full head population. 
+
+Representative heads Figure 2 compares four heads with clear routing properties that metrics should distinguish: a copying head, a sink head, a sink-biased head, and a shifting head. In the sink-biased head, substantial sink mass coexists with nontrivial routing, so counting-geometry and graph-based diagnostics confuse column-mass concentration with routing collapse, scoring it comparably to the sink head. The shifting head exposes the complementary failure: previous-token score [38] is tailored to this specific pattern and correctly flags it, but for the same reason misses the copying head, which routes information through a different position. In contrast, PR( Dμ,π ) assigns high routing scores to both copying, shifting heads, and sink bias, while separating them from sink collapse, matching the routed output dimensionality across all four cases. We note that the copying head itself has low output dimensionality, highlighting that the output also depends on properties of 
+
+V .
+
+Sink dependence and output dimensionality We first refine the relation between sink concentra-tion and routing collapse. Under causal row-stochasticity, rank deficiency of A forces both phenomena jointly: a low-rank A must concentrate column mass on early tokens, in the rank-one limit, A = 1e⊤
+
+1 ,604813 17 22 26 31 Layer                                                                                                               
+
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> exp H()/ n
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> Sink Score
+> -0.963
+> 0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7
+> Mean Row Entropy
+> -0.909
+> 12 10 86420
+> (1/ n)logdet A
+> -0.701
+> 0.0 0.1 0.2 0.3 0.4 0.5 0.6
+> Lap. Eigval. Erank
+> 0.076
+> 0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7
+> Prev Token Score
+> -0.703
+> 020 40 60 80 100 120
+> PR( AA)
+> -0.904
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> PR(( D,))
+> -0.632
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> PR(( D,)) centered
+> -0.469 04813 17 22 26 31 Layer
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> exp H()/ n
+> 0510 15 20 25 30 35 40
+> Output Entropy
+> 0.369
+> 0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7
+> Mean Row Entropy
+> 0.202
+> 12 10 86420
+> (1/ n)logdet A
+> 0.573
+> 0.0 0.1 0.2 0.3 0.4 0.5 0.6
+> Lap. Eigval. Erank
+> -0.181
+> 0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7
+> Prev Token Score
+> 0.597
+> 020 40 60 80 100 120
+> PR( AA)
+> 0.439
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> PR(( D,))
+> 0.704
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> PR(( D,)) centered
+> 0.703
+
+Figure 3: Scatterplots showing the relationships between attention diagnostics, sink score, and output dimensionality. Top: relation between each diagnostic and sink score. Bottom: relation between each diagnostic and the spectral entropy of the head output H(AV ). Points correspond to the attention heads of LLaMA-3.1-8B on 200 inputs, shown both per input and averaged across inputs (bold points). We report the Spearman correlation between the metrics. 0 100 200 300 400 500 N0.00 0.02 0.04 0.06 0.08 0.10 0.12 0.14 Score                
+
+> Negative Log Probability
+> (easy)
+> (hard)
+> 0100 200 300 400 500 N0.0 0.1 0.2 0.3 0.4 0.5 Score
+> Mean Token Entropy
+> (easy)
+> (hard)
+> 0100 200 300 400 500 N2.58 2.59 2.60 2.61 2.62 2.63 2.64 Score
+> RAUQ
+> (easy)
+> (hard)
+> 0100 200 300 400 500 N2.450 2.475 2.500 2.525 2.550 2.575 2.600 2.625 Score
+> Ours
+> (easy)
+> (hard)
+
+Perturbation Analysis Across Metrics 
+
+Figure 4: Perturbation sensitivity in a controlled copy task inspired by [39, 29]. The model receives 
+
+copy: b1b2 · · · bn and must reproduce the bit string; we contrast the all-zero input 0n (α, easy) with a perturbation b(r) carrying a single one at position r (β, hard). As n grows, perplexity and mean token entropy become nearly indistinguishable across the two families, while RAUQ [38] and Ours, computed from hidden-layer routing geometry, remain sensitive to the perturbation. and the TDO spectrum loses centered modes accordingly. The converse fails: a head with imbalanced column sums can still maintain a rich centered spectrum, so sink behavior does not imply representa-tional collapse. Disentangling the two regimes, therefore, requires a diagnostic that does not amplify column mass as a Euclidean direction. The intrinsic TDO satisfies this: its leading mode is fixed at the constant function and routing is measured on the centered subspace 1⊥μ . Figure 3 confirms this empirically across heads. Top: column-sum entropy, attention entropy, previous-token score, log-determinant score, and PR( A⊤A) all show visible dependence on sink score, with a correlation score between 0.5 and 1, while diagnostics derived from Dμ,π are substantially less sink-dependent; Laplacian diagonal entropy [7] shows the weakest sink dependence, plausibly because its degree normalization plays a role analogous to the pullback measure μ. Bottom: PR( Dμ,π ), especially its centered variant, aligns more closely with H(AV ) than raw attention statistics or counting-geometry ranks, supporting Corollary 0.2. The baselines fail in complementary ways: raw entropies are dominated by sink structure, while log-determinant and Laplacian-based scores identify collapsed outputs but miss the full range of output entropies. The intrinsic TDO spectrum thus best captures the non-collapsed, token-dependent routing signal needed for the uncertainty estimator developed next. 
+
+5 Spectral Attention Uncertainty Quantification 
+
+Probability-based uncertainty estimators, such as perplexity, sequence likelihood, and token entropy, are computed at the unembedding output, after the residual stream has been mapped to logits. When task-relevant distinctions are compressed during representation propagation, two inputs that differ in important ways induce nearly indistinguishable logits, and any output-probability estimator inherits this collapse [3, 29, 39], especially in long-range or non-local tasks. Figure 4 makes this concrete: on a controlled copy task, perplexity and token entropy become indistinguishable across two input families that still differ in a task-relevant position, while attention-based signals derived from hidden-layer 7routing geometry remain sensitive. The framework of Section 3 defines what the signal measures: the TDO spectrum quantifies the effective dimensionality of the centered, token-dependent component routed by an attention head. We hypothesize that spectral collapse during generation signals a loss of routing capacity that is not yet visible in output probabilities, and we test this hypothesis empirically. To this end, we define Spectral Attention Uncertainty Quantification (SAUQ), a single-pass estimator that turns intrinsic attention spectra into a confidence score for selective prediction. 
+
+5.1 Method 
+
+Let x = ( x1, . . . , x m) be the prompt and y = ( y1, . . . , y T ) the generated continuation. At the decoding step t, the model attends over the prefix of length nt = m + t, with attention map 
+
+A(l,h ) 
+
+> t
+
+∈ Rnt×nt for layer l and head h. We denote the generation-only submatrix of A(l,h ) 
+
+> t
+
+as 
+
+B(l,h ) 
+
+> t
+
+= A(l,h ) 
+
+> t
+
+[Gt, G t], with Gt = [ m + 1 , . . . , m + t] the set of generated tokens. 
+
+Head selection. We focus on the middle third of transformer layers, Lmid , as in RAUQ [38] (layers 10-22 for LLaMA-3.1-8B). Within each such layer, we first select a routing head using a lightweight spectral proxy computed only on the generated-token attention block. Let B(l,h ) 
+
+> T
+
+be the generated-token square block at the final decoding step. We select 
+
+h∗(l) = arg max  
+
+> h
+
+PR 
+
+
+
+B(l,h ) 
+
+> T
+
+B(l,h )⊤
+
+> T
+
+
+
+. (15) This proxy is a cheap empirical spectral screen: it scores all H heads of a layer with a single batched product on T × T blocks, whereas the intrinsic signal below is computed only for the selected head. 
+
+Spectral signal. For each selected head and at each generation step, we equip the full prefix with the intrinsic measures of (7), πt = 1 
+
+> nt
+
+1 and μt = A(l,h ∗)⊤ 
+
+> t
+
+πt, and compute the normalized participation ratio of the TDO 
+
+s(l) 
+
+> t
+
+:= PR 
+
+
+
+D(l,h ∗)
+
+> μt,π t
+
+
+
+. (16) The signal only requires tr( Sμt,π t ) and ∥Sμt,π t ∥2 
+
+> F
+
+, so no eigendecomposition is needed. 
+
+Confidence recurrence. Then, we integrate our signal into the recurrence structure of RAUQ [38]. Let pt = P (yt | y<t , x ) be the model probability assigned to the generated token at step t. SAUQ defines a layer-wise confidence recursively by 
+
+c(l) 
+
+> t
+
+=
+
+(
+
+p1, t = 1 ,α p t + (1 − α) s(l) 
+
+> t
+
+c(l)
+
+> t−1
+
+, t > 1, (17) where α ∈ [0 , 1] trades off local token probability against confidence propagated through the spectral routing structure; in the following experiments, we select α = 0 .2 following [38]. The recurrence, 
+
+α, and the layer range are taken unchanged from RAUQ: they are not dictated by our theory, and keeping them fixed isolates the effect of the routing signal. Under this recurrence, high spectral participation preserves prior confidence, reflecting the presence of multiple active routing directions. By contrast, spectral collapse attenuates propagated confidence, since the head routes information through fewer effective degrees of freedom. For each selected layer, we convert the confidence trajectory into an uncertainty score by averaging log-confidence over the generated sequence, U (l)SAUQ = 1 − 1
+
+> T
+
+PTt=1 log c(l) 
+
+> t
+
+. The final sequence-level score is the maximum uncertainty over the middle-third layers, USAUQ = max l∈L mid U (l)SAUQ . We use the maximum because SAUQ is a rejection score: a routing collapse in any monitored head should raise uncertainty rather than be averaged away. Since our analysis is per head and precedes residual mixing and MLP updates, such a collapse need not imply information loss for the whole model. Thus, SAUQ preserves the recurrent structure of RAUQ, but replaces its scalar previous-token score with the effective spectral dimension of routing heads from Section 3. 
+
+Generation-only variant. The full Dμt,π t mixes prompt and generated tokens. To isolate the uncertainty accumulated during the generation, we also consider a variant in which the signal is the same Euclidean proxy used for head selection, evaluated at each step on the generated block, 8QA Summarization Estimator Category TriviaQA TruthfulQA MMLU COQA Mean SAMSUM XSUM Mean                                                                                                                                                                            
+
+> AttentionScore [34] Single pass 0.0796 -0.0505 0.2078 0.0933 0.0826 -0.3727 -0.9983 -0.6855 MaximumSequenceProbability Single pass 0.2518 0.3211 0.5501 0.2878 0.3527 -0.1363 -0.386 -0.2612 MeanTokenEntropy Single pass 0.5661 0.4199 0.2437 0.2568 0.3716 0.4999 0.3928 0.4464 Perplexity Single Pass 0.1088 0.2863 0.5158 0.2737 0.2962 0.5071 0.4053 0.4562 CCP[15] Single pass 0.1029 0.159 0.5567 0.2602 0.2697 -0.1458 -0.3018 -0.2238 NLI-DegMat [25] Sample-based 0.5789 0.2061 0.4381 0.3959 0.4048 0.3888 0.3236 0.3562 NLI-Eccentricity [25] Sample-based 0.5641 0.2007 0.4469 0.3805 0.3981 0.344 0.0351 0.1896 NLI-EigValLaplacian [25] Sample-based 0.6034 0.1962 0.4681 0.4147 0.4206 0.3864 0.3845 0.3855 EigenScore [9] Sample-based 0.3611 0.0524 0.4118 0.3467 0.293 0.0719 -0.2122 -0.0702 LUQ [44] Sample-based 0.5878 0.182 0.4392 0.3588 0.392 0.29 0.3585 0.3243 LexicalSimilarity_rougeL [16] Sample-based 0.4788 0.1599 0.4127 0.3636 0.3538 0.2483 0.1981 0.2232 SAR [13] Sample-based 0.5733 0.1786 0.4103 0.3275 0.3724 0.2936 0.3069 0.3003 SemanticDensity[30] Sample-based 0.5592 0.0755 0.1582 0.1102 0.2258 0.0752 0.1138 0.0945 SemanticEntropy[22] Sample-based 0.2005 0.2113 0.4701 0.3662 0.312 0.2525 -0.1886 0.032 RAUQ [38] Single pass 0.2631 0.3369 0.5596 0.311 0.3677 0.5269 0.3008 0.4139 LapEigValRAUQ [7] Single pass 0.1190 0.3296 0.5578 0.3064 0.3282 0.5285 0.2907 0.4096 LogDetRAUQ [34] Single pass 0.1140 0.3313 0.5596 0.3087 0.328 0.5288 0.3048 0.4168
+> SAUQ (gen. only) Single pass 0.5013 0.3056 0.5375 0.311 0.4139 0.4948 0.2578 0.3763
+> SAUQ (Ours) Single pass 0.2914 0.3767 0.5588 0.3055 0.3831 0.5924 0.4214 0.5069
+
+Table 1: Comparison against unsupervised methods. The best result in each column is shown in bold, and the second best in blue. 
+
+s(l),gen  
+
+> t
+
+:= PR  B(l,h ∗) 
+
+> t
+
+B(l,h ∗)⊤
+
+> t
+
+, with selection, recurrence and aggregation unchanged. Since the prompt columns are removed and Bt is not renormalized, Bt is sub-stochastic: the intrinsic geometry of Section 3 does not apply. In B.6, we analyze the effect of having different selection-signal relations in SAUQ. 
+
+5.2 Evaluation 
+
+We evaluate SAUQ using Llama-3.1-8b[1] and Qwen2.5-7B [42] (Appendix B.3). We use the LM Polygraph benchmark [15] to ensure easy reproducibility, following the details provided in the experimental setting of [38]. We report the Normalized Prediction Rejection Ratio (PRR; higher is better). We evaluate our method on question-answering task on TriviaQA [21], TruthfulQA [24], MMLU [19], CoQA [31], and on the summarization task on SAMSum [17], and XSum [26]. Table 1 compares SAUQ performances against single-step probability-based methods (Perplexity, MaxSe-quenceProbability, MeanTokenEntropy, CCP), sample-based (10 samples) methods (NLI-based spectral measures, EigenScore, LUQ, LexicalSimilarity, SAR, Semantic Density, SemanticEntropy), and attention-based baselines (AttentionScore, RAUQ, LapEigvalRAUQ, LogDetRAUQ). The last two are variants of SAUQ in which the attention signal has been extracted based on LapEigval[7] and AttentionScore[34]. In Table 1, we report the mean PRR values for Llama-3.1-8b; We refer to the Appendix for additional results. The table shows a regime-dependent picture rather than uniform dominance. On QA datasets, SAUQ is competitive with strong unsupervised estimators, but it is not the best method on average; several sample-based baselines obtain stronger mean QA performance. In contrast, the gains are clearest on summarization, where SAUQ achieves the best performance on both SAMSum and XSum, and the strongest summarization mean among all methods considered. This is consistent with our motivation: when uncertainty depends on preserving distinctions across long contexts, the upstream routing spectrum carries information that probability-based estimators have already lost. We therefore view SAUQ as a complementary single-pass signal rather than a universal replacement. Because SAUQ, RAUQ, LapEigvalRAUQ, and LogDetRAUQ share the same recurrence and protocol, their comparison primarily reflects the effect of replacing the scalar attention signal used. The comparison among them isolates the effect of the routing metric inside the estimator. The ranking mirrors the metric-quality findings of Section 4: LapEigval and LogDet spectral signals carry less of the routing signal than the intrinsic TDO, and this gap translates into stronger single-pass uncertainty. 
+
+Choice of measure The framework treats the input measures μ, π as an explicit model-ing axis rather than a fixed convention. In the context of uncertainty, we tested alter-native approaches to uniform and intrinsic measures, including masses based on token po-sitions, frequency of tokens (Zipf’s Law), and unembedding matrix decomposition. Def-initions of all measures and an example of their distribution are given in Appendix B.8. 9Measure QA Summ.           
+
+> Uniform 0.3660 0.4204 Positional 0.4027 0.4771 Zipf-Law 0.3718 0.4223 Unembedding 0.3755 0.4202 Intrinsic 0.3831 0.5069
+
+Table 2: Mean PRR of SAUQ un-der different measures (LLaMA-3.1-8B). Only the intrinsic choice μ = A⊤π satisfies Proposition 2; for the others the constant function is not an eigenvector of Dμ,π .On short-range QA, several measures perform comparably, with positional weighting marginally best. On summarization, where uncertainty depends more strongly on long-range routing, the attention-induced measure outperforms the alternatives, while counting geometry lags. Interestingly, the performances of frequency- and unembedding-based estimators suggest that the ’semantic’ of the tokens is less relevant in this scenario with re-spect to positional bias. Extending such analysis forward offers an intriguing future direction in which our approach can be exploited for a broader understanding of LLMs’ computations. 
+
+6 Conclusion 
+
+We introduced a new spectral-geometric framework for attention. Euclidean spectral diagnostics can be biased by sink behavior, conflating column-mass concentration with genuine routing; the intrinsic probability geometry instead yields a token-difference spectrum that separates the trivial constant mode from the centered modes controlling routing capacity. Empirically, TDO operator better disentangle relations between sink score and head-output dimensionality, and supports uncertainty estimation. Building on it, SAUQ replaces scalar attention probes with a spectral measure of routing capacity and improves over closely related attention-based baselines on long-range tasks. 
+
+Limitations. Our analysis is per-head, per-input, and single-step, characterizing the routing map before residual mixing, MLP updates, and cross-head output projection; extending it to the full dynamics of representation evolution is a natural next step. Practically, computing the full spectrum is more expensive than scalar attention statistics or the participation-ratio statistic used in our variant, requiring additional care to apply at scale. 
+
+Broader Impact. More faithful diagnostics of attention routing may improve interpretability, uncertainty estimation, and reliability assessment in transformer models, especially for deployment of safe and reliable AI systems. 
+
+Acknowledgments and Disclosure of Funding 
+
+This work was supported by the ERC Consolidator Grant 101087347 (VEGA), the ANR AI Chair AIGRETTE, and by gifts from Ansys and Adobe Research. The MUR supported this work with the grant "Dipartimenti di Eccellenza 2023-2027" REGAINS of the Department of Informatics, Systems and Communication of the University of Milano-Bicocca. 
+
+References 
+
+[1] AI@Meta. Llama 3 model card. 2024. [2] Han Bao, Ryuichiro Hataya, and Ryo Karakida. Self-attention networks localize when qk-eigenspectrum concentrates, 2024. [3] Federico Barbero, Andrea Banino, Steven Kapturowski, Dharshan Kumaran, João G.M. Araújo, Alex Vitvitskyi, Razvan Pascanu, and Petar Veliˇ ckovi´ c. Transformers need glasses! information over-squashing in language tasks. In Proceedings of the 38th International Conference on Neural Information Processing Systems , NIPS ’24, Red Hook, NY, USA, 2024. Curran Associates Inc. [4] Federico Barbero, Álvaro Arroyo, Xiangming Gu, Christos Perivolaropoulos, Michael Bronstein, Petar Veliˇ ckovi´ c, and Razvan Pascanu. Why do llms attend to the first token?, 2025. [5] Alexandra Bazarova, Aleksandr Yugay, Andrey Shulga, Alina Ermilova, Andrei Volodichev, Konstantin Polev, Julia Belikova, Rauf Parchiev, Dmitry Simakov, Maxim Savchenko, Andrey Savchenko, Serguei Barannikov, and Alexey Zaytsev. Hallucination detection in llms with topological divergence on attention graphs, 2025. 10 [6] Stella Biderman, Hailey Schoelkopf, Quentin Anthony, Herbie Bradley, Kyle O’Brien, Eric Hallahan, Mohammad Aflah Khan, Shivanshu Purohit, USVSN Sai Prashanth, Edward Raff, Aviya Skowron, Lintang Sutawika, and Oskar van der Wal. Pythia: A suite for analyzing large language models across training and scaling, 2023. [7] Jakub Binkowski, Denis Janiak, Albert Sawczyn, Bogdan Gabrys, and Tomasz Jan Kajdanow-icz. Hallucination detection in LLMs using spectral features of attention maps. In Christos Christodoulopoulos, Tanmoy Chakraborty, Carolyn Rose, and Violet Peng, editors, Proceed-ings of the 2025 Conference on Empirical Methods in Natural Language Processing , pages 24354–24385, Suzhou, China, November 2025. Association for Computational Linguistics. [8] Nicola Cancedda. Spectral filters, dark signals, and attention sinks. In Lun-Wei Ku, Andre Mar-tins, and Vivek Srikumar, editors, Proceedings of the 62nd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) , pages 4792–4808, Bangkok, Thailand, August 2024. Association for Computational Linguistics. [9] Chao Chen, Kai Liu, Ze Chen, Yi Gu, Yue Wu, Mingyuan Tao, Zhihang Fu, and Jieping Ye. Inside: Llms’ internal states retain the power of hallucination detection, 2024. [10] Timothée Darcet, Maxime Oquab, Julien Mairal, and Piotr Bojanowski. Vision transformers need registers, 2024. [11] Enrique Queipo de Llano, Álvaro Arroyo, Federico Barbero, Xiaowen Dong, Michael Bronstein, Yann LeCun, and Ravid Shwartz-Ziv. Attention sinks and compression valleys in llms are two sides of the same coin, 2026. [12] Yihe Dong, Jean-Baptiste Cordonnier, and Andreas Loukas. Attention is not all you need: Pure attention loses rank doubly exponentially with depth, 2023. [13] Jinhao Duan, Hao Cheng, Shiqi Wang, Alex Zavalny, Chenan Wang, Renjing Xu, Bhavya Kailkhura, and Kaidi Xu. Shifting attention to relevance: Towards the predictive uncertainty quantification of free-form large language models, 2024. [14] Yotam Erel, Olaf Dünkel, Rishabh Dabral, Vladislav Golyanik, Christian Theobalt, and Amit H. Bermano. Attention (as discrete-time markov) chains, 2025. [15] Ekaterina Fadeeva, Roman Vashurin, Akim Tsvigun, Artem Vazhentsev, Sergey Petrakov, Kirill Fedyanin, Daniil Vasilev, Elizaveta Goncharova, Alexander Panchenko, Maxim Panov, Timothy Baldwin, and Artem Shelmanov. LM-polygraph: Uncertainty estimation for language models. In Yansong Feng and Els Lefever, editors, Proceedings of the 2023 Conference on Empirical Methods in Natural Language Processing: System Demonstrations , pages 446–461, Singapore, December 2023. Association for Computational Linguistics. [16] Marina Fomicheva, Shuo Sun, Lisa Yankovskaya, Frédéric Blain, Francisco Guzmán, Mark Fishel, Nikolaos Aletras, Vishrav Chaudhary, and Lucia Specia. Unsupervised quality estimation for neural machine translation. Transactions of the Association for Computational Linguistics ,8:539–555, 2020. [17] Bogdan Gliwa, Iwona Mochol, Maciej Biesek, and Aleksander Wawer. Samsum corpus: A human-annotated dialogue dataset for abstractive summarization. In Proceedings of the 2nd Workshop on New Frontiers in Summarization , page 70–79. Association for Computational Linguistics, 2019. [18] Xiangming Gu, Tianyu Pang, Chao Du, Qian Liu, Fengzhuo Zhang, Cunxiao Du, Ye Wang, and Min Lin. When attention sink emerges in language models: An empirical view, 2025. [19] Dan Hendrycks, Collin Burns, Steven Basart, Andy Zou, Mantas Mazeika, Dawn Song, and Jacob Steinhardt. Measuring massive multitask language understanding, 2021. [20] R. Huang, F. Chazal, and M. Ovsjanikov. On the stability of functional maps and shape difference operators. Computer Graphics Forum , 37(1):145–158, 2018. [21] Mandar Joshi, Eunsol Choi, Daniel S. Weld, and Luke Zettlemoyer. Triviaqa: A large scale distantly supervised challenge dataset for reading comprehension, 2017. 11 [22] Lorenz Kuhn, Yarin Gal, and Sebastian Farquhar. Semantic uncertainty: Linguistic invariances for uncertainty estimation in natural language generation, 2023. [23] Dharshan Kumaran, Arthur Conmy, Federico Barbero, Simon Osindero, Viorica Patraucean, and Petar Velickovic. How do llms compute verbal confidence, 2026. [24] Stephanie Lin, Jacob Hilton, and Owain Evans. Truthfulqa: Measuring how models mimic human falsehoods, 2022. [25] Zhen Lin, Shubhendu Trivedi, and Jimeng Sun. Generating with confidence: Uncertainty quantification for black-box large language models, 2024. [26] Shashi Narayan, Shay B. Cohen, and Mirella Lapata. Don’t give me the details, just the summary! topic-aware convolutional neural networks for extreme summarization, 2018. [27] Valentin Noël. A graph signal processing framework for hallucination detection in large language models, 2025. [28] Maks Ovsjanikov, Mirela Ben-Chen, Justin Solomon, Adrian Butscher, and Leonidas Guibas. Functional maps: a flexible representation of maps between shapes. ACM Trans. Graph. , 31(4), July 2012. [29] Hector Pasten, Felipe Urrutia, Hector Jimenez, Cristian B. Calderon, Cristóbal Rojas, and Alexander Kozachinskiy. Continuity and isolation lead to doubts or dilemmas in large language models, 2025. [30] Xin Qiu and Risto Miikkulainen. Semantic density: Uncertainty quantification for large language models through confidence measurement in semantic space, 2024. [31] Siva Reddy, Danqi Chen, and Christopher D. Manning. Coqa: A conversational question answering challenge, 2019. [32] Valeria Ruscio, Umberto Nanni, and Fabrizio Silvestri. What are you sinking? a geometric approach on attention sink, 2025. [33] Raif M. Rustamov, Maks Ovsjanikov, Omri Azencot, Mirela Ben-Chen, Frédéric Chazal, and Leonidas Guibas. Map-based exploration of intrinsic shape differences and variability. ACM Trans. Graph. , 32(4), July 2013. [34] Gaurang Sriramanan, Siddhant Bharti, Vinu Sankar Sadasivan, Shoumik Saha, Priyatham Kattakinda, and Soheil Feizi. Llm-check: Investigating detection of hallucinations in large language models. In A. Globerson, L. Mackey, D. Belgrave, A. Fan, U. Paquet, J. Tomczak, and C. Zhang, editors, Advances in Neural Information Processing Systems , volume 37, pages 34188–34216. Curran Associates, Inc., 2024. [35] Shangwen Sun, Alfredo Canziani, Yann LeCun, and Jiachen Zhu. The spike, the sparse and the sink: Anatomy of massive activations and attention sinks, 2026. [36] Huiyuan Tian, Bonan Xu, Shijian Li, and Gang Pan. Spectralkd: A unified framework for interpreting and distilling vision transformers via spectral analysis, 2025. [37] Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion Jones, Aidan N Gomez, Ł ukasz Kaiser, and Illia Polosukhin. Attention is all you need. In I. Guyon, U. Von Luxburg, S. Bengio, H. Wallach, R. Fergus, S. Vishwanathan, and R. Garnett, editors, Advances in Neural Information Processing Systems , volume 30. Curran Associates, Inc., 2017. [38] Artem Vazhentsev, Lyudmila Rvanova, Gleb Kuzmin, Ekaterina Fadeeva, Ivan Lazichny, Alexan-der Panchenko, Maxim Panov, Timothy Baldwin, Mrinmaya Sachan, Preslav Nakov, and Artem Shelmanov. Uncertainty-aware attention heads: Efficient unsupervised uncertainty quantifica-tion for llms, 2025. [39] Petar Veliˇ ckovi´ c, Federico Barbero, Christos Perivolaropoulos, Simon Osindero, and Razvan Pascanu. Perplexity cannot always tell right from wrong, 2026. 12 [40] Pragatheeswaran Vipulanandan, Kamal Premaratne, and Dilip Sarkar. Semantic uncertainty quantification of hallucinations in llms: A quantum tensor network based method, 2026. [41] Jiefang Xiao, Maolin Gao, Simon Weber, Guandao Yang, and Daniel Cremers. Functional attention: From pairwise affinities to functional correspondences, 2026. [42] An Yang, Baosong Yang, Binyuan Hui, Bo Zheng, Bowen Yu, Chang Zhou, Chengpeng Li, Chengyuan Li, Dayiheng Liu, Fei Huang, Guanting Dong, Haoran Wei, Huan Lin, Jialong Tang, Jialin Wang, Jian Yang, Jianhong Tu, Jianwei Zhang, Jianxin Ma, Jianxin Yang, Jin Xu, Jingren Zhou, Jinze Bai, Jinzheng He, Junyang Lin, Kai Dang, Keming Lu, Keqin Chen, Kexin Yang, Mei Li, Mingfeng Xue, Na Ni, Pei Zhang, Peng Wang, Ru Peng, Rui Men, Ruize Gao, Runji Lin, Shijie Wang, Shuai Bai, Sinan Tan, Tianhang Zhu, Tianhao Li, Tianyu Liu, Wenbin Ge, Xiaodong Deng, Xiaohuan Zhou, Xingzhang Ren, Xinyu Zhang, Xipin Wei, Xuancheng Ren, Xuejing Liu, Yang Fan, Yang Yao, Yichang Zhang, Yu Wan, Yunfei Chu, Yuqiong Liu, Zeyu Cui, Zhenru Zhang, Zhifang Guo, and Zhihao Fan. Qwen2 technical report, 2024. [43] Shuangfei Zhai, Tatiana Likhomanenko, Etai Littwin, Dan Busbridge, Jason Ramapuram, Yizhe Zhang, Jiatao Gu, and Josh Susskind. Stabilizing transformer training by preventing attention entropy collapse, 2023. [44] Caiqi Zhang, Fangyu Liu, Marco Basaldella, and Nigel Collier. Luq: Long-text uncertainty quantification for llms, 2024. 13 Supplementary Material/appendix for "Spectral Geometry of Attention: From Information Routing to Uncertainty". 
+
+A Proofs for the Theoretical Section 
+
+A.1 Full Notation 
+
+We consider a decoder-only transformer with L layers and H attention heads per layer, processing a sequence of n tokens. At layer l, the input is Xl−1 ∈ Rn×d, whose i-th row xi is the hidden representation of token i. We adopt the pre-norm convention as in [3]: 
+
+ˆXl−1 = LN( Xl−1),M l = Xl−1 + MHA l( ˆXl−1), Xl = Ml + MLP l(LN( Ml)) . (18) For each head h, queries, keys, and values are Ql,h = ˆXl−1W Ql,h , Kl,h = ˆXl−1W Kl,h , Vl,h =ˆXl−1W Vl,h . The attention matrix is 
+
+Al,h = softmax 
+
+
+
+Ql,h K⊤
+
+> l,h
+
+/√d + C
+
+
+
+, (19) where C is the causal mask, with Cij = 0 for j ≤ i and Cij = −∞ otherwise. The full multi-head attention output is obtained by concatenating the head and projecting outputs MHA l( ˆXl−1) = 
+
+concat h(Al,h Vl,h ) W Ol .
+
+In this section we provide the technical details for the results stated in Section 3. 
+
+A.2 TDO is self-adjoint 
+
+We recall A : L2(μ) −→ L2(π), Af = Af. . Its adjoint is defined as the operator A∗ such that 
+
+⟨A f, g ⟩π = ⟨f, A∗g⟩μ. We compute it explicitly 
+
+⟨A f, g ⟩π = ( Af )⊤Ωπ g = f ⊤A⊤Ωπ g = f ⊤Ωμ
+
+ Ω−1 
+
+> μ
+
+A⊤Ωπ g = ⟨f, Ω−1 
+
+> μ
+
+A⊤Ωπ g⟩μ. (20) Hence, A∗ = Ω −1 
+
+> μ
+
+A⊤Ωπ . The token-difference operator Dμ,π := A∗A = Ω −1 
+
+> μ
+
+A⊤Ωπ A. is self-adjoint in L2(μ). Indeed, for any f, g ∈ L2(μ),
+
+⟨Dμ,π f, g ⟩μ = ⟨A ∗Af, g ⟩μ⟨A f, Ag⟩π = ⟨f, A∗Ag⟩μ = ⟨f, D μ,π g⟩μ. (21) It is also positive semidefinite: 
+
+⟨Dμ,π f, f ⟩μ = ⟨A f, Af ⟩π = ∥Af ∥2 
+
+> π
+
+≥ 0. (22) The associated Rayleigh quotient is 
+
+Rμ,π (f ) = ∥Af ∥2
+
+> π
+
+∥f ∥2
+
+> μ
+
+= f ⊤A⊤Ωπ Af f ⊤Ωμf = ⟨Dμ,π f, f ⟩μ
+
+⟨f, f ⟩μ
+
+. (23) Thus the eigenvalues of Dμ,π describe the squared gains of attention under the input geometry μ and the output geometry π.Although Dμ,π is not generally symmetric in the Euclidean inner product, it is similar to the symmetric positive semidefinite matrix 
+
+Sμ,π := Ω −1/2 
+
+> μ
+
+A⊤Ωπ AΩ−1/2 
+
+> μ
+
+. (24) Indeed, 
+
+Dμ,π = Ω −1/2 
+
+> μ
+
+Sμ,π Ω1/2 
+
+> μ
+
+. (25) Therefore Dμ,π and Sμ,π have the same eigenvalues. In practice, we can compute spectral quantities using Sμ,π .14 A.3 Euclidean case: proof of Proposition 1 
+
+When both μ and π are counting measures, Ωμ = Ω π = I and Dμ,π = A⊤A. Thus, the eigenvalues of Dμ,π are the squared singular values of A.
+
+Proof of Proposition 1. Because A is row-stochastic, A1 = 1. Therefore ∥A1∥2 = ∥1∥2. By the definition of the spectral norm, 
+
+σ1(A) = ∥A∥2 = sup  
+
+> f̸=0
+
+∥Af ∥2
+
+∥f ∥2
+
+≥ ∥A1∥2
+
+∥1∥2
+
+= 1 . (26) Now suppose that σ1(A) = 1 . Then ∥A∥2 = 1 , and the vector 1 attains the operator norm. Equivalently, the Rayleigh quotient of A⊤A at 1 equals its largest eigenvalue: 
+
+1⊤A⊤A11⊤1 = 1 = λmax (A⊤A). (27) Since A⊤A is symmetric positive semidefinite, equality in the Rayleigh principle implies that 1 is an eigenvector of A⊤A with eigenvalue 1: A⊤A1 = 1. Using A1 = 1, this becomes A⊤1 = 1. Hence every column of A also sums to one, so A is doubly stochastic. Conversely, suppose that A is doubly stochastic. Since A is nonnegative and has row sums and column sums equal to one, 
+
+∥A∥∞ = 1 , ∥A∥1 = 1 . (28) The standard norm interpolation bound gives 
+
+∥A∥2 ≤ p∥A∥1∥A∥∞ = 1 . (29) Together with the lower bound ∥A∥2 ≥ 1, this gives σ1(A) = ∥A∥2 = 1 .
+
+Frobenius budget. The total squared singular mass is 
+
+X
+
+> k
+
+σk(A)2 = ∥A∥2 
+
+> F
+
+= X
+
+> i,j
+
+A2 
+
+> ij
+
+. (30) Since each row of A is a probability vector, 0 ≤ Aij ≤ 1, and therefore A2 
+
+> ij
+
+≤ Aij . Hence 
+
+∥A∥2 
+
+> F
+
+= X
+
+> i,j
+
+A2 
+
+> ij
+
+≤ X
+
+> i,j
+
+Aij = n. (31) Consequently, X
+
+> k≥2
+
+σk(A)2 = ∥A∥2 
+
+> F
+
+− σ1(A)2 ≤ n − σ1(A)2. (32) Thus, when the leading singular value is large, a large fraction of the available Frobenius budget is concentrated in the leading mode. There is also a lower bound. For any probability vector p supported on s coordinates, Psj=1 p2 
+
+> j
+
+≥ 1 
+
+> s
+
+,
+
+by Cauchy’s inequality. Without causal constraints, every row may use all n positions, so ∥A∥2 
+
+> F
+
+≥ 1,with equality at the fully uniform matrix. Under causal masking, row i is supported on at most i
+
+positions. Therefore P 
+
+> j
+
+A2 
+
+> ij
+
+≥ 1 
+
+> i
+
+, and hence ∥A∥2 
+
+> F
+
+≥ Pni=1 1 
+
+> i
+
+.
+
+A.4 Intrinsic probability geometry: proof of Proposition 2 
+
+We now use the intrinsic measures 
+
+π = 1
+
+n 1, μ = A⊤π. (33) 
+
+Proof of Proposition 2. For each query position i, the row Ai: is a probability vector. Therefore, by Jensen’s inequality applied to the convex function x 7 → x2,
+
+(Af )2 
+
+> i
+
+=
+
+X
+
+> j
+
+Aij fj
+
+
+
+> 2
+
+≤ X
+
+> j
+
+Aij f 2 
+
+> j
+
+. (34) 15 Averaging this inequality over i with the uniform measure πi = 1 /n gives 
+
+∥Af ∥2 
+
+> π
+
+= 1
+
+n
+
+> n
+
+X
+
+> i=1
+
+(Af )2 
+
+> i
+
+≤ 1
+
+n
+
+> n
+
+X
+
+> i=1
+> n
+
+X
+
+> j=1
+
+Aij f 2 
+
+> j
+
+=
+
+> n
+
+X
+
+> j=1
+
+1
+
+n
+
+> n
+
+X
+
+> i=1
+
+Aij 
+
+!
+
+f 2 
+
+> j
+
+=
+
+> n
+
+X
+
+> j=1
+
+μj f 2 
+
+> j
+
+= ∥f ∥2
+
+> μ
+
+. (35) Hence ∥A∥ L2(μ)→L2(π) ≤ 1. Since A is row-stochastic A1 = 1. Because both μ and π are probability measures their respective norm is 1. Therefore ∥A 1∥π = ∥1∥π = ∥1∥μ. So the operator norm is exactly one. Finally, the eigenvalues of Dμ,π are squared singular gains of A : L2(μ) → L2(π). The previous inequality shows that all eigenvalues are at most one, and the constant function attains gain one. Hence λ1(Dμ,π ) = 1 , Dμ,π 1 = 1.
+
+The last identity can also be checked directly: 
+
+Dμ,π 1 = Ω −1 
+
+> μ
+
+A⊤Ωπ A1 = Ω −1 
+
+> μ
+
+A⊤Ωπ 1 = Ω −1 
+
+> μ
+
+A⊤π = Ω −1 
+
+> μ
+
+μ = 1. (36) Moreover, 
+
+μ⊤Dμ,π = μ⊤Ω−1 
+
+> μ
+
+A⊤Ωπ A = 1⊤A⊤Ωπ A = ( A1)⊤Ωπ A = 1⊤Ωπ A = π⊤A = μ⊤. (37) Thus 1 is a right eigenvector and μ is the corresponding invariant left measure. 
+
+A.5 Proof of Corollary 0.1 
+
+Define the μ-centered subspace 
+
+1⊥μ = {f ∈ L2(μ) : μ⊤f = 0 }. (38) The identity π⊤A = μ⊤ implies that attention maps centered functions to centered functions. Indeed, if f ∈ 1⊥μ , then 
+
+π⊤Af = μ⊤f = 0 . (39) Thus Af is π-centered. Next, since Dμ,π is self-adjoint in L2(μ) and Dμ,π 1 = 1, the orthogonal complement 1⊥μ is invariant under Dμ,π . To see this directly, take any f ∈ 1⊥μ . Then 
+
+⟨Dμ,π f, 1⟩μ = ⟨f, D μ,π 1⟩μ = ⟨f, 1⟩μ = μ⊤f = 0 . (40) Hence Dμ,π f ∈ 1⊥μ .For f ∈ 1⊥μ , the squared gain of attention is 
+
+∥Af ∥2
+
+> π
+
+∥f ∥2
+
+> μ
+
+= ⟨Dμ,π f, f ⟩μ
+
+⟨f, f ⟩μ
+
+. (41) By the Rayleigh-Ritz variational principle applied to the restriction of Dμ,π to 1⊥μ ,
+
+sup   
+
+> f∈1⊥μ\{ 0}
+
+∥Af ∥2
+
+> π
+
+∥f ∥2
+
+> μ
+
+= λmax 
+
+ Dμ,π 1⊥μ
+
+ . (42) With the eigenvalues ordered as 
+
+1 = λ1 ≥ λ2 ≥ · · · ≥ 0, (43) and with one copy of the eigenvalue λ1 = 1 corresponding to the constant function, this restricted maximum is λ2. Therefore 
+
+sup   
+
+> f∈1⊥μ\{ 0}
+
+∥Af ∥π
+
+∥f ∥μ
+
+=
+
+q
+
+λ2(Dμ,π ) ≤ 1. (44) If the unit eigenvalue has multiplicity larger than one, then there exist nonconstant centered modes with unit gain, and the same formula gives λ2(Dμ,π ) = 1 .16 A.6 Proof of Proposition 3 
+
+For matrix-valued token signals U, W ∈ Rn×d, define 
+
+⟨U, W ⟩μ,F = tr( U ⊤ΩμW ), ∥U ∥2 
+
+> μ,F
+
+= tr( U ⊤ΩμU ). (45) The analogous π-weighted quantities are defined by replacing Ωμ with Ωπ .Given a value matrix V ∈ Rn×d, define its μ-mean and centered component by 
+
+m := μ⊤V ∈ Rd, Vc := V − 1m. (46) Then 
+
+μ⊤Vc = μ⊤V − μ⊤1m = m − (1⊤μ)m = m − m = 0 , (47) because μ is a probability measure. Thus every feature column of Vc lies in 1⊥μ .Using V = 1m + Vc and A1 = 1, we obtain 
+
+AV = A(1m + Vc) = 1m + AV c. (48) This proves the additive decomposition. We now prove the orthogonality of the two terms in L2(π). Since π⊤A = μ⊤ and μ⊤Vc = 0 ,
+
+⟨1m, AV c⟩π,F = tr  (1m)⊤Ωπ AV c
+
+ = tr  m⊤1⊤Ωπ AV c
+
+ = tr  m⊤π⊤AV c
+
+ = tr  m⊤μ⊤Vc
+
+ = 0 .
+
+(49) Finally, write Vc = [ v(1)  
+
+> c
+
+, . . . , v (d) 
+
+> c
+
+], where each v(r) 
+
+> c
+
+∈ 1⊥μ . Applying Corollary 0.1 to each feature column gives 
+
+∥Av (r) 
+
+> c
+
+∥2 
+
+> π
+
+≤ λ2(Dμ,π )∥v(r) 
+
+> c
+
+∥2
+
+> μ
+
+. (50) Summing over feature coordinates, 
+
+∥AV c∥2 
+
+> π,F
+
+=
+
+> d
+
+X
+
+> r=1
+
+∥Av (r) 
+
+> c
+
+∥2 
+
+> π
+
+≤ λ2(Dμ,π )
+
+> d
+
+X
+
+> r=1
+
+∥v(r) 
+
+> c
+
+∥2 
+
+> μ
+
+= λ2(Dμ,π )∥Vc∥2 
+
+> μ,F
+
+. (51) Taking square roots gives 
+
+∥AV c∥π,F ≤
+
+q
+
+λ2(Dμ,π ) ∥Vc∥μ,F . (52) 
+
+A.7 Proof of Corollary 0.2 
+
+Let 
+
+Z = Ω 1/2 
+
+> π
+
+AV, Zc = Ω 1/2 
+
+> π
+
+AV c. (53) By Proposition 3, 
+
+AV = 1m + AV c. (54) Multiplying by Ω1/2 
+
+> π
+
+gives 
+
+Z = Ω 1/2 
+
+> π
+
+1m + Zc. (55) Define 
+
+Zm := Ω 1/2 
+
+> π
+
+1m. (56) Since π is a probability measure, 
+
+Z⊤
+
+> m
+
+Zm = m⊤1⊤Ωπ 1m = m⊤m. (57) Moreover, the cross term vanishes as a matrix: 
+
+Z⊤
+
+> m
+
+Zc = m⊤1⊤Ωπ AV c = m⊤π⊤AV c = m⊤μ⊤Vc = 0 . (58) Therefore 
+
+Z⊤Z = Z⊤
+
+> m
+
+Zm + Z⊤ 
+
+> c
+
+Zc = m⊤m + Z⊤ 
+
+> c
+
+Zc, (59) and 
+
+∥Z∥2 
+
+> F
+
+= ∥m∥22 + ∥Zc∥2 
+
+> F
+
+. (60) 17 Assume first that both m̸ = 0 and Zc̸ = 0 . Define the normalized spectral densities 
+
+ρZ = Z⊤Z
+
+tr( Z⊤Z) , ρm = m⊤m
+
+∥m∥22
+
+, ρc = Z⊤ 
+
+> c
+
+Zc
+
+∥Zc∥2
+
+> F
+
+. (61) Let 
+
+α = ∥Zc∥2
+
+> F
+
+∥m∥22 + ∥Zc∥2
+
+> F
+
+. (62) Then 
+
+ρZ = (1 − α)ρm + αρ c. (63) The matrix ρm has rank one, so its entropy is zero: 
+
+H(ρm) = 0 . (64) Using concavity of entropy, 
+
+H(ρZ ) ≥ (1 − α)H(ρm) + αH (ρc) = αH (ρc). (65) Since H(ρZ ) = H(Z) and H(ρc) = H(Zc), this gives 
+
+H(Z) ≥ αH (Zc). (66) For the upper bound, we use the standard entropy bound for a two-component mixture: 
+
+H (1 − α)ρm + αρ c
+
+ ≤ h2(α) + (1 − α)H(ρm) + αH (ρc), (67) where 
+
+h2(α) = −α log α − (1 − α) log(1 − α). (68) Since H(ρm) = 0 , this yields 
+
+H(Z) ≤ h2(α) + αH (Zc). (69) The cases m = 0 or Zc = 0 follow by continuity, with the convention αH (Zc) = 0 when Zc = 0 .Finally, 
+
+∥Zc∥F = ∥Ω1/2 
+
+> π
+
+AV c∥F = ∥AV c∥π,F . (70) The routed contraction bound from Proposition 3 therefore gives 
+
+∥Zc∥F ≤
+
+q
+
+λ2(Dμ,π ) ∥Vc∥μ,F . (71) 
+
+A.8 Centered participation ratio 
+
+To isolate the nontrivial routed directions, we may also define the centered participation ratio 
+
+PR cent (Dμ,π ) = 1
+
+n − 1(Pnk=2 λk)2
+
+Pnk=2 λ2
+
+> k
+
+, (72) whenever Pnk=2 λ2 
+
+> k
+
+> 0. If all centered eigenvalues vanish, we set PR cent (Dμ,π ) = 0 .
+
+B Additional Results 
+
+B.1 Correlation on other models. 
+
+We report the version of Figure 3 but using three different models, GPT-2, Pythia-410m [6] and Qwen2-7b [42]. The correlation plots are provided in Figure 5. We note that the relation between the metrics seems independent of the model, being based on structural properties common to all attention maps. 18 GPT-2 013467911 Layer 
+
+0.0 0.2 0.4 0.6 0.8 1.0 
+
+exp H( )/ n
+
+0.0 0.2 0.4 0.6 0.8 1.0 
+
+> Sink Score
+
+-0.993 
+
+0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 
+
+Mean Row Entropy 
+
+-0.546 
+
+14 12 10 8 6 4 2 0
+
+(1/ n)logdet A
+
+-0.692 
+
+0.0 0.1 0.2 0.3 0.4 0.5 
+
+Lap. Eigval. Erank 
+
+0.267 
+
+0.0 0.2 0.4 0.6 0.8 1.0 
+
+Prev Token Score 
+
+-0.554 
+
+0.0 0.2 0.4 0.6 0.8 1.0 
+
+PR( A A)
+
+-0.895 
+
+0.0 0.2 0.4 0.6 0.8 1.0 
+
+PR(( D , )) 
+
+-0.414 
+
+0.0 0.2 0.4 0.6 0.8 1.0 
+
+PR(( D , )) centered 
+
+-0.340 013467911 Layer 
+
+0.0 0.2 0.4 0.6 0.8 1.0 
+
+exp H( )/ n
+
+0510 15 20 25 30 
+
+> Output Entropy
+
+0.071 
+
+0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 
+
+Mean Row Entropy 
+
+-0.522 
+
+14 12 10 8 6 4 2 0
+
+(1/ n)logdet A
+
+0.299 
+
+0.0 0.1 0.2 0.3 0.4 0.5 
+
+Lap. Eigval. Erank 
+
+-0.133 
+
+0.0 0.2 0.4 0.6 0.8 1.0 
+
+Prev Token Score 
+
+0.444 
+
+0.0 0.2 0.4 0.6 0.8 1.0 
+
+PR( A A)
+
+0.286 
+
+0.0 0.2 0.4 0.6 0.8 1.0 
+
+PR(( D , )) 
+
+0.714 
+
+0.0 0.2 0.4 0.6 0.8 1.0 
+
+PR(( D , )) centered 
+
+0.717 
+
+Pythia-410m 036913 16 19 23 Layer 
+
+0.0 0.2 0.4 0.6 0.8 1.0 
+
+exp H( )/ n
+
+0.0 0.2 0.4 0.6 0.8 1.0 
+
+> Sink Score
+
+-0.904 
+
+0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 
+
+Mean Row Entropy 
+
+-0.690 
+
+25 20 15 10 5 0
+
+(1/ n)logdet A
+
+-0.616 
+
+0.0 0.1 0.2 0.3 0.4 
+
+Lap. Eigval. Erank 
+
+0.134 
+
+0.0 0.2 0.4 0.6 0.8 
+
+Prev Token Score 
+
+-0.705 
+
+0.0 0.2 0.4 0.6 0.8 
+
+PR( A A)
+
+-0.884 
+
+0.0 0.2 0.4 0.6 0.8 1.0 
+
+PR(( D , )) 
+
+-0.589 
+
+0.0 0.2 0.4 0.6 0.8 1.0 
+
+PR(( D , )) centered 
+
+-0.572 036913 16 19 23 Layer 
+
+0.0 0.2 0.4 0.6 0.8 1.0 
+
+exp H( )/ n
+
+0510 15 20 25 30 35 
+
+> Output Entropy
+
+0.597 
+
+0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 
+
+Mean Row Entropy 
+
+0.252 
+
+25 20 15 10 5 0
+
+(1/ n)logdet A
+
+0.664 
+
+0.0 0.1 0.2 0.3 0.4 
+
+Lap. Eigval. Erank 
+
+-0.169 
+
+0.0 0.2 0.4 0.6 0.8 
+
+Prev Token Score 
+
+0.684 
+
+0.0 0.2 0.4 0.6 0.8 
+
+PR( A A)
+
+0.577 
+
+0.0 0.2 0.4 0.6 0.8 1.0 
+
+PR(( D , )) 
+
+0.801 
+
+0.0 0.2 0.4 0.6 0.8 1.0 
+
+PR(( D , )) centered 
+
+0.799 
+
+Qwen2-7b 03711 15 19 23 27 Layer 
+
+0.0 0.2 0.4 0.6 0.8 1.0 
+
+exp H( )/ n
+
+0.0 0.2 0.4 0.6 0.8 1.0 
+
+> Sink Score
+
+-0.951 
+
+0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 
+
+Mean Row Entropy 
+
+-0.741 
+
+15.0 12.5 10.0 7.5 5.0 2.5 0.0 
+
+(1/ n)logdet A
+
+-0.620 
+
+0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 
+
+Lap. Eigval. Erank 
+
+0.068 
+
+0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 
+
+Prev Token Score 
+
+-0.503 
+
+0.0 0.2 0.4 0.6 0.8 1.0 
+
+PR( A A)
+
+-0.880 
+
+0.0 0.2 0.4 0.6 0.8 1.0 
+
+PR(( D , )) 
+
+-0.458 
+
+0.0 0.2 0.4 0.6 0.8 1.0 
+
+PR(( D , )) centered 
+
+-0.383 03711 15 19 23 27 Layer 
+
+0.0 0.2 0.4 0.6 0.8 1.0 
+
+exp H( )/ n
+
+010 20 30 40 50 
+
+> Output Entropy
+
+0.382 
+
+0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 
+
+Mean Row Entropy 
+
+-0.023 
+
+15.0 12.5 10.0 7.5 5.0 2.5 0.0 
+
+(1/ n)logdet A
+
+0.593 
+
+0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 
+
+Lap. Eigval. Erank 
+
+-0.237 
+
+0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 
+
+Prev Token Score 
+
+0.566 
+
+0.0 0.2 0.4 0.6 0.8 1.0 
+
+PR( A A)
+
+0.486 
+
+0.0 0.2 0.4 0.6 0.8 1.0 
+
+PR(( D , )) 
+
+0.781 
+
+0.0 0.2 0.4 0.6 0.8 1.0 
+
+PR(( D , )) centered 
+
+0.745 
+
+Figure 5: Scatterplot between attention diagnostics, sink score, and output dimensionality on GPT-2, Pythia-410m and Qwen2-7b Table 3: Supervised hallucination-detection performance (ROC-AUC). We compare attention-matrix baselines, Laplacian eigenvalues, and features derived from the weighted token-difference operator. We follow the experimental protocol of [7] using Llama-3.1-8b [1], DeepSeek-4 as a judge. Dataset AttnEigvals AttnLogDet LapEigvals TokenDiffEigvals COQA 0.7995 0.7779 0.8519 0.8241 GSM8K 0.8598 0.8586 0.8660 0.8663 
+
+TriviaQA 0.8385 0.8346 0.8923 0.8731 TruthfulQA 0.7997 0.8362 0.8095 0.8445 B.2 Supervised hallucination detection with spectral probes 
+
+Beyond unsupervised SAUQ, we probe the token-difference spectrum in the supervised hallucination-detection protocol of LapEigval [7], which trains a classifier on eigenvalue features of the attention-induced graph Laplacian. We replace those features with the leading k = 16 eigenvalues of Dμ,π 
+
+for each selected head. Truncation is necessary because, unlike the Laplacian, whose diagonal already supplies cheap summaries, Dμ,π is dense and weighted, so its full spectrum is comparatively expensive to estimate. 19 QA Summarization Estimator Category TriviaQA TruthfulQA MMLU CoQA Mean SAMSum XSum Mean                                                                                                                                                                   
+
+> AttentionScore [34] Single pass 0.0429 0.0466 0.1114 0.0022 0.0508 0.2924 -0.0540 0.1192 AttentionScore (gen. only) [34] Single pass 0.1529 -0.1053 0.6741 0.0892 0.2027 -0.0726 -0.5038 -0.2882 MaximumSequenceProbability Single pass 0.2328 0.0436 0.6644 0.3016 0.3106 0.1220 -0.0610 0.0305 MeanTokenEntropy Single pass 0.6173 0.2474 0.2491 0.2533 0.3418 0.4265 0.3363 0.3814
+> Perplexity Single pass -0.0126 0.2093 0.4042 0.2620 0.2157 0.4303 0.3309 0.3806 CCP [15] Single pass 0.0636 -0.0244 0.4957 0.2334 0.1921 0.0975 0.1419 0.1197 NLI-DegMat [25] Sample-based 0.6393 0.3117 0.3758 0.4073 0.4335 0.2956 0.3367 0.3162 NLI-Eccentricity [25] Sample-based 0.6149 0.2472 0.3318 0.3476 0.3854 0.2883 0.2600 0.2742 NLI-EigValLaplacian [25] Sample-based 0.6201 0.3147 0.3213 0.3855 0.4104 0.2934 0.3535 0.3235 EigenScore [9] Sample-based 0.4990 -0.0506 0.3184 0.3282 0.2738 0.1783 0.0123 0.0953 LUQ [44] Sample-based 0.6334 0.3777 0.3576 0.3900 0.4397 0.2697 0.4477 0.3587 LexicalSimilarity_rougeL [16] Sample-based 0.6001 0.1317 0.3628 0.3697 0.3661 0.3237 0.2437 0.2837 SAR [13] Sample-based 0.6116 0.2120 0.4401 0.3446 0.4021 0.2869 0.3027 0.2948 SemanticDensity [30] Sample-based 0.4903 0.1312 0.1323 0.0731 0.2067 0.1083 0.1898 0.1491 SemanticEntropy [22] Sample-based 0.3098 0.1179 0.3018 0.3066 0.2590 0.2640 0.0225 0.1433 RAUQ [38] Single pass 0.5226 0.1970 0.5939 0.2639 0.3944 0.3898 0.2750 0.3324
+> SAUQ (gen. only) Single pass 0.5906 0.1290 0.5182 0.2953 0.3833 0.3824 0.3484 0.3654
+> SAUQ (Ours) Single pass 0.3780 0.1804 0.7204 0.2107 0.3724 0.3988 0.3165 0.3577
+
+Table 4: Normalized PRR (higher is better) of unsupervised uncertainty estimators on Qwen2.5-7B. Sample-based methods use 10 samples. The best result in each column is shown in bold, and the second best in blue. Table 3 shows that TDO eigenvalues are competitive with Laplacian features. In the low-k regime, the leading eigenvalues of Dμ,π often match or exceed the Laplacian features, suggesting that the dominant routing modes carry hallucination-relevant information. We do not claim uniform dominance: with richer or cheaper Laplacian features, the baseline can match or surpass the probe. Together with the unsupervised SAUQ results, this suggests that the Dμ,π spectrum carries uncertainty information not reducible to scalar attention statistics. 
+
+B.3 Uncertainty quantification on Qwen2.5-7B 
+
+Table 4 replicates the evaluation of Section 5 on Qwen2.5-7B [42], using the same protocol, the same 
+
+α = 0 .2 and the middle third of layers. The results confirm the regime dependence of Section 5, but they also show that the gains are model dependent. SAUQ improves over RAUQ on summarization ( 0.3577 vs. 0.3324 ) and obtains the best MMLU score ( 0.7204 ), but it is below RAUQ on the QA mean ( 0.3724 vs. 0.3944 ). Unlike on LLaMA-3.1-8B, probability-based estimators (MeanTokenEntropy, Perplexity) are the strongest on summarization, and the generated-only variant outperforms the full-context one ( 0.3654 vs. 0.3577 ). We interpret the smaller advantage of the full-context signal as consistent with weaker sink behavior in this model, since the intrinsic measure primarily corrects sink-induced bias; we list the dependence on architecture as a limitation in Section 6. 
+
+B.4 Confidence intervals 
+
+We quantify the variability of PRR with a nonparametric bootstrap over evaluation instances: for each dataset, we resample instances with replacement 5000 times, recompute PRR for every estimator on the same resample, and report the standard errors. Differences between estimators are computed on paired resamples. Generation is greedy, so there is no decoding randomness in single-pass estimators; sample-based baselines use the 10 samples provided by LM-Polygraph. Table 5 reports the intervals for the attention-based estimators and the strongest baselines. 
+
+B.5 Calibration 
+
+PRR measures the quality of the ranking induced by an uncertainty score, not its calibration; for this reason, we do not expect it to be calibrated. For completeness, Table 6 reports the expected calibration error of single-pass estimators. 20 QA Summarization Estimator Category TriviaQA TruthfulQA MMLU CoQA SAMSum XSum                                                                                                                                                                                                                                                                                                                                                                          
+
+> MaximumSequenceProbability Single pass 0.25 ±.02 0.32 ±.06 0.55 ±.02 0.29 ±.02 −0.14 ±.07 −0.39 ±.11
+> MeanTokenEntropy Single pass 0.57 ±.02 0.42 ±.05 0.24 ±.03 0.26 ±.02 0.50 ±.05 0.39 ±.08
+> Perplexity Single pass 0.11 ±.02 0.29 ±.05 0.52 ±.02 0.27 ±.02 0.51 ±.04 0.41 ±.08
+> CCP [15] Single pass 0.10 ±.02 0.16 ±.06 0.56 ±.02 0.26 ±.02 −0.15 ±.07 −0.30 ±.11
+> NLI-DegMat [25] Sample-based 0.58 ±.02 0.21 ±.06 0.44 ±.02 0.40 ±.02 0.39 ±.05 0.32 ±.09
+> NLI-Eccentricity [25] Sample-based 0.56 ±.02 0.20 ±.06 0.45 ±.02 0.38 ±.02 0.34 ±.05 0.04 ±.10
+> NLI-EigValLaplacian [25] Sample-based 0.60 ±.02 0.20 ±.06 0.47 ±.02 0.41 ±.02 0.39 ±.05 0.38 ±.09
+> EigenScore [9] Sample-based 0.36 ±.02 0.05 ±.06 0.41 ±.03 0.35 ±.02 0.07 ±.06 −0.21 ±.10
+> LUQ [44] Sample-based 0.59 ±.02 0.18 ±.06 0.44 ±.02 0.36 ±.02 0.29 ±.05 0.36 ±.08
+> LexicalSimilarity (ROUGE-L) [16] Sample-based 0.48 ±.02 0.16 ±.06 0.41 ±.03 0.36 ±.02 0.25 ±.06 0.20 ±.09
+> SAR [13] Sample-based 0.57 ±.02 0.18 ±.06 0.41 ±.03 0.33 ±.02 0.29 ±.06 0.31 ±.09
+> SemanticDensity [30] Sample-based 0.56 ±.02 0.08 ±.06 0.16 ±.03 0.11 ±.02 0.08 ±.06 0.11 ±.10
+> SemanticEntropy [22] Sample-based 0.20 ±.03 0.21 ±.06 0.47 ±.02 0.37 ±.02 0.25 ±.06 −0.19 ±.11
+> AttentionScore [34] Single pass 0.08 ±.02 −0.05 ±.06 0.21 ±.03 0.09 ±.02 −0.37 ±.07 −1.00 ±.11
+> RAUQ [38] Single pass 0.26 ±.02 0.34 ±.05 0.56 ±.02 0.31 ±.02 0.52 ±.05 0.30 ±.08
+> LapEigvalRAUQ [7] Single pass 0.12 ±.02 0.33 ±.06 0.56 ±.02 0.31 ±.02 0.53 ±.04 0.29 ±.08
+> LogDetRAUQ [34] Single pass 0.11 ±.02 0.33 ±.05 0.56 ±.02 0.31 ±.02 0.53 ±.04 0.30 ±.08
+> SAUQ (gen. only) Single pass 0.50 ±.02 0.30 ±.05 0.54 ±.02 0.31 ±.02 0.41 ±.05 0.25 ±.09
+> SAUQ (Ours) Single pass 0.29 ±.02 0.38 ±.05 0.56 ±.02 0.31 ±.02 0.59 ±.04 0.42 ±.07
+
+Table 5: Normalized PRR (higher is better) of unsupervised uncertainty estimators on LLaMA-3.1-8B, mean ± standard error (stratified bootstrap over evaluation instances, 5000 resamples; one greedy decode per instance, 10 samples for sample-based methods). Bold: not significantly worse than the best result in the column. 
+
+Estimator QA (mean ECE) Summ. (mean ECE) 
+
+Perplexity 0.237 0.558 AttentionScore 0.266 0.551 MaxSeqProbability 0.265 0.685 MeanTokenEntropy 0.162 0.505 RAUQ 0.187 0.522 SAUQ (Ours) 0.194 0.490 
+
+Table 6: Expected calibration error (lower is better) of single-pass estimators on LLaMA-3.1-8B, averaged over the QA and summarization datasets. 
+
+B.6 Head selection and routing signal 
+
+SAUQ enters the estimator at two places: the rule that selects one head per layer, and the signal computed on that head inside the recurrence. To separate the two, we vary them independently on TruthfulQA and SAMSum (Table 7). Rows are selection rules, columns are signals; (Gen) denotes the generated-token block, (Full) the full prefix, and (Eucl) and (Intrinsic) the counting and intrinsic geometries. Our configuration is generated-Euclidean selection with the full-intrinsic signal. 
+
+TruthfulQA 
+
+Selection ↓ / Signal → gen-Eucl full-Eucl full-intr. full-intr.-cent. gen-Euclidean 0.3056 0.3494 0.3767 0.3876 
+
+full-Euclidean 0.3203 0.3507 0.3761 0.3759 full-intrinsic 0.3078 0.3508 0.3482 0.3429 full-intr.-cent. 0.3093 0.3508 0.3482 0.3429 
+
+SAMSum 
+
+gen-Euclidean 0.4948 0.5384 0.5924 0.6028 
+
+full-Euclidean 0.4398 0.5375 0.5358 0.5371 full-intrinsic 0.4916 0.5371 0.5144 0.5339 full-intr.-cent. 0.5021 0.5373 0.5054 0.5335 
+
+Table 7: PRR for every combination of head-selection rule (rows) and routing signal (columns). Underlined: the configuration reported in the submitted version; bold: best per dataset. 21 Three observations follow. First, the intrinsic geometry helps on the signal axis: with the selection rule fixed, replacing the full-Euclidean signal with the full-intrinsic one improves PRR. Second, the centered PR is marginally better than the full PR on both datasets, consistent with Section 4. Third, the intrinsic geometry does not help on the selection axis. 
+
+Cost of intrinsic selection. Selection screens all H heads in every monitored layer, whereas the signal is computed only for the selected head. Intrinsic selection would require the TDO of the full 
+
+(m + T ) × (m + T ) matrix for every head, i.e. H times the cost of the signal, while the Euclidean proxy only uses the T × T generated block. 
+
+B.7 Length-controlled analysis 
+
+Summarization and QA differ in task, input length, and output length, so the summarization gains of Section 5 could reflect any of these. We stratify the difference ∆ = PRR SAUQ − PRR RAUQ by input and output length on LLaMA-3.1-8B, using a stratified bootstrap with 5,000 resamples. Table 8 reports the pooled difference and the difference after controlling for output length, and for input and output length jointly.                                           
+
+> Dataset Task ∆pooled 95% CI ctrl. output ctrl. input ×output
+> XSum Summ. +0 .121 [+0 .037 ,+0 .212] +0 .078 +0 .060
+> SAMSum Summ. +0 .066 [+0 .010 ,+0 .121] +0 .013 +0 .020
+> TruthfulQA QA +0 .040 [−0.004 ,+0 .084] +0 .023 +0 .014
+> TriviaQA QA +0 .028 [−0.001 ,+0 .058] +0 .047 +0 .056
+> CoQA QA −0.006 [−0.015 ,+0 .004] −0.013 −0.012
+> MMLU QA −0.001 [−0.005 ,+0 .004] −0.016 −0.022
+
+Table 8: Difference in PRR between SAUQ and RAUQ on LLaMA-3.1-8B, pooled and after stratifying by output length and by input × output length. Roughly half of the summarization gain is explained by generation length: the summarization mean of ∆ drops from 0.093 to 0.046 under the output-length control, while the input-length control leaves it unchanged ( 0.093 ). The residual is carried by XSum, where it survives both controls and grows with context: across input-length quartiles it is +0 .025 , +0 .053 , +0 .152 and +0 .170 . On SAMSum, whose inputs span a narrower range of lengths, the advantage does not survive the output-length control ( +0 .066 → +0 .013 ). We therefore attribute to long-range routing only the residual XSum effect. 
+
+B.8 Choice of measure 
+
+All measures below are normalized to sum to one over the n tokens of the prefix. In all cases π = 1 
+
+> n
+
+1.In Figure 6, we show an example on how the mass are distributed. • Uniform: μj = 1 /n .• Positional: νl = l−γ with γ = 1 . Early positions, including the sink, receive large mass; since keys enter Gν through Ω−1 
+
+> ν
+
+, their columns are down-weighted. • Zipf-Law (in-context frequency): νl = {k ≤ N : xk = xl} , the number of occurrences of token xl in the sequence. Tokens that occur once receive the same mass, so on short inputs this measure is close to uniform. • Unembedding: νl = wxl with wt = exp  σp t − max t′ σp t′
+
+, where pt = ( WU [t] − ¯w)⊤v1,
+
+¯w is the mean row of WU , v1 the top right singular vector of the centered WU , and σ ∈ {± 1}
+
+is chosen so that σp t is negatively correlated with the token id. • Intrinsic: μ = A⊤π, the average attention row of the head. 
+
+B.9 Resource details. 
+
+All experiments were run on a single NVIDIA L40S GPU with 48 GB of memory, sufficient to hold 8-billion-parameter models. Running the full SAUQ evaluation on the unsupervised benchmark takes 22 A. Uniform 0.000 0.005 0.010 0.015 0.020       
+
+> 26: watched
+> 27: doctors
+> 28: and
+> 29: nurses
+> 62: San
+> 63: jay
+> 0.016 0.016 0.016 0.016 0.016 0.016
+
+B. Positional 0.00 0.05 0.10 0.15 0.20 0.25  
+
+> 5: , 4: Prince 3: -2: -au 1: Port 0: <|begin_of_t ext|>
+> 0.035 0.042 0.053 0.07 0.11 0.21
+
+C. Zipf-Law 0.0000 0.0025 0.0050 0.0075 0.0100 0.0125 0.0150 0.0175 0.0200     
+
+> 27: doctors
+> 29: nurses
+> 30: walk
+> 62: San
+> 16: ith 63: jay
+> 0.017 0.017 0.017 0.017 0.017 0.017
+
+D. Unembedding 0.000 0.005 0.010 0.015 0.020 0.025 0.030 0.035   
+
+> 3: -14: , 25: , 46: , 5: , 7: (
+> 0.025 0.028 0.028 0.028 0.028 0.028
+
+E. Intrinsic 0.0 0.1 0.2 0.3 0.4 0.5 
+
+> 46: , 25: , 14: , 5: , 53: .<NL><NL> 0: <|begin_of_t ext|>
+> 0.024 0.033 0.034 0.037 0.038 0.43
+
+Measure QA Summ. 
+
+Uniform 0.3660 0.4204 Positional 0.4027 0.4771 Zipf-Law 0.3718 0.4223 Unembedding 0.3755 0.4202 Intrinsic 0.3831 0.5069 
+
+Figure 6: Top tokens receiving the largest probability mass under each measure, and mean PRR for QA and summarization of SAUQ with these masses. Input (first 100 chars): Port-au-Prince, Haiti (CNN) – Earthquake victims, writhing in pain and grasping at life, watched doctors and nurses... .approximately 8 hours per model. The routing signal requires only tr( S) and tr( S2) = ∥S∥2
+
+F of the symmetric matrix Sμ,π , so no eigendecomposition is needed; forming Sμ,π costs O(n3
+
+t ) per selected head and step with dense products. 23
